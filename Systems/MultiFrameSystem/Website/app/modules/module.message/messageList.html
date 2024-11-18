@@ -1,0 +1,21 @@
+﻿
+    
+ 
+    {{Messages[0].sourceUser.firstName}}
+    <ul class="media-list">
+     
+        <li class="margin7">
+            <!--<a ng-click="loadMore()" translate="MF_MESSAGES_LOAD_MORE"></a>-->
+        </li>
+        <li class="media" ng-repeat="msg in Messages track by $index" ng-click="showMsg(msg.messageID)">
+            <a>
+                <img ng-src={{msg.sourceUser.imgURL}} class="media-object">
+                <div class="media-body">
+                    <h4 class="media-heading">{{msg.sourceUser.firstName}} {{msg.sourceUser.lastName}}</h4> <!--ng-class="{boldDate:!msg.read}"-->
+                    <span>{{msg.date | date:'shortTime'}}</span>  <!--ng-class="{boldDate:!msg.read}"-->
+                </div>
+            </a>
+        </li>
+
+    </ul>
+    

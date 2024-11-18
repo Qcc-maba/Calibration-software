@@ -1,0 +1,140 @@
+﻿<div class="row">
+    <div class="col-lg-12 col-md-12 col-xs-12">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <i class="clip-settings"></i>
+                <span>Alerts Settings</span>
+                <div class="pull-right">
+                    <span class="colMarginLeft"><i class="clip-question-2"></i></span>
+                </div>
+
+            </div>
+            <div class="panel-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-xs-12">
+                        <span><i class="clip-refresh"></i></span>
+                        <span class="colMarginLeft"><a>Reload</a></span>
+                        <span class="colMarginLeft">|</span>
+                        <span class="colMarginLeft"><i class="fa fa-save"></i></span>
+                        <span class="colMarginLeft"><a>Save</a></span>
+                    </div>
+                    <hr />
+                </div>
+
+                <div class="row">
+                    <table class="table">
+                        <tbody>
+                            <tr>
+                                <td class="firstRow">Send Email:</td>
+                                <td class="firstRow floatRight">
+                                    <input type="checkbox" ng-model="alerts.isSendEmail" />
+                                </td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+                <div class="row">
+                    <div class="table-responsive">
+                        <table class="table table-hover noMarginTable">
+                            <thead>
+                                <tr>
+                                    <th>Alert Type</th>
+                                    <th>Stop Station Irrigation</th>
+                                    <th>Terminate Program</th>
+                                    <th>Open Station Next Irrigation</th>
+                                    <th>Force Communication</th>
+
+
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ng-repeat="t in alerts.table">
+                                    <td>
+                                        <span>{{t.type}}</span>
+                                    </td>
+                                    <td>
+                                        <input type="checkbox" ng-model="t.stopStation" />
+                                    </td>
+                                    <td>
+                                        <input type="checkbox" ng-model="t.terminateProgram" />
+                                    </td>
+                                    <td>
+                                        <input type="checkbox" ng-model="t.openNext" />
+                                    </td>
+                                    <td>
+                                        <input type="checkbox" ng-model="t.forceCom" />
+                                    </td>
+                                </tr>
+
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <br />
+                <div class="row">
+                    <div class="gsi-panel">
+                        <div class="gsi-panel-heading">
+                            <a gsi-accordion><i class="fa fa-chevron-circle-down"></i></a>
+                            <span class="header">No Fertilizer Flow Alert Settings</span>
+                        </div>
+                        <div class="gsi-panel-body" style="display:none">
+                            <div class="onePanel">
+                                <div class="header">
+
+                                </div>
+                                <div class="sub-header">
+
+                                    <table class="table smallTable">
+                                        <tbody>
+                                            <tr>
+                                                <td class="firstRow">Stop Station's Irrigation</td>
+                                                <td class="firstRow floatRight">
+                                                    <input type="checkbox" ng-model="alerts.stopStationIrrigation" />
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="firstRow">Terminate Program</td>
+                                                <td class="firstRow floatRight">
+                                                    <input type="checkbox" ng-model="alerts.TerminateProgram" />
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="firstRow">Allow fertilizing next program start</td>
+                                                <td class="firstRow floatRight">
+                                                    <input type="checkbox" ng-model="alerts.allowFertilizing" />
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="firstRow">Force communication</td>
+                                                <td class="firstRow floatRight">
+                                                    <input type="checkbox" ng-model="alerts.forceComm" />
+                                                </td>
+                                            </tr>
+
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+
+
+
+            </div>
+
+
+
+
+
+        </div>
+
+
+
+    </div>
+
+</div>

@@ -1,0 +1,102 @@
+﻿
+    <div class="panel panel-default">
+    <div class="panel-heading">
+        <i class="clip-list-2"></i>
+        {{'MF_SITE_PREVIEW_DEVICES' | translate}}
+        <div class="panel-tools">
+            <span data-toggle="tooltip" title="{{'MF_SITE_PREVIEW_LIST_QUESTION' | translate}}"><i class=" clip-question-2" phone-tooltip var1="MF_SITE_PREVIEW_LIST_QUESTION"></i></span>
+            <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+        </div>
+    </div>
+        <div class="panel-body minSitePreviewPanelBody">
+
+  
+            <div class="table-responsive deviceList">
+                <table class="table table-striped table-hover" id="sample-table-3">
+                    <thead>
+                        <tr>
+                           
+                            <th class="center" translate="MF_G_DEVICE_NAME"></th>
+                            <th class="center" translate="MF_SH_STATUS"></th>
+                            <th class="center" translate="MF_G_SERIAL"></th>
+                            <th class="center" translate="MF_G_DEVICE_TYPE"></th>
+                            <th class="center" translate="MF_SITE_PREVIEW_FRIMWARE"></th>
+                            <th class="center" translate="MF_G_ZONES_NUMBER"></th>
+                            <!--<th class="center" translate="MF_ALERTS_ALERTS"></th>-->
+
+
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="tb in vm.controllers track by $index">
+
+                            <td class="center">
+                                <a ng-click="vm.goToDevice(tb.sn)" class="Dots_3 inline maxWidth15px">
+                                    {{tb.name}}
+                                </a>
+                            </td>
+                            <td class="center"><img ng-src="{{tb.icon}}" /></td>  
+                            <td class="center">{{tb.sn}}</td>
+                            <td class="center">{{tb.deviceType.name}}</td>
+                            <td class="center">{{tb.firmwareVersion}}</td>
+
+
+                            <td class="center">{{tb.totalActivatedZones}}</td>
+
+
+                        </tr>
+
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+</div>
+
+
+
+    <!-- ------------------------------ Modals ------------------------------ -->
+    <div id="deviceAlertSettingsModal" class="modal fade" close-model>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" translate="MF_ALERTS_ALERTS">
+
+                <div class="panel-tools">
+                    <span data-toggle="tooltip" title="{{'DEVICE_ALERTS_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="DEVICE_ALERTS_QUESTION" var2="modal"></i></span>
+                    <i data-dismiss="modal" class="clip-close-3"></i>
+                </div>
+            </div>
+            <div class="modal-body">
+                <table class="table table-hover" id="sample-table-3">
+                    <thead>
+                        <tr>
+                            <th translate="MF_ALERTS_TYPE"></th>
+                            <th translate="MF_ALERTS_ALLOW"></th>
+                            <th translate="MF_ALERTS_SMS"></th>
+                            <th translate="G_EMAIL"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="tb1 in vm.alerts track by $index">
+                            <td translate="MF_ALERTS_ALERTS_CODE_{{tb1.device_Settings.alertCode}}"></td>
+                            <td><input type="checkbox" ng-model="tb1.device_Settings.isEnable"></td>
+                            <td><input type="checkbox" ng-disabled="!tb1.device_Settings.isEnable || bool" ng-model="tb1.device_Settings.sendSMS"></td>
+                            <td><input type="checkbox" ng-disabled="!tb1.device_Settings.isEnable || bool" ng-model="tb1.device_Settings.sendEmail"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" data-dismiss="modal" class="btn btn-default">
+                    {{'G_CLOSE' | translate}}
+                </button>
+                <button type="button" class="btn btn-dark-grey ladda-button" ng-click="vm.saveAlerts(dismiss)" ladda="vm.laddaAlerts" data-style="expand-right" data-spinner-size="30">
+                    <i class="fa fa-save"></i> | {{'G_SAVE' | translate}}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+    

@@ -1,0 +1,167 @@
+﻿<div class="row">
+    <div class="col-lg-11 col-lg-offset-1 col-md-10 col-md-offset-2">
+
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <i class="clip-settings"></i>
+                <span>All Unit Station</span>
+                <div class="pull-right">
+                    <span class="colMarginLeft"><i class="clip-question-2"></i></span>
+                </div>
+
+            </div>
+            <div class="panel-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-xs-12">
+                        <span><i class="clip-refresh"></i></span>
+                        <span class="colMarginLeft"><a>Reload</a></span>
+                        <span class="colMarginLeft">|</span>
+                        <span class="colMarginLeft"><i class="fa fa-save"></i></span>
+                        <span class="colMarginLeft"><a>Save</a></span>
+                    </div>
+                    <hr />
+                </div>
+
+
+                <div class="row">
+                    <div class="table-responsive">
+                        <table class="table table-hover programTable">
+                            <thead>
+
+                                <tr>
+                                    <th></th>
+                                    <th class="positionFix">Update All Station</th>
+                                    <th class="text-center" ng-repeat="h in stations.tableHead">{{h.id}}.{{h.name}}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ng-repeat="tr in stations.tableRow">
+
+                                    <td>{{tr.categorey}}</td>
+                                    <td class="positionFix">
+                                        <div ng-switch="$index">
+                                            <div ng-switch-when="0">
+                                                <div class="btn-group">
+                                                    <button type="button" class="btn btn-med-grey bigSizeButton ng-binding" data-toggle="dropdown">{{stations.allStations[$parent.$index].value}}<span class="caret"></span></button>
+                                                    <ul class="dropdown-menu scrollable-menu" role="menu">
+                                                        <li>
+                                                            Active
+                                                        </li>
+                                                        <li>
+                                                            Off
+                                                        </li>
+                                                        <li>
+                                                            D/c
+                                                        </li>
+                                                    </ul>
+                                                </div>
+
+                                            </div>
+                                            <div ng-switch-when="3">
+
+                                                <a>{{stations.allStations[$index].des}}</a>
+
+                                            </div>
+
+                                            <div ng-switch-when="4">
+                                                <span>{{stations.allStations[$index].des}}</span>
+                                                <div class="input-container bigTextFiled">
+
+                                                    <input class="ng-pristine ng-untouched ng-valid" type="text" ng-model="stations.allStations[$parent.$index].value" readonly>
+                                                    <span class="unit">{{stations.allStations[$index].units}}</span>
+                                                </div>
+                                            </div>
+                                            <div ng-switch-when="5">
+                                                <span>{{stations.allStations[$index].des}}</span>
+                                                <div class="input-container bigTextFiled">
+
+                                                    <input class="ng-pristine ng-untouched ng-valid" type="text" ng-model="stations.allStations[$parent.$index].value" readonly>
+                                                    <span class="unit">{{stations.allStations[$index].units}}</span>
+                                                </div>
+                                            </div>
+                                            <div ng-switch-when="6">
+                                                <span>{{stations.allStations[$index].des}}</span>
+                                                <div class="input-container bigTextFiled">
+
+                                                    <input class="ng-pristine ng-untouched ng-valid" type="text" ng-model="stations.allStations[$parent.$index].value" readonly>
+                                                    <span class="unit">{{stations.allStations[$index].units}}</span>
+                                                </div>
+                                            </div>
+                                            <div ng-switch-when="7">
+                                                <span>{{stations.allStations[$index].des}}</span>
+                                                <div class="input-container bigTextFiled">
+
+                                                    <input class="ng-pristine ng-untouched ng-valid" type="text" ng-model="stations.allStations[$parent.$index].value" readonly>
+                                                    <span class="unit">{{stations.allStations[$index].units}}</span>
+                                                </div>
+                                            </div>
+                                            <div ng-switch-when="8">
+                                                <span>{{stations.allStations[$index].des}}</span>
+                                                <div class="input-container bigTextFiled">
+
+                                                    <input class="ng-pristine ng-untouched ng-valid" type="text" ng-model="stations.allStations[$parent.$index].value" readonly>
+                                                    <span class="unit">{{stations.allStations[$index].units}}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td ng-repeat="td in tr.list">
+                                        <div ng-switch="$parent.$index">
+                                            <div ng-switch-when="0">
+                                                <div class="btn-group">
+                                                    <button type="button" class="btn btn-med-grey bigSizeButton ng-binding" data-toggle="dropdown">{{td.value}}<span class="caret"></span></button>
+                                                    <ul class="dropdown-menu scrollable-menu" role="menu">
+                                                        <li>
+                                                            Active
+                                                        </li>
+                                                        <li>
+                                                            Off
+                                                        </li>
+                                                        <li>
+                                                            D/c
+                                                        </li>
+                                                    </ul>
+                                                </div>
+
+                                            </div>
+                                            <div ng-switch-when="1">
+
+                                                <input type="text" class="bigTextFiled" ng-model="td.value" />
+
+                                            </div>
+
+                                            <div ng-switch-when="2">
+
+                                                <div class="input-container bigTextFiled">
+
+                                                    <input class="ng-pristine ng-untouched ng-valid" type="text" ng-model="td.value" readonly>
+                                                    <span class="unit">{{td.unit}}</span>
+                                                </div>
+
+                                            </div>
+                                            <div ng-switch-default>
+                                                <input type="number" ng-model="td.value" min="0" max="1000" required />
+                                            </div>
+                                        </div>
+                                    </td>
+
+
+                                </tr>
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+
+
+
+        </div>
+
+    </div>
+</div>
+
+
+

@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+    <title>Cyber-Rain Gateway</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        body {
+            margin: 10px;
+            padding: 0px;
+            font-family: Arial;
+            background-color: #131627;
+            color: #fff;
+        }
+
+        h1 {
+            font-family: Arial;
+            font-size: 28pt;
+            text-decoration: none;
+            font-weight: bold;
+            color: #7c7369;
+        }
+
+        h2 {
+            text-align: left;
+        }
+
+        h4 {
+            color: #7c7369;
+            font-family: Arial;
+            font-size: 12pt;
+            font-style: italic;
+        }
+
+        .warning {
+            font-size: 12pt;
+            font-weight: bold;
+            font-style: italic;
+            color: red;
+        }
+
+        a {
+            font-style: italic;
+            font-weight: bold;
+            text-decoration: none;
+            color: #939393;
+        }
+
+        ul {
+            padding: 10px;
+            margin: 10px;
+        }
+
+            ul input {
+                padding: 5px 5px 5px 0;
+            }
+
+        /*tabControl*/
+        .tabControl .links input[type="button"],
+        .tabControl .links input[type="button"]:focus,
+        .tabControl .links input[type="button"]:active,
+        .tabControl .links button:focus,
+        .tabControl .links button:active {
+            background: none;
+            border: none;
+            display: inline;
+            font: inherit;
+            outline: none;
+            outline-offset: 0;
+            cursor: pointer;
+        }
+
+        .tabControl {
+            display: inline;
+        }
+
+            .tabControl > div {
+                padding: 15px 150px 0px 10px;
+                float: left;
+                vertical-align: top;
+            }
+
+            .tabControl div.hiddenPage {
+                display: none;
+                height: 0px;
+                margin: 0px;
+                padding: 0px;
+            }
+
+            /*Selected Link*/
+            .tabControl input.sLink {
+                color: gray;
+                text-decoration: underline;
+            }
+            /*Active Link*/
+            .tabControl input.aLink {
+                color: white;
+                text-decoration: none;
+            }
+
+        /*Header*/
+        .rb {
+            margin: 5px 0 5px 0;
+            padding: 10px;
+            background-color: #ff7e7e;
+        }
+
+            .rb .hidden {
+                display: block;
+            }
+
+        .header {
+            background: white;
+            height: 50px;
+        }
+
+            .header img {
+                padding: 5px;
+                margin: 5px;
+                height: 40px;
+            }
+
+            .header h1, .header h2, .header h3, .header h4 {
+                float: right;
+                vertical-align: text-top;
+                margin: 5px;
+            }
+        /*Forms*/
+        .gr {
+            background-color: #7c7369;
+            color: #fff;
+            text-align: right;
+            width: auto;
+            padding: 5px 15px 5px 25px;
+        }
+
+        .hidden {
+            display: none;
+        }
+        /*Settings*/
+        #settingsPage input[type=button] {
+            float: right;
+        }
+
+        table {
+            width: 100%;
+        }
+
+        table, td {
+            border: 1px solid gray;
+        }
+
+            table td:first-child {
+                width: 200px;
+            }
+
+            table td select {
+                min-width: 100px;
+                width: auto;
+            }
+
+        .MACDigit {
+            width: 30px;
+            text-align: center;
+        }
+
+        .Invalid {
+            background: red;
+            color: white;
+        }
+
+        .commandFailed {
+            color: red;
+            font-weight: bold;
+            height: 20px;
+        }
+
+        .commandSuccess {
+            color: green;
+            height: 20px;
+        }
+
+        .commandProgress {
+            color: gray;
+            height: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="main" class="hidden">
+        <div class="header">
+            <img src="Logo.png" alt="Cyber-Rain by Maba Logo">
+            <h1>Cyber-Rain Gateway</h1>
+        </div>
+        <div id="content">
+            <div id="rb" class="rb hidden">
+                <input type="button" id="rbBtn" value="Apply / Reboot" />
+                <span><<< Please click "Apply" or reboot the device to make all settings take effect !</span>
+                <div id="aStatus"></div>
+            </div>
+            <div id="pTab" class="tabControl">
+                <div class="links">
+                    <ul>
+                        <li><input class="aLink" type="button" value="Preview" data-target="pPage" /></li>
+                        <li><input class="sLink" type="button" value="Settings" data-target="settingsPage" /></li>
+                    </ul>
+                </div>
+                <div class="tabs">
+                    <div id="pPage">
+                        <h1>Preview</h1>
+                        <a href="#" id="rfshPPage">(Refresh)</a>
+                        <div id="pStatus"></div>
+                        <table>
+                            <tbody>
+                                <tr>
+                                    <td class="gr">Name:</td>
+                                    <td>
+                                        <b><span id="pDName">Cyber-Rain Gateway</span></b>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">Signal Strength:</td>
+                                    <td><span id="pRSSI"></span></td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">Firmware Revision:</td>
+                                    <td><span id="pFirmware"></span></td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">IP Address:</td>
+                                    <td><span id="pIP"></span></td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">MAC Address:</td>
+                                    <td>
+                                        <div id="manualMAC" class="hidden">
+                                            <input type="text" class="MACDigit" id="newMAC_1" maxlength="2" />:
+                                            <input type="text" class="MACDigit" id="newMAC_2" maxlength="2" />:
+                                            <input type="text" class="MACDigit" id="newMAC_3" maxlength="2" />:
+                                            <input type="text" class="MACDigit" id="newMAC_4" maxlength="2" />:
+                                            <input type="text" class="MACDigit" id="newMAC_5" maxlength="2" />:
+                                            <input type="text" class="MACDigit" id="newMAC_6" maxlength="2" />
+                                            <input type="button" id="newMACBtn" value="Allocate" />
+                                            <div id="pMACStatus"></div>
+                                        </div>
+                                        <span id="pMAC"></span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">Serial Settings:</td>
+                                    <td><span id="pSerStatus"></span></td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">Server Status:</td>
+                                    <td>
+                                        <span id="pSkStatus"></span>
+                                        <span id="pTotalCom"></span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">Remote Server:</td>
+                                    <td>
+                                        <span id="pSrvAddr"></span>:
+                                        <span id="pSrvPort"></span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="settingsPage" class="hiddenPage">
+                        <h1>Gateway Settings</h1>
+                        <a href="#" id="rfshSettingBtn">(Refresh)</a>
+                        <div id="settingsStatus"></div>
+
+                        <h3>IP Address Selection</h3>
+                        <table id="IPSettings">
+                            <tbody>
+                                <tr>
+                                    <td class="gr">Address Type:&nbsp;</td>
+                                    <td>
+                                        <select size="1" id="addressType">
+                                            <option value="AUTO" selected>DHCP / AutoIP</option>
+                                            <option value="STATIC">Static IP</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">
+                                        Static IP Address:&nbsp;
+                                    </td>
+                                    <td>
+                                        <input maxlength="3" type="text" size="3" id="sip1">.
+                                        <input maxlength="3" type="text" size="3" id="sip2">.
+                                        <input maxlength="3" type="text" size="3" id="sip3">.
+                                        <input maxlength="3" type="text" size="3" id="sip4">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">Subnet Mask:&nbsp; </td>
+                                    <td>
+                                        <input maxlength="3" type="text" size="3" id="mip1">.
+                                        <input maxlength="3" type="text" size="3" id="mip2">.
+                                        <input maxlength="3" type="text" size="3" id="mip3">.
+                                        <input maxlength="3" type="text" size="3" id="mip4">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">
+                                        Default Gateway:&nbsp;
+                                    </td>
+                                    <td>
+                                        <input maxlength="3" type="text" size="3" id="gip1">.
+                                        <input maxlength="3" type="text" size="3" id="gip2">.
+                                        <input maxlength="3" type="text" size="3" id="gip3">.
+                                        <input maxlength="3" type="text" size="3" id="gip4">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">DNS Server:&nbsp; </td>
+                                    <td>
+                                        <input maxlength="3" type="text" size="3" id="dip1">.
+                                        <input maxlength="3" type="text" size="3" id="dip2">.
+                                        <input maxlength="3" type="text" size="3" id="dip3">.
+                                        <input maxlength="3" type="text" size="3" id="dip4">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2">
+                                        <input id="updateIpBtn" value="Update Settings" type="button">
+                                        <div id="ipSettingsStatus"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <br />
+                        <h3>Serial Port Settings:</h3>
+                        <table>
+                            <tbody>
+                                <tr>
+                                    <td class="gr">Baud Rate(bps):&nbsp;</td>
+                                    <td>
+                                        <select size="1" id="serBaud">
+                                            <option value="4800">4800</option>
+                                            <option value="9600">9600</option>
+                                            <option value="19200">19200</option>
+                                            <option value="38400" selected>38400</option>
+                                            <option value="57600">57600</option>
+                                            <option value="115200">115200</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">
+                                        Data Bits:&nbsp;
+                                    </td>
+                                    <td>
+                                        <select size="1" id="serBits">
+                                            <option value="7">7</option>
+                                            <option value="8" selected>8</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">Parity:&nbsp; </td>
+                                    <td>
+                                        <select size="1" id="serPar">
+                                            <option value="None" selected>None</option>
+                                            <option value="Odd">Odd</option>
+                                            <option value="Even">Even</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">
+                                        Stop Bits:&nbsp;
+                                    </td>
+                                    <td>
+                                        <select size="1" id="serSBits">
+                                            <option value="1" selected>1</option>
+                                            <option value="2">2</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">Flow Control:&nbsp; </td>
+                                    <td>
+                                        <select size="1" id="serFlow">
+                                            <option value="None" selected>None</option>
+                                            <option value="Hardware">Hardware</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2">
+                                        <input id="updateSerialBtn" value="Update Settings" type="button">
+                                        <div id="serSettingStatus"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <br />
+                        <h3>Remote Server Setting</h3>
+                        <table>
+                            <tbody>
+                                <tr>
+                                    <td class="gr">Remote Server Address:&nbsp;</td>
+                                    <td>
+                                        <input type="text" id="reSrvAddr" />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">
+                                        Remote Server Port:&nbsp;
+                                    </td>
+                                    <td>
+                                        <input type="text" id="reSrvPort" />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">
+                                        Connection Interval (min):&nbsp;
+                                    </td>
+                                    <td>
+                                        <input type="text" id="remSrvInterval" />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="gr">
+                                        Connection Timeout(sec):&nbsp;
+                                    </td>
+                                    <td>
+                                        <input type="text" id="remSrvTime" />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2">
+                                        <input id="updateRemSrvBtn" value="Update Settings" type="button">
+                                        <div id="sSettingStatus"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <br />
+                        <br />
+                        <br />
+
+                        <hr />
+                        <h3>Restore Factory Defaults</h3>
+                        Restore all options to factory default states.
+                        <br />
+                        <span class="warning">Be careful - this action cannot be undo !</span>
+                        <br />
+                        <input id="factoryBtn" name="mysubmit" value="Restore Defaults" type="button">
+                        <div id="fSettingsStatus"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="incompatibleBrowser">
+        <h1>Cyber-Rain Gateway !</h1>
+        <h2>Incompatible Browser !</h2>
+        <hr />
+        This configuration site is intended for use with a browser which can display
+        frames and, unfortunately, it appears that yours cannot.
+        <br />
+        <br />
+        <u>Supported browser:</u>
+        <ul>
+            <li>Internet Explorer - ver 9+</li>
+            <li>Chrome - ver 36+</li>
+            <li>Firefox - ver 36+</li>
+            <li>Opera - ver 29+</li>
+            <li>Safari - ver 8+</li>
+            <li>iOs Safari - ver 7.1+</li>
+            <li>Android - ver 4.3+ or Chromium (5.0)</li>
+            <li>Chrome for Android - ver 42+</li>
+        </ul>
+    </div>
+
+    <script type="text/javascript">
+        /* global variables */
+        var srvTotalCom = 0;
+        var timer_interval = 0;
+        var STATUS_SUCCESS = 0;
+        var STATUS_FAILED = 1;
+        var STATUS_PROGRESS = 2;
+
+        var IP_STATIC = "STATIC";
+        var IP_AUTO = "AUTO";
+        var regExp_MAC_Digit = /^[0-9,a-f,A-F]{1,2}$/;
+        var regExpress_IP_ADDRESS = /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
+
+        var firstPreviewLoading = true;
+
+        /* Classes & accessories */
+        var Promise = (function () {
+
+            function Promise(method, url) {
+
+                this.method = method;
+                this.url = url;
+            }
+
+            Promise.prototype.send = function () {
+
+                var successCallbacks = [];
+                var errorCallbacks = [];
+                var xhr = new XMLHttpRequest();
+
+                function destroy() {
+                    xhr = null;
+                    successCallbacks = null;
+                    errorCallbacks = null;
+
+                    delete xhr;
+                }
+
+                function callSuccess(data) {
+                    for (var i = 0; i < successCallbacks.length; i++) {
+                        successCallbacks[i](data);
+                    }
+                }
+                function callError(e) {
+                    for (var i = 0; i < errorCallbacks.length; i++) {
+                        errorCallbacks[i](e);
+                    }
+                }
+                var obj = {
+                    success: function (callback) {
+                        successCallbacks.push(callback);
+
+                        return obj;
+                    },
+                    error: function (callback) {
+                        errorCallbacks.push(callback);
+
+                        return obj;
+                    }
+                };
+
+                xhr.addEventListener('load', function (e) {
+                    var data;
+                    if (xhr.status >= 200 && xhr.status < 400) {
+                        try {
+                            data = JSON.parse(xhr.responseText);
+                        } catch (error) {
+
+                        }
+                    }
+
+                    if (data) {
+                        callSuccess(data);
+                    } else {
+                        callError(null);
+                    }
+
+                    destroy();
+                });
+
+                xhr.addEventListener('error', function (e) {
+                    callError(e);
+                    destroy();
+                });
+
+                xhr.open(this.method, this.url);
+                xhr.send();
+
+                return obj;
+            }
+
+            return Promise;
+        }());
+
+        String.prototype.toHHMMSS = function () {
+            var sec_num = parseInt(this, 10); // don't forget the second param
+            var hours = Math.floor(sec_num / 3600);
+            var minutes = Math.floor((sec_num - (hours * 3600)) / 60);
+            var seconds = sec_num - (hours * 3600) - (minutes * 60);
+
+            if (hours < 10) { hours = "0" + hours; }
+            if (minutes < 10) { minutes = "0" + minutes; }
+            if (seconds < 10) { seconds = "0" + seconds; }
+            var time = hours + ':' + minutes + ':' + seconds;
+            return time;
+        }
+
+        function qS(q) {
+            return document.querySelector(q);
+        }
+        function qSAll(q) {
+            return document.querySelectorAll(q);
+        }
+        function setStatus(id, status, failureText) {
+            var el = qS("#" + id);
+            switch (status) {
+                case STATUS_PROGRESS:
+                    el.className = "commandProgress";
+                    el.innerText = "In Progress...";
+                    break;
+                case STATUS_FAILED:
+                    el.className = "commandFailed";
+                    el.innerText = "Failed !";
+                    break;
+                case STATUS_SUCCESS:
+                    el.className = "commandSuccess";
+                    el.innerText = "Succeed !";
+                    break;
+                default:
+                    el.className = "commandProgress";
+                    el.innerText = "";
+                    break;
+            }
+
+            if (failureText) {
+                element.innerText = "Failed ! (" + failureText + ")";
+            }
+        }
+
+        function buildMACDigit(id) {
+            var d;
+            var res = {
+                mac: "",
+                valid: true
+            };
+
+            for (var i = 1; i <= 6; i++) {
+                d = qS("#" + id + i);
+
+                if (regExp_MAC_Digit.test(d.value)) {
+                    res.mac += d.value + (i < 6 ? ":" : "");
+                    d.classList.remove("Invalid");
+                } else {
+                    res.mac += "X" + (i < 6 ? ":" : "");
+                    res.valid = false;
+                    d.classList.add("Invalid");
+                }
+            }
+
+            return res;
+        }
+
+        function buildIPAddress(id) {
+            var d;
+            var ip = "";
+            validated = true;
+
+            for (var i = 1; i <= 4; i++) {
+                d = qS("#" + id + i);
+                if (!validateIPDigit(d.value)) {
+                    validated = false;
+                    d.classList.add("Invalid");
+                } else {
+                    d.classList.remove("Invalid");
+                }
+
+                ip += d.value + (i < 4 ? "." : "");
+            }
+
+            return {
+                valid: validated,
+                ip: validated ? ip : ""
+            };
+        }
+
+        function setSqFields(id, num, str, sperator) {
+
+            if (!str)
+                return false;
+
+            var parts = str.toString().split(sperator);
+
+            for (var i = 0; i < parts.length && i < num; i++) {
+
+                qS("#" + id + (i + 1)).value = parts[i];
+            }
+
+            return true;
+        }
+
+        function validateIPDigit(n, min, max) {
+            if (isNaN(n)) {
+                return false;
+            }
+
+            min = min || 0;
+            max = max || 255;
+            var _n = parseInt(n, 10);
+
+            return !isNaN(_n) && 0 <= _n && _n <= max;
+        }
+
+        function SetApplyReboot(show) {
+            var _rb = qS("#rb");
+            if (show) {
+                _rb.classList.remove("hidden");
+            } else {
+                _rb.classList.add("hidden");
+                setStatus("aStatus", "");
+            }
+        }
+
+        /* Preview Page */
+        function selectTabPage(e) {
+            var tabs = qSAll("#pTab .tabs > div");
+            var links = qSAll("#pTab .links input");
+
+            for (var i = 0; i < tabs.length; i++) {
+                if (tabs[i].id == e.target.attributes["data-target"].value) {
+                    tabs[i].classList.remove("hiddenPage");
+                    links[i].classList.remove("sLink");
+                    links[i].classList.add("aLink");
+                }
+                else {
+                    tabs[i].classList.add("hiddenPage");
+                    links[i].classList.add("sLink");
+                    links[i].classList.remove("aLink");
+                }
+            }
+        }
+
+        function initPreviewPage() {
+
+            qS("#rfshPPage").onclick = function () {
+                timer_interval = 0;
+                loadPreview(true);
+            }
+
+            qS("#pTab .links").onclick = selectTabPage;
+
+            qS("#newMACBtn").onclick = function () {
+
+                var newMAC = buildMACDigit("newMAC_");
+
+                if (newMAC.valid) {
+
+                    setStatus("pMACStatus", STATUS_PROGRESS);
+                    var p = new Promise('get', 'Data/AllocateMAC?newMAC=' + newMAC.mac);
+                    p.send()
+                        .success(function (data) {
+                            if (!data.mac) {
+                                setStatus("pMACStatus", STATUS_FAILED);
+                            } else {
+
+                                setStatus("pMACStatus", STATUS_SUCCESS);
+                                setMAC(data.mac);
+
+                                setSqFields("newMAC_", 6, data.mac, ".");
+
+                                afterSaveMessage();
+                            }
+                        })
+                        .error(function (data) {
+                            setStatus("pMACStatus", STATUS_FAILED);
+                        });
+                }
+            }
+
+            loadPreview(true);
+        };
+
+        function setMAC(mac) {
+            if (mac && mac.length > 1) {
+                qS("#pMAC").classList.remove("hidden");
+                qS("#pMAC").innerText = mac;
+
+                qS("#manualMAC").classList.add("hidden");
+            } else {
+
+                qS("#pMAC").classList.add("hidden");
+                qS("#manualMAC").classList.remove("hidden");
+            }
+        }
+
+        function loadPreview(completeLoad) {
+            var p = new Promise('get', 'Data/Info');
+            setStatus("pStatus", STATUS_PROGRESS);
+
+            p.send()
+                .success(function (data) {
+
+                    if (firstPreviewLoading || completeLoad) {
+
+                        qS("#pDName").innerText = data.deviceName;
+                        qS("#pSkStatus").innerText = data.socketStatus;
+                        var rssi = qS("#pRSSI");
+                        if (data.rssiLevel && data.rssiLevel > 0) {
+                            rssi.innerText = data.rssiLevel + '%';
+                        } else {
+                            rssi.innerText = 'N/A';
+                        }
+                        qS("#pFirmware").innerText = data.firmwareVersion;
+                        qS("#pIP").innerText = data.ipAddress;
+                        qS("#pSerStatus").innerText = data.serialStatus;
+                        qS("#pSrvAddr").innerText = data.serverAddress;
+                        qS("#pSrvPort").innerText = data.serverPort;
+
+                        setMAC(data.mac);
+
+                        firstPreviewLoading = false;
+                    }
+
+                    //* Online *
+                    if (data.socketStatus == "Online") {
+                        qS("#pSkStatus").style.color = 'green';
+                        if (data.serverTotalConnection > 0) {
+                            srvTotalCom = data.serverTotalConnection;
+                        }
+
+                    } else {
+                        qS("#pSkStatus").style.color = 'red';
+                        qS("#pTotalCom").innerText = '';
+                        srvTotalCom = 0;
+                    }
+
+                    setStatus("pStatus", "");
+                })
+                .error(function (e) {
+                    setStatus("pStatus", STATUS_FAILED);
+                });
+        }
+
+        /* Settings Page */
+        function initSettingsPage() {
+
+            qS("#rfshSettingBtn").onclick = function () {
+                loadSettings();
+            }
+
+            qS("#addressType").onchange = updateIPAddressType;
+
+            qS("#updateIpBtn").onclick = function () {
+                setStatus("ipSettingsStatus", STATUS_PROGRESS);
+
+                var requestURI = 'Data/SaveIPSettings?type=';
+
+                //build ips
+                var sip = buildIPAddress("sip");
+                var mip = buildIPAddress("mip");
+                var gip = buildIPAddress("gip");
+                var dip = buildIPAddress("dip");
+
+                if (qS("#addressType").value == IP_AUTO) {//Auto
+                    requestURI += IP_AUTO;
+                } else {//static
+
+                    requestURI += IP_STATIC;
+
+                    if (!sip.valid || !mip.valid || !gip.valid || !dip.valid) {
+                        requestURI = null;
+                    }
+                }
+
+                if (requestURI) {
+
+                    requestURI += "&sip=" + (sip.valid ? sip.ip : "");
+                    requestURI += "&mip=" + (mip.valid ? mip.ip : "");
+                    requestURI += "&gip=" + (gip.valid ? gip.ip : "");
+                    requestURI += "&dip=" + (dip.valid ? dip.ip : "");
+
+                    var p = new Promise('get', requestURI);
+
+                    p.send()
+                        .success(function (data) {
+                            setStatus("ipSettingsStatus", STATUS_SUCCESS, "");
+
+                            afterSaveMessage();
+                        })
+                        .error(function (data) {
+                            setStatus("ipSettingsStatus", STATUS_FAILED);
+                        });
+                } else {
+                    setStatus("ipSettingsStatus", STATUS_FAILED, "Invalid IP");
+                }
+            };
+
+            qS("#updateSerialBtn").onclick = function () {
+                setStatus("serSettingStatus", STATUS_PROGRESS);
+
+                var params = "?baudrate=" + qS("#serBaud").value
+                                + "&bits=" + qS("#serBits").value
+                                + "&parity=" + qS("#serPar").value
+                                + "&sbits=" + qS("#serSBits").value
+                                + "&flow=" + qS("#serFlow").value;
+
+                var p = new Promise('get', 'Data/SaveSerialSettings' + params);
+
+                p.send()
+                    .success(function (data) {
+                        setStatus("serSettingStatus", STATUS_SUCCESS);
+
+                        afterSaveMessage();
+                    })
+                    .error(function (data) {
+                        setStatus("serSettingStatus", STATUS_FAILED);
+                    });
+
+            };
+
+            qS("#updateRemSrvBtn").onclick = function () {
+                setStatus("sSettingStatus", STATUS_PROGRESS);
+
+                var serverAddress = qS("#reSrvAddr").value;
+                var addressType = "DNS";
+
+                if (regExpress_IP_ADDRESS.test(serverAddress)) {
+
+                    var _IPParts = serverAddress.split(".");
+                    if (_IPParts.length === 4) {
+                        if (_IPParts.every(function (p) {
+                            return validateIPDigit(p);
+                        })) {
+                            addressType = "IP";
+                        }
+                    }
+                }
+
+                var params = "?serverAddr=" + serverAddress
+                               + "&addressType=" + addressType
+                               + "&port=" + qS("#reSrvPort").value
+                               + "&timeout=" + qS("#remSrvTime").value
+                               + "&interval=" + qS("#remSrvInterval").value;
+
+                var p = new Promise('get', 'Data/SaveServerSettings' + params);
+
+                p.send()
+                    .success(function (data) {
+                        setStatus("sSettingStatus", STATUS_SUCCESS);
+
+                        afterSaveMessage();
+                    })
+                    .error(function (data) {
+                        setStatus("sSettingStatus", STATUS_FAILED);
+                    });
+            };
+
+            qS("#factoryBtn").onclick = function () {
+                setStatus("fSettingsStatus", STATUS_PROGRESS);
+
+                var p = new Promise('get', 'Data/RestoreFactory');
+
+                p.send()
+                    .success(function (data) {
+                        setStatus("fSettingsStatus", STATUS_SUCCESS);
+
+                        loadSettings();
+                    })
+                    .error(function (data) {
+                        setStatus("fSettingsStatus", STATUS_FAILED);
+                    });
+            };
+
+            qS("#rbBtn").onclick = function () {
+
+                setStatus("aStatus", STATUS_PROGRESS);
+
+                var p = new Promise('get', 'Data/Apply');
+
+                p.send()
+                    .success(function (data) {
+
+                        setStatus("aStatus", STATUS_SUCCESS);
+                        SetApplyReboot(false);
+
+                        alert("Device it rebooting now...");
+                    })
+                    .error(function (data) {
+                        setStatus("aStatus", STATUS_FAILED);
+                    });
+            };
+
+            updateIPAddressType();
+
+            loadSettings();
+        }
+
+        function afterSaveMessage() {
+            SetApplyReboot(true);
+            alert("Please click \"Apply\" or reboot the device to make all settings take effect");
+        }
+
+        function loadSettings() {
+            var p = new Promise('get', 'Data/Config');
+            setStatus("settingsStatus", STATUS_PROGRESS);
+
+            p.send()
+                .success(function (data) {
+                    setStatus("settingsStatus", "");
+
+                    //ipconfig
+                    qS("#addressType").value = data.ipConfig.addressType;
+                    setSqFields("sip", 4, data.ipConfig.ipAddress, ".");
+                    setSqFields("mip", 4, data.ipConfig.subnet, ".");
+                    setSqFields("gip", 4, data.ipConfig.defaultGateway, ".");
+                    setSqFields("dip", 4, data.ipConfig.dns, ".");
+
+                    //serial
+                    qS("#serBaud").value = data.uart.baudrate;
+                    qS("#serBits").value = data.uart.dataBits;
+                    qS("#serPar").value = data.uart.parity;
+                    qS("#serSBits").value = data.uart.stopBits;
+                    qS("#serFlow").value = data.uart.flowControl;
+
+                    //remote server
+                    qS("#reSrvAddr").value = data.remoteServer.serverAddress;
+                    qS("#reSrvPort").value = data.remoteServer.port;
+                    qS("#remSrvInterval").value = data.remoteServer.interval;
+                    qS("#remSrvTime").value = data.remoteServer.timeout;
+
+                    updateIPAddressType();
+                })
+            .error(function () {
+                setStatus("settingsStatus", STATUS_FAILED);
+            });
+        }
+
+        function updateIPAddressType() {
+            var fields = qSAll("#IPSettings input[type=text]");
+            var _style = "";
+
+            switch (qS("#addressType").value) {
+                case IP_AUTO:
+                    for (var i = 0; i < fields.length; i++) {
+                        fields[i].setAttribute("disabled", "true");
+                        fields[i].className = "";
+                    }
+                    break;
+                case IP_STATIC:
+                    for (var i = 0; i < fields.length; i++) {
+                        fields[i].removeAttribute("disabled");
+                        fields[i].className = "";
+                    }
+                    break;
+            }
+        }
+
+        /* Main Logic */
+        function everySecondInterval() {
+            if (srvTotalCom > 0) {
+                srvTotalCom++;
+                qS("#pTotalCom").innerText = ' (' + srvTotalCom.toString().toHHMMSS() + ')';
+            }
+
+            timer_interval++
+
+            if (timer_interval >= 10) {
+                timer_interval = 0;
+                loadPreview();
+            }
+        }
+
+        if (!document.querySelector || !document.querySelectorAll) {
+
+        } else {
+            qS("#incompatibleBrowser").classList.add("hidden");
+            qS("#main").classList.remove("hidden");
+
+            //start app
+            initPreviewPage();
+            initSettingsPage();
+
+            setInterval(everySecondInterval, 1000);
+        }
+    </script>
+</body>
+</html>

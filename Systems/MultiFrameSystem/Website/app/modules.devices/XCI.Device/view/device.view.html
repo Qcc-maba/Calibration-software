@@ -1,0 +1,525 @@
+﻿
+<div >
+    <div class="row">
+        <div class="col-lg-12 col-md-12 col-xs-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <i class="clip-calendar-2"></i>
+                    {{'MF_DEVICE_VIEW_DEVICE_SCHEDULE'|translate}}
+                    <div class="panel-tools">
+                        <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                        <span data-toggle="tooltip" title="{{'DEVICE_VIEW_SCHEDULE_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="DEVICE_VIEW_SCHEDULE_QUESTION"></i></span>
+                    </div>
+
+                </div>
+                <div class="panel-body" ng-if="irrigationSchedule">
+
+                    <div class="containerSaveButtonMargin" zones-table irrigationschedule="irrigationSchedule" device="{{deviceId}}"></div>
+
+                    <button ng-if="privilige" class="btn btn-dark-grey pull-right btnFix ladda-button fixSavePosition" ng-click="saveSchedual()" ladda="ladda.scheduleView" data-style="expand-right" data-spinner-size="30"><i class="fa fa-save"></i> | {{'G_SAVE' | translate}}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+    <div class="row">
+        <div class="col-lg-4 col-md-10 col-xs-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <i class="clip-settings"></i>
+                    {{'G_SETTINGS'|translate}}
+                    <div class="panel-tools">
+                        <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                        <span data-toggle="tooltip" title="{{'DEVICE_VIEW_SETTINGS_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="DEVICE_VIEW_SETTINGS_QUESTION"></i></span>
+                    </div>
+                </div>
+                <div class="panel-body" style="display: none; min-height: 356px;">
+                    <table class="table table-hover containerSaveButtonMargin">
+                        <tbody>
+                            <tr>
+                                <td class="firstRow">{{'MF_DEVICE_VIEW_USE_WEATER'|translate}}:</td>
+                                <td class="firstRow">
+                                    <div class="make-switch has-switch pull-right" data-on="default" data-off="primary" ng-class="{buttonDisable:!privilige}">
+                                        <div class="switch-animate" ng-class="settings.userWeatherSavingAlgorithm ? 'switch-on' : 'switch-off'" ng-click="switchUseWeather(settings.userWeatherSavingAlgorithm );">
+                                            <input type="checkbox" ng-model="settings.userWeatherSavingAlgorithm" checked><span class=" switch-left switch-default">{{'G_ON' | translate}}</span><label>&nbsp;</label><span class="switch-right switch-primary">{{'G_OFF' | translate}}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+
+                                <td>{{'MF_DEVICE_VIEW_HOLD_UNTIL'|translate}}:</td>
+                                <td>
+                                    <code class="pull-right">{{settings.holdUntilStr}}</code>
+                                </td>
+
+                            </tr>
+
+                            <tr>
+
+                                <td>{{'MF_DEVICE_VIEW_SEASON_SETTINGS'|translate}}:</td>
+                                <td>
+                                    <div class="make-switch has-switch pull-right" data-on="default" data-off="primary" ng-class="{buttonDisable:!privilige}">
+                                        <div class="switch-animate" ng-class="settings.useSiteSessionSettings ? 'switch-on' : 'switch-off'" ng-click="switchUseSeason(settings.useSiteSessionSettings);">
+                                            <input type="checkbox" ng-model="settings.useSiteSessionSettings" checked><span class=" switch-left switch-default">{{'G_ON' | translate}}</span><label>&nbsp;</label><span class="switch-right switch-primary">{{'G_OFF' | translate}}</span>
+                                        </div>
+                                    </div>
+                                    <br />
+                                    <br />
+                                    <a ng-show="settings.useSiteSessionSettings" ng-click="getDaySetting()" data-toggle="modal" data-target="#daySetting" data-backdrop="false" class="pull-right">{{'G_EDIT' | translate}}</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <button ng-if="privilige" class="btn btn-dark-grey pull-right btnFix ladda-button fixSavePosition" ng-click="SaveSettings()" ladda="ladda.settings" data-style="expand-right" data-spinner-size="30"><i class="fa fa-save"></i> | {{'G_SAVE' | translate}}</button>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-10 col-xs-12">
+            <form name="RainForm">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <i class="clip-settings"></i>
+                        {{'MF_DEVICE_VIEW_RAIN_SENSOR_SETTINGS'|translate}}:
+                        <div class="panel-tools">
+                            <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                            <span data-toggle="tooltip" title="{{'DEVICE_VIEW_RAIN_SENSOR_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="DEVICE_VIEW_RAIN_SENSOR_QUESTION"></i></span>
+                        </div>
+                    </div>
+                    <div class="panel-body" style="display: none; min-height: 356px;">
+                        <input type="checkbox" ng-model="rainSensorSettings.isEnabled" class="ng-pristine ng-valid ng-touched ng-untouched colMarginLeft">
+                        <span class="largeSize">{{'MF_DEVICE_VIEW_RAIN_SENSOR_INSTALL'|translate}}:</span>
+                        <br><br>
+                        <div ng-show="rainSensorSettings.isEnabled">
+                            <div class="containerSaveButtonMargin">
+                                <table class="table table-hover">
+                                    <tbody>
+
+                                        <tr ng-show="rainSensorSettings.isEnabled">
+
+
+                                            <td class="firstRow">{{'G_TYPE'|translate}}:</td>
+                                            <td class="firstRow">
+                                                <div class="pull-right">
+                                                    <span>{{'MF_DEVICE_VIEW_NC'|translate}}</span>
+                                                    <input type="radio" ng-model="rainSensorSettings.sensorType" value="NC" class="ng-valid ng-dirty ng-touched ng-valid-parse pull-right" name="170">
+                                                    <br />
+                                                    <span>{{'MF_DEVICE_VIEW_NO'|translate}}</span>
+                                                    <input type="radio" ng-model="rainSensorSettings.sensorType" value="NO" class="ng-valid ng-dirty ng-touched " name="170">
+                                                </div>
+                                            </td>
+
+
+                                        </tr>
+                                        <tr ng-show="rainSensorSettings.isEnabled">
+
+                                            <td>{{'MF_DEVICE_VIEW_RAIN_OF_MIN_DURATION'|translate}}:</td>
+                                            <td>
+
+                                                <div class="input-container bigTextFiled pull-right">
+                                                    <input class="ng-pristine ng-untouched ng-valid" id="rainOffMinDuration" name="rainOffMinDuration" type="number" ng-model="rainSensorSettings.rainOffMinDuration" min="0" max="10080" required>
+                                                    <span class="unit">{{'G_MINUTES'|translate}}</span>
+                                                </div>
+                                                <br />
+                                                <br />
+                                                <div class="validationMsg pull-right" ng-messages="RainForm.rainOffMinDuration.$error" ng-show="RainForm.rainOffMinDuration.$touched">
+                                                    <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:10080} }}</div>
+                                                    <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:10080} }}</div>
+                                                    <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                                </div>
+                                            </td>
+
+                                        </tr>
+                                        <tr ng-show="rainSensorSettings.isEnabled">
+
+                                            <td>{{'MF_DEVICE_VIEW_RAIN_STABILITY_SECS'|translate}}:</td>
+                                            <td>
+
+                                                <div class="input-container bigTextFiled pull-right">
+                                                    <input class="bigTextFiled ng-pristine ng-untouched ng-valid" id="rainStabilitySecTime" name="rainStabilitySecTime" type="number" ng-model="rainSensorSettings.rainStabilitySecTime" min="0" max="42000" required>
+                                                    <span class="unit">{{'G_SECS'|translate}}</span>
+                                                </div>
+                                                <br />
+                                                <br />
+                                                <div class="validationMsg pull-right" ng-messages="RainForm.rainStabilitySecTime.$error" ng-show="RainForm.rainStabilitySecTime.$touched">
+                                                    <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:42000} }}</div>
+                                                    <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:42000} }}</div>
+                                                    <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                                </div>
+                                            </td>
+
+                                        </tr>
+                                        <!--<tr ng-show="rainSensorSettings.isEnabled">
+
+                                    <td>{{'MF_DEVICE_VIEW_SENSOR_INPUT_NUMBER'|translate}}:</td>
+                                    <td><input class="bigTextFiled ng-pristine ng-untouched ng-valid pull-right" type="text" ng-model="rainSensorSettings.sensorInputNumber" readonly=""></td>
+
+                                </tr>-->
+
+
+
+                                    </tbody>
+                                </table>
+                            </div>
+                           
+                        </div>
+                        <button ng-if="privilige" class="btn btn-dark-grey pull-right btnFix ladda-button fixSavePosition" ng-click="SaveRainSensor(RainForm.$valid)" ladda="ladda.rainSensorSettings" data-style="expand-right" data-spinner-size="30"><i class="fa fa-save"></i> | {{'G_SAVE' | translate}}</button>
+                    </div>
+                </div>
+                </form>
+</div>
+        <div class="col-lg-4 col-md-10 col-xs-12 ">
+            <form name="irrigationForm">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <i class="clip-settings"></i>
+                        {{'MF_DEVICE_VIEW_IRRIGATION_SETTINGS'|translate}}
+                        <div class="panel-tools">
+                            <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                            <span data-toggle="tooltip" title="{{'DEVICE_VIEW_IRRIGATION_SETTINGS_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="DEVICE_VIEW_IRRIGATION_SETTINGS_QUESTION"></i></span>
+                        </div>
+                    </div>
+                    <div class="panel-body" style="display:none">
+                        <div class="containerSaveButtonMargin">
+                            <table class="table table-responsive table-hover">
+                                <tbody>
+                                    <tr>
+                                        <td class="firstRow">{{'MF_DEVICE_VIEW_IRRIGATION_FACTOR'|translate}}:</td>
+                                        <td class="firstRow">
+                                            <div class="input-container bigTextFiled pull-right">
+
+                                                <input class="ng-pristine ng-untouched ng-valid" type="number" id="irrigationFactor" name="irrigationFactor" ng-model="irrigatingSettings.irrigationFactor" min="50" max="200" required>
+                                                <span class="unit">%</span>
+                                            </div>
+                                            <br />
+                                            <br />
+
+
+                                            <div class="validationMsg pull-right" ng-messages="irrigationForm.irrigationFactor.$error" ng-show="irrigationForm.irrigationFactor.$touched">
+                                                <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:50 ,height:200} }}</div>
+                                                <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:50 ,height:200} }}</div>
+                                                <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                            </div>
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+
+                                        <td>{{'MF_DEVICE_VIEW_ZONE_CLOSE_DELAY'|translate}}:</td>
+                                        <td>
+                                            <div class="input-container bigTextFiled pull-right">
+
+                                                <input class="bigTextFiled ng-pristine ng-untouched ng-valid" type="number" id="zoneCloseDelay" name="zoneCloseDelay" ng-model="irrigatingSettings.zoneCloseDelay" min="0" max="3600" required>
+                                                <span class="unit">{{'G_SECS'|translate}}</span>
+                                            </div>
+                                            <br />
+                                            <br />
+                                            <div class="validationMsg pull-right" ng-messages="irrigationForm.zoneCloseDelay.$error" ng-show="irrigationForm.zoneCloseDelay.$touched">
+                                                <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:3600} }}</div>
+                                                <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:3600} }}</div>
+                                                <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                            </div>
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+
+                                        <td>{{'MF_DEVICE_VIEW_ZONE_OPEN_DELAY'|translate}}:</td>
+                                        <td>
+                                            <div class="input-container bigTextFiled pull-right">
+
+                                                <input class="bigTextFiled ng-pristine ng-untouched ng-valid" type="number" id="zoneOpenDelay" name="zoneOpenDelay" ng-model="irrigatingSettings.zoneOpenDelay" min="0" max="3600" required>
+                                                <span class="unit">{{'G_SECS'|translate}}</span>
+                                            </div>
+                                            <br />
+                                            <br />
+                                            <div class="validationMsg pull-right" ng-messages="irrigationForm.zoneOpenDelay.$error" ng-show="irrigationForm.zoneOpenDelay.$touched">
+                                                <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:3600} }}</div>
+                                                <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:3600} }}</div>
+                                                <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                            </div>
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+                                        <td>{{'MF_DEVICE_VIEW_MASTER_OPEN'|translate}}:</td>
+                                        <td>
+                                            <input type="radio" ng-model="irrigatingSettings.masterOpenSequence" value="Parallel" class="ng-pristine ng-untouched ng-valid pull-right" name="111">{{'MF_DEVICE_VIEW_PARALLEL'|translate}}<br />
+                                            <input type="radio" ng-model="irrigatingSettings.masterOpenSequence" value="MasterFirst" class="ng-pristine ng-untouched ng-valid pull-right" name="111"> {{'MF_DEVICE_VIEW_MASTER_FIRST'|translate}}<br />
+                                            <input type="radio" ng-model="irrigatingSettings.masterOpenSequence" value="MasterLast" class="ng-pristine ng-untouched ng-valid pull-right" name="111"> {{'MF_DEVICE_VIEW_MASTER_LAST'|translate}}<br />
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+                                        <td>{{'MF_DEVICE_VIEW_MASTER_CLOSE'|translate}}:</td>
+                                        <td>
+                                            <input type="radio" ng-model="irrigatingSettings.masterCloseSequence" value="Parallel" class="ng-pristine ng-untouched ng-valid pull-right" name="114"> {{'MF_DEVICE_VIEW_PARALLEL'|translate}}<br />
+                                            <input type="radio" ng-model="irrigatingSettings.masterCloseSequence" value="MasterFirst" class="ng-pristine ng-untouched ng-valid pull-right" name="114">{{'MF_DEVICE_VIEW_MASTER_FIRST'|translate}}<br />
+                                            <input type="radio" ng-model="irrigatingSettings.masterCloseSequence" value="MasterLast" class="ng-pristine ng-untouched ng-valid pull-right" name="114">{{'MF_DEVICE_VIEW_MASTER_LAST'|translate}}<br />
+                                        </td>
+
+                                    </tr>
+
+
+
+                                </tbody>
+                            </table>
+                        </div>
+                        <button ng-if="privilige" class="btn btn-dark-grey pull-right btnFix ladda-button fixSavePosition" ng-click="SaveIrrigatingSettings(irrigationForm.$valid)" ladda="ladda.irrigatingSettings" data-style="expand-right" data-spinner-size="30"><i class="fa fa-save"></i> | {{'G_SAVE' | translate}}</button>
+
+
+                    </div>
+                </div>
+             </form>
+</div>    
+    </div>
+    <div class="row">
+        <div class="col-lg-4 col-md-10 col-xs-12">
+            <form name="FlowForm">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <i class="clip-settings"></i>
+                        {{'MF_DEVICE_VIEW_FLOW_SENSOR_SETTINGS'|translate}}
+                        <div class="panel-tools">
+                            <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                            <span data-toggle="tooltip" title="{{'DEVICE_VIEW_FLOW_SENSOR_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="DEVICE_VIEW_FLOW_SENSOR_QUESTION"></i></span>
+                        </div>
+                    </div>
+                    <div class="panel-body" style="display: none; min-height: 232px;">
+                        <input class="colMarginLeft" type="checkbox" ng-model="flowSensorSettings.isEnabled" />
+                        <span class="largeSize">{{'MF_DEVICE_VIEW_FLOW_SENSOR_INSTALLED'|translate}}:</span> <br>
+                        <div class="containerSaveButtonMargin">
+                            <table class="table table-responsive table-hover" ng-show="flowSensorSettings.isEnabled">
+                                <tr>
+                                    <td class="firstRow">{{'G_TYPE'|translate}}:</td>
+                                    <td class="firstRow">
+                                        <div class="pull-right">
+                                            <input type="radio" ng-model="flowSensorSettings.sensorType" value="DI" class="ng-pristine ng-untouched ng-valid" name="151"> {{'MF_DEVICE_VIEW_DI'|translate}}<br />
+                                            <input type="radio" ng-model="flowSensorSettings.sensorType" value="Pulse" class="ng-pristine ng-untouched ng-valid" name="152"> {{'MF_DEVICE_VIEW_PULSE'|translate}}
+                                        </div>
+                                    </td>
+
+                                </tr>
+                                <tr ng-show="flowSensorSettings.sensorType=='DI'">
+                                    <td id="radioButtonMarrign">{{'MF_DEVICE_VIEW_K_VALUE'|translate}}:</td>
+                                    <td>
+
+                                        <input type="text" ng-model="flowSensorSettings.dI_KValue" name="KValue" id="KValue" class="bigTextFiled pull-right" ng-pattern="/^(0(\.\d+)?|1(\.0+)?)$/" required>
+                                        <br />
+                                        <br />
+                                        <div class="validationMsg pull-right" ng-messages="FlowForm.KValue.$error" ng-show="FlowForm.KValue.$touched">
+                                            <div ng-message="pattern">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:1} }}</div>
+                                            <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr ng-show="flowSensorSettings.sensorType=='DI'">
+                                    <td id="radioButtonMarrign">{{'MF_DEVICE_VIEW_OFFSET'|translate}}:</td>
+                                    <td>
+                                        <input type="text" ng-model="flowSensorSettings.dI_OffsetValue" id="OffsetValue" name="OffsetValue" class="ng-pristine ng-untouched ng-valid bigTextFiled pull-right" ng-pattern="/^(0(\.\d+)?|1(\.0+)?)$/" required>
+                                        <br />
+                                        <br />
+                                        <div class="validationMsg pull-right" ng-messages="FlowForm.OffsetValue.$error" ng-show="FlowForm.OffsetValue.$touched">
+                                            <div ng-message="pattern">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:1} }}</div>
+                                            <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                        </div>
+                                    </td>
+
+                                </tr>
+                                <tr ng-show="flowSensorSettings.sensorType=='Pulse'">
+                                    <td id="radioButtonMarrign">{{'MF_DEVICE_VIEW_PULSE_TYPE'|translate}}:</td>
+                                    <td>
+                                        <div class="btn-group pull-right">
+                                            <button class="btn btn-med-grey bigSizeButton" data-toggle="dropdown" aria-expanded="true" translate="MF_DEVICE_VIEW_PULSE_TYPE_{{flowSensorSettings.pulseType}}"><span class="caret"></span></button>
+                                            <ul class="dropdown-menu scrollable-menu" role="menu">
+
+                                                <li translate="MF_DEVICE_VIEW_PULSE_TYPE_0" ng-click="flowSensorSettings.pulseType=0">
+
+                                                </li>
+                                                <li translate="MF_DEVICE_VIEW_PULSE_TYPE_1" ng-click="flowSensorSettings.pulseType=1">
+
+                                                </li>
+                                                <li translate="MF_DEVICE_VIEW_PULSE_TYPE_2" ng-click="flowSensorSettings.pulseType=2">
+
+                                                </li>
+
+
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr ng-show="flowSensorSettings.sensorType=='Pulse'">
+                                    <td id="radioButtonMarrign">{{'MF_DEVICE_VIEW_PULSE_SIZE'|translate}}:</td>
+                                    <td>
+                                        <div class="btn-group pull-right">
+                                            <button class="btn btn-med-grey bigSizeButton" data-toggle="dropdown" aria-expanded="true">{{flowSensorSettings.pulseSize}}<span class="colMarginLeft">{{'MF_DEVICE_VIEW_PULSE_TYPE_'+flowSensorSettings.pulseType | translate}}</span> <span class="caret"></span></button>
+                                            <ul class="dropdown-menu scrollable-menu" role="menu">
+                                                <li ng-click="flowSensorSettings.pulseSize=0.1">
+                                                    0.1
+                                                </li>
+                                                <li ng-click="flowSensorSettings.pulseSize=1">
+                                                    1
+                                                </li>
+                                                <li ng-click="flowSensorSettings.pulseSize=10">
+                                                    10
+                                                </li>
+                                                <li ng-click="flowSensorSettings.pulseSize=100">
+                                                    100
+                                                </li>
+                                                <li ng-click="flowSensorSettings.pulseSize=1000">
+                                                    1000
+                                                </li>
+                                            </ul>
+                                        </div> <span></span>
+                                    </td>
+                                </tr>
+                            </table>
+
+                        </div>
+                        <button ng-if="privilige" class="btn btn-dark-grey pull-right btnFix ladda-button fixSavePosition" ng-click="SaveflowSensorSettings(FlowForm.$valid)" ladda="ladda.flowSensorSettings" data-style="expand-right" data-spinner-size="30"><i class="fa fa-save"></i> | {{'G_SAVE' | translate}}</button>
+                    </div>
+                </div>
+                </form>
+</div>
+        <div class="col-lg-4 col-md-10 col-xs-12 ">
+            <form name="alertForm">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <i class="clip-notification"></i>
+                        {{'MF_ALERTS_ALERTS'|translate}}
+                        <div class="panel-tools">
+                            <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                            <span data-toggle="tooltip" title="{{'DEVICE_VIEW_ALERTS_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="DEVICE_VIEW_ALERTS_QUESTION"></i></span>
+                        </div>
+                    </div>
+                    <div class="panel-body" style="display:none">
+                        <div class="containerSaveButtonMargin">
+                            <table class="table table-hover">
+                                <tbody>
+                                    <tr>
+                                        <td class="firstRow">{{'MF_ALERTS_ALERTS'|translate}}:</td>
+                                        <td class="firstRow">
+                                            <div class="pull-right">
+                                                <div class="make-switch has-switch pull-right" data-on="default" data-off="primary" ng-class="{buttonDisable:!privilige}">
+                                                    <div class="switch-animate" ng-class="deviceAlertsSettings.isAlertsEnabled ? 'switch-on' : 'switch-off'" ng-click="switchDeviceAlerts(deviceAlertsSettings.isAlertsEnabled );">
+                                                        <input type="checkbox" ng-model="deviceAlertsSettings.isAlertsEnabled" checked><span class=" switch-left switch-default">{{'G_ON' | translate}}</span><label>&nbsp;</label><span class="switch-right switch-primary">{{'G_OFF' | translate}}</span>
+                                                    </div>
+                                                </div>
+                                                <br />
+                                                <br />
+                                                <a class="pull-right" ng-click="openAddAlerts(deviceId)" ng-show="deviceAlertsSettings.isAlertsEnabled" data-toggle="modal" data-target="#deviceAlertSettingsModal" data-backdrop="false">{{'G_ADVANCD' | translate}}</a>
+                                            </div>
+                                        </td>
+
+
+                                    </tr>
+                                    <tr>
+
+                                        <td>{{'MF_DEVICE_VIEW_UNDER_THRESHOLD'|translate}}:</td>
+                                        <td>
+                                            <div class="input-container bigTextFiled pull-right">
+                                                <input type="number" id="threshold_UnderCurrent" name="threshold_UnderCurrent" min="0" max="1000" required ng-model="deviceAlertsSettings.underCurrentThreshold">
+                                                <span class="unit">{{'MF_DEVICE_VIEW_MA' | translate}}</span>
+                                            </div>
+                                            <br />
+                                            <br />
+
+                                            <div class="validationMsg pull-right" ng-messages="alertForm.threshold_UnderCurrent.$error" ng-show="alertForm.threshold_UnderCurrent.$touched">
+                                                <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:1000} }}</div>
+                                                <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:1000} }}</div>
+                                                <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                            </div>
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+
+                                        <td>{{'MF_DEVICE_VIEW_OVER_THRESHOLD'|translate}}:</td>
+                                        <td>
+                                            <div class="input-container bigTextFiled pull-right">
+                                                <input class="bigTextFiled" type="number" id="threshold_OverCurrent" name="threshold_OverCurrent" min="0" max="100" required ng-model="deviceAlertsSettings.overCurrentThreshold">
+                                                <span class="unit">{{'MF_DEVICE_VIEW_MA' | translate}}</span>
+                                            </div>
+                                            <br />
+                                            <br />
+
+                                            <div class="validationMsg pull-right" ng-messages="alertForm.threshold_OverCurrent.$error" ng-show="alertForm.threshold_OverCurrent.$touched">
+                                                <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                                <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                                <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                            </div>
+                                        </td>
+
+                                    </tr>
+
+
+
+
+
+                                </tbody>
+                            </table>
+                        </div>
+                        <button ng-if="privilige" class="btn btn-dark-grey pull-right btnFix fixSavePosition" ng-click="SaveDeviceAlertsSettings(alertForm.$valid)"><i class="fa fa-save"></i> | {{'G_SAVE' | translate}}</button>
+                    </div>
+
+                </div>
+                </form>
+</div>
+    </div>
+
+</div>
+<br />
+
+    <div id="deviceAlertSettingsModal" class="modal fade" close-model>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                {{'MF_ALERTS_ALERTS'|translate}}
+                <div class="panel-tools">
+                    <a data-toggle="tooltip" title="{{'DEVICE_ALERTS_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="DEVICE_ALERTS_QUESTION" var2="modal"></i></a>
+                    <span data-dismiss="modal" class="clip-close-3"></span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <table class="table table-hover" id="sample-table-3">
+                    <thead>
+                        <tr>
+                            <th translate="MF_ALERTS_TYPE"></th>
+                            <th translate="MF_ALERTS_ALLOW"></th>
+                            <th translate="MF_ALERTS_SMS"></th>
+                            <th translate="G_EMAIL"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="tb1 in alerts track by $index">
+                            <td translate="MF_ALERTS_ALERTS_CODE_{{tb1.device_Settings.alertCode}}"></td>
+                            <td><input type="checkbox" ng-model="tb1.device_Settings.isEnable"></td>
+                            <td><input type="checkbox" ng-disabled="!tb1.device_Settings.isEnable || bool" ng-model="tb1.device_Settings.sendSMS"></td>
+                            <td><input type="checkbox" ng-disabled="!tb1.device_Settings.isEnable || bool" ng-model="tb1.device_Settings.sendEmail"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" data-dismiss="modal" class="btn btn-default">
+                    {{'G_CLOSE' | translate}}
+                </button>
+                <button type="button" class="btn btn-dark-grey ladda-button" ng-click="saveAlertsModal()" ladda="ladda.SaveAlertsModal" data-style="expand-right" data-spinner-size="30">
+                    <i class="fa fa-save"></i> | {{'G_SAVE' | translate}}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="daySetting" class="modal fade"  day-setting comm="daySettingConnector" close-model></div>
+
+  
+
+
+
+
+
+
+
+

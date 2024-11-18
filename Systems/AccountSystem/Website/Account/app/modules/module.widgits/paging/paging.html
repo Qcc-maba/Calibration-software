@@ -1,0 +1,13 @@
+﻿<div class="row">
+    <div class="col-md-12">
+        <div class="pull-right" ng-show="list">
+            <ul id="paginator-example-2" class="pagination">
+                <li ng-class="{'prev disabled':menu.prev}"><a title="Go to first page" ng-click="firstPage()">&lt;&lt;</a></li>
+                <li ng-class="{'prev disabled':menu.prev}"><a title="Go to previous page" ng-click="prevPage()">&lt;</a></li>
+                <li ng-repeat="tb in list " class={{tb.type}}><a id={{tb.value}} ng-click="changePage(tb.value)">{{tb.value}}</a></li>
+                <li ng-class="{'prev disabled':menu.forword}"><a title="Go to next page" ng-click="forwardPage()">&gt;</a></li>
+                <li ng-class="{'prev disabled':menu.forword}"><a title="Go to last page" ng-click="lastPage()">&gt;&gt;</a></li>
+            </ul>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,48 @@
+﻿<div class="wizardTopMargin" ng-if="finishParse">
+    <div class="row colMarginLeft">
+        <h4 class="col-md-8">{{'MF_DEVICE_ADD_ACTIVATE_NUMBER_MSG' | translate}}</h4>
+    
+        <div class="btn-group col-md-4 space15">
+            <a data-toggle="dropdown" class="btn btn-med-grey dropdown-toggle">
+                {{ctrlDetails.zonesAvailable}}  <span class="caret"></span>
+            </a>
+            <ul class="dropdown-menu" role="menu">
+                <li role="presentation" ng-repeat="z in zonesNum track by $index">
+                    <a ng-click="getZonesNumber($index)" tabindex=" -1" role="menuitem">
+                        {{z}}
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div>
+        <div class="row colMarginLeft colMarginLeft">
+            <div class="col-md-12">
+                <input type="checkbox" ng-model="setZonesDefinition" />
+                <h4 class="inline">{{'MF_DEVICE_ADD_SET_LATTER' | translate}}</h4>
+            </div>
+        </div>
+        <div class="row colMarginLeft" ng-if="!setZonesDefinition">
+            <!--the same code as zone tab-->
+            <hr class="width80" />
+            <br />
+            <div class="inline col-lg-7 col-md-8 col-xs-9">
+                <span>{{'MF_G_ZONE_NAME' | translate}}:</span>
+                <input type="text" class="HugeTextFiled inline Name  ng-pristine ng-valid ng-touched space15 colMarginLeft" ng-model="ctrlDetails.zones[zoneIndex].zoneName">
+            </div>
+            <div class=" prevNext inline ">
+                <a class="underline ng-binding ng-scope" ng-click="prevZone()" ng-if="zoneIndex>0">{{'MF_G_PREV_ZONE' | translate}}</a> / <a ng-if="zoneIndex < ctrlDetails.zonesAvailable-1" class="underline ng-binding ng-scope" ng-click="nextZone()">{{'MF_G_NEXT_ZONE' | translate}}</a>
+            </div>
+
+
+
+        </div>
+        <br />
+        <div class="inline col-lg-12 col-md-12 col-xs-12">
+            <div ng-if="!setZonesDefinition" class="addDeviseAdviserContainer">
+                <div adviser-directive comm="adviserConnector"></div>
+            </div>
+        </div>
+    </div>
+</div>
+    

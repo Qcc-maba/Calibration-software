@@ -1,0 +1,4 @@
+﻿Nuget package : https://www.nuget.org/packages/Elasticsearch.Net
+
+
+Project Site : https://github.com/elastic/elasticsearch-net

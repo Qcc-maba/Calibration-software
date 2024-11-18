@@ -1,0 +1,20 @@
+﻿PUT _template/template_messages
+{
+   "template": "messages_dwh*",
+   "mappings": {
+      "UserMessages": {
+         "_routing": {
+            "required": true
+         },
+         "_timestamp": {
+            "enabled": true
+         },
+         "properties": {
+            "targetUserEmail": {
+               "type": "string",
+               "index": "not_analyzed"
+            }
+         }
+      }
+   }
+}

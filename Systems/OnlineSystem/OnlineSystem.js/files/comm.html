@@ -1,0 +1,710 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+    <style>
+        .centerDiv {
+            display: table;
+            margin: 0 auto;
+        }
+
+        .marfinLeft7 {
+            margin-left: 7px;
+        }
+        .marfinRight7 {
+            margin-right: 7px;
+        }
+        .marginTop15 {
+            margin-top: 15px;
+        }
+
+        .onlineSite {
+            width: 600px;
+            height: 500px;
+            border: 1px solid lightgrey;
+            background: #faf6f6;
+        }
+
+        .frame {
+         
+            border: 1px solid lightgrey;
+            background: #eeeaea;
+        }
+
+        .simulateSDevice {
+            display: none;
+        }
+        .commTable{
+            display:none;
+        }
+    
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/css/bootstrap.css">
+
+</head>
+<body>
+    
+    <div class="centerDiv frame marginTop15">
+        <br />
+        <span class="marfinLeft7">Enter Server : </span><input class="marfinLeft7" id="ServerURL" type="text" /><button onclick="EnterServer()" class="btn btn-info go marfinLeft7">Go</button>
+        <br />
+        <br />
+        <span class="marfinLeft7">Enter Token : </span><input class="marfinLeft7" id="TokenNumber" type="text" /><button onclick="EnterToken()" class="btn btn-info go marfinLeft7">Go</button>
+        <br />
+        <br />
+        <span class="marfinLeft7">Enter SiteId : </span><input class="marfinLeft7" id="siteID" type="text" /><button onclick="setSiteId()" class="btn btn-info go marfinLeft7">Go</button>
+          <br />
+          
+       
+          <table id="commTable" class="table">
+                <thead>
+                    <tr>
+                        <td>Action</td>
+                        <td>Data</td>
+                     
+                    </tr>
+
+                </thead>
+
+                <tbody class="tableBody">
+                    <tr>
+                        <td>
+                            <span>Site Name</span>
+                        </td>
+                        <td>
+                            <span id="siteName"></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span>Choose Device</span>
+                        </td>
+                        <td>
+                            <div class="dropdown">
+                                <button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu2" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                                 
+                                    <span class="caret"></span>
+                                </button>
+                                <ul id="DeviceDropDown" class="dropdown-menu" aria-labelledby="dropdownMenu2">
+                                  
+
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    <!--<tr>
+                        <td>
+                            <span>Choose Zone</span>
+                        </td>
+                        <td>
+                            <div class="dropdown">
+                                <button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu3" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+
+                                    <span class="caret"></span>
+                                </button>
+                                <ul id="ZoneDropDown" class="dropdown-menu" aria-labelledby="dropdownMenu3"></ul>
+                            </div>
+                        </td>
+                    </tr>-->
+                    <tr>
+                        <td>
+                            <span>Device Status</span>
+                        </td>
+                       
+                        <td>
+                            <input type="text" id="CommURL" placeholder="Comm URL" />
+                        </td>
+                        <td>
+
+                            <textarea id="deviceCodeData" placeholder="Json Data" rows="4" cols="25"></textarea>
+                        </td>
+
+                        <td>
+                            Device Only: <input id="DPlusSitedeviceONOFF" type="checkbox" />
+                        </td>
+                        <td>
+                            <button id="conection" onclick="buildConnectionObject()">Send</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span>General Event</span>
+                        </td>
+                        
+                        <td></td>
+                     
+                        <td>
+                           
+                        </td>
+                        <td>
+                           
+                            <textarea id="GeneralCodeData" placeholder="Json Data" rows="2" cols="25"></textarea>
+                        </td>
+                        <td>
+                            Device Only: <input id="DPlusSiteGeneralCode" type="checkbox" />
+                        </td>
+                        <td>
+                          
+                        
+                            <button id="conection" onclick="buildGeneralCode()">Send</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span>Sync Notification</span>
+                        </td>
+
+                        <td></td>
+
+                        <td></td>
+                        <td>
+
+                            <textarea id="SyncCodeData" placeholder="Json Data" rows="2" cols="25"></textarea>
+                        </td>
+                        <td>
+                            Device Only: <input id="DPlusSiteSync" type="checkbox" />
+                        </td>
+                        <td>
+
+
+                            <button id="conection" onclick="buildSyncCode()">Send</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span>Firmware process</span>
+                        </td>
+
+                        <td></td>
+
+                        <td></td>
+                        <td>
+
+                            <textarea id="FirmwareProcessCodeData" placeholder="Json Data" rows="2" cols="25"></textarea>
+                        </td>
+                        <td>
+                            Device Only: <input id="DPlusFirmwareProcess" type="checkbox" />
+                        </td>
+                        <td>
+
+
+                            <button id="conection" onclick="buildFirmwareProcessCode()">Send</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span>Manual operation notification</span>
+                        </td>
+
+                        <td></td>
+
+                        <td></td>
+                        <td>
+
+                            <textarea id="ManualOperationCodeData" placeholder="Json Data" rows="2" cols="25"></textarea>
+                        </td>
+                        <td>
+                            Device Only: <input id="DPlusManualOperation" type="checkbox" />
+                        </td>
+                        <td>
+
+
+                            <button id="conection" onclick="buildManualOperationCode()">Send</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span>Alerts state (single alert)</span>
+                        </td>
+                        <td>
+                        <td>
+                            <input type="text" id="AlertNumber" placeholder="Number(2000-2100)" />
+                        </td>
+                        <td>
+
+                            <textarea id="AlertsCodeData" placeholder="Json Data" rows="2" cols="25"></textarea>
+                        </td>
+                        <td>
+                            Device Only: <input id="DPlusSiteAlerts" type="checkbox" />
+                        </td>
+                        <td>
+                            <button id="conection" onclick="buildAlertsCode()">Send</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span>Short output(single output)</span>
+                        </td>
+                        <td>
+                        <td>
+                            <input type="text" id="ShortOtputNumber" placeholder="Number(2201-2300)" />
+                        </td>
+                        <td>
+
+                            <textarea id="ShortOtputCodeData" placeholder="Json Data" rows="2" cols="25"></textarea>
+                        </td>
+                        <td>
+                            Device Only: <input id="DPlusSiteShortOtput" type="checkbox" />
+                        </td>
+                        <td>
+                            <button id="conection" onclick="buildShortOtputCode()">Send</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span>Digital Input State(single input)</span>
+                        </td>
+                        <td>
+                        <td>
+                            <input type="text" id="DigitalInputNumber" placeholder="Number(2301-2400)" />
+                        </td>
+                        <td>
+
+                            <textarea id="DigitalInputCodeData" placeholder="Json Data" rows="2" cols="25"></textarea>
+                        </td>
+                        <td>
+                            Device Only: <input id="DPlusSiteDigitalInput" type="checkbox" />
+                        </td>
+                        <td>
+                            <button id="conection" onclick="buildDigitalInputCode()">Send</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span>Water Meter(single meter update)</span>
+                        </td>
+                        <td>
+                        <td>
+                            <input type="text" id="WaterMeterNumber" placeholder="Number(3000-3050)" />
+                        </td>
+                        <td>
+
+                            <textarea id="WaterMeterCodeData" placeholder="Json Data" rows="2" cols="25"></textarea>
+                        </td>
+                        <td>
+                            Device Only: <input id="DPlusSiteWaterMeter" type="checkbox" />
+                        </td>
+                        <td>
+                            <button id="conection" onclick="buildWaterMeterCode()">Send</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span>Ferilizer Update(single Fertilizer update)</span>
+                        </td>
+                        <td>
+                        <td>
+                            <input type="text" id="FerilizerUpdateNumber" placeholder="Number(3100-3200)" />
+                        </td>
+                        <td>
+
+                            <textarea id="FerilizerUpdateCodeData" placeholder="Json Data" rows="2" cols="25"></textarea>
+                        </td>
+                        <td>
+                            Device Only: <input id="DPlusSiteFerilizerUpdate" type="checkbox" />
+                        </td>
+                        <td>
+                            <button id="conection" onclick="buildFerilizerUpdateCode()">Send</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span>Irrigation process event</span>
+                        </td>
+                        <td>
+                            <div class="dropdown">
+                                <button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu3" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+
+                                    <span class="caret"></span>
+                                </button>
+                                <ul id="ZoneDropDown" class="dropdown-menu" aria-labelledby="dropdownMenu3"></ul>
+                            </div>
+                        </td>
+                        <td></td>
+                        <td>
+
+                            <textarea id="IrrigationCodeData" placeholder="Json Data" rows="8" cols="25"></textarea>
+                        </td>
+                        <td>
+                            Device Only: <input id="DPlusSiteIrrigation" type="checkbox" />
+                        </td>
+                        <td>
+                            <button id="conection" onclick="buildIrrigationCode()">Send</button>
+                        </td>
+                    </tr>
+                    <tr></tr>
+                    <tr></tr>
+                </tbody>
+            </table>
+
+    </div>
+    
+
+
+
+
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/js/bootstrap.js"></script>
+    <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+
+    <script>
+       
+
+        //**********************************************************
+        var deviceCodeData = localStorage.getItem('deviceCodeData');
+        if (deviceCodeData) {
+            $('#deviceCodeData').val(deviceCodeData);
+        }
+        //************************************************************
+        var GeneralCodeData = localStorage.getItem('GeneralCodeData');
+        if (GeneralCodeData) {
+            $('#GeneralCodeData').val(GeneralCodeData);
+        }
+        //**********************************************************
+        var SyncCodeData = localStorage.getItem('SyncCodeData');
+        if (SyncCodeData) {
+            $('#SyncCodeData').val(SyncCodeData);
+        }
+        //**********************************************************
+        var FirmwareProcessCodeData = localStorage.getItem('FirmwareProcessCodeData');
+        if (FirmwareProcessCodeData) {
+            $('#FirmwareProcessCodeData').val(FirmwareProcessCodeData);
+        }
+        //**********************************************************
+        var ManualOperationCodeData = localStorage.getItem('ManualOperationCodeData');
+        if (ManualOperationCodeData) {
+            $('#ManualOperationCodeData').val(ManualOperationCodeData);
+        }
+        //**********************************************************
+        var AlertsCodeData = localStorage.getItem('AlertsCodeData');
+        if (AlertsCodeData) {
+            $('#AlertsCodeData').val(AlertsCodeData);
+        }
+        //**********************************************************
+        var ShortOtputCodeData = localStorage.getItem('ShortOtputCodeData');
+        if (ShortOtputCodeData) {
+            $('#ShortOtputCodeData').val(ShortOtputCodeData);
+        }
+        //**********************************************************
+        var DigitalInputCodeData = localStorage.getItem('DigitalInputCodeData');
+        if (DigitalInputCodeData) {
+            $('#DigitalInputCodeData').val(DigitalInputCodeData);
+        }
+        //**********************************************************
+        var WaterMeterCodeData = localStorage.getItem('WaterMeterCodeData');
+        if (WaterMeterCodeData) {
+            $('#WaterMeterCodeData').val(WaterMeterCodeData);
+        }
+        //**********************************************************
+        var FerilizerUpdateCodeData = localStorage.getItem('FerilizerUpdateCodeData');
+        if (FerilizerUpdateCodeData) {
+            $('#FerilizerUpdateCodeData').val(FerilizerUpdateCodeData);
+        }
+        //**********************************************************
+        var IrrigationCodeData = localStorage.getItem('IrrigationCodeData');
+        if (IrrigationCodeData) {
+            $('#IrrigationCodeData').val(IrrigationCodeData);
+        }
+        //**************************************************************
+
+
+
+        var Token = "";
+        var Server = "";
+
+
+
+        var isToken = localStorage.getItem('OnlineToken');
+        if (isToken.length > 1) {
+            Token = isToken;
+            $('#TokenNumber').val(isToken);
+        }
+        var isServerUrl = localStorage.getItem('ServerURL');
+        if (isServerUrl.length > 1) {
+            Server = isServerUrl;
+            $('#ServerURL').val(Server);
+        }
+       
+        var siteID = '';
+        if (localStorage.getItem('siteID').length > 1) {
+            siteID = localStorage.getItem('siteID');
+            $('#siteID').val(siteID);
+            setSiteId();
+        }
+        
+        var devices;
+        var zones;
+        var commPacket = {
+            currentSite: '',
+            currentDevice: '',
+            currentZone:null,
+        }
+
+        var currentPacket = {
+            
+        }
+        //******************************************************
+        function EnterToken() {
+            Token = $('#TokenNumber').val();
+            localStorage.setItem('OnlineToken', Token)
+        }
+        function EnterServer() {
+            Server = $('#ServerURL').val();
+            localStorage.setItem('ServerURL', Server)
+        }
+        //*****************************************
+        function setSiteId() {
+            siteID = $('#siteID').val();
+            localStorage.setItem('siteID', siteID);
+            //***************************
+            var getSiteInfo = $.ajax({
+
+                type: "GET",
+                contentType: "application/json",
+                url: "https://online.galcon-smart.com/API/Site/" + siteID + "/Info",
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Authorization", 'Bearer ' + Token);
+                },
+                dataType: "json",
+                success: function (data) {
+                    $('#siteName').empty();
+                    $('#siteName').html(data.body.siteName);
+                    chooseSite(siteID);
+                },
+                error: function (data) {
+
+                }
+
+            });
+        }
+        //*******************************************************
+        function chooseSite(siteId) {
+           
+            commPacket.currentSite = siteId;
+           
+            //****************************
+            var postRequest = $.ajax({
+
+                type: "GET",
+                contentType: "application/json",
+                url: "https://online.galcon-smart.com/API/Site/" + siteId + "/Devices",
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Authorization", 'Bearer ' + Token);
+                },
+                dataType: "json",
+                success: function (data) {
+                    devices = data.body;
+                    $('#DeviceDropDown').empty();
+                    $('#dropdownMenu2').html(devices[0].name);
+                    commPacket.currentDevice = devices[0].sn;
+                    getZones(devices[0].sn);
+                    commPacket.deviceIndex = 1;
+                    for (var i = 0; i < devices.length; i++) {
+                        var li = $('<li>');
+                        var a = $('<a>');
+                        (function (index){
+                            a.on("click", function () {
+                                
+                                commPacket.currentDevice = devices[index].sn;
+                                getZones(devices[index].sn);
+                                commPacket.deviceIndex = index+1;
+                                $('#dropdownMenu2').html(devices[index].name);
+                                $('#commTable').css({ 'display': 'block' });
+                            });
+                        })(i);
+                        
+                        a.html(devices[i].name);
+                        li.append(a);
+                       
+                        $('#DeviceDropDown').append(li);
+                    }
+                },
+                error: function (data) {
+
+                }
+
+            });
+            //*****************
+
+        }
+        //*******************************************************
+        function getZones(sn) {
+            var postRequest = $.ajax({
+
+                type: "GET",
+                contentType: "application/json",
+                url: "https://online.galcon-smart.com/XCI/Device/" +sn+ "/Zones",
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Authorization", 'Bearer ' + Token);
+                },
+            dataType: "json",
+            success: function (data) {
+                zones = data.body;
+                $('#ZoneDropDown').empty();
+                $('#dropdownMenu3').html("none");
+                var li = $('<li>');
+                var a = $('<a>');
+                a.on("click", function () {
+
+                    commPacket.currentZone = null;
+                    $('#dropdownMenu3').html("none");
+
+                });
+                for (var i = 0; i < zones.length; i++) {
+                    var li = $('<li>');
+                    var a = $('<a>');
+                    (function (index){
+                        a.on("click", function () {
+                          
+                            commPacket.currentZone = zones[index].zoneNumber;
+                            $('#dropdownMenu3').html(zones[index].zoneNumber);
+                            
+                        });
+                    })(i);
+                        
+                    a.html(zones[i].zoneNumber);
+                    li.append(a);
+                       
+                    $('#ZoneDropDown').append(li);
+                }
+            },
+            error: function (data) {
+
+            }
+
+        });
+        }
+        //*******************************************************
+        function buildConnectionObject() {
+            currentPacket.sn = commPacket.currentDevice;
+            currentPacket.code = 1000;
+            currentPacket.overview = $("#DPlusSitedeviceONOFF").is(':checked') ? 0 : 1; // 0 only device
+            localStorage.setItem("deviceCodeData", $('#deviceCodeData').val())
+            currentPacket.event = JSON.parse($('#deviceCodeData').val());
+
+            sendToServer(currentPacket)
+        }
+        //**********************************************************
+        function buildGeneralCode() {
+            currentPacket.sn = commPacket.currentDevice;
+            currentPacket.code = 1010
+            currentPacket.overview = $("#DPlusSiteGeneralCode").is(':checked') ? 0 : 1; // 0 only device
+            localStorage.setItem("GeneralCodeData", $('#GeneralCodeData').val())
+            currentPacket.event = JSON.parse($('#GeneralCodeData').val());
+            
+
+           sendToServer(currentPacket)
+        }
+        //**********************************************************
+        function buildSyncCode() {
+            currentPacket.sn = commPacket.currentDevice;
+            currentPacket.code = 1011
+            currentPacket.overview = $("#DPlusSiteSync").is(':checked') ? 0 : 1; // 0 only device
+            localStorage.setItem("SyncCodeData", $('#SyncCodeData').val())
+            currentPacket.event = JSON.parse($('#SyncCodeData').val());
+
+
+            sendToServer(currentPacket)
+        }
+        //********************************************************
+        function buildFirmwareProcessCode() {
+            currentPacket.sn = commPacket.currentDevice;
+            currentPacket.code = 1012
+            currentPacket.overview = $("#DPlusFirmwareProcess").is(':checked') ? 0 : 1; // 0 only device
+            localStorage.setItem("FirmwareProcessCodeData", $('#FirmwareProcessCodeData').val())
+            currentPacket.event = JSON.parse($('#FirmwareProcessCodeData').val());
+
+
+            sendToServer(currentPacket)
+        }
+        //********************************************************
+        function buildManualOperationCode() {
+            currentPacket.sn = commPacket.currentDevice;
+            currentPacket.code = 1013;
+            currentPacket.overview = $("#DPlusManualOperation").is(':checked') ? 0 : 1; // 0 only device
+            localStorage.setItem("ManualOperationCodeData", $('#ManualOperationCodeData').val())
+            currentPacket.event = JSON.parse($('#ManualOperationCodeData').val());
+            sendToServer(currentPacket)
+        }
+        //********************************************************
+        function buildAlertsCode() {
+            currentPacket.sn = commPacket.currentDevice;
+            currentPacket.code = $('#AlertNumber').val();
+            currentPacket.overview = $("#DPlusSiteAlerts").is(':checked') ? 0 : 1; // 0 only device
+            localStorage.setItem("AlertsCodeData", $('#AlertsCodeData').val())
+            currentPacket.event = JSON.parse($('#AlertsCodeData').val());
+            sendToServer(currentPacket)
+        }
+        //********************************************************
+        function buildShortOtputCode() {
+            currentPacket.sn = commPacket.currentDevice;
+            currentPacket.code = $('#ShortOtputNumber').val();
+            currentPacket.overview = $("#DPlusSiteShortOtput").is(':checked') ? 0 : 1; // 0 only device
+            localStorage.setItem("ShortOtputCodeData", $('#ShortOtputCodeData').val())
+            currentPacket.event = JSON.parse($('#ShortOtputCodeData').val());
+            sendToServer(currentPacket)
+        }
+        //********************************************************
+        function buildWaterMeterCode() {
+            currentPacket.sn = commPacket.currentDevice;
+            currentPacket.code = $('#WaterMeterNumber').val();
+            currentPacket.overview = $("#DPlusSiteWaterMeter").is(':checked') ? 0 : 1; // 0 only device
+            localStorage.setItem("WaterMeterCodeData", $('#WaterMeterCodeData').val())
+            currentPacket.event = JSON.parse($('#WaterMeterCodeData').val());
+            sendToServer(currentPacket)
+        }
+        //********************************************************
+        function buildDigitalInputCode() {
+            currentPacket.sn = commPacket.currentDevice;
+            currentPacket.code = $('#DigitalInputNumber').val();
+            currentPacket.overview = $("#DPlusSiteDigitalInput").is(':checked') ? 0 : 1; // 0 only device
+            localStorage.setItem("DigitalInputCodeData", $('#DigitalInputCodeData').val())
+            currentPacket.event = JSON.parse($('#DigitalInputCodeData').val());
+            sendToServer(currentPacket)
+        }
+        //********************************************************
+        function buildFerilizerUpdateCode() {
+            currentPacket.sn = commPacket.currentDevice;
+            currentPacket.code = $('#FerilizerUpdateNumber').val();
+            currentPacket.overview = $("#DPlusSiteFerilizerUpdate").is(':checked') ? 0 : 1; // 0 only device
+            localStorage.setItem("FerilizerUpdateCodeData", $('#FerilizerUpdateCodeData').val())
+            currentPacket.event = JSON.parse($('#FerilizerUpdateCodeData').val());
+            sendToServer(currentPacket)
+        }
+        //********************************************************
+        function buildIrrigationCode() {
+            currentPacket.sn = commPacket.currentDevice;
+            currentPacket.code = 4000 + commPacket.currentZone;
+            currentPacket.overview = $("#DPlusSiteIrrigation").is(':checked') ? 0 : 1; // 0 only device
+            localStorage.setItem("IrrigationCodeData", $('#IrrigationCodeData').val())
+            currentPacket.event = JSON.parse($('#IrrigationCodeData').val());
+            sendToServer(currentPacket)
+        }
+        //********************************************************
+        function sendToServer(eventObj) {
+            var url = Server+"/commEvent";
+            var postRequest = $.ajax({
+
+                type: "POST",
+                contentType: "application/json",
+                url: url,
+                data: JSON.stringify(eventObj),
+                dataType: "json",
+                success: function (data) {
+                
+                },
+                error: function (data) {
+
+                }
+
+            });
+        }
+        
+       
+    </script>
+
+   
+</body>
+</html>

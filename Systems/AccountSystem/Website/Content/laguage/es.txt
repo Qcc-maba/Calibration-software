@@ -1,0 +1,31 @@
+﻿{
+
+     
+	 "Save":"guardar",
+
+
+	"UserProfile": "Perfil Del Usuario",
+	"ChangeImage":"Cambiar imagen",
+	"UserInformation":"Información Del Usuario",
+	"FirstName":"Nombre",
+	"LastName":"apellido",
+	"Email":"Correo electrónico",
+	"Phone":"teléfono",
+	"Address":"dirección",
+	"City":"ciudad",
+	"StreetName":"Nombre De La Calle",
+	"StreetNo":"Calle No'",
+	"ZipCode":"Código Postal",
+	"ChangePassword":"cambiar la contraseña",
+	"OldPassword":"contraseña anterior",
+	"NewPassword":"nueva contraseña",
+	"ConfirmPassword":"confirmar contraseña",
+	"Change":"cambio",
+    "DayOfWeek_0": "domingo",
+	"DayOfWeek_1": "lunes",
+	"DayOfWeek_2": "martes",
+	"DayOfWeek_3": "miércoles",
+	"DayOfWeek_4": "jueves",
+	"DayOfWeek_5": "viernes",
+	"DayOfWeek_6": "sábado"
+}

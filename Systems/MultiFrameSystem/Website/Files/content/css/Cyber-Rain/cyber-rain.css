@@ -1,0 +1,506 @@
+﻿.smallMainAction{
+    margin: 15px 0px 0px 7px;
+}
+.smallMainAction.devicePage{
+        margin: -15px 0px 0px 7px;
+}
+.topNevigation.topNevigationDevice{
+      margin: -146px -355px 0 0px;
+}
+.cr-zoneOnline{
+    margin-bottom: -15px;
+    width: 150px;
+    margin-top: -7px;
+}
+.onlineTableNameMargin{
+    margin-left:25px!important;
+}
+.devicePage .HugeTextFiled.Name {
+       margin-left: 27px!important;
+}
+ul.checkout-bar {
+  margin: 0px 15px 25px -18px;
+}
+ul.checkout-bar li {
+    padding: 0px 7px 25px 7px;
+}
+
+ul.checkout-bar li.first {
+  display: inline-table;
+  margin: 51px 3px 20px 5px;
+  padding: 18px 17px 16px 29px;
+  text-align: center;
+  width: 14%;
+}
+.outerOnlineLights{  
+    padding-top: 0px;
+    margin: 0px 0px 15px -7px;
+}
+.onlineLights {
+   border: 1px solid lightgrey; 
+    background: #EAF1F0;
+    display: inline-block;
+    margin: 15px 0px 0px 8px;
+    padding: 5px 5px 0px 5px;
+    border-radius: 8px;
+}
+
+.onlineLights .state {
+    display: inline-block;
+    width: 80px;
+    height: 35px;
+    box-shadow: 0 0 1px grey;
+    color: #ffffff;
+    padding: 4px 0px 0px 0px;
+}
+.onlineLights .state.active{
+     border: 1px solid #327b00; 
+     background-color: #3D9400; 
+}
+.onlineLights .state .icon{
+   font-size: 15px;
+    display: table-cell;
+    padding: 3px 0px 0px 8px;
+}
+.onlineLights .state span{
+     font-size: 16px;
+    margin: 0px 0px 0px 2px;
+}
+
+.onlineLights .oneAlert{
+    display: inline-block;
+    width: 35px;
+    height: 35px;
+    border: 2px solid whitesmoke;
+    box-shadow: 0 0 1px grey;
+    padding: 6px;
+}
+.onlineLights .oneAlert:last-child{
+    margin:0 0 0 0;
+}
+
+.onlineLights .oneAlert .icon{
+        font-size: 18px;
+    display: table-cell;
+    padding: 2px 0px 0px 1px;
+    opacity: 0.1;
+    
+}
+.cr-onlineLeft{
+    min-width:266px;
+}
+.onlineLights .oneAlert.active i{
+   opacity:1;
+}
+.onlineLights .oneAlert.pause.active i{
+    color: red;
+    font-weight:bold;
+}
+.onlineLights .oneAlert.alert.active i{
+    color: red;
+    font-weight:bold;
+}
+
+.onlineLights .oneAlert.rain.active i{
+    color: blue;
+    font-weight:bold;
+}
+.onlineLights .oneAlert.sync.active i{
+    color:orange;
+    font-weight:bold;
+    -webkit-animation: spin 1s infinite linear;
+}
+
+.myAlertSuccess {
+  padding: 10px 0px 0px 25px;
+  background: darkseagreen;
+  border-color: #3d9400;
+}
+.zt {
+    width: 30px;
+    height: 30px;
+    margin: 2px;
+    opacity: 0.1;
+}
+.setOnlineTimePlus { 
+  position: absolute;
+  margin-top: -20px;
+  margin-left: 22px;
+  color: lightgray;
+}
+.setOnlineTimeMinus {
+  position: absolute;
+  margin-top: 65px;
+  margin-left: 22px;
+  color: lightgray;
+}
+.setOnlineTime{
+    margin-left: 40%;
+    margin-top:15px; 
+}
+.leftDiv {
+    border-right: 4px solid lightgrey;
+    
+}
+.rightDiv {
+    border-left: 4px solid lightgrey;
+    
+}
+.buttonStopOnline{
+    float: right;
+    margin: 25px 0 0 0;
+}
+.colon{
+   font-size: xx-large;
+}
+.digitsOnline{
+   font-size: 20px;
+}
+.deviceLed{
+  padding: 0px 25px 10px 0px;
+  margin: -7px -7px -7px 0px;
+}
+.onlineBody{
+   max-height:453px;
+   overflow-y:auto;
+}
+.gaugeBody{
+   min-width:200px;
+}
+.Recomendation .table > thead > tr > th, .table > tbody > tr > th, .Recomendation .table > tfoot > tr > th, .Recomendation .table > thead > tr > td, .Recomendation .table > tbody > tr > td, .table > tfoot > tr > td {
+    padding: 2px;
+}
+.devicePage.weatherSmall{
+    min-height: 0;
+}
+.smallMainAction.devicePage {
+    margin: -17px 0px 0px 0px;
+}
+.weekly.table > thead > tr > th:first-child {
+    font-size: 16px;
+}
+.cr-onlineLeft.table tbody > tr > td:first-child {
+            max-width: 30px!important;
+     }
+.devicePage .minHeightWeather{
+   min-height: 25px;
+}
+.page-header.devicePage{
+    margin: 15px 7px 30px 0;
+}
+.page-header.devicePage {
+    margin: 15px 7px 30px -30px;
+}
+.input-container .unit-adviser {
+    position: absolute;
+    display: block;
+    top: 10px;
+    right: 5px;
+    color: #EA0F0F;
+    padding-left: 5px;
+    font-size: 11px;
+}
+.setHours{
+    margin: -40px 0px 0px 6px;
+    position: absolute;
+}
+.setMinutes{
+    margin: -40px 0px 0px 6px;
+    position: absolute;
+}
+.total{
+    padding: 13px 0 0 0!important;
+}
+.underline{
+  text-decoration: underline;
+}
+.showHideLink{
+    font-size:15px;
+    margin:15px;
+}
+.prevNext {
+    margin: 0px 0px 0px 7px;
+}
+.zoneImageContainer{
+   margin: 20px 0px 0px 7px;
+    position: absolute;
+}
+.zoneFlowPanel{
+   margin: 7px 0px 0px -7px;
+}
+/*.zoneSettingsPanel{
+  margin: 7px 0px 0px -7px;
+}*/
+.zoneMainImg {
+    position: relative;
+    max-width: 100%;
+    display: table;
+    width: 100%;
+    margin: 6% auto;
+    
+}
+
+.zoneIdBeforeName .HugeTextFiled.Name {
+        margin-left: 0px!important;
+}
+.zoneMainImgContainer {
+       width: 100%;
+    background: #615f6b;
+    padding: 7px;
+    margin-bottom: 15px;
+    margin-left: 0px;
+    border-radius: 6px;
+}
+.staticImageOnline{
+    margin-top: 15px;
+}
+.gaugeWraper tbody > tr > td {
+     border-top: none!important;
+}
+.zoneTab{
+    margin-top:55px!important;
+}
+.borderDivScroll{
+  padding: 5px;
+  max-height: 132px;
+  height: 132px;
+  overflow-y: auto;
+  margin-bottom: 15px;
+  position: relative;
+}
+.SuggestionSmallDivImg {
+   width: 75px;
+  height: 48px;
+}
+.wizaradSaggestionValue {
+  width: 227px;
+}
+.zoneImage {
+    height: 355px;
+    width: 100%;
+}
+.wizardTopMargin{
+    padding-top: 26%;
+}
+.IrrigationByZoneModal{
+  height: 300px;
+  overflow-y: auto;
+}
+.buttonSaveSchedualClose{
+    margin: 0px 0px -25px 0;
+}
+.buttonSaveSchedualOpen{
+    margin: 0px 0px 10px 0;
+}
+.mngsPanel{
+    height: 270px;
+   overflow-y: auto;
+}
+.zoneimgRow2{
+   height: 380px;
+}
+.zoneSettings{
+    height:329px;
+}
+.delByDay {
+    margin: 0px 7px 10px 1px;
+    width: 20px;
+    height: 20px;
+    padding: 0px 0px 0px 0!important;
+}
+.gaugeWraper{
+    display: table;
+    margin: 0 auto;
+}
+.statsMinWidth{
+   min-width: 113px;
+}
+.setTimeContainer {
+    padding: 15px 0px 0px 0px;
+    display: table;
+    margin: 0px auto;
+}
+.setTimeContainer .upDownContainer{
+    display:inline-block;
+    color:black;
+    margin: 0 0 0 7px;
+}
+.setTimeContainer .upDownContainer:first-child{
+    margin:0;
+}
+.imageOnlineMarginTop {
+    margin-top: -15px!important;
+}
+.setTimeContainer .upDownContainer .upDownSign{
+    margin: 10px 0px 10px 10px;
+    color: #569099;
+    cursor: pointer;
+    font-size: 20px;
+}
+.setTimeContainer .upDownContainer .dotaim{
+    margin: 0px 0 0 -5px;
+}
+.setTimeText{
+    width: 35px;
+    text-align: center;
+}
+.setTimeModal {
+    max-width: 320px;
+    display: table;
+    margin: 50px auto;
+        background: #d4d7d8!important;
+}
+.setTimeModal .modal-body{
+    background:transparent;
+}
+.upDownContainer .timeWheel{
+    font-size:12px;
+}
+.marginBotton15{
+    margin-bottom:15px!important;
+}
+
+
+
+/*zoneImage*/
+.image-upload{
+      margin: 0px 0px 0px 10px;
+    
+}
+.image-upload .ImageInside{
+  width:100%;
+}
+.image-upload label {
+    font-weight: normal;
+    cursor: pointer;
+    background: #eee;
+    max-width: 350px;
+    padding: 7px;
+}
+.image-upload > input
+{
+    display: none;
+}
+.image-upload:hover
+{
+    cursor:pointer;
+}
+.ImageInside:hover + .pen{
+   display:block;  
+}
+
+.image-upload .pen{
+    position: absolute;
+    width: 65px;
+    height: 25px;
+    background: rgba(51, 51, 51, 0.36);
+    padding: 7px 0px 0px 7px;
+    display: none;
+    color: white;
+        top: 7px;
+}
+.loadingContainer{
+    
+}
+.loadingContainer .loadingBar {
+    height: 7px;
+    width: 100%;
+    border-radius: 3px;
+    border: 1px solid lightgrey;
+    background: #eee;
+}
+.loadingContainer .loadingBar .fill{
+    height: 5px;
+    width: 0px;
+    border-radius: 2px;
+    background: grey;
+}
+.loadingContainer .precent{
+   display:table;
+   margin:0 auto;
+   font-size:18px;
+}
+.zoneFixLoadingImage{
+    margin: -12px 0px 0px 5px;
+    position: absolute;
+    width: 216px;
+    display:none;
+}
+
+/*   / zoneImage*/
+
+
+
+
+@-moz-keyframes spin {
+    from { -moz-transform: rotate(0deg); }
+    to { -moz-transform: rotate(360deg); }
+}
+@-webkit-keyframes spin {
+    from { -webkit-transform: rotate(0deg); }
+    to { -webkit-transform: rotate(360deg); }
+}
+@keyframes spin {
+    from {transform:rotate(0deg);}
+    to {transform:rotate(360deg);}
+}
+
+@media (max-width: 768px) {
+ 
+.page-header.devicePage {
+       margin: 15px 7px 30px -10px;
+}
+.smallMainAction.devicePage {
+    margin: -17px 0px 0px 0px;
+}
+.zoneMainImgContainer {
+    width: 100%;
+}
+.devicePage .HugeTextFiled.Name {
+       margin-left: 7px!important;
+}
+
+   
+}
+@media (max-width: 550px) {
+       .smallMainAction.devicePage {
+        margin: 10px 0px 0px -10px;
+        position: absolute;
+}
+
+     .cr-zoneOnline {
+        margin-bottom: -15px;
+        width: 0px;
+        margin-top: -15px;
+     }
+
+    .devicePage.weatherSmall .smallWeatherRight {
+            margin: -10px 50px 0px 0px;
+             width: 150px;
+    }
+    .devicePage.weatherSmall {
+    min-height: 50px;
+}
+    .zoneIdBeforeName{
+        display:none;
+    }
+ 
+}
+
+@media (max-width: 450px) {
+      .onlineTableNameMargin{
+    margin-left:15px;
+}
+     .cr-onlineLeft.table tbody > tr > td:first-child {
+        display:none;
+     }
+  
+    .imageZoneSmallPreview {
+  
+        width: 80%;
+        display: table;
+        margin: 0 auto;
+}
+ 
+}
+

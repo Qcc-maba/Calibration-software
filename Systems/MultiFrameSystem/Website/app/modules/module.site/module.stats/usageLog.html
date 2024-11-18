@@ -1,0 +1,140 @@
+﻿
+
+   
+   
+   
+    <div class="row">
+        <div class="col-md-12 btn-group space15">
+            <a data-toggle="dropdown" class="btn btn-med-grey dropdown-toggle ladda-button statsDropDown" ladda="ladda.usageLoad" data-style="expand-right" data-spinner-size="30">
+                {{logsBy}} <span class="caret"></span>
+            </a>
+
+            <ul class="dropdown-menu" role="menu">
+                <li role="presentation" ng-click="GetDates('Top')" >
+
+
+                    {{'G_TOP'| translate}}
+
+                </li>
+                <li role="presentation" ng-click="GetDates('lastYear')" >
+
+
+                    {{'G_LAST_YEAR'| translate}}
+
+                </li>
+                <li role="presentation" ng-click="GetDates('lastMonth')" >
+
+
+
+                    {{'G_LAST_MONTH'| translate}}
+
+                </li>
+                <li role="presentation" ng-click="GetDates('lastWeek')" >
+
+
+                    {{'G_LAST_WEEK'| translate}}
+
+                </li>
+                <li role="presentation" ng-click="GetDates('Costom')" >
+
+                    {{'G_CUSTOM'| translate}}
+
+                </li>
+
+            </ul>
+            
+            <button class="btn btn-dark-grey ng-pristine ng-valid ng-touched " ng-click="createUsageCsvFile()" ><i class="clip-file-2"></i> | {{'G_EXPORT_CSV'|translate}}</button>
+           
+
+
+           
+        </div>
+        
+</div>
+        
+        <div class="row" ng-if="costom">
+    <div class="col-lg-2 col-md-4 col-xs-12">
+        <div class="input-group date">
+            <input type="text" ng-model="CostomDate.startStr" ng-change="UnixTime(CostomDate.startStr , 0)" class="form-control date-picker ng-pristine ng-untouched ng-valid dateTextFiled" placeholder="{{'G_START_DATE' | translate }}" date-picker-directive="" readonly>
+            <span class="input-group-addon"> <i class="fa fa-calendar"></i> </span>
+        </div>
+        <br />
+
+    </div>
+    <div class="col-lg-2 col-md-4 col-xs-12">
+        <div class="input-group date">
+            <input type="text" ng-model="CostomDate.endStr" ng-change="UnixTime(CostomDate.endStr , 1)" class="form-control date-picker ng-pristine ng-untouched ng-valid dateTextFiled" placeholder="{{'G_END_DATE' | translate}}" date-picker-directive="" readonly>
+            <span class="input-group-addon"> <i class="fa fa-calendar"></i> </span>
+        </div>
+        <br />
+
+
+    </div>
+
+    <div class="col-lg-2 col-md-4 col-xs-12">
+
+        <button class="btn btn-dark-grey ng-pristine ng-valid ng-touched textFiledMargin ladda-button" ng-click="filter()" ladda="ladda.filter" data-style="expand-right" data-spinner-size="30"><i class="fa fa-filter"></i> | {{'G_FILTER'|translate}}</button>
+
+    </div>
+</div>
+
+
+  <div class="table-responsive-stats">
+    <table class="table table-striped table-hover" id="sample-table-3">
+        <thead>
+            <tr>
+                <th>{{'G_ID' | translate}}</th>
+                <th class="statsMinWidth">{{'G_DATE' | translate}}</th>
+                <th class="statsMinWidth" ng-if="usageLog.metadata.showDevice">{{'MF_G_DEVICE_NAME' | translate}}</th>
+                <th class="statsMinWidth">{{'MF_SITE_STATS_STATUS' | translate}}</th>
+                <th class="statsMinWidth">{{'MF_G_ZONE_NAME' | translate}}</th>
+                <th class="statsMinWidth" ng-if="usageLog.metadata.showProgram">{{'MF_SITE_STATS_PROGRAM' | translate}}</th>
+                <th class="statsMinWidth">{{'MF_SITE_STATS_DURATION' | translate}}</th>
+                <th class="statsMinWidth">{{'MF_SITE_STATS_QUANTITY' | translate}}</th>
+                <th class="statsMinWidth">{{'G_SAVING' | translate}}</th>
+                <th class="statsMinWidth" ng-if="usageLog.metadata.showFlow">{{'MF_SITE_STATS_FLOW' | translate}}</th>
+                <th class="statsMinWidth" ng-if="usageLog.metadata.showOdometer">{{'MF_SITE_STATS_ODOMETER' | translate}}</th>
+                <th class="statsMinWidth" ng-if="usageLog.metadata.showFertilizer">{{'MF_SITE_STATS_FERTILIZER' | translate}}</th>
+                <th class="statsMinWidth">{{'G_COMMENT' | translate}}</th>
+
+            </tr>
+        </thead>
+
+        <tbody role="alert" aria-live="polite" aria-relevant="all">
+            <tr ng-repeat="tb in usageLog.records track by $index">
+
+                <td>{{tb.id}}</td>
+                <td class="statsMinWidth">{{tb.recordDate | date : "medium" : "UTC" }}</td>
+                <td class="statsMinWidth" ng-if="usageLog.metadata.showDevice">{{tb.device}}</td>
+                <td class="statsMinWidth">{{tb.status}}</td>
+                <td class="statsMinWidth">{{tb.zoneName}}</td>
+                <td class="statsMinWidth" ng-if="usageLog.metadata.showProgram">{{tb.programName}}-{{tb.program}}</td>
+                <td class="statsMinWidth">{{tb.duration | secToStr}}</td>
+                <td class="statsMinWidth">{{tb.quantity}}</td>
+                <td class="statsMinWidth">{{tb.saving}}%</td>
+                <td class="statsMinWidth" ng-if="usageLog.metadata.showFlow">{{tb.flow | flowFilter: tb.flowType }}</td>
+                <td class="statsMinWidth" ng-if="usageLog.metadata.showOdometer">{{tb.odometer}}</td>
+                <td class="statsMinWidth" ng-if="usageLog.metadata.showFertilizer">{{tb.fertilizer}}</td>
+                <td class="statsMinWidth">{{tb.Comment}}</td>
+
+            </tr>
+        </tbody>
+    </table>
+    <div ng-if="pagerFlag" paging comm="usageConnector"></div>
+</div>
+  
+       
+
+
+
+
+
+
+
+
+
+
+
+
+
+

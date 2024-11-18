@@ -1,0 +1,355 @@
+﻿
+<div class="row">
+    <div class="col-lg-3 col-md-3 col-xs-9 zoneIdBeforeName">
+        <div class="page-header colMarginLeft">
+            <span class="colMarginLeft">{{zoneId}} / </span>
+            <input type="text" class="HugeTextFiled Name inZone ng-pristine ng-valid ng-touched colMarginLeft font17" ng-model="zone.name" select-on-click="" edit-input-text="changeZoneName(deviceId,zoneId,zone.name)"><input type="button" class="editGo" value="GO" style="display: none;"><a><i pen class="fa fa-pencil edit-user-info"></i></a>
+            <br />
+        </div>
+    </div>
+    <div class="col-lg-9 col-md-9 col-xs-3">
+        <div class="page-header">
+            <table class="table cr-zoneOnline">
+                <tbody>
+                    <tr>
+                        <td class="firstRow">
+
+                            <button ng-if="!timeLeftStr" class="btn btn-green" data-toggle="modal" data-target="#setZoneTimeZonePage" data-backdrop="false"><i class="fa fa-youtube-play"></i></button>
+                            <button ng-if="timeLeftStr" class="btn btn-primary" ng-click="startManualOperation()"><i class="fa fa-stop"></i></button>
+                        </td>
+                        <td class="firstRow">
+                            <div class="digitsOnline" ng-if="timeLeft_Sec>0">{{timeLeftStr}}</div>
+                            <a ng-if="timeLeftStr" data-toggle="modal" data-target="#setZoneTimeZonePage" data-backdrop="false">update</a>
+                        </td>
+
+
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<hr />
+<div class="row">
+    <div class="col-lg-4 col-md-5 col-xs-12">
+        
+        <div class="row">
+            <div class="imageZoneSmallPreview">
+                <div class="image-upload centerDiv marginBotton15">
+                    <label for="file-input">
+
+                        <img class="ImageInside" ng-src="{{zone.imageURI}}" alt="">
+                        <i class="clip-pencil-3 pen"><span class="colMarginLeft">{{'G_EDIT'|translate}}</span></i>
+                    </label>
+
+                    <input id="file-input" type="file" class="margintop15" multiple ng-simple-upload web-api-url="{{imgUrl}}" callback-an="myANCallback" callback-fn="myCallback" callback-progress="progress">
+                    <div class="loadingContainer zoneFixLoadingImage">
+                        <div class="loadingBar">
+                            <div class="fill">
+
+                            </div>
+                        </div>
+                        <div class="precent">0%</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+   
+            <div class="col-lg-12 col-md-12 col-xs-12">  <!--zoneFlowPanel-->
+                <form name="zoneFlowSennsor">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <i class="clip-settings"></i>
+                            {{'MF_DEVICE_ZONES_FLOW_SENSOR_SETTING' | translate}}
+                            <div class="panel-tools">
+                                <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                                <span data-toggle="tooltip" title="{{'ZONE_FLOW_SENSOR_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="ZONE_FLOW_SENSOR_QUESTION"></i></span>
+                            </div>
+                        </div>
+                        <div class="panel-body ">
+                            <div class="table-responsive containerSaveButtonMargin">
+                                <table class="table table-hover">
+                                    <tbody>
+                                        <tr>
+                                            <td class="firstRow">{{'MF_DEVICE_ZONES_THRESHOLD_OVER_FLOW' | translate}}:</td>
+                                            <td class="firstRow">
+
+                                                <div class="input-container bigTextFiled pull-right">
+                                                    <input name="thresholdOverFlow" id="thresholdOverFlow" type="number" min="0" max="100" required ng-model="flowSensorSettings.thresholdOverFlow" class="field left bigTextFiled pull-right">
+                                                    <span class="unit ng-binding">%</span>
+                                                </div>
+                                                <br />
+                                                <br />
+
+                                                <div class="validationMsg pull-right" ng-messages="zoneFlowSennsor.thresholdOverFlow.$error" ng-show="zoneFlowSennsor.thresholdOverFlow.$touched" >
+                                                    <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                                    <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                                    <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{'MF_DEVICE_ZONES_THRESHOLD_UNDER_FLOW' | translate}}:</td>
+                                            <td>
+
+                                                <div class="input-container bigTextFiled pull-right">
+                                                    <input type="number" name="thresholdUnderFlow" id="thresholdUnderFlow" min="0" max="100" required ng-model="flowSensorSettings.thresholdUnderFlow" class="field left bigTextFiled pull-right">
+                                                    <span class="unit ng-binding">%</span>
+                                                </div>
+                                                <br />
+                                                <br />
+
+                                                <div class="validationMsg pull-right" ng-messages="zoneFlowSennsor.thresholdUnderFlow.$error" ng-show="zoneFlowSennsor.thresholdUnderFlow.$touched">
+                                                    <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                                    <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                                    <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{'MF_DEVICE_ZONES_TIME_FILL_DELAY' | translate}}:</td>
+                                            <td>
+
+                                                <div class="input-container bigTextFiled pull-right">
+                                                    <input type="number" min="0" max="100" required ng-model="flowSensorSettings.timeFillDelay" name="timeFillDelay" id="timeFillDelay" class="field left bigTextFiled pull-right">
+                                                    <span class="unit ng-binding">s</span>
+                                                </div>
+                                                <br />
+                                                <br />
+
+                                                <div class="validationMsg pull-right" ng-messages="zoneFlowSennsor.timeFillDelay.$error" ng-show="zoneFlowSennsor.timeFillDelay.$touched">
+                                                    <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                                    <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                                    <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{'MF_DEVICE_ZONES_NOMINAL_FLOW' | translate}}:</td>
+                                            <td>
+
+
+                                                <div class="input-container bigTextFiled pull-right">
+                                                    <input type="number" name="nominalFlow" id="nominalFlow" min="0" max="100" required ng-model="flowSensorSettings.nominalFlow" class="field left bigTextFiled pull-right">
+                                                    <span class="unit ng-binding">{{'MF_DEVICE_ZONES_GPM' | translate}}</span>
+                                                </div>
+                                                <br />
+                                                <br />
+                                                <a class="pull-right" ng-click="flowSensorSettings.nominalFlow = flowSensorSettings.lastObservedFlow">{{'G_COPY' | translate}}</a>
+
+                                                <br />
+                                                <br />
+
+                                                <div class="validationMsg pull-right" ng-messages="zoneFlowSennsor.nominalFlow.$error" ng-show="zoneFlowSennsor.nominalFlow.$touched">
+                                                    <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                                    <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                                    <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{'MF_DEVICE_ZONES_LAST_OBSERVED_FLOW' | translate}}:</td>
+
+                                            <td>
+                                                <div class="input-container bigTextFiled pull-right">
+                                                    <input type="text" ng-model="flowSensorSettings.lastObservedFlow" class="field left bigTextFiled pull-right" readonly>
+                                                    <span class="unit ng-binding">{{'MF_DEVICE_ZONES_GPM' | translate}}</span>
+                                                </div>
+
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <button class="btn btn-dark-grey pull-right btnFix ladda-button fixSavePosition" ng-click="SaveflowSensorSettings(zoneFlowSennsor.$valid)" ladda="ladda.flow" data-style="expand-right" data-spinner-size="30">
+                                <i class="fa fa-save"></i> | {{'G_SAVE' | translate}}
+                            </button>
+                        </div>
+                    </div>
+                </form>  
+            </div>
+            
+       
+        
+            <div class="col-lg-12 col-md-12 col-xs-12 zoneSettingsPanel">
+                <form name="zoneSettings">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <i class="clip-settings"></i>
+                            {{'G_SETTINGS' | translate}}
+                            <div class="panel-tools">
+                                <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                                <span data-toggle="tooltip" title="{{'ZONE_SETTINGS_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="ZONE_SETTINGS_QUESTION"></i></span>
+                            </div>
+                        </div>
+                        <div class="panel-body">
+                            <div class="table-responsive containerSaveButtonMargin">
+                                <table class="table table-hover">
+                                    <tbody>
+                                        <tr>
+                                            <td class="firstRow">{{'G_ACTIVE'| translate}}:</td>
+                                            <td class="firstRow">
+                                                <div class="make-switch has-switch pull-right" data-on="default" data-off="primary">
+                                                    <div class="switch-animate switch-off" ng-class="settings.isEnabled ? 'switch-on' : 'switch-off'" ng-click="settings.isEnabled=!settings.isEnabled">
+                                                        <input type="checkbox" ng-model="settings.isEnabled" checked="" class="ng-pristine ng-untouched ng-valid"><span class=" switch-left switch-default">{{'G_ON'| translate}}</span><label>&nbsp;</label><span class="switch-right switch-primary">{{'G_OFF'| translate}}</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{'MF_DEVICE_ZONES_FACTOR'| translate}}:</td>
+                                            <td>
+                                                <div class="input-container bigTextFiled pull-right">
+                                                    <input type="number" min="0" max="100" required name="irrigationFactor" ng-model="settings.irrigationFactor" class="field left bigTextFiled ng-pristine ng-valid ng-touched pull-right">
+                                                    <span class="unit ng-binding">%</span>
+                                                </div>
+                                            
+                                                <br />
+                                                <br />
+
+                                                <div class="validationMsg pull-right" ng-messages="zoneSettings.irrigationFactor.$error" ng-show="zoneSettings.irrigationFactor.$touched">
+                                                    <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                                    <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                                    <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                                </div></td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{'MF_DEVICE_ZONES_USE_WEATHER'| translate}}:</td>
+                                            <td>
+                                                <div class="make-switch has-switch pull-right" data-on="default" data-off="primary">
+                                                    <div class="switch-animate switch-off" ng-class="settings.userWeatherSavingAlgorithm ? 'switch-on' : 'switch-off'" ng-click="settings.userWeatherSavingAlgorithm=!settings.userWeatherSavingAlgorithm">
+                                                        <input type="checkbox" ng-model="settings.userWeatherSavingAlgorithm" checked="" class="ng-pristine ng-untouched ng-valid"><span class=" switch-left switch-default">{{'G_ON'| translate}}</span><label>&nbsp;</label><span class="switch-right switch-primary">{{'G_OFF'| translate}}</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{'MF_DEVICE_ZONES_WIRE_COLOR'| translate}}:</td>
+                                            <td><input colorpicker="hex" type="text" ng-style="{background:settings.wireColor}" ng-model="settings.wireColor" class="bigTextFiled pull-right"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <button class="btn btn-dark-grey pull-right btnFix ladda-button fixSavePosition" ladda="ladda.settings" ng-click="saveSettings(zoneSettings.$valid)" data-style="expand-right" data-spinner-size="30">
+                                <i class="fa fa-save"></i> | {{'G_SAVE' | translate}}
+                            </button>
+                        </div>
+
+                    </div>
+                  </form>
+
+</div>
+  
+        
+    </div>
+
+    <div class="col-lg-6 col-md-7 col-xs-12"> <!--zoneRightCol-->
+        <form name="sceduling">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <i class="clip-leaf"></i>
+                    {{'MF_DEVICE_ZONES_SCHEDULING'| translate}}
+                    <div class="panel-tools">
+                        <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                        <span data-toggle="tooltip" title="{{'ZONE_ADVISOR_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="ZONE_ADVISOR_QUESTION"></i></span>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <p>
+                        {{'MF_DEVICE_ADVISER_NOT' | translate}}
+                    </p>
+                    <div adviser-directive comm="adviserConnector"></div>
+                </div>
+            </div>
+
+
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <i class="clip-calendar-2"></i>
+                    {{'MF_DEVICE_ZONES_SCHEDULE' | translate}}
+                    <div class="panel-tools">
+                        <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                        <span data-toggle="tooltip" title="{{'ZONE_SCHEDULE_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="ZONE_SCHEDULE_QUESTION"></i></span>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <p>
+
+
+                        {{'MF_G_SCHEDUAL_QUESTION' | translate}}.
+                    </p>
+                    <div class="space15" ng-if="scheduleView.scheduleType == 'Weekly'" irrigation-by-zone scheduleview="scheduleView" comm="scheduleConnector" page="zones" ng-model="refreshTable"></div>
+                    <div class="space15" ng-if="scheduleView.scheduleType == 'Odd' || scheduleView.scheduleType == 'Even'" zone-odd-even scheduleview="scheduleView" comm="OddEvenConnector" ng-model="refreshTable"></div>
+                    <!--<div class="col-md-12 col-lg-12 col-xs-12">
+                    <div class="pull-right">
+                        <br />
+                        <span class="lineAbove">{{scheduleView.totalWeeklyMinutes}} {{'G_MINUTES' | translate}}</span>
+                    </div>
+                </div>-->
+
+                    <table class="table containerSaveButtonMargin">
+                        <tbody>
+                            <tr>
+                                <td class="firstRow">{{'MF_DEVICE_ZONES_SOACK_TIME'| translate}}:</td>
+                                <td class="firstRow">
+
+                                    <div class="input-container bigTextFiled pull-right">
+                                        <input type="number" min="0" max="100" required name="maxSoakTime" ng-model="scheduleView.maxSoakTime" class="field left bigTextFiled" />
+                                        <span class="unit">{{'G_MINUTES'|translate}}</span>
+                                    </div>
+                                    <br />
+                                    <br />
+
+                                    <div class="validationMsg pull-right" ng-messages="sceduling.maxSoakTime.$error" ng-show="sceduling.maxSoakTime.$touched">
+                                        <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                        <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:100} }}</div>
+                                        <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                    </div>
+
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="firstRow">{{'MF_DEVICE_ZONES_MAXIMUM_CYCLE'| translate}}:</td>
+                                <td class="firstRow">
+
+                                    <div class="input-container bigTextFiled pull-right">
+                                        <input type="number" min="0" max="100" required name="maxCycleTime" ng-model="scheduleView.maxCycleTime" class="field left bigTextFiled" />
+                                        <span class="unit">{{'G_MINUTES'|translate}}</span>
+                                    </div>
+                                    <br />
+                                    <br />
+
+                                    <div class="validationMsg pull-right" ng-messages="sceduling.maxCycleTime.$error" ng-show="sceduling.maxCycleTime.$touched">
+                                        <div ng-message="min">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:10} }}</div>
+                                        <div ng-message="max">{{'G_F_V_NUM_IN_RANGE' | translate: {low:0 ,height:10} }}</div>
+                                        <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <button class="btn btn-dark-grey pull-right btnFix ladda-button fixSavePosition" ng-click="saveTableIrrigationByZone(sceduling.$valid)" ladda="ladda.schedule" data-style="expand-right" data-spinner-size="30"><i class="fa fa-save"></i> | {{'G_SAVE' | translate}}</button>
+
+
+
+                </div>
+
+            </div>
+        </form> 
+    </div>
+</div> 
+
+
+
+<div class="row">
+    <div ng-if="bbb" id="bigImage" class="modal" image-settings ng-model="zone.imageURI"></div>
+</div>
+<!--//*************************************************************************************************************************-->
+<div id="setZoneTimeZonePage" class="modal">
+    <div class="modal-content setTimeModal">
+        <div class="modal-header"><span>{{'MF_DEVICE_ONLINE_SET_TIME' | translate}}:</span><span class="colMarginLeft fontSizeMed">{{zone.name}}</span></div>
+        <div set-time callback="startManualOperation"></div>
+    </div>
+</div>
+<!------------------------------------------------------------------------------------------------------->

@@ -1,0 +1,56 @@
+﻿<div class="row">
+    <ol class="breadcrumb">
+        <a class="pull-right boxAppAdmin" ng-click="nevigateTo()"><i class="clip-grid-3"></i></a>
+
+    </ol>
+    <div class="col-lg-12 col-md-12">
+        <div class="page-header">
+            <h1>{{'ADMIN_ACCOUNT_USERS_USERS'|translate}}</h1>
+          
+        </div>
+        <div class="wrapper HugeTextFiled space15">
+            <i class="fa fa-search fa-icon"></i>
+            <input type="text" ng-model="search" ng-model-options="{debounce: 1500}" placeholder="{{'ADMIN_ACCOUNT_USERS_SEARCH_USERS'|translate}}" id="form-field-mask-3" class="form-control input-mask-product">
+        </div>
+
+        <div class="table-responsive deviceList" ng-if="users">
+            <table class="table table-striped table-hover" id="sample-table-3">
+                <thead>
+                    <tr>
+                        <th>{{'G_EMAIL'|translate}}</th>
+                        <th>{{'G_EMAIL_COMFIRM'|translate}}</th>
+                        <th>{{'ADMIN_ACCOUNT_USERS_USER_NAME'|translate}}</th>
+                        <th >{{'ADMIN_ACCOUNT_G_FIRST_NAME'|translate}}</th>
+                        <th >{{'ADMIN_ACCOUNT_G_LAST_NAME'|translate}}</th>
+                        <th >{{'ADMIN_ACCOUNT_USERS_CREATION'|translate}}</th>
+                        <th >{{'ADMIN_ACCOUNT_USERS_IS_LOCKED'|translate}}</th>
+                        <th >{{'ADMIN_ACCOUNT_USERS_UPDATE_DATE'|translate}}</th>
+                        <th>{{'ADMIN_ACCOUNT_USERS_CULTURE_CODE'|translate}}</th>
+                        <th>{{'ADMIN_ACCOUNT_USERS_ACTUAL_OFFSET'|translate}}</th>
+                        <th>{{'ADMIN_ACCOUNT_USERS_LOCKOUT_ENABLED'|translate}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr ng-repeat="tb in users track by $index">
+                        <td ><a ui-sref="admin.user({email:tb.email})">{{tb.email}}</a></td>
+                        <td>{{tb.emailConfirmed}}</td>
+                        <td>{{tb.userName}}</td>
+                        <td >{{tb.firstName}}</td>
+                        <td >{{tb.lastName}}</td>
+                        <td >{{tb.creationDate | date : "medium" : "UTC" }}</td>
+                        <td >{{tb.lockoutEnabled}}</td>
+                        <td>{{tb.updateDate | date : "medium" : "UTC"}}</td>
+                        <td>{{tb.cultureCode}}</td>
+                        <td>{{tb.actualOffset}}</td>
+                        <td>{{tb.lockoutEnabled}}</td>
+                    </tr>
+
+                </tbody>
+            </table>
+
+        </div>
+
+        <div class="menuePager" ng-if="pagerFlag" paging comm="paginationConector"></div>
+    </div>
+</div>
+

@@ -1,0 +1,48 @@
+{
+  "Weather_Settings": {
+    "WProviders": [
+      {
+        "ProviderName": "Wunderground_v2",
+        "Key": "22a8ee789d202b92d531654126a76e68",
+        "Icons_URL": "https://cdn-common-public.Maba-smart.com/WeatherIcons/{0}"
+      }
+    ]
+  },
+  "WeatherConnectorSettings": {
+    "Index_WeeklyIndex_Name": "forecasts_weekly_dwh",
+    "Index_DailyIndex_Name": "forecasts_daily_dwh",
+    "DistanceKM": 2,
+    "Server_URL": "http://localhost:9200",
+    "MaxIndexsMultiSearch": 10,
+    "RollingIndexFormat": 1
+  },
+  "KnownDeviceTypes": [
+    {
+      "DeviceTypeName": "Hydra2",
+      "SN_Pattern": "^(\\d{16}|Hydra20(\\d|[a-z]|A-Z]){4}\\d{8})$",
+      "SN_Examples": [
+        "0000000000000001",
+        "Hydra20abcd00000001"
+      ],
+      "Remote_API_URL": null
+    },
+    {
+      "DeviceTypeName": "XCI",
+      "SN_Pattern": "^XCIW(\\d|[a-z]|A-Z]){4}\\d{8}$",
+      "SN_Examples": [
+        "XCIWbdca00000001",
+        "XCIWb3ca00000001"
+      ],
+      "Remote_API_URL": "http://online.Maba-smart.com/XCI"
+    },
+    {
+      "DeviceTypeName": "XCI-WIFI",
+      "SN_Pattern": "^XCIR(\\d|[a-z]|A-Z]){4}\\d{8}$",
+      "SN_Examples": [
+        "XCIRbdfa00000001",
+        "XCIRb4fa00000001"
+      ],
+      "Remote_API_URL": "http://online.Maba-smart.com/XCI"
+    }
+  ]
+}

@@ -1,0 +1,271 @@
+﻿
+<div class="page-header">
+    <h1 >{{"ADMIN_ACCOUNT_PROFILE_USER_PROFILE" | translate}}</h1>
+</div>
+
+
+
+    <div ng-if="userData" class="profile">
+
+        <div class="col-lg-2 col-md-3 col-xs-12 col-lg-offset-1">
+
+
+            <div class="image-upload">
+                <label for="file-input">
+
+                    <img class="PersonProfileImageInside" ng-src={{userData.imgURL}} alt=""> 
+                    <i class="clip-pencil-3 pen"><span class="colMarginLeft">{{"G_EDIT" | translate}}</span></i>
+   
+                </label>
+
+                <input id="file-input" type="file" class="margintop15" multiple ng-simple-upload web-api-url="{{imgUrl}}" callback-an="myANCallback" callback-fn="myCallback" callback-progress="progress">
+            </div>
+            <div class="loadingContainer profileFixLoadingImage">
+                <div class="loadingBar">
+                    <div class="fill">
+
+                    </div>
+                </div>
+                <div class="precent">0%</div>
+            </div>
+        </div>
+
+        <div class="col-lg-5 col-md-7 col-xs-12 col-lg-offset-1 col-md-offset-1">
+            <form name="profileForm" class="profileForm" novalidate>
+
+
+                <div class="form-group">
+                    <label class="control-label">{{"ADMIN_ACCOUNT_G_FIRST_NAME" | translate}}</label>
+                    <div class="validationMsg" ng-messages="profileForm.firstname.$error" ng-if="validation.profile">
+                        <div ng-message="minlength">{{'G_F_V_MIN_LENGTH' | translate : {count:2} }}</div>
+                        <div ng-message="required">{{"G_F_V_REQUIRED" | translate}}</div>
+
+                    </div>
+                    <input type="text" ng-model="userData.firstName" class="form-control" id="firstname" name="firstname" ng-minlength="2" required>
+                </div>
+                <div class="form-group">
+                    <label class="control-label">{{"ADMIN_ACCOUNT_G_LAST_NAME" | translate}}</label>
+                    <div class="validationMsg" ng-messages="profileForm.lastname.$error" ng-if="validation.profile">
+                        <div ng-message="minlength">{{'G_F_V_MIN_LENGTH' | translate : {count:2} }}</div>
+                        <div ng-message="required">{{"G_F_V_REQUIRED" | translate}}</div>
+
+                    </div>
+                    <input type="text" ng-model="userData.lastName" class="form-control" id="lastname" name="lastname" ng-minlength="2" required>
+                </div>
+                <div class="form-group">
+                    <label class="control-label">{{"G_EMAIL" | translate}}</label>
+                    <div class="validationMsg" ng-messages="profileForm.email.$error" ng-if="validation.profile">
+                        <div ng-message="required">{{"G_F_V_NOT_VALID" | translate}}</div>
+                        <div ng-message="required">{{"G_F_V_REQUIRED" | translate}}</div>
+
+                    </div>
+                    <input type="email" ng-model="userData.email" class="form-control" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label class="control-label">{{"ADMIN_ACCOUNT_G_USER_PHONE" | translate}}</label>
+                    <div class="validationMsg" ng-messages="profileForm.phone.$error" ng-if="validation.profile">
+                        <!--<div ng-message="required">{{"G_F_V_NOT_VALID" | translate}}</div>-->
+                        <div ng-message="pattern">{{"G_F_V_NOT_VALID" | translate}}</div>
+
+                    </div>
+                    <input type="text" ng-model="userData.phone" class="form-control" id="phone" name="phone" ng-pattern="/^[ ()+]*([0-9][ ()+]*){10}/">
+                </div>
+
+                <div class="form-group">
+                    <label class="control-label">{{"ADMIN_ACCOUNT_PROFILE_COUNTRY" | translate}}</label>
+                    <div class="validationMsg" ng-messages="profileForm.Country.$error" ng-if="validation.profile">
+                        <!--<div ng-message="required">{{"G_F_V_REQUIRED" | translate}}</div>-->
+                        <div ng-message="pattern">{{"G_F_V_START_LETTERS" | translate}}</div>
+                        <div ng-message="minlength">{{'G_F_V_MIN_LENGTH' | translate : {count:3} }}</div>
+                    </div>
+                    <input type="text" ng-model="userData.country" class="form-control" name="Country" id="Country" ng-pattern="/^[a-zA-Z]+(?:(?:\\s+|-)[a-zA-Z]+)*/" >
+                </div>
+                <div class="form-group">
+                    <label class="control-label">{{"ADMIN_ACCOUNT_PROFILE_CITY" | translate}}</label>
+                    <div class="validationMsg" ng-messages="profileForm.City.$error" ng-if="validation.profile">
+                        <!--<div ng-message="required">{{"G_F_V_REQUIRED" | translate}}</div>-->
+                        <div ng-message="pattern">{{"G_F_V_START_LETTERS" | translate}}</div>
+                        <div ng-message="minlength">{{'G_F_V_MIN_LENGTH' | translate : {count:3} }}</div>
+
+                    </div>
+                    <input type="text" ng-model="userData.city" class="form-control" name="City" id="City" ng-pattern="/^[a-zA-Z]+(?:(?:\\s+|-)[a-zA-Z]+)*/">
+                </div>
+                <div class="form-group">
+                    <label class="control-label">{{"ADMIN_ACCOUNT_PROFILE_STREET_NAME" | translate}}</label>
+                    <div class="validationMsg" ng-messages="profileForm.Street.$error" ng-if="validation.profile">
+                        <!--<div ng-message="required">{{"G_F_V_REQUIRED" | translate}}</div>-->
+                        <div ng-message="pattern">{{"G_F_V_START_LETTERS" | translate}}</div>
+                        <div ng-message="minlength">{{'G_F_V_MIN_LENGTH' | translate : {count:3} }}</div>
+
+                    </div>
+                    <input type="text" ng-model="userData.streetName" class="form-control" name="Street" id="Street" ng-pattern="/^[a-zA-Z]+(?:(?:\\s+|-)[a-zA-Z]+)*/">
+                </div>
+                <div class="form-group">
+                    <label class="control-label">{{"ADMIN_ACCOUNT_PROFILE_STREET_NO" | translate}}</label>
+                    <div class="validationMsg" ng-messages="profileForm.StreetNo.$error" ng-if="validation.profile">
+                        <!--<div ng-message="required">{{"G_F_V_REQUIRED" | translate}}</div>-->
+                        <div ng-message="pattern">{{"G_F_V_START_NUMBERS" | translate}}</div>
+                        <div ng-message="minlength">{{'G_F_V_MIN_LENGTH' | translate : {count:2} }}</div>
+
+                    </div>
+                    <input type="text" ng-model="userData.streetNo" class="form-control" name="StreetNo" id="StreetNo" ng-pattern="/^\d{1,6}$/">
+                </div>
+                <div class="form-group">
+                    <label class="control-label">{{"ADMIN_ACCOUNT_PROFILE_ZIP_CODE" | translate}}</label>
+                    <div class="validationMsg" ng-messages="profileForm.zipcode.$error" ng-if="validation.profile">
+                        <div ng-message="pattern">{{'G_F_V_DIGITS_NUMBERS' | translate : {count:5} }}</div>
+
+                    </div>
+
+                    <input type="text" ng-model="userData.zipCode" class="form-control" name="zipcode" id="zipcode" ng-pattern="/\b\d{5,}\b/">
+                </div>
+                <div class="form-group marginTop18">
+                    <label class="control-label">{{"ADMIN_ACCOUNT_LANGUAGE" | translate}}</label>
+
+
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-med-grey" data-toggle="dropdown" aria-expanded="false">{{ExtraDetails.culture}}<span class="caret"></span></button>
+                        <ul class="dropdown-menu scrollable-menu" role="menu">
+
+                            <li ng-repeat="cl in culture">
+                                <a ng-click="chooseCulture(cl)">
+                                    <img ng-src="{{cl.imgURL}}" class="flagImg"><span class="title colMarginLeft ng-binding">{{cl.displayName}}</span><i class="icon-arrow"></i>
+                                </a>
+
+
+                            </li>
+
+
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="form-group marginTop18">
+                    <label class="control-label">{{"ADMIN_ACCOUNT_TIME_ZONE" | translate}}</label>
+
+
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-med-grey" data-toggle="dropdown" aria-expanded="false">{{ExtraDetails.timeZone}}<span class="caret"></span></button>
+                        <ul class="timeZone dropdown-menu scrollable-menu" role="menu">
+
+                            <li ng-repeat="tz in timeZone">
+                                <a ng-click="chooseTimeZone(tz)">
+                       
+                                    <span ng-if="tz.gmtOffset < 1">(UTC   {{tz.gmtOffset / 60 }}) {{tz.displayName}}</span>
+                                    <span ng-if="tz.gmtOffset>0">(UTC + {{tz.gmtOffset / 60 }}) {{tz.displayName}}</span>
+                                </a>
+
+
+                            </li>
+
+
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="form-group marginTop18">
+                    <label class="control-label">{{"ADMIN_ACCOUNT_TEMP_UNIT" | translate}}</label>
+
+
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-med-grey" data-toggle="dropdown" aria-expanded="false">{{ExtraDetails.temperatureUnit}}<span class="caret"></span></button>
+                        <ul class="dropdown-menu scrollable-menu" role="menu">
+
+                            <li ng-repeat="tu in temperatureUnit">
+                                <a ng-click="chooseTemperatureUnit(tu)">
+                                    {{tu.displayName}}
+                                </a>
+
+
+                            </li>
+
+
+                        </ul>
+                    </div>
+                </div>
+
+
+
+            </form>
+            <div>
+
+                <button class="btn btn-dark-grey ladda-button pull-right marginTop18 marginBottom30" ladda="ladda.saveProfile" data-style="expand-right" data-spinner-size="30" ng-click="saveUser(profileForm.$valid)"><i class="fa fa-save"></i> | {{"G_SAVE" | translate}}</button>
+            </div>
+            <hr />
+
+            <div class="page-header">
+                <h1>{{"ADMIN_ACCOUNT_PROFILE_REASET_PASSWORD" | translate}}</h1>
+            </div>
+            <form name="changePasswordForm" class="profileForm" novalidate>
+
+
+                <div class="form-group">
+                    <label class="control-label">{{"ADMIN_ACCOUNT_PROFILE_REASET_PASSWORD_OLD" | translate}}</label>
+                    <div class="validationMsg" ng-messages="changePasswordForm.oldPassword.$error" ng-if="validation.changePassword">
+                        <div ng-message="minlength">{{'G_F_V_MIN_LENGTH' | translate : {count:6} }}</div>
+                        <div ng-message="required">{{"G_F_V_REQUIRED" | translate}}</div>
+
+                    </div>
+                    <input type="password" ng-model="changePasswordObject.oldPassword" class="form-control" id="oldPassword" name="oldPassword" ng-minlength="6" required>
+                </div>
+                <div class="form-group">
+                    <label class="control-label">{{"ADMIN_ACCOUNT_PROFILE_REASET_PASSWORD_NEW" | translate}}</label>
+                    <div class="validationMsg" ng-messages="changePasswordForm.newPassword.$error" ng-if="validation.changePassword">
+                        <div ng-message="minlength">{{'G_F_V_MIN_LENGTH' | translate : {count:6} }}</div>
+                        <div ng-message="required">{{"G_F_V_REQUIRED" | translate}}</div>
+
+                    </div>
+                    <input type="password" ng-model="changePasswordObject.newPassword" class="form-control" id="newPassword" name="newPassword"  ng-minlength="6">
+                </div>
+                <div class="form-group">
+
+                    <label class="control-label">{{"ADMIN_ACCOUNT_PROFILE_REASET_PASSWORD_CONFIRM" | translate}}</label>
+                    <div class="validationMsg" ng-messages="changePasswordForm.confirmPassword.$error" ng-if="validation.changePassword">
+                        <div ng-message="compareTo">{{"ADMIN_ACCOUNT_PROFILE_REASET_PASSWORD_CONFIRM_FAILED"| translate}}</div>
+
+
+                    </div>
+                    <input type="password" ng-model="changePasswordObject.confirmPassword" class="form-control" id="confirmPassword" name="confirmPassword" compare-to="changePasswordObject.newPassword">
+                </div>
+                
+
+
+
+
+            </form>
+            <div>
+
+                <button class="btn btn-dark-grey ladda-button pull-right marginTop18 marginBottom30" ladda="ladda.changePassword" data-style="expand-right" data-spinner-size="30" ng-click="changePassword(changePasswordForm.$valid)"><i class="fa fa-exchange"></i> | {{"G_CHANGE" | translate}}</button>
+            </div>
+        </div>
+       
+       
+        
+       
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

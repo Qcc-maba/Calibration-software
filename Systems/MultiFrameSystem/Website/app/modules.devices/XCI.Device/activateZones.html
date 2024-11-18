@@ -1,0 +1,52 @@
+﻿
+<div class="modal-dialog">
+    <div class="modal-content">
+        <div class="modal-header">
+            {{'MF_DEVICE_ZONES_ACTIVATE_ZONES' | translate}}
+            <div class="panel-tools">
+                <a data-toggle="tooltip" title="{{'DEVICE_DAY_ACTIVATE_ZONES_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="DEVICE_DAY_ACTIVATE_ZONES_QUESTION" var2="modal"></i></a>
+                <i data-dismiss="modal" class="clip-close-3"></i>
+            </div>
+
+        </div>
+
+        <div class="modal-body my-modal-body">
+            <p class="marginTop7">
+                <span class="label label-success ng-binding"> {{'G_NOTE'|translate}}:</span>
+                <b class="colMarginLeft">{{'MF_DEVICE_ZONES_ACTIVATE_ZONES_NOTE' | translate}}</b>
+            </p>
+            <div class="table-responsive deviceList" ng-if="zonesList">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th translate="MF_DEVICE_ZONES_ACTIVATE_ZONES_LIST"></th>
+                                <th class="center" translate="MF_DEVICE_ZONES_ACTIVATE_ZONES_IS_ACTIVATED"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="tb in zonesList track by $index">
+                                <td><a data-toggle="tooltip" title="{{tb.zoneNumber}} / {{tb.name}}" class="Dots_3 inline maxWidth120px" ng-click="goToZone(tb.zoneNumber)">{{tb.zoneNumber}} / {{tb.name}}</a></td>
+                                <td class="center">
+                                    <div id="change-color-switch" class="make-switch has-switch" data-on="default" data-off="primary">
+                                        <div class="switch-animate" ng-class="tb.isEnabled ? 'switch-on' : 'switch-off'" ng-click="switch(this);">
+                                            <input type="checkbox" ng-model="tb.isEnabled" checked><span class=" switch-left switch-default">{{'G_ON' | translate}}</span><label>&nbsp;</label><span class="switch-right switch-primary">{{'G_OFF' | translate}}</span>
+                                        </div>
+                                    </div>
+                                    <br />
+
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+
+        </div>
+   
+    </div>
+</div>
+

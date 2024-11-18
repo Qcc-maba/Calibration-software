@@ -1,0 +1,29 @@
+﻿
+    <div class="table-responsive table-responsive-my" id="boxscroll2" ng-if="startPage">
+        <!--shmulik-->
+        <table class="table" id="sample-table-3">
+            <thead>
+                <tr>
+                    <th>{{'G_START_TIME'|translate}}</th>
+                    <th class="text-center">{{scheduleview.scheduleType}}</th>
+                    <th class="text-center">{{'MF_DEVICE_ZONES_MONTHLY_TOTAL'|translate}}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr ng-repeat="tb5 in scheduleview.startTimes track by $index">
+                    <td>{{translate.convertUnixToTime(tb5.time) | date:'shortTime'}}</td> <!--{{tb5.strTime}}-->
+                    <td class="text-center">
+                        <input class="txtInsideEditableTable smallTextFiled" type="text" ng-model="tb5.durationStr" ng-change="bodyValChange(tb5)" select-on-click />
+                    </td>
+                    <td class="text-center total">{{sumRow($index)}}</td>
+                </tr>
+                <tr class="data">
+                    <td>{{'MF_DEVICE_ZONES_MONTHLY_TOTAL_MSG'|translate}}:</td> <!--{{tb5.strTime}}-->
+                    <td class="text-center"></td>
+                    <td class="text-center">{{sumAll}}</td>
+                </tr>
+
+            </tbody>
+        </table>
+    </div>
+

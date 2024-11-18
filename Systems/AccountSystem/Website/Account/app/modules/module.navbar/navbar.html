@@ -1,0 +1,38 @@
+﻿<!-- start: SIDEBAR -->
+<div class="navbar-content" ng-controller="menuController">
+    <div class="main-navigation navbar-collapse collapse" close-main-nevigation>
+        <!-- start: MAIN MENU TOGGLER BUTTON -->
+        <div class="navigation-toggler" ng-click="toggleNavbar()">
+            <i class="clip-chevron-left"></i>
+            <i class="clip-chevron-right"></i>
+        </div>
+        <!-- end: MAIN MENU TOGGLER BUTTON -->
+        <!-- start: MAIN NAVIGATION MENU -->
+        <ul class="main-navigation-menu">
+          
+
+            <li ng-class="{ active: $state.includes('admin.users') || $state.includes('admin.user')}">
+                <a ui-sref=" admin.users">
+                    <i class="clip-users"></i>
+                    <span class="title">Users</span>
+                </a>
+            </li>
+            <li ng-class="{ active: $state.includes('admin.roles') }">
+                <a ui-sref="admin.roles">
+                    <i class="clip-settings"></i>
+                    <span class="title">Roles</span>
+                </a>
+            </li>
+            <li ng-class="{ active: $state.includes('admin.language') }">
+                <a ui-sref="admin.language">
+                    <i class="clip-globe"></i>
+                    <span class="title">Language</span>
+                </a>
+            </li>
+
+            
+        </ul>
+      
+
+    </div>
+</div>

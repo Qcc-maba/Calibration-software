@@ -1,0 +1,348 @@
+.hanukiyaFrame{
+  background: aliceblue;
+} 
+.hanukiya{
+    overflow-y: auto;
+    padding-top: 15px;
+    /*max-width:725px;*/
+ }  
+.smallsPanelsOnline .message{
+    margin: -7px 0px 0px 0px;
+    font-size: 25px;
+}
+.smallsPanelsOnline .circle-icon{
+    background-color: red;
+    border-radius: 25px;
+    height: 25px;
+    line-height: normal;
+    width: 25px;
+    display: table;
+    font-size: 24px !important;
+    margin: 0 auto;
+}
+
+ 
+   
+   .onlinePanel{
+       margin-left: 7px;
+   
+    
+   }
+   .onlinePanel .panel-body{
+    position: relative;
+    overflow: hidden;
+   }
+   .onlinePanel .panel-body:before {
+    content: ' ';
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    opacity: 0.2;
+    background-image: url(splash.jpg);
+    background-repeat: no-repeat;
+    background-position: 50% 0;
+    -ms-background-size: cover;
+    -o-background-size: cover;
+    -moz-background-size: cover;
+    -webkit-background-size: cover;
+    background-size: cover;
+}
+
+   hr{
+   border-top: 1px solid gray;
+   }
+   .iconImg{
+   width: 30px;
+    margin: 0 0 5px 0px;
+   }
+   .wrap{
+            width: 100%;
+            margin: 0 auto;
+			
+        }
+        .main_tree_wrap{
+            width: 70%;
+			display: inline-block;
+			max-width: 620px;
+			border-left: 6px solid #DCDFE3 ;
+			
+        }
+		.left_tree_wrap{
+            
+			float: left;
+			
+        }
+        .head{
+            width:120px;
+            height: 125px;
+            display: inline-block;
+            padding : 0 0 0 0 ;
+
+        }
+		.head1{
+            width:120px;
+            height: 150px;
+            display: inline-block;
+            padding : 0 0 0 0 ;
+
+        }
+        .line_horizion{
+            width:109%;
+            border-top: 6px solid #DCDFE3 ;
+        }
+        .line{
+            width:5px;
+            height: 10px;
+            background: #DCDFE3;
+            position: relative;
+            margin : auto;
+            margin-bottom: 1px;
+        }
+        .box{
+            width:95px;
+            background: #DCDFE3;
+            border-radius: 3px;
+            height: 103px;
+            margin: 0 auto;
+
+        }
+        .head1 .innerBox img{
+            display: table;
+    width: 60px;
+    height: 60px;
+    background: #ffffff;
+    border-radius: 60px;
+    border: 9px solid lightskyblue;
+    margin: 0 auto;
+    margin-top: 0px;
+        }
+        
+		.head1 .box{
+                width: 95px;
+    background: #DCDFE3;
+    border-radius: 3px;
+    height: 130px;
+    margin: 0 auto;
+    padding-top: 10px;
+
+        }
+		.head1 span{
+         position: absolute;
+    margin: -2px 0px 0 25px;
+    font-size: 11px;
+    color: white;
+
+        }
+        .innerBox{
+            display: table;
+            width: 60px;
+            height:60px;
+            background:#ffffff;
+            border-radius: 60px;
+            margin: 0 auto;
+        }
+		.innerBox img{
+		    margin: 15px 0px 0px 15px;
+            width: 30px;
+        
+       
+		}
+		
+        .box p{
+            text-align: center;
+            display: inline-block;
+            font-weight: bold;
+            color:#0198D1;
+            font-size:12px;
+            width:95px;
+            white-space: nowrap;
+            overflow:hidden !important;
+            text-overflow: ellipsis;
+        }
+        .main_tree_wrap :last-child .line_horizion{
+            width:60%;
+        }
+		.leftLine{
+		 background:grey;
+		 width:30px;
+		 height:100%;
+		}
+        @media (max-width: 850px) {
+             .leftDiv {
+              border-right: none;
+              margin: 0 0 50px 0px;
+
+            }
+        }
+
+        @media (max-width: 380px) {
+            .wrap {
+                margin-left: 35%;
+            }
+        }
+        @media (min-width: 381px) and (max-width: 550px) {
+            .wrap {
+                margin-left: 7%;
+            }
+        }
+        @media (min-width: 509px) and (max-width: 800px) {
+            .head:nth-child(4n) .line_horizion{
+                width: 60%;
+            }
+           
+        }
+/*general*/
+.gsiRateVal{
+    display: table;
+    margin: 7px auto;
+}
+.w-inline{
+    display:-webkit-inline-box;
+}
+.centerDiv{
+    margin:0 auto;
+    display:table;
+}
+
+.colSqure{
+    width:20px;
+    height:20px;
+    border:1px solid black;
+}
+.btn-group button.header{
+    background: lightgray;
+    border-color: #D5D5D5;
+    color: black;
+}
+.programFilterCheckBox{
+    margin:0 0 0 0!important;
+}
+/*gsi panel accordion*/
+.gsi-panel{
+    margin-top: 20px;
+    margin-left: 15px;
+    padding-right: 7px;
+}
+
+.GSI.topNevigation.topNevigationDevice {
+        margin: -146px -25px 0 0px;
+}
+.viewMarginTop{
+        margin-top: 35px;
+}
+.gsi-panel .gsi-panel-heading a{
+    font-size:20px;
+}
+.gsi-panel .gsi-panel-heading span.header{
+    font-size:15px;
+}
+.gsi-panel .gsi-panel-body{
+    margin-top: 7px;
+    padding-left: 7px;
+    padding-right: 7px;
+    padding-bottom: 7px;
+    background: aliceblue!important
+}
+.gsi-panel .gsi-panel-body table {
+   
+    color: black!important;
+}
+.gsi-panel .gsi-panel-body input[readonly=""] {
+    background: #A5B3A5!important;
+    color: black!important;
+}
+.gsi-panel .gsi-panel-body .onePanel .header{
+   padding-top: 7px;
+}
+.gsi-panel .gsi-panel-body .onePanel .sub-header{
+    margin-top: 7px;
+    margin-left: 15px;
+}
+.gsi-panel .gsi-panel-body span{
+    color: black!important;
+}
+.gsi-panel tbody > tr > td, .table tfoot > tr > td {
+    color: black;
+    
+}
+
+.generalProjectData{
+    border: 1px solid lightgray;
+    background: rgba(211, 211, 211, 0.08);
+    padding: 0 0 0 7px;
+    max-width: 315px;
+}
+.squareSize {
+    width: 200px;
+    display: inline-table;
+}
+.squareInside{
+    background-color:ghostwhite;
+}
+.squareInside > .message{
+    font-size: 27px;
+    color: steelblue; 
+}
+.squareInside > .message > span{
+   font-size:medium;
+   color:black; 
+   margin-left:7px;
+}
+.squareInside > .symbole > img{
+    height: 50px;
+    width: 50px;
+    margin: 0 auto;
+}
+.squareInside > .status{
+    font-size: 27px;
+        color: green;
+}
+.squareInside > .status  span{
+     font-size:medium;
+   color:black; 
+   margin-left:7px;
+}
+
+.LogsTableHeader{
+    font-size: 20px;
+    display: table;
+    margin: 0 auto;
+}
+
+.reportsBody{
+    background:aliceblue!important;
+    color:black!important;
+}
+.reportsBody tr > td, .reportsBody tr > th ,.reportsBody tr > td span{
+    color:black!important;
+}
+ td .subCheckBox{
+    margin-left:20px!important;
+}
+.reportsBody tr > td input[readonly=""] {
+    background: lightgrey!important;
+    color: white!important;
+}
+/********************************/
+#GsiDeviceStatusdragbar{
+    background-color: lightgrey;
+    float: left;
+ 
+}
+#GsiDeviceStatusdragbar #GsiDeviceStatusdragButton{
+    font-size: 20px;
+    position: absolute;
+    color: darkgrey;
+    width: 30px;
+    height: 30px;
+    border-radius: 30px;
+    border: 1px solid grey;
+    padding: 0px 0px 0px 5px;
+    margin: -20px auto;
+    cursor: pointer;
+    left: 50%;
+}

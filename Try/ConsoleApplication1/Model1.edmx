@@ -1,0 +1,2186 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <!-- EF Runtime content -->
+  <edmx:Runtime>
+    <!-- SSDL content -->
+    <edmx:StorageModels>
+      <Schema Namespace="CyberRainAdminModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2008" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="LoginUser">
+          <Key>
+            <PropertyRef Name="UserID" />
+          </Key>
+          <Property Name="UserID" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="CreationDate" Type="datetime" Nullable="false" />
+          <Property Name="LastLoginDate" Type="datetime" />
+          <Property Name="AdminUserID" Type="bigint" Nullable="false" />
+          <Property Name="AdminUserGUID" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="LastTruncToken" Type="varchar" MaxLength="50" />
+          <Property Name="UIFormatID" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="UserAccount">
+          <Key>
+            <PropertyRef Name="UserID" />
+            <PropertyRef Name="ProjectID" />
+          </Key>
+          <Property Name="UserID" Type="bigint" Nullable="false" />
+          <Property Name="ProjectID" Type="bigint" Nullable="false" />
+          <Property Name="MatchDate" Type="datetime" Nullable="false" />
+        </EntityType>
+        <EntityType Name="GlobalizationZone">
+          <Key>
+            <PropertyRef Name="ZoneID" />
+          </Key>
+          <Property Name="ZoneID" Type="int" Nullable="false" />
+          <Property Name="SystemZoneID" Type="varchar" MaxLength="100" Nullable="false" />
+          <Property Name="DisplayName" Type="varchar" MaxLength="100" Nullable="false" />
+          <Property Name="DaylightName" Type="varchar" MaxLength="100" />
+          <Property Name="StandardName" Type="varchar" MaxLength="100" />
+          <Property Name="GMTOffset" Type="int" Nullable="false" />
+          <Property Name="IsDefault" Type="bit" Nullable="false" />
+          <Property Name="ManualOffset" Type="int" />
+          <Property Name="IsDaylightTime" Type="bit" />
+          <Property Name="ActualOffset" Type="int" StoreGeneratedPattern="Computed" />
+        </EntityType>
+        <EntityType Name="LoginUser_UIFormat">
+          <Key>
+            <PropertyRef Name="UIFormatID" />
+          </Key>
+          <Property Name="UIFormatID" Type="int" Nullable="false" />
+          <Property Name="LongDatePattern" Type="varchar" MaxLength="50" />
+          <Property Name="ShortDatePattern" Type="varchar" MaxLength="50" />
+          <Property Name="ShortTimePattern" Type="varchar" MaxLength="50" />
+          <Property Name="LongTimePattern" Type="varchar" MaxLength="50" />
+          <Property Name="CultureCode" Type="varchar" MaxLength="10" />
+          <Property Name="YearMonthPattern" Type="varchar" MaxLength="50" />
+          <Property Name="DisplayName" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="IsRightToLeft" Type="bit" Nullable="false" />
+          <Property Name="IsDefault" Type="bit" Nullable="false" />
+          <Property Name="StartDayOfWeek" Type="tinyint" Nullable="false" />
+        </EntityType>
+        <EntityType Name="SharedSite">
+          <Key>
+            <PropertyRef Name="SiteID" />
+            <PropertyRef Name="ParentProjectID" />
+          </Key>
+          <Property Name="SiteID" Type="bigint" Nullable="false" />
+          <Property Name="ShareDate" Type="datetime" Nullable="false" />
+          <Property Name="ShareApproveDate" Type="datetime" />
+          <Property Name="ParentProjectID" Type="bigint" Nullable="false" />
+          <Property Name="IsPending" Type="bit" Nullable="false" />
+          <Property Name="ShareUserID" Type="bigint" Nullable="false" />
+        </EntityType>
+        <EntityType Name="sysdiagrams">
+          <Key>
+            <PropertyRef Name="diagram_id" />
+          </Key>
+          <Property Name="name" Type="nvarchar" MaxLength="128" Nullable="false" />
+          <Property Name="principal_id" Type="int" Nullable="false" />
+          <Property Name="diagram_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="version" Type="int" />
+          <Property Name="definition" Type="varbinary(max)" />
+        </EntityType>
+        <EntityType Name="AlertSetting">
+          <Key>
+            <PropertyRef Name="AlertCode" />
+            <PropertyRef Name="DeviceID" />
+          </Key>
+          <Property Name="AlertCode" Type="int" Nullable="false" />
+          <Property Name="DeviceID" Type="bigint" Nullable="false" />
+          <Property Name="IsEnable" Type="bit" Nullable="false" />
+          <Property Name="IsSMSEnable" Type="bit" Nullable="false" />
+          <Property Name="IsEmailEnable" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="DeviceMain">
+          <Key>
+            <PropertyRef Name="DeviceID" />
+          </Key>
+          <Property Name="DeviceID" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="SN" Type="varchar" MaxLength="25" Nullable="false" />
+          <Property Name="ParentSiteID" Type="bigint" />
+          <Property Name="Name" Type="nvarchar" MaxLength="50" />
+          <Property Name="IsAlertsEnabled" Type="bit" Nullable="false" />
+          <Property Name="DeviceModelID" Type="int" Nullable="false" />
+          <Property Name="TotalActivatedZones" Type="int" Nullable="false" />
+          <Property Name="StatusID" Type="int" Nullable="false" />
+          <Property Name="Map_Latitude" Type="varchar" MaxLength="20" />
+          <Property Name="Map_Longitude" Type="varchar" MaxLength="20" />
+          <Property Name="FirmwareVersion" Type="varchar" MaxLength="20" />
+          <Property Name="WaterSavingAlgorithmID" Type="tinyint" />
+          <Property Name="ConfigID" Type="bigint" />
+          <Property Name="LastModifiedDate" Type="datetime" />
+          <Property Name="LastSynchronizeDate" Type="datetime" />
+          <Property Name="CreationDate" Type="datetime" Nullable="false" />
+          <Property Name="HoldUntilDate" Type="datetime" />
+          <Property Name="TimeZoneID" Type="int" />
+        </EntityType>
+        <EntityType Name="KeyValue">
+          <Key>
+            <PropertyRef Name="DeviceID" />
+            <PropertyRef Name="Code" />
+          </Key>
+          <Property Name="KeyID" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="DeviceID" Type="bigint" Nullable="false" />
+          <Property Name="Code" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="Value" Type="nvarchar" MaxLength="50" />
+          <Property Name="ModifiedDate" Type="datetime" Nullable="false" />
+        </EntityType>
+        <EntityType Name="listClockView">
+          <Key>
+            <PropertyRef Name="ViewID" />
+          </Key>
+          <Property Name="ViewID" Type="tinyint" Nullable="false" />
+          <Property Name="Name" Type="varchar" MaxLength="20" />
+        </EntityType>
+        <EntityType Name="listCycleSoakPattern">
+          <Key>
+            <PropertyRef Name="PatternID" />
+          </Key>
+          <Property Name="PatternID" Type="tinyint" Nullable="false" />
+          <Property Name="Name" Type="varchar" MaxLength="50" Nullable="false" />
+        </EntityType>
+        <EntityType Name="listModel">
+          <Key>
+            <PropertyRef Name="ModelID" />
+          </Key>
+          <Property Name="ModelID" Type="int" Nullable="false" />
+          <Property Name="Name" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="DeviceTypeID" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="listOperationSequence">
+          <Key>
+            <PropertyRef Name="SequenceTypeID" />
+          </Key>
+          <Property Name="SequenceTypeID" Type="tinyint" Nullable="false" />
+          <Property Name="Name" Type="varchar" MaxLength="50" Nullable="false" />
+        </EntityType>
+        <EntityType Name="listStatus">
+          <Key>
+            <PropertyRef Name="StatusID" />
+          </Key>
+          <Property Name="StatusID" Type="int" Nullable="false" />
+          <Property Name="Name" Type="varchar" MaxLength="20" Nullable="false" />
+        </EntityType>
+        <EntityType Name="listTempratureUnit">
+          <Key>
+            <PropertyRef Name="UnitID" />
+          </Key>
+          <Property Name="UnitID" Type="tinyint" Nullable="false" />
+          <Property Name="Name" Type="varchar" MaxLength="10" Nullable="false" />
+        </EntityType>
+        <EntityType Name="listType">
+          <Key>
+            <PropertyRef Name="TypeID" />
+          </Key>
+          <Property Name="TypeID" Type="int" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="50" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ZoneMain">
+          <Key>
+            <PropertyRef Name="ZoneID" />
+          </Key>
+          <Property Name="ZoneID" Type="bigint" Nullable="false" />
+          <Property Name="Number" Type="int" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="50" />
+          <Property Name="IsEnabled" Type="bit" Nullable="false" />
+          <Property Name="DeviceID" Type="bigint" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ConfigManager">
+          <Key>
+            <PropertyRef Name="ConfigID" />
+          </Key>
+          <Property Name="ConfigID" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="CreationDate" Type="datetime" Nullable="false" />
+          <Property Name="SynDate" Type="datetime" />
+        </EntityType>
+        <EntityType Name="Device_DisplaySettings">
+          <Key>
+            <PropertyRef Name="ConfigID" />
+          </Key>
+          <Property Name="ConfigID" Type="bigint" Nullable="false" />
+          <Property Name="DisplayCharset" Type="int" />
+          <Property Name="TempratureUnit" Type="tinyint" Nullable="false" />
+          <Property Name="ClockViewTypeID" Type="tinyint" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ZoneMain1">
+          <Key>
+            <PropertyRef Name="ZoneID" />
+          </Key>
+          <Property Name="ConfigID" Type="bigint" Nullable="false" />
+          <Property Name="ZoneID" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ZonesSettings">
+          <Key>
+            <PropertyRef Name="ConfigID" />
+          </Key>
+          <Property Name="ConfigID" Type="bigint" Nullable="false" />
+          <Property Name="OpenTiming" Type="int" Nullable="false" />
+          <Property Name="CloseTiming" Type="int" Nullable="false" />
+          <Property Name="OpenSequenceTypeID" Type="tinyint" Nullable="false" />
+          <Property Name="CloseSequenceTypeID" Type="tinyint" Nullable="false" />
+          <Property Name="CycleSoakPattern" Type="tinyint" />
+        </EntityType>
+        <EntityType Name="EraSetting">
+          <Key>
+            <PropertyRef Name="EraID" />
+          </Key>
+          <Property Name="EraID" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="CreationDate" Type="datetime" Nullable="false" />
+        </EntityType>
+        <EntityType Name="linkEra2Session">
+          <Key>
+            <PropertyRef Name="EraID" />
+            <PropertyRef Name="SessionID" />
+          </Key>
+          <Property Name="EraID" Type="bigint" Nullable="false" />
+          <Property Name="SessionID" Type="bigint" Nullable="false" />
+          <Property Name="CreationDate" Type="datetime" Nullable="false" />
+        </EntityType>
+        <EntityType Name="listSessionRestrictionType">
+          <Key>
+            <PropertyRef Name="RestrictionTypeID" />
+          </Key>
+          <Property Name="RestrictionTypeID" Type="tinyint" Nullable="false" />
+          <Property Name="Name" Type="varchar" MaxLength="50" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Project">
+          <Key>
+            <PropertyRef Name="ProjectID" />
+          </Key>
+          <Property Name="Name" Type="nvarchar" MaxLength="50" />
+          <Property Name="ProjectID" Type="bigint" Nullable="false" />
+        </EntityType>
+        <EntityType Name="SessionDaySetting">
+          <Key>
+            <PropertyRef Name="ParentSessionID" />
+            <PropertyRef Name="DayIndex" />
+          </Key>
+          <Property Name="ParentSessionID" Type="bigint" Nullable="false" />
+          <Property Name="DayIndex" Type="tinyint" Nullable="false" />
+          <Property Name="IsIrrigationAllowed" Type="bit" Nullable="false" />
+          <Property Name="StartTimeSeconds" Type="int" Nullable="false" />
+          <Property Name="EndTimeSeconds" Type="int" Nullable="false" />
+          <Property Name="MaxDailyIrrigrationSeconds" Type="int" Nullable="false" />
+          <Property Name="MaxDailyCycles" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="SessionSetting">
+          <Key>
+            <PropertyRef Name="SessionID" />
+          </Key>
+          <Property Name="SessionID" Type="bigint" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="50" />
+          <Property Name="StartDate" Type="datetime" />
+          <Property Name="EndDate" Type="datetime" />
+          <Property Name="IsIrrigationAllowed" Type="bit" Nullable="false" />
+          <Property Name="IsAutoUpdate" Type="bit" Nullable="false" />
+          <Property Name="SessionIndex" Type="int" Nullable="false" />
+          <Property Name="RestrictionType" Type="tinyint" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Site">
+          <Key>
+            <PropertyRef Name="SiteID" />
+          </Key>
+          <Property Name="Name" Type="nvarchar" MaxLength="50" />
+          <Property Name="SiteID" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="ParentSiteID" Type="bigint" />
+          <Property Name="MapCenter_Latitude" Type="varchar" MaxLength="20" />
+          <Property Name="MapCenter_Longitude" Type="varchar" MaxLength="20" />
+          <Property Name="MapCenter_Zoom" Type="tinyint" />
+          <Property Name="MapCenter_Mode" Type="varchar" MaxLength="50" />
+          <Property Name="EraID" Type="bigint" />
+          <Property Name="WaterSavingAlgorithmID" Type="tinyint" />
+          <Property Name="DefaultTimeZoneID" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="listWaterSavingAlgorithm">
+          <Key>
+            <PropertyRef Name="AlgorithmID" />
+          </Key>
+          <Property Name="AlgorithmID" Type="tinyint" Nullable="false" />
+          <Property Name="Name" Type="varbinary" MaxLength="50" Nullable="false" />
+        </EntityType>
+        <EntityType Name="WaterSavingAlgorithm_P1">
+          <Key>
+            <PropertyRef Name="SiteID" />
+          </Key>
+          <Property Name="SiteID" Type="bigint" Nullable="false" />
+          <Property Name="IsEnabled" Type="bit" Nullable="false" />
+          <Property Name="HottestMonthTemp" Type="decimal" Precision="18" Scale="3" Nullable="false" />
+          <Property Name="NormalHumidity" Type="decimal" Precision="18" Scale="3" Nullable="false" />
+          <Property Name="PreciptationTreshold" Type="decimal" Precision="18" Scale="3" Nullable="false" />
+          <Property Name="ChangeTemp_Per5Deg" Type="decimal" Precision="18" Scale="3" Nullable="false" />
+          <Property Name="ChangeHumidity_Per5Precent" Type="decimal" Precision="18" Scale="3" Nullable="false" />
+        </EntityType>
+        <Association Name="FK_AlertSetting_DeviceMain">
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="AlertSetting" Type="Self.AlertSetting" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="DeviceMain">
+              <PropertyRef Name="DeviceID" />
+            </Principal>
+            <Dependent Role="AlertSetting">
+              <PropertyRef Name="DeviceID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Device_DisplaySettings_ConfigManager">
+          <End Role="ConfigManager" Type="Self.ConfigManager" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="Device_DisplaySettings" Type="Self.Device_DisplaySettings" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="ConfigManager">
+              <PropertyRef Name="ConfigID" />
+            </Principal>
+            <Dependent Role="Device_DisplaySettings">
+              <PropertyRef Name="ConfigID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Device_DisplaySettings_listClockView">
+          <End Role="listClockView" Type="Self.listClockView" Multiplicity="1" />
+          <End Role="Device_DisplaySettings" Type="Self.Device_DisplaySettings" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listClockView">
+              <PropertyRef Name="ViewID" />
+            </Principal>
+            <Dependent Role="Device_DisplaySettings">
+              <PropertyRef Name="ClockViewTypeID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Device_DisplaySettings_listTempratureUnit">
+          <End Role="listTempratureUnit" Type="Self.listTempratureUnit" Multiplicity="1" />
+          <End Role="Device_DisplaySettings" Type="Self.Device_DisplaySettings" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listTempratureUnit">
+              <PropertyRef Name="UnitID" />
+            </Principal>
+            <Dependent Role="Device_DisplaySettings">
+              <PropertyRef Name="TempratureUnit" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DeviceMain_ConfigManager">
+          <End Role="ConfigManager" Type="Self.ConfigManager" Multiplicity="0..1" />
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="ConfigManager">
+              <PropertyRef Name="ConfigID" />
+            </Principal>
+            <Dependent Role="DeviceMain">
+              <PropertyRef Name="ConfigID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DeviceMain_GlobalizationZone">
+          <End Role="GlobalizationZone" Type="Self.GlobalizationZone" Multiplicity="0..1" />
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="GlobalizationZone">
+              <PropertyRef Name="ZoneID" />
+            </Principal>
+            <Dependent Role="DeviceMain">
+              <PropertyRef Name="TimeZoneID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DeviceMain_listModel">
+          <End Role="listModel" Type="Self.listModel" Multiplicity="1" />
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listModel">
+              <PropertyRef Name="ModelID" />
+            </Principal>
+            <Dependent Role="DeviceMain">
+              <PropertyRef Name="DeviceModelID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DeviceMain_listStatus">
+          <End Role="listStatus" Type="Self.listStatus" Multiplicity="1" />
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listStatus">
+              <PropertyRef Name="StatusID" />
+            </Principal>
+            <Dependent Role="DeviceMain">
+              <PropertyRef Name="StatusID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DeviceMain_Site">
+          <End Role="Site" Type="Self.Site" Multiplicity="0..1" />
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Site">
+              <PropertyRef Name="SiteID" />
+            </Principal>
+            <Dependent Role="DeviceMain">
+              <PropertyRef Name="ParentSiteID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DeviceModel_DeviceType">
+          <End Role="listType" Type="Self.listType" Multiplicity="1" />
+          <End Role="listModel" Type="Self.listModel" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listType">
+              <PropertyRef Name="TypeID" />
+            </Principal>
+            <Dependent Role="listModel">
+              <PropertyRef Name="DeviceTypeID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_KeyValue_DeviceMain">
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="KeyValue" Type="Self.KeyValue" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="DeviceMain">
+              <PropertyRef Name="DeviceID" />
+            </Principal>
+            <Dependent Role="KeyValue">
+              <PropertyRef Name="DeviceID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_linkEra2Session_SessionSetting">
+          <End Role="EraSetting" Type="Self.EraSetting" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="linkEra2Session" Type="Self.linkEra2Session" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="EraSetting">
+              <PropertyRef Name="EraID" />
+            </Principal>
+            <Dependent Role="linkEra2Session">
+              <PropertyRef Name="EraID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_linkSessions2Era_SessionSetting">
+          <End Role="SessionSetting" Type="Self.SessionSetting" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="linkEra2Session" Type="Self.linkEra2Session" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="SessionSetting">
+              <PropertyRef Name="SessionID" />
+            </Principal>
+            <Dependent Role="linkEra2Session">
+              <PropertyRef Name="SessionID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_LoginUser_LoginUser_UIFormat">
+          <End Role="LoginUser_UIFormat" Type="Self.LoginUser_UIFormat" Multiplicity="1" />
+          <End Role="LoginUser" Type="Self.LoginUser" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="LoginUser_UIFormat">
+              <PropertyRef Name="UIFormatID" />
+            </Principal>
+            <Dependent Role="LoginUser">
+              <PropertyRef Name="UIFormatID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Project_Site">
+          <End Role="Site" Type="Self.Site" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="Project" Type="Self.Project" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="Site">
+              <PropertyRef Name="SiteID" />
+            </Principal>
+            <Dependent Role="Project">
+              <PropertyRef Name="ProjectID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SessionDaySetting_SessionSetting">
+          <End Role="SessionSetting" Type="Self.SessionSetting" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="SessionDaySetting" Type="Self.SessionDaySetting" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="SessionSetting">
+              <PropertyRef Name="SessionID" />
+            </Principal>
+            <Dependent Role="SessionDaySetting">
+              <PropertyRef Name="ParentSessionID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SessionSetting_listSessionRestriction">
+          <End Role="listSessionRestrictionType" Type="Self.listSessionRestrictionType" Multiplicity="1" />
+          <End Role="SessionSetting" Type="Self.SessionSetting" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listSessionRestrictionType">
+              <PropertyRef Name="RestrictionTypeID" />
+            </Principal>
+            <Dependent Role="SessionSetting">
+              <PropertyRef Name="RestrictionType" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SharedSite_Project">
+          <End Role="Project" Type="Self.Project" Multiplicity="1" />
+          <End Role="SharedSite" Type="Self.SharedSite" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="ProjectID" />
+            </Principal>
+            <Dependent Role="SharedSite">
+              <PropertyRef Name="ParentProjectID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SharedSite_Site">
+          <End Role="Site" Type="Self.Site" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="SharedSite" Type="Self.SharedSite" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Site">
+              <PropertyRef Name="SiteID" />
+            </Principal>
+            <Dependent Role="SharedSite">
+              <PropertyRef Name="SiteID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Site_2ParentSite">
+          <End Role="Site" Type="Self.Site" Multiplicity="0..1" />
+          <End Role="Site1" Type="Self.Site" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Site">
+              <PropertyRef Name="SiteID" />
+            </Principal>
+            <Dependent Role="Site1">
+              <PropertyRef Name="ParentSiteID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Site_Era_Setting">
+          <End Role="EraSetting" Type="Self.EraSetting" Multiplicity="0..1" />
+          <End Role="Site" Type="Self.Site" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="EraSetting">
+              <PropertyRef Name="EraID" />
+            </Principal>
+            <Dependent Role="Site">
+              <PropertyRef Name="EraID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Site_GlobalizationZone">
+          <End Role="GlobalizationZone" Type="Self.GlobalizationZone" Multiplicity="1" />
+          <End Role="Site" Type="Self.Site" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="GlobalizationZone">
+              <PropertyRef Name="ZoneID" />
+            </Principal>
+            <Dependent Role="Site">
+              <PropertyRef Name="DefaultTimeZoneID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Site_listWaterSavingAlgorithm">
+          <End Role="listWaterSavingAlgorithm" Type="Self.listWaterSavingAlgorithm" Multiplicity="0..1" />
+          <End Role="Site" Type="Self.Site" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listWaterSavingAlgorithm">
+              <PropertyRef Name="AlgorithmID" />
+            </Principal>
+            <Dependent Role="Site">
+              <PropertyRef Name="WaterSavingAlgorithmID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_UserAccount_LoginUser">
+          <End Role="LoginUser" Type="Self.LoginUser" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="UserAccount" Type="Self.UserAccount" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="LoginUser">
+              <PropertyRef Name="UserID" />
+            </Principal>
+            <Dependent Role="UserAccount">
+              <PropertyRef Name="UserID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_UserAccount_Project">
+          <End Role="Project" Type="Self.Project" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="UserAccount" Type="Self.UserAccount" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="ProjectID" />
+            </Principal>
+            <Dependent Role="UserAccount">
+              <PropertyRef Name="ProjectID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_WaterSavingAlgorithm_P1_Site">
+          <End Role="Site" Type="Self.Site" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="WaterSavingAlgorithm_P1" Type="Self.WaterSavingAlgorithm_P1" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="Site">
+              <PropertyRef Name="SiteID" />
+            </Principal>
+            <Dependent Role="WaterSavingAlgorithm_P1">
+              <PropertyRef Name="SiteID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ZoneMain_ConfigManager">
+          <End Role="ConfigManager" Type="Self.ConfigManager" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="ZoneMain1" Type="Self.ZoneMain1" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="ConfigManager">
+              <PropertyRef Name="ConfigID" />
+            </Principal>
+            <Dependent Role="ZoneMain1">
+              <PropertyRef Name="ConfigID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ZoneMain_ZoneMain">
+          <End Role="ZoneMain1" Type="Self.ZoneMain1" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="ZoneMain" Type="Self.ZoneMain" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="ZoneMain1">
+              <PropertyRef Name="ZoneID" />
+            </Principal>
+            <Dependent Role="ZoneMain">
+              <PropertyRef Name="ZoneID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ZonesSettings_ConfigManager">
+          <End Role="ConfigManager" Type="Self.ConfigManager" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="ZonesSettings" Type="Self.ZonesSettings" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="ConfigManager">
+              <PropertyRef Name="ConfigID" />
+            </Principal>
+            <Dependent Role="ZonesSettings">
+              <PropertyRef Name="ConfigID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ZonesSettings_listCycleSoakPattern">
+          <End Role="listCycleSoakPattern" Type="Self.listCycleSoakPattern" Multiplicity="0..1" />
+          <End Role="ZonesSettings" Type="Self.ZonesSettings" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listCycleSoakPattern">
+              <PropertyRef Name="PatternID" />
+            </Principal>
+            <Dependent Role="ZonesSettings">
+              <PropertyRef Name="CycleSoakPattern" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ZonesSettings_listOperationSequence">
+          <End Role="listOperationSequence" Type="Self.listOperationSequence" Multiplicity="1" />
+          <End Role="ZonesSettings" Type="Self.ZonesSettings" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listOperationSequence">
+              <PropertyRef Name="SequenceTypeID" />
+            </Principal>
+            <Dependent Role="ZonesSettings">
+              <PropertyRef Name="CloseSequenceTypeID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ZonesSettings_listOperationSequence1">
+          <End Role="listOperationSequence" Type="Self.listOperationSequence" Multiplicity="1" />
+          <End Role="ZonesSettings" Type="Self.ZonesSettings" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listOperationSequence">
+              <PropertyRef Name="SequenceTypeID" />
+            </Principal>
+            <Dependent Role="ZonesSettings">
+              <PropertyRef Name="OpenSequenceTypeID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityContainer Name="CyberRainAdminModelStoreContainer">
+          <EntitySet Name="LoginUser" EntityType="Self.LoginUser" Schema="Admin" store:Type="Tables" />
+          <EntitySet Name="UserAccount" EntityType="Self.UserAccount" Schema="Admin" store:Type="Tables" />
+          <EntitySet Name="GlobalizationZone" EntityType="Self.GlobalizationZone" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="LoginUser_UIFormat" EntityType="Self.LoginUser_UIFormat" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="SharedSite" EntityType="Self.SharedSite" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="sysdiagrams" EntityType="Self.sysdiagrams" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="AlertSetting" EntityType="Self.AlertSetting" Schema="Device" store:Type="Tables" />
+          <EntitySet Name="DeviceMain" EntityType="Self.DeviceMain" Schema="Device" store:Type="Tables" />
+          <EntitySet Name="KeyValue" EntityType="Self.KeyValue" Schema="Device" store:Type="Tables" />
+          <EntitySet Name="listClockView" EntityType="Self.listClockView" Schema="Device" store:Type="Tables" />
+          <EntitySet Name="listCycleSoakPattern" EntityType="Self.listCycleSoakPattern" Schema="Device" store:Type="Tables" />
+          <EntitySet Name="listModel" EntityType="Self.listModel" Schema="Device" store:Type="Tables" />
+          <EntitySet Name="listOperationSequence" EntityType="Self.listOperationSequence" Schema="Device" store:Type="Tables" />
+          <EntitySet Name="listStatus" EntityType="Self.listStatus" Schema="Device" store:Type="Tables" />
+          <EntitySet Name="listTempratureUnit" EntityType="Self.listTempratureUnit" Schema="Device" store:Type="Tables" />
+          <EntitySet Name="listType" EntityType="Self.listType" Schema="Device" store:Type="Tables" />
+          <EntitySet Name="ZoneMain" EntityType="Self.ZoneMain" Schema="Device" store:Type="Tables" />
+          <EntitySet Name="ConfigManager" EntityType="Self.ConfigManager" Schema="Device_CRConfig1" store:Type="Tables" />
+          <EntitySet Name="Device_DisplaySettings" EntityType="Self.Device_DisplaySettings" Schema="Device_CRConfig1" Table="Device.DisplaySettings" store:Type="Tables" />
+          <EntitySet Name="ZoneMain1" EntityType="Self.ZoneMain1" Schema="Device_CRConfig1" Table="ZoneMain" store:Type="Tables" />
+          <EntitySet Name="ZonesSettings" EntityType="Self.ZonesSettings" Schema="Device_CRConfig1" store:Type="Tables" />
+          <EntitySet Name="EraSetting" EntityType="Self.EraSetting" Schema="Project" store:Type="Tables" />
+          <EntitySet Name="linkEra2Session" EntityType="Self.linkEra2Session" Schema="Project" store:Type="Tables" />
+          <EntitySet Name="listSessionRestrictionType" EntityType="Self.listSessionRestrictionType" Schema="Project" store:Type="Tables" />
+          <EntitySet Name="Project" EntityType="Self.Project" Schema="Project" store:Type="Tables" />
+          <EntitySet Name="SessionDaySetting" EntityType="Self.SessionDaySetting" Schema="Project" store:Type="Tables" />
+          <EntitySet Name="SessionSetting" EntityType="Self.SessionSetting" Schema="Project" store:Type="Tables" />
+          <EntitySet Name="Site" EntityType="Self.Site" Schema="Project" store:Type="Tables" />
+          <EntitySet Name="listWaterSavingAlgorithm" EntityType="Self.listWaterSavingAlgorithm" Schema="Weather" store:Type="Tables" />
+          <EntitySet Name="WaterSavingAlgorithm_P1" EntityType="Self.WaterSavingAlgorithm_P1" Schema="Weather" store:Type="Tables" />
+          <AssociationSet Name="FK_AlertSetting_DeviceMain" Association="Self.FK_AlertSetting_DeviceMain">
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+            <End Role="AlertSetting" EntitySet="AlertSetting" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Device_DisplaySettings_ConfigManager" Association="Self.FK_Device_DisplaySettings_ConfigManager">
+            <End Role="ConfigManager" EntitySet="ConfigManager" />
+            <End Role="Device_DisplaySettings" EntitySet="Device_DisplaySettings" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Device_DisplaySettings_listClockView" Association="Self.FK_Device_DisplaySettings_listClockView">
+            <End Role="listClockView" EntitySet="listClockView" />
+            <End Role="Device_DisplaySettings" EntitySet="Device_DisplaySettings" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Device_DisplaySettings_listTempratureUnit" Association="Self.FK_Device_DisplaySettings_listTempratureUnit">
+            <End Role="listTempratureUnit" EntitySet="listTempratureUnit" />
+            <End Role="Device_DisplaySettings" EntitySet="Device_DisplaySettings" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DeviceMain_ConfigManager" Association="Self.FK_DeviceMain_ConfigManager">
+            <End Role="ConfigManager" EntitySet="ConfigManager" />
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DeviceMain_GlobalizationZone" Association="Self.FK_DeviceMain_GlobalizationZone">
+            <End Role="GlobalizationZone" EntitySet="GlobalizationZone" />
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DeviceMain_listModel" Association="Self.FK_DeviceMain_listModel">
+            <End Role="listModel" EntitySet="listModel" />
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DeviceMain_listStatus" Association="Self.FK_DeviceMain_listStatus">
+            <End Role="listStatus" EntitySet="listStatus" />
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DeviceMain_Site" Association="Self.FK_DeviceMain_Site">
+            <End Role="Site" EntitySet="Site" />
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DeviceModel_DeviceType" Association="Self.FK_DeviceModel_DeviceType">
+            <End Role="listType" EntitySet="listType" />
+            <End Role="listModel" EntitySet="listModel" />
+          </AssociationSet>
+          <AssociationSet Name="FK_KeyValue_DeviceMain" Association="Self.FK_KeyValue_DeviceMain">
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+            <End Role="KeyValue" EntitySet="KeyValue" />
+          </AssociationSet>
+          <AssociationSet Name="FK_linkEra2Session_SessionSetting" Association="Self.FK_linkEra2Session_SessionSetting">
+            <End Role="EraSetting" EntitySet="EraSetting" />
+            <End Role="linkEra2Session" EntitySet="linkEra2Session" />
+          </AssociationSet>
+          <AssociationSet Name="FK_linkSessions2Era_SessionSetting" Association="Self.FK_linkSessions2Era_SessionSetting">
+            <End Role="SessionSetting" EntitySet="SessionSetting" />
+            <End Role="linkEra2Session" EntitySet="linkEra2Session" />
+          </AssociationSet>
+          <AssociationSet Name="FK_LoginUser_LoginUser_UIFormat" Association="Self.FK_LoginUser_LoginUser_UIFormat">
+            <End Role="LoginUser_UIFormat" EntitySet="LoginUser_UIFormat" />
+            <End Role="LoginUser" EntitySet="LoginUser" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Project_Site" Association="Self.FK_Project_Site">
+            <End Role="Site" EntitySet="Site" />
+            <End Role="Project" EntitySet="Project" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SessionDaySetting_SessionSetting" Association="Self.FK_SessionDaySetting_SessionSetting">
+            <End Role="SessionSetting" EntitySet="SessionSetting" />
+            <End Role="SessionDaySetting" EntitySet="SessionDaySetting" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SessionSetting_listSessionRestriction" Association="Self.FK_SessionSetting_listSessionRestriction">
+            <End Role="listSessionRestrictionType" EntitySet="listSessionRestrictionType" />
+            <End Role="SessionSetting" EntitySet="SessionSetting" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SharedSite_Project" Association="Self.FK_SharedSite_Project">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="SharedSite" EntitySet="SharedSite" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SharedSite_Site" Association="Self.FK_SharedSite_Site">
+            <End Role="Site" EntitySet="Site" />
+            <End Role="SharedSite" EntitySet="SharedSite" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Site_2ParentSite" Association="Self.FK_Site_2ParentSite">
+            <End Role="Site" EntitySet="Site" />
+            <End Role="Site1" EntitySet="Site" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Site_Era_Setting" Association="Self.FK_Site_Era_Setting">
+            <End Role="EraSetting" EntitySet="EraSetting" />
+            <End Role="Site" EntitySet="Site" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Site_GlobalizationZone" Association="Self.FK_Site_GlobalizationZone">
+            <End Role="GlobalizationZone" EntitySet="GlobalizationZone" />
+            <End Role="Site" EntitySet="Site" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Site_listWaterSavingAlgorithm" Association="Self.FK_Site_listWaterSavingAlgorithm">
+            <End Role="listWaterSavingAlgorithm" EntitySet="listWaterSavingAlgorithm" />
+            <End Role="Site" EntitySet="Site" />
+          </AssociationSet>
+          <AssociationSet Name="FK_UserAccount_LoginUser" Association="Self.FK_UserAccount_LoginUser">
+            <End Role="LoginUser" EntitySet="LoginUser" />
+            <End Role="UserAccount" EntitySet="UserAccount" />
+          </AssociationSet>
+          <AssociationSet Name="FK_UserAccount_Project" Association="Self.FK_UserAccount_Project">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="UserAccount" EntitySet="UserAccount" />
+          </AssociationSet>
+          <AssociationSet Name="FK_WaterSavingAlgorithm_P1_Site" Association="Self.FK_WaterSavingAlgorithm_P1_Site">
+            <End Role="Site" EntitySet="Site" />
+            <End Role="WaterSavingAlgorithm_P1" EntitySet="WaterSavingAlgorithm_P1" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ZoneMain_ConfigManager" Association="Self.FK_ZoneMain_ConfigManager">
+            <End Role="ConfigManager" EntitySet="ConfigManager" />
+            <End Role="ZoneMain1" EntitySet="ZoneMain1" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ZoneMain_ZoneMain" Association="Self.FK_ZoneMain_ZoneMain">
+            <End Role="ZoneMain1" EntitySet="ZoneMain1" />
+            <End Role="ZoneMain" EntitySet="ZoneMain" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ZonesSettings_ConfigManager" Association="Self.FK_ZonesSettings_ConfigManager">
+            <End Role="ConfigManager" EntitySet="ConfigManager" />
+            <End Role="ZonesSettings" EntitySet="ZonesSettings" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ZonesSettings_listCycleSoakPattern" Association="Self.FK_ZonesSettings_listCycleSoakPattern">
+            <End Role="listCycleSoakPattern" EntitySet="listCycleSoakPattern" />
+            <End Role="ZonesSettings" EntitySet="ZonesSettings" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ZonesSettings_listOperationSequence" Association="Self.FK_ZonesSettings_listOperationSequence">
+            <End Role="listOperationSequence" EntitySet="listOperationSequence" />
+            <End Role="ZonesSettings" EntitySet="ZonesSettings" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ZonesSettings_listOperationSequence1" Association="Self.FK_ZonesSettings_listOperationSequence1">
+            <End Role="listOperationSequence" EntitySet="listOperationSequence" />
+            <End Role="ZonesSettings" EntitySet="ZonesSettings" />
+          </AssociationSet>
+        </EntityContainer>
+      </Schema>
+    </edmx:StorageModels>
+    <!-- CSDL content -->
+    <edmx:ConceptualModels>
+      <Schema Namespace="CyberRainAdminModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
+        <EntityType Name="LoginUser">
+          <Key>
+            <PropertyRef Name="UserID" />
+          </Key>
+          <Property Name="UserID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="CreationDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="LastLoginDate" Type="DateTime" Precision="3" />
+          <Property Name="AdminUserID" Type="Int64" Nullable="false" />
+          <Property Name="AdminUserGUID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="LastTruncToken" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="UIFormatID" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="LoginUser_UIFormat" Relationship="Self.FK_LoginUser_LoginUser_UIFormat" FromRole="LoginUser" ToRole="LoginUser_UIFormat" />
+          <NavigationProperty Name="UserAccount" Relationship="Self.FK_UserAccount_LoginUser" FromRole="LoginUser" ToRole="UserAccount" />
+        </EntityType>
+        <EntityType Name="UserAccount">
+          <Key>
+            <PropertyRef Name="UserID" />
+            <PropertyRef Name="ProjectID" />
+          </Key>
+          <Property Name="UserID" Type="Int64" Nullable="false" />
+          <Property Name="ProjectID" Type="Int64" Nullable="false" />
+          <Property Name="MatchDate" Type="DateTime" Nullable="false" Precision="3" />
+          <NavigationProperty Name="LoginUser" Relationship="Self.FK_UserAccount_LoginUser" FromRole="UserAccount" ToRole="LoginUser" />
+          <NavigationProperty Name="Project" Relationship="Self.FK_UserAccount_Project" FromRole="UserAccount" ToRole="Project" />
+        </EntityType>
+        <EntityType Name="GlobalizationZone">
+          <Key>
+            <PropertyRef Name="ZoneID" />
+          </Key>
+          <Property Name="ZoneID" Type="Int32" Nullable="false" />
+          <Property Name="SystemZoneID" Type="String" MaxLength="100" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="DisplayName" Type="String" MaxLength="100" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="DaylightName" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
+          <Property Name="StandardName" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
+          <Property Name="GMTOffset" Type="Int32" Nullable="false" />
+          <Property Name="IsDefault" Type="Boolean" Nullable="false" />
+          <Property Name="ManualOffset" Type="Int32" />
+          <Property Name="IsDaylightTime" Type="Boolean" />
+          <Property Name="ActualOffset" Type="Int32" annotation:StoreGeneratedPattern="Computed" />
+          <NavigationProperty Name="DeviceMain" Relationship="Self.FK_DeviceMain_GlobalizationZone" FromRole="GlobalizationZone" ToRole="DeviceMain" />
+          <NavigationProperty Name="Site" Relationship="Self.FK_Site_GlobalizationZone" FromRole="GlobalizationZone" ToRole="Site" />
+        </EntityType>
+        <EntityType Name="LoginUser_UIFormat">
+          <Key>
+            <PropertyRef Name="UIFormatID" />
+          </Key>
+          <Property Name="UIFormatID" Type="Int32" Nullable="false" />
+          <Property Name="LongDatePattern" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ShortDatePattern" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ShortTimePattern" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="LongTimePattern" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CultureCode" Type="String" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="YearMonthPattern" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="DisplayName" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="IsRightToLeft" Type="Boolean" Nullable="false" />
+          <Property Name="IsDefault" Type="Boolean" Nullable="false" />
+          <Property Name="StartDayOfWeek" Type="Byte" Nullable="false" />
+          <NavigationProperty Name="LoginUser" Relationship="Self.FK_LoginUser_LoginUser_UIFormat" FromRole="LoginUser_UIFormat" ToRole="LoginUser" />
+        </EntityType>
+        <EntityType Name="SharedSite">
+          <Key>
+            <PropertyRef Name="SiteID" />
+            <PropertyRef Name="ParentProjectID" />
+          </Key>
+          <Property Name="SiteID" Type="Int64" Nullable="false" />
+          <Property Name="ShareDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ShareApproveDate" Type="DateTime" Precision="3" />
+          <Property Name="ParentProjectID" Type="Int64" Nullable="false" />
+          <Property Name="IsPending" Type="Boolean" Nullable="false" />
+          <Property Name="ShareUserID" Type="Int64" Nullable="false" />
+          <NavigationProperty Name="Project" Relationship="Self.FK_SharedSite_Project" FromRole="SharedSite" ToRole="Project" />
+          <NavigationProperty Name="Site" Relationship="Self.FK_SharedSite_Site" FromRole="SharedSite" ToRole="Site" />
+        </EntityType>
+        <EntityType Name="sysdiagrams">
+          <Key>
+            <PropertyRef Name="diagram_id" />
+          </Key>
+          <Property Name="name" Type="String" MaxLength="128" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="principal_id" Type="Int32" Nullable="false" />
+          <Property Name="diagram_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="version" Type="Int32" />
+          <Property Name="definition" Type="Binary" MaxLength="Max" FixedLength="false" />
+        </EntityType>
+        <EntityType Name="AlertSetting">
+          <Key>
+            <PropertyRef Name="AlertCode" />
+            <PropertyRef Name="DeviceID" />
+          </Key>
+          <Property Name="AlertCode" Type="Int32" Nullable="false" />
+          <Property Name="DeviceID" Type="Int64" Nullable="false" />
+          <Property Name="IsEnable" Type="Boolean" Nullable="false" />
+          <Property Name="IsSMSEnable" Type="Boolean" Nullable="false" />
+          <Property Name="IsEmailEnable" Type="Boolean" Nullable="false" />
+          <NavigationProperty Name="DeviceMain" Relationship="Self.FK_AlertSetting_DeviceMain" FromRole="AlertSetting" ToRole="DeviceMain" />
+        </EntityType>
+        <EntityType Name="DeviceMain">
+          <Key>
+            <PropertyRef Name="DeviceID" />
+          </Key>
+          <Property Name="DeviceID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="SN" Type="String" MaxLength="25" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ParentSiteID" Type="Int64" />
+          <Property Name="Name" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="IsAlertsEnabled" Type="Boolean" Nullable="false" />
+          <Property Name="DeviceModelID" Type="Int32" Nullable="false" />
+          <Property Name="TotalActivatedZones" Type="Int32" Nullable="false" />
+          <Property Name="StatusID" Type="Int32" Nullable="false" />
+          <Property Name="Map_Latitude" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="Map_Longitude" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="FirmwareVersion" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="WaterSavingAlgorithmID" Type="Byte" />
+          <Property Name="ConfigID" Type="Int64" />
+          <Property Name="LastModifiedDate" Type="DateTime" Precision="3" />
+          <Property Name="LastSynchronizeDate" Type="DateTime" Precision="3" />
+          <Property Name="CreationDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="HoldUntilDate" Type="DateTime" Precision="3" />
+          <Property Name="TimeZoneID" Type="Int32" />
+          <NavigationProperty Name="GlobalizationZone" Relationship="Self.FK_DeviceMain_GlobalizationZone" FromRole="DeviceMain" ToRole="GlobalizationZone" />
+          <NavigationProperty Name="AlertSetting" Relationship="Self.FK_AlertSetting_DeviceMain" FromRole="DeviceMain" ToRole="AlertSetting" />
+          <NavigationProperty Name="ConfigManager" Relationship="Self.FK_DeviceMain_ConfigManager" FromRole="DeviceMain" ToRole="ConfigManager" />
+          <NavigationProperty Name="listModel" Relationship="Self.FK_DeviceMain_listModel" FromRole="DeviceMain" ToRole="listModel" />
+          <NavigationProperty Name="listStatus" Relationship="Self.FK_DeviceMain_listStatus" FromRole="DeviceMain" ToRole="listStatus" />
+          <NavigationProperty Name="Site" Relationship="Self.FK_DeviceMain_Site" FromRole="DeviceMain" ToRole="Site" />
+          <NavigationProperty Name="KeyValue" Relationship="Self.FK_KeyValue_DeviceMain" FromRole="DeviceMain" ToRole="KeyValue" />
+        </EntityType>
+        <EntityType Name="KeyValue">
+          <Key>
+            <PropertyRef Name="DeviceID" />
+            <PropertyRef Name="Code" />
+          </Key>
+          <Property Name="KeyID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="DeviceID" Type="Int64" Nullable="false" />
+          <Property Name="Code" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="Value" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="ModifiedDate" Type="DateTime" Nullable="false" Precision="3" />
+          <NavigationProperty Name="DeviceMain" Relationship="Self.FK_KeyValue_DeviceMain" FromRole="KeyValue" ToRole="DeviceMain" />
+        </EntityType>
+        <EntityType Name="listClockView">
+          <Key>
+            <PropertyRef Name="ViewID" />
+          </Key>
+          <Property Name="ViewID" Type="Byte" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <NavigationProperty Name="Device_DisplaySettings" Relationship="Self.FK_Device_DisplaySettings_listClockView" FromRole="listClockView" ToRole="Device_DisplaySettings" />
+        </EntityType>
+        <EntityType Name="listCycleSoakPattern">
+          <Key>
+            <PropertyRef Name="PatternID" />
+          </Key>
+          <Property Name="PatternID" Type="Byte" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <NavigationProperty Name="ZonesSettings" Relationship="Self.FK_ZonesSettings_listCycleSoakPattern" FromRole="listCycleSoakPattern" ToRole="ZonesSettings" />
+        </EntityType>
+        <EntityType Name="listModel">
+          <Key>
+            <PropertyRef Name="ModelID" />
+          </Key>
+          <Property Name="ModelID" Type="Int32" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="DeviceTypeID" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="DeviceMain" Relationship="Self.FK_DeviceMain_listModel" FromRole="listModel" ToRole="DeviceMain" />
+          <NavigationProperty Name="listType" Relationship="Self.FK_DeviceModel_DeviceType" FromRole="listModel" ToRole="listType" />
+        </EntityType>
+        <EntityType Name="listOperationSequence">
+          <Key>
+            <PropertyRef Name="SequenceTypeID" />
+          </Key>
+          <Property Name="SequenceTypeID" Type="Byte" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <NavigationProperty Name="ZonesSettings" Relationship="Self.FK_ZonesSettings_listOperationSequence" FromRole="listOperationSequence" ToRole="ZonesSettings" />
+          <NavigationProperty Name="ZonesSettings1" Relationship="Self.FK_ZonesSettings_listOperationSequence1" FromRole="listOperationSequence" ToRole="ZonesSettings" />
+        </EntityType>
+        <EntityType Name="listStatus">
+          <Key>
+            <PropertyRef Name="StatusID" />
+          </Key>
+          <Property Name="StatusID" Type="Int32" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <NavigationProperty Name="DeviceMain" Relationship="Self.FK_DeviceMain_listStatus" FromRole="listStatus" ToRole="DeviceMain" />
+        </EntityType>
+        <EntityType Name="listTempratureUnit">
+          <Key>
+            <PropertyRef Name="UnitID" />
+          </Key>
+          <Property Name="UnitID" Type="Byte" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="10" FixedLength="false" Unicode="false" Nullable="false" />
+          <NavigationProperty Name="Device_DisplaySettings" Relationship="Self.FK_Device_DisplaySettings_listTempratureUnit" FromRole="listTempratureUnit" ToRole="Device_DisplaySettings" />
+        </EntityType>
+        <EntityType Name="listType">
+          <Key>
+            <PropertyRef Name="TypeID" />
+          </Key>
+          <Property Name="TypeID" Type="Int32" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="50" FixedLength="false" Unicode="true" Nullable="false" />
+          <NavigationProperty Name="listModel" Relationship="Self.FK_DeviceModel_DeviceType" FromRole="listType" ToRole="listModel" />
+        </EntityType>
+        <EntityType Name="ZoneMain">
+          <Key>
+            <PropertyRef Name="ZoneID" />
+          </Key>
+          <Property Name="ZoneID" Type="Int64" Nullable="false" />
+          <Property Name="Number" Type="Int32" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="IsEnabled" Type="Boolean" Nullable="false" />
+          <Property Name="DeviceID" Type="Int64" Nullable="false" />
+          <NavigationProperty Name="ZoneMain1" Relationship="Self.FK_ZoneMain_ZoneMain" FromRole="ZoneMain" ToRole="ZoneMain1" />
+        </EntityType>
+        <EntityType Name="ConfigManager">
+          <Key>
+            <PropertyRef Name="ConfigID" />
+          </Key>
+          <Property Name="ConfigID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="CreationDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="SynDate" Type="DateTime" Precision="3" />
+          <NavigationProperty Name="DeviceMain" Relationship="Self.FK_DeviceMain_ConfigManager" FromRole="ConfigManager" ToRole="DeviceMain" />
+          <NavigationProperty Name="Device_DisplaySettings" Relationship="Self.FK_Device_DisplaySettings_ConfigManager" FromRole="ConfigManager" ToRole="Device_DisplaySettings" />
+          <NavigationProperty Name="ZoneMain1" Relationship="Self.FK_ZoneMain_ConfigManager" FromRole="ConfigManager" ToRole="ZoneMain1" />
+          <NavigationProperty Name="ZonesSettings" Relationship="Self.FK_ZonesSettings_ConfigManager" FromRole="ConfigManager" ToRole="ZonesSettings" />
+        </EntityType>
+        <EntityType Name="Device_DisplaySettings">
+          <Key>
+            <PropertyRef Name="ConfigID" />
+          </Key>
+          <Property Name="ConfigID" Type="Int64" Nullable="false" />
+          <Property Name="DisplayCharset" Type="Int32" />
+          <Property Name="TempratureUnit" Type="Byte" Nullable="false" />
+          <Property Name="ClockViewTypeID" Type="Byte" Nullable="false" />
+          <NavigationProperty Name="listClockView" Relationship="Self.FK_Device_DisplaySettings_listClockView" FromRole="Device_DisplaySettings" ToRole="listClockView" />
+          <NavigationProperty Name="listTempratureUnit" Relationship="Self.FK_Device_DisplaySettings_listTempratureUnit" FromRole="Device_DisplaySettings" ToRole="listTempratureUnit" />
+          <NavigationProperty Name="ConfigManager" Relationship="Self.FK_Device_DisplaySettings_ConfigManager" FromRole="Device_DisplaySettings" ToRole="ConfigManager" />
+        </EntityType>
+        <EntityType Name="ZoneMain1">
+          <Key>
+            <PropertyRef Name="ZoneID" />
+          </Key>
+          <Property Name="ConfigID" Type="Int64" Nullable="false" />
+          <Property Name="ZoneID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <NavigationProperty Name="ZoneMain" Relationship="Self.FK_ZoneMain_ZoneMain" FromRole="ZoneMain1" ToRole="ZoneMain" />
+          <NavigationProperty Name="ConfigManager" Relationship="Self.FK_ZoneMain_ConfigManager" FromRole="ZoneMain1" ToRole="ConfigManager" />
+        </EntityType>
+        <EntityType Name="ZonesSettings">
+          <Key>
+            <PropertyRef Name="ConfigID" />
+          </Key>
+          <Property Name="ConfigID" Type="Int64" Nullable="false" />
+          <Property Name="OpenTiming" Type="Int32" Nullable="false" />
+          <Property Name="CloseTiming" Type="Int32" Nullable="false" />
+          <Property Name="OpenSequenceTypeID" Type="Byte" Nullable="false" />
+          <Property Name="CloseSequenceTypeID" Type="Byte" Nullable="false" />
+          <Property Name="CycleSoakPattern" Type="Byte" />
+          <NavigationProperty Name="listCycleSoakPattern" Relationship="Self.FK_ZonesSettings_listCycleSoakPattern" FromRole="ZonesSettings" ToRole="listCycleSoakPattern" />
+          <NavigationProperty Name="listOperationSequence" Relationship="Self.FK_ZonesSettings_listOperationSequence" FromRole="ZonesSettings" ToRole="listOperationSequence" />
+          <NavigationProperty Name="listOperationSequence1" Relationship="Self.FK_ZonesSettings_listOperationSequence1" FromRole="ZonesSettings" ToRole="listOperationSequence" />
+          <NavigationProperty Name="ConfigManager" Relationship="Self.FK_ZonesSettings_ConfigManager" FromRole="ZonesSettings" ToRole="ConfigManager" />
+        </EntityType>
+        <EntityType Name="EraSetting">
+          <Key>
+            <PropertyRef Name="EraID" />
+          </Key>
+          <Property Name="EraID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="CreationDate" Type="DateTime" Nullable="false" Precision="3" />
+          <NavigationProperty Name="linkEra2Session" Relationship="Self.FK_linkEra2Session_SessionSetting" FromRole="EraSetting" ToRole="linkEra2Session" />
+          <NavigationProperty Name="Site" Relationship="Self.FK_Site_Era_Setting" FromRole="EraSetting" ToRole="Site" />
+        </EntityType>
+        <EntityType Name="linkEra2Session">
+          <Key>
+            <PropertyRef Name="EraID" />
+            <PropertyRef Name="SessionID" />
+          </Key>
+          <Property Name="EraID" Type="Int64" Nullable="false" />
+          <Property Name="SessionID" Type="Int64" Nullable="false" />
+          <Property Name="CreationDate" Type="DateTime" Nullable="false" Precision="3" />
+          <NavigationProperty Name="EraSetting" Relationship="Self.FK_linkEra2Session_SessionSetting" FromRole="linkEra2Session" ToRole="EraSetting" />
+          <NavigationProperty Name="SessionSetting" Relationship="Self.FK_linkSessions2Era_SessionSetting" FromRole="linkEra2Session" ToRole="SessionSetting" />
+        </EntityType>
+        <EntityType Name="listSessionRestrictionType">
+          <Key>
+            <PropertyRef Name="RestrictionTypeID" />
+          </Key>
+          <Property Name="RestrictionTypeID" Type="Byte" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <NavigationProperty Name="SessionSetting" Relationship="Self.FK_SessionSetting_listSessionRestriction" FromRole="listSessionRestrictionType" ToRole="SessionSetting" />
+        </EntityType>
+        <EntityType Name="Project">
+          <Key>
+            <PropertyRef Name="ProjectID" />
+          </Key>
+          <Property Name="Name" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="ProjectID" Type="Int64" Nullable="false" />
+          <NavigationProperty Name="UserAccount" Relationship="Self.FK_UserAccount_Project" FromRole="Project" ToRole="UserAccount" />
+          <NavigationProperty Name="SharedSite" Relationship="Self.FK_SharedSite_Project" FromRole="Project" ToRole="SharedSite" />
+          <NavigationProperty Name="Site" Relationship="Self.FK_Project_Site" FromRole="Project" ToRole="Site" />
+        </EntityType>
+        <EntityType Name="SessionDaySetting">
+          <Key>
+            <PropertyRef Name="ParentSessionID" />
+            <PropertyRef Name="DayIndex" />
+          </Key>
+          <Property Name="ParentSessionID" Type="Int64" Nullable="false" />
+          <Property Name="DayIndex" Type="Byte" Nullable="false" />
+          <Property Name="IsIrrigationAllowed" Type="Boolean" Nullable="false" />
+          <Property Name="StartTimeSeconds" Type="Int32" Nullable="false" />
+          <Property Name="EndTimeSeconds" Type="Int32" Nullable="false" />
+          <Property Name="MaxDailyIrrigrationSeconds" Type="Int32" Nullable="false" />
+          <Property Name="MaxDailyCycles" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="SessionSetting" Relationship="Self.FK_SessionDaySetting_SessionSetting" FromRole="SessionDaySetting" ToRole="SessionSetting" />
+        </EntityType>
+        <EntityType Name="SessionSetting">
+          <Key>
+            <PropertyRef Name="SessionID" />
+          </Key>
+          <Property Name="SessionID" Type="Int64" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="StartDate" Type="DateTime" Precision="3" />
+          <Property Name="EndDate" Type="DateTime" Precision="3" />
+          <Property Name="IsIrrigationAllowed" Type="Boolean" Nullable="false" />
+          <Property Name="IsAutoUpdate" Type="Boolean" Nullable="false" />
+          <Property Name="SessionIndex" Type="Int32" Nullable="false" />
+          <Property Name="RestrictionType" Type="Byte" Nullable="false" />
+          <NavigationProperty Name="linkEra2Session" Relationship="Self.FK_linkSessions2Era_SessionSetting" FromRole="SessionSetting" ToRole="linkEra2Session" />
+          <NavigationProperty Name="listSessionRestrictionType" Relationship="Self.FK_SessionSetting_listSessionRestriction" FromRole="SessionSetting" ToRole="listSessionRestrictionType" />
+          <NavigationProperty Name="SessionDaySetting" Relationship="Self.FK_SessionDaySetting_SessionSetting" FromRole="SessionSetting" ToRole="SessionDaySetting" />
+        </EntityType>
+        <EntityType Name="Site">
+          <Key>
+            <PropertyRef Name="SiteID" />
+          </Key>
+          <Property Name="Name" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="SiteID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="ParentSiteID" Type="Int64" />
+          <Property Name="MapCenter_Latitude" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="MapCenter_Longitude" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="MapCenter_Zoom" Type="Byte" />
+          <Property Name="MapCenter_Mode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="EraID" Type="Int64" />
+          <Property Name="WaterSavingAlgorithmID" Type="Byte" />
+          <Property Name="DefaultTimeZoneID" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="GlobalizationZone" Relationship="Self.FK_Site_GlobalizationZone" FromRole="Site" ToRole="GlobalizationZone" />
+          <NavigationProperty Name="SharedSite" Relationship="Self.FK_SharedSite_Site" FromRole="Site" ToRole="SharedSite" />
+          <NavigationProperty Name="DeviceMain" Relationship="Self.FK_DeviceMain_Site" FromRole="Site" ToRole="DeviceMain" />
+          <NavigationProperty Name="EraSetting" Relationship="Self.FK_Site_Era_Setting" FromRole="Site" ToRole="EraSetting" />
+          <NavigationProperty Name="Project" Relationship="Self.FK_Project_Site" FromRole="Site" ToRole="Project" />
+          <NavigationProperty Name="Site1" Relationship="Self.FK_Site_2ParentSite" FromRole="Site" ToRole="Site1" />
+          <NavigationProperty Name="Site2" Relationship="Self.FK_Site_2ParentSite" FromRole="Site1" ToRole="Site" />
+          <NavigationProperty Name="listWaterSavingAlgorithm" Relationship="Self.FK_Site_listWaterSavingAlgorithm" FromRole="Site" ToRole="listWaterSavingAlgorithm" />
+          <NavigationProperty Name="WaterSavingAlgorithm_P1" Relationship="Self.FK_WaterSavingAlgorithm_P1_Site" FromRole="Site" ToRole="WaterSavingAlgorithm_P1" />
+        </EntityType>
+        <EntityType Name="listWaterSavingAlgorithm">
+          <Key>
+            <PropertyRef Name="AlgorithmID" />
+          </Key>
+          <Property Name="AlgorithmID" Type="Byte" Nullable="false" />
+          <Property Name="Name" Type="Binary" MaxLength="50" FixedLength="false" Nullable="false" />
+          <NavigationProperty Name="Site" Relationship="Self.FK_Site_listWaterSavingAlgorithm" FromRole="listWaterSavingAlgorithm" ToRole="Site" />
+        </EntityType>
+        <EntityType Name="WaterSavingAlgorithm_P1">
+          <Key>
+            <PropertyRef Name="SiteID" />
+          </Key>
+          <Property Name="SiteID" Type="Int64" Nullable="false" />
+          <Property Name="IsEnabled" Type="Boolean" Nullable="false" />
+          <Property Name="HottestMonthTemp" Type="Decimal" Precision="18" Scale="3" Nullable="false" />
+          <Property Name="NormalHumidity" Type="Decimal" Precision="18" Scale="3" Nullable="false" />
+          <Property Name="PreciptationTreshold" Type="Decimal" Precision="18" Scale="3" Nullable="false" />
+          <Property Name="ChangeTemp_Per5Deg" Type="Decimal" Precision="18" Scale="3" Nullable="false" />
+          <Property Name="ChangeHumidity_Per5Precent" Type="Decimal" Precision="18" Scale="3" Nullable="false" />
+          <NavigationProperty Name="Site" Relationship="Self.FK_WaterSavingAlgorithm_P1_Site" FromRole="WaterSavingAlgorithm_P1" ToRole="Site" />
+        </EntityType>
+        <Association Name="FK_LoginUser_LoginUser_UIFormat">
+          <End Role="LoginUser_UIFormat" Type="Self.LoginUser_UIFormat" Multiplicity="1" />
+          <End Role="LoginUser" Type="Self.LoginUser" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="LoginUser_UIFormat">
+              <PropertyRef Name="UIFormatID" />
+            </Principal>
+            <Dependent Role="LoginUser">
+              <PropertyRef Name="UIFormatID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_UserAccount_LoginUser">
+          <End Role="LoginUser" Type="Self.LoginUser" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="UserAccount" Type="Self.UserAccount" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="LoginUser">
+              <PropertyRef Name="UserID" />
+            </Principal>
+            <Dependent Role="UserAccount">
+              <PropertyRef Name="UserID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_UserAccount_Project">
+          <End Role="Project" Type="Self.Project" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="UserAccount" Type="Self.UserAccount" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="ProjectID" />
+            </Principal>
+            <Dependent Role="UserAccount">
+              <PropertyRef Name="ProjectID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DeviceMain_GlobalizationZone">
+          <End Role="GlobalizationZone" Type="Self.GlobalizationZone" Multiplicity="0..1" />
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="GlobalizationZone">
+              <PropertyRef Name="ZoneID" />
+            </Principal>
+            <Dependent Role="DeviceMain">
+              <PropertyRef Name="TimeZoneID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Site_GlobalizationZone">
+          <End Role="GlobalizationZone" Type="Self.GlobalizationZone" Multiplicity="1" />
+          <End Role="Site" Type="Self.Site" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="GlobalizationZone">
+              <PropertyRef Name="ZoneID" />
+            </Principal>
+            <Dependent Role="Site">
+              <PropertyRef Name="DefaultTimeZoneID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SharedSite_Project">
+          <End Role="Project" Type="Self.Project" Multiplicity="1" />
+          <End Role="SharedSite" Type="Self.SharedSite" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="ProjectID" />
+            </Principal>
+            <Dependent Role="SharedSite">
+              <PropertyRef Name="ParentProjectID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SharedSite_Site">
+          <End Role="Site" Type="Self.Site" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="SharedSite" Type="Self.SharedSite" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Site">
+              <PropertyRef Name="SiteID" />
+            </Principal>
+            <Dependent Role="SharedSite">
+              <PropertyRef Name="SiteID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_AlertSetting_DeviceMain">
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="AlertSetting" Type="Self.AlertSetting" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="DeviceMain">
+              <PropertyRef Name="DeviceID" />
+            </Principal>
+            <Dependent Role="AlertSetting">
+              <PropertyRef Name="DeviceID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DeviceMain_ConfigManager">
+          <End Role="ConfigManager" Type="Self.ConfigManager" Multiplicity="0..1" />
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="ConfigManager">
+              <PropertyRef Name="ConfigID" />
+            </Principal>
+            <Dependent Role="DeviceMain">
+              <PropertyRef Name="ConfigID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DeviceMain_listModel">
+          <End Role="listModel" Type="Self.listModel" Multiplicity="1" />
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listModel">
+              <PropertyRef Name="ModelID" />
+            </Principal>
+            <Dependent Role="DeviceMain">
+              <PropertyRef Name="DeviceModelID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DeviceMain_listStatus">
+          <End Role="listStatus" Type="Self.listStatus" Multiplicity="1" />
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listStatus">
+              <PropertyRef Name="StatusID" />
+            </Principal>
+            <Dependent Role="DeviceMain">
+              <PropertyRef Name="StatusID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DeviceMain_Site">
+          <End Role="Site" Type="Self.Site" Multiplicity="0..1" />
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Site">
+              <PropertyRef Name="SiteID" />
+            </Principal>
+            <Dependent Role="DeviceMain">
+              <PropertyRef Name="ParentSiteID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_KeyValue_DeviceMain">
+          <End Role="DeviceMain" Type="Self.DeviceMain" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="KeyValue" Type="Self.KeyValue" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="DeviceMain">
+              <PropertyRef Name="DeviceID" />
+            </Principal>
+            <Dependent Role="KeyValue">
+              <PropertyRef Name="DeviceID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Device_DisplaySettings_listClockView">
+          <End Role="listClockView" Type="Self.listClockView" Multiplicity="1" />
+          <End Role="Device_DisplaySettings" Type="Self.Device_DisplaySettings" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listClockView">
+              <PropertyRef Name="ViewID" />
+            </Principal>
+            <Dependent Role="Device_DisplaySettings">
+              <PropertyRef Name="ClockViewTypeID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ZonesSettings_listCycleSoakPattern">
+          <End Role="listCycleSoakPattern" Type="Self.listCycleSoakPattern" Multiplicity="0..1" />
+          <End Role="ZonesSettings" Type="Self.ZonesSettings" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listCycleSoakPattern">
+              <PropertyRef Name="PatternID" />
+            </Principal>
+            <Dependent Role="ZonesSettings">
+              <PropertyRef Name="CycleSoakPattern" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DeviceModel_DeviceType">
+          <End Role="listType" Type="Self.listType" Multiplicity="1" />
+          <End Role="listModel" Type="Self.listModel" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listType">
+              <PropertyRef Name="TypeID" />
+            </Principal>
+            <Dependent Role="listModel">
+              <PropertyRef Name="DeviceTypeID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ZonesSettings_listOperationSequence">
+          <End Role="listOperationSequence" Type="Self.listOperationSequence" Multiplicity="1" />
+          <End Role="ZonesSettings" Type="Self.ZonesSettings" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listOperationSequence">
+              <PropertyRef Name="SequenceTypeID" />
+            </Principal>
+            <Dependent Role="ZonesSettings">
+              <PropertyRef Name="CloseSequenceTypeID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ZonesSettings_listOperationSequence1">
+          <End Role="listOperationSequence" Type="Self.listOperationSequence" Multiplicity="1" />
+          <End Role="ZonesSettings" Type="Self.ZonesSettings" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listOperationSequence">
+              <PropertyRef Name="SequenceTypeID" />
+            </Principal>
+            <Dependent Role="ZonesSettings">
+              <PropertyRef Name="OpenSequenceTypeID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Device_DisplaySettings_listTempratureUnit">
+          <End Role="listTempratureUnit" Type="Self.listTempratureUnit" Multiplicity="1" />
+          <End Role="Device_DisplaySettings" Type="Self.Device_DisplaySettings" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listTempratureUnit">
+              <PropertyRef Name="UnitID" />
+            </Principal>
+            <Dependent Role="Device_DisplaySettings">
+              <PropertyRef Name="TempratureUnit" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ZoneMain_ZoneMain">
+          <End Role="ZoneMain1" Type="Self.ZoneMain1" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="ZoneMain" Type="Self.ZoneMain" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="ZoneMain1">
+              <PropertyRef Name="ZoneID" />
+            </Principal>
+            <Dependent Role="ZoneMain">
+              <PropertyRef Name="ZoneID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Device_DisplaySettings_ConfigManager">
+          <End Role="ConfigManager" Type="Self.ConfigManager" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="Device_DisplaySettings" Type="Self.Device_DisplaySettings" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="ConfigManager">
+              <PropertyRef Name="ConfigID" />
+            </Principal>
+            <Dependent Role="Device_DisplaySettings">
+              <PropertyRef Name="ConfigID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ZoneMain_ConfigManager">
+          <End Role="ConfigManager" Type="Self.ConfigManager" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="ZoneMain1" Type="Self.ZoneMain1" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="ConfigManager">
+              <PropertyRef Name="ConfigID" />
+            </Principal>
+            <Dependent Role="ZoneMain1">
+              <PropertyRef Name="ConfigID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ZonesSettings_ConfigManager">
+          <End Role="ConfigManager" Type="Self.ConfigManager" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="ZonesSettings" Type="Self.ZonesSettings" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="ConfigManager">
+              <PropertyRef Name="ConfigID" />
+            </Principal>
+            <Dependent Role="ZonesSettings">
+              <PropertyRef Name="ConfigID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_linkEra2Session_SessionSetting">
+          <End Role="EraSetting" Type="Self.EraSetting" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="linkEra2Session" Type="Self.linkEra2Session" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="EraSetting">
+              <PropertyRef Name="EraID" />
+            </Principal>
+            <Dependent Role="linkEra2Session">
+              <PropertyRef Name="EraID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Site_Era_Setting">
+          <End Role="EraSetting" Type="Self.EraSetting" Multiplicity="0..1" />
+          <End Role="Site" Type="Self.Site" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="EraSetting">
+              <PropertyRef Name="EraID" />
+            </Principal>
+            <Dependent Role="Site">
+              <PropertyRef Name="EraID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_linkSessions2Era_SessionSetting">
+          <End Role="SessionSetting" Type="Self.SessionSetting" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="linkEra2Session" Type="Self.linkEra2Session" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="SessionSetting">
+              <PropertyRef Name="SessionID" />
+            </Principal>
+            <Dependent Role="linkEra2Session">
+              <PropertyRef Name="SessionID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SessionSetting_listSessionRestriction">
+          <End Role="listSessionRestrictionType" Type="Self.listSessionRestrictionType" Multiplicity="1" />
+          <End Role="SessionSetting" Type="Self.SessionSetting" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listSessionRestrictionType">
+              <PropertyRef Name="RestrictionTypeID" />
+            </Principal>
+            <Dependent Role="SessionSetting">
+              <PropertyRef Name="RestrictionType" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Project_Site">
+          <End Role="Site" Type="Self.Site" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="Project" Type="Self.Project" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="Site">
+              <PropertyRef Name="SiteID" />
+            </Principal>
+            <Dependent Role="Project">
+              <PropertyRef Name="ProjectID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SessionDaySetting_SessionSetting">
+          <End Role="SessionSetting" Type="Self.SessionSetting" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="SessionDaySetting" Type="Self.SessionDaySetting" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="SessionSetting">
+              <PropertyRef Name="SessionID" />
+            </Principal>
+            <Dependent Role="SessionDaySetting">
+              <PropertyRef Name="ParentSessionID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Site_2ParentSite">
+          <End Role="Site" Type="Self.Site" Multiplicity="0..1" />
+          <End Role="Site1" Type="Self.Site" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Site">
+              <PropertyRef Name="SiteID" />
+            </Principal>
+            <Dependent Role="Site1">
+              <PropertyRef Name="ParentSiteID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Site_listWaterSavingAlgorithm">
+          <End Role="listWaterSavingAlgorithm" Type="Self.listWaterSavingAlgorithm" Multiplicity="0..1" />
+          <End Role="Site" Type="Self.Site" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="listWaterSavingAlgorithm">
+              <PropertyRef Name="AlgorithmID" />
+            </Principal>
+            <Dependent Role="Site">
+              <PropertyRef Name="WaterSavingAlgorithmID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_WaterSavingAlgorithm_P1_Site">
+          <End Role="Site" Type="Self.Site" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="WaterSavingAlgorithm_P1" Type="Self.WaterSavingAlgorithm_P1" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="Site">
+              <PropertyRef Name="SiteID" />
+            </Principal>
+            <Dependent Role="WaterSavingAlgorithm_P1">
+              <PropertyRef Name="SiteID" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityContainer Name="Entities" annotation:LazyLoadingEnabled="true">
+          <EntitySet Name="LoginUser" EntityType="Self.LoginUser" />
+          <EntitySet Name="UserAccount" EntityType="Self.UserAccount" />
+          <EntitySet Name="GlobalizationZone" EntityType="Self.GlobalizationZone" />
+          <EntitySet Name="LoginUser_UIFormat" EntityType="Self.LoginUser_UIFormat" />
+          <EntitySet Name="SharedSite" EntityType="Self.SharedSite" />
+          <EntitySet Name="sysdiagrams" EntityType="Self.sysdiagrams" />
+          <EntitySet Name="AlertSetting" EntityType="Self.AlertSetting" />
+          <EntitySet Name="DeviceMain" EntityType="Self.DeviceMain" />
+          <EntitySet Name="KeyValue" EntityType="Self.KeyValue" />
+          <EntitySet Name="listClockView" EntityType="Self.listClockView" />
+          <EntitySet Name="listCycleSoakPattern" EntityType="Self.listCycleSoakPattern" />
+          <EntitySet Name="listModel" EntityType="Self.listModel" />
+          <EntitySet Name="listOperationSequence" EntityType="Self.listOperationSequence" />
+          <EntitySet Name="listStatus" EntityType="Self.listStatus" />
+          <EntitySet Name="listTempratureUnit" EntityType="Self.listTempratureUnit" />
+          <EntitySet Name="listType" EntityType="Self.listType" />
+          <EntitySet Name="ZoneMain" EntityType="Self.ZoneMain" />
+          <EntitySet Name="ConfigManager" EntityType="Self.ConfigManager" />
+          <EntitySet Name="Device_DisplaySettings" EntityType="Self.Device_DisplaySettings" />
+          <EntitySet Name="ZoneMain1" EntityType="Self.ZoneMain1" />
+          <EntitySet Name="ZonesSettings" EntityType="Self.ZonesSettings" />
+          <EntitySet Name="EraSetting" EntityType="Self.EraSetting" />
+          <EntitySet Name="linkEra2Session" EntityType="Self.linkEra2Session" />
+          <EntitySet Name="listSessionRestrictionType" EntityType="Self.listSessionRestrictionType" />
+          <EntitySet Name="Project" EntityType="Self.Project" />
+          <EntitySet Name="SessionDaySetting" EntityType="Self.SessionDaySetting" />
+          <EntitySet Name="SessionSetting" EntityType="Self.SessionSetting" />
+          <EntitySet Name="Site" EntityType="Self.Site" />
+          <EntitySet Name="listWaterSavingAlgorithm" EntityType="Self.listWaterSavingAlgorithm" />
+          <EntitySet Name="WaterSavingAlgorithm_P1" EntityType="Self.WaterSavingAlgorithm_P1" />
+          <AssociationSet Name="FK_LoginUser_LoginUser_UIFormat" Association="Self.FK_LoginUser_LoginUser_UIFormat">
+            <End Role="LoginUser_UIFormat" EntitySet="LoginUser_UIFormat" />
+            <End Role="LoginUser" EntitySet="LoginUser" />
+          </AssociationSet>
+          <AssociationSet Name="FK_UserAccount_LoginUser" Association="Self.FK_UserAccount_LoginUser">
+            <End Role="LoginUser" EntitySet="LoginUser" />
+            <End Role="UserAccount" EntitySet="UserAccount" />
+          </AssociationSet>
+          <AssociationSet Name="FK_UserAccount_Project" Association="Self.FK_UserAccount_Project">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="UserAccount" EntitySet="UserAccount" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DeviceMain_GlobalizationZone" Association="Self.FK_DeviceMain_GlobalizationZone">
+            <End Role="GlobalizationZone" EntitySet="GlobalizationZone" />
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Site_GlobalizationZone" Association="Self.FK_Site_GlobalizationZone">
+            <End Role="GlobalizationZone" EntitySet="GlobalizationZone" />
+            <End Role="Site" EntitySet="Site" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SharedSite_Project" Association="Self.FK_SharedSite_Project">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="SharedSite" EntitySet="SharedSite" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SharedSite_Site" Association="Self.FK_SharedSite_Site">
+            <End Role="Site" EntitySet="Site" />
+            <End Role="SharedSite" EntitySet="SharedSite" />
+          </AssociationSet>
+          <AssociationSet Name="FK_AlertSetting_DeviceMain" Association="Self.FK_AlertSetting_DeviceMain">
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+            <End Role="AlertSetting" EntitySet="AlertSetting" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DeviceMain_ConfigManager" Association="Self.FK_DeviceMain_ConfigManager">
+            <End Role="ConfigManager" EntitySet="ConfigManager" />
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DeviceMain_listModel" Association="Self.FK_DeviceMain_listModel">
+            <End Role="listModel" EntitySet="listModel" />
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DeviceMain_listStatus" Association="Self.FK_DeviceMain_listStatus">
+            <End Role="listStatus" EntitySet="listStatus" />
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DeviceMain_Site" Association="Self.FK_DeviceMain_Site">
+            <End Role="Site" EntitySet="Site" />
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+          </AssociationSet>
+          <AssociationSet Name="FK_KeyValue_DeviceMain" Association="Self.FK_KeyValue_DeviceMain">
+            <End Role="DeviceMain" EntitySet="DeviceMain" />
+            <End Role="KeyValue" EntitySet="KeyValue" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Device_DisplaySettings_listClockView" Association="Self.FK_Device_DisplaySettings_listClockView">
+            <End Role="listClockView" EntitySet="listClockView" />
+            <End Role="Device_DisplaySettings" EntitySet="Device_DisplaySettings" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ZonesSettings_listCycleSoakPattern" Association="Self.FK_ZonesSettings_listCycleSoakPattern">
+            <End Role="listCycleSoakPattern" EntitySet="listCycleSoakPattern" />
+            <End Role="ZonesSettings" EntitySet="ZonesSettings" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DeviceModel_DeviceType" Association="Self.FK_DeviceModel_DeviceType">
+            <End Role="listType" EntitySet="listType" />
+            <End Role="listModel" EntitySet="listModel" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ZonesSettings_listOperationSequence" Association="Self.FK_ZonesSettings_listOperationSequence">
+            <End Role="listOperationSequence" EntitySet="listOperationSequence" />
+            <End Role="ZonesSettings" EntitySet="ZonesSettings" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ZonesSettings_listOperationSequence1" Association="Self.FK_ZonesSettings_listOperationSequence1">
+            <End Role="listOperationSequence" EntitySet="listOperationSequence" />
+            <End Role="ZonesSettings" EntitySet="ZonesSettings" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Device_DisplaySettings_listTempratureUnit" Association="Self.FK_Device_DisplaySettings_listTempratureUnit">
+            <End Role="listTempratureUnit" EntitySet="listTempratureUnit" />
+            <End Role="Device_DisplaySettings" EntitySet="Device_DisplaySettings" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ZoneMain_ZoneMain" Association="Self.FK_ZoneMain_ZoneMain">
+            <End Role="ZoneMain1" EntitySet="ZoneMain1" />
+            <End Role="ZoneMain" EntitySet="ZoneMain" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Device_DisplaySettings_ConfigManager" Association="Self.FK_Device_DisplaySettings_ConfigManager">
+            <End Role="ConfigManager" EntitySet="ConfigManager" />
+            <End Role="Device_DisplaySettings" EntitySet="Device_DisplaySettings" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ZoneMain_ConfigManager" Association="Self.FK_ZoneMain_ConfigManager">
+            <End Role="ConfigManager" EntitySet="ConfigManager" />
+            <End Role="ZoneMain1" EntitySet="ZoneMain1" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ZonesSettings_ConfigManager" Association="Self.FK_ZonesSettings_ConfigManager">
+            <End Role="ConfigManager" EntitySet="ConfigManager" />
+            <End Role="ZonesSettings" EntitySet="ZonesSettings" />
+          </AssociationSet>
+          <AssociationSet Name="FK_linkEra2Session_SessionSetting" Association="Self.FK_linkEra2Session_SessionSetting">
+            <End Role="EraSetting" EntitySet="EraSetting" />
+            <End Role="linkEra2Session" EntitySet="linkEra2Session" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Site_Era_Setting" Association="Self.FK_Site_Era_Setting">
+            <End Role="EraSetting" EntitySet="EraSetting" />
+            <End Role="Site" EntitySet="Site" />
+          </AssociationSet>
+          <AssociationSet Name="FK_linkSessions2Era_SessionSetting" Association="Self.FK_linkSessions2Era_SessionSetting">
+            <End Role="SessionSetting" EntitySet="SessionSetting" />
+            <End Role="linkEra2Session" EntitySet="linkEra2Session" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SessionSetting_listSessionRestriction" Association="Self.FK_SessionSetting_listSessionRestriction">
+            <End Role="listSessionRestrictionType" EntitySet="listSessionRestrictionType" />
+            <End Role="SessionSetting" EntitySet="SessionSetting" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Project_Site" Association="Self.FK_Project_Site">
+            <End Role="Site" EntitySet="Site" />
+            <End Role="Project" EntitySet="Project" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SessionDaySetting_SessionSetting" Association="Self.FK_SessionDaySetting_SessionSetting">
+            <End Role="SessionSetting" EntitySet="SessionSetting" />
+            <End Role="SessionDaySetting" EntitySet="SessionDaySetting" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Site_2ParentSite" Association="Self.FK_Site_2ParentSite">
+            <End Role="Site" EntitySet="Site" />
+            <End Role="Site1" EntitySet="Site" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Site_listWaterSavingAlgorithm" Association="Self.FK_Site_listWaterSavingAlgorithm">
+            <End Role="listWaterSavingAlgorithm" EntitySet="listWaterSavingAlgorithm" />
+            <End Role="Site" EntitySet="Site" />
+          </AssociationSet>
+          <AssociationSet Name="FK_WaterSavingAlgorithm_P1_Site" Association="Self.FK_WaterSavingAlgorithm_P1_Site">
+            <End Role="Site" EntitySet="Site" />
+            <End Role="WaterSavingAlgorithm_P1" EntitySet="WaterSavingAlgorithm_P1" />
+          </AssociationSet>
+        </EntityContainer>
+      </Schema>
+    </edmx:ConceptualModels>
+    <!-- C-S mapping content -->
+    <edmx:Mappings>
+      <Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
+        <EntityContainerMapping StorageEntityContainer="CyberRainAdminModelStoreContainer" CdmEntityContainer="Entities">
+          <EntitySetMapping Name="LoginUser">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.LoginUser">
+              <MappingFragment StoreEntitySet="LoginUser">
+                <ScalarProperty Name="UserID" ColumnName="UserID" />
+                <ScalarProperty Name="CreationDate" ColumnName="CreationDate" />
+                <ScalarProperty Name="LastLoginDate" ColumnName="LastLoginDate" />
+                <ScalarProperty Name="AdminUserID" ColumnName="AdminUserID" />
+                <ScalarProperty Name="AdminUserGUID" ColumnName="AdminUserGUID" />
+                <ScalarProperty Name="LastTruncToken" ColumnName="LastTruncToken" />
+                <ScalarProperty Name="UIFormatID" ColumnName="UIFormatID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="UserAccount">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.UserAccount">
+              <MappingFragment StoreEntitySet="UserAccount">
+                <ScalarProperty Name="UserID" ColumnName="UserID" />
+                <ScalarProperty Name="ProjectID" ColumnName="ProjectID" />
+                <ScalarProperty Name="MatchDate" ColumnName="MatchDate" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="GlobalizationZone">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.GlobalizationZone">
+              <MappingFragment StoreEntitySet="GlobalizationZone">
+                <ScalarProperty Name="ZoneID" ColumnName="ZoneID" />
+                <ScalarProperty Name="SystemZoneID" ColumnName="SystemZoneID" />
+                <ScalarProperty Name="DisplayName" ColumnName="DisplayName" />
+                <ScalarProperty Name="DaylightName" ColumnName="DaylightName" />
+                <ScalarProperty Name="StandardName" ColumnName="StandardName" />
+                <ScalarProperty Name="GMTOffset" ColumnName="GMTOffset" />
+                <ScalarProperty Name="IsDefault" ColumnName="IsDefault" />
+                <ScalarProperty Name="ManualOffset" ColumnName="ManualOffset" />
+                <ScalarProperty Name="IsDaylightTime" ColumnName="IsDaylightTime" />
+                <ScalarProperty Name="ActualOffset" ColumnName="ActualOffset" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="LoginUser_UIFormat">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.LoginUser_UIFormat">
+              <MappingFragment StoreEntitySet="LoginUser_UIFormat">
+                <ScalarProperty Name="UIFormatID" ColumnName="UIFormatID" />
+                <ScalarProperty Name="LongDatePattern" ColumnName="LongDatePattern" />
+                <ScalarProperty Name="ShortDatePattern" ColumnName="ShortDatePattern" />
+                <ScalarProperty Name="ShortTimePattern" ColumnName="ShortTimePattern" />
+                <ScalarProperty Name="LongTimePattern" ColumnName="LongTimePattern" />
+                <ScalarProperty Name="CultureCode" ColumnName="CultureCode" />
+                <ScalarProperty Name="YearMonthPattern" ColumnName="YearMonthPattern" />
+                <ScalarProperty Name="DisplayName" ColumnName="DisplayName" />
+                <ScalarProperty Name="IsRightToLeft" ColumnName="IsRightToLeft" />
+                <ScalarProperty Name="IsDefault" ColumnName="IsDefault" />
+                <ScalarProperty Name="StartDayOfWeek" ColumnName="StartDayOfWeek" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="SharedSite">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.SharedSite">
+              <MappingFragment StoreEntitySet="SharedSite">
+                <ScalarProperty Name="SiteID" ColumnName="SiteID" />
+                <ScalarProperty Name="ShareDate" ColumnName="ShareDate" />
+                <ScalarProperty Name="ShareApproveDate" ColumnName="ShareApproveDate" />
+                <ScalarProperty Name="ParentProjectID" ColumnName="ParentProjectID" />
+                <ScalarProperty Name="IsPending" ColumnName="IsPending" />
+                <ScalarProperty Name="ShareUserID" ColumnName="ShareUserID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="sysdiagrams">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.sysdiagrams">
+              <MappingFragment StoreEntitySet="sysdiagrams">
+                <ScalarProperty Name="name" ColumnName="name" />
+                <ScalarProperty Name="principal_id" ColumnName="principal_id" />
+                <ScalarProperty Name="diagram_id" ColumnName="diagram_id" />
+                <ScalarProperty Name="version" ColumnName="version" />
+                <ScalarProperty Name="definition" ColumnName="definition" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="AlertSetting">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.AlertSetting">
+              <MappingFragment StoreEntitySet="AlertSetting">
+                <ScalarProperty Name="AlertCode" ColumnName="AlertCode" />
+                <ScalarProperty Name="DeviceID" ColumnName="DeviceID" />
+                <ScalarProperty Name="IsEnable" ColumnName="IsEnable" />
+                <ScalarProperty Name="IsSMSEnable" ColumnName="IsSMSEnable" />
+                <ScalarProperty Name="IsEmailEnable" ColumnName="IsEmailEnable" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="DeviceMain">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.DeviceMain">
+              <MappingFragment StoreEntitySet="DeviceMain">
+                <ScalarProperty Name="DeviceID" ColumnName="DeviceID" />
+                <ScalarProperty Name="SN" ColumnName="SN" />
+                <ScalarProperty Name="ParentSiteID" ColumnName="ParentSiteID" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="IsAlertsEnabled" ColumnName="IsAlertsEnabled" />
+                <ScalarProperty Name="DeviceModelID" ColumnName="DeviceModelID" />
+                <ScalarProperty Name="TotalActivatedZones" ColumnName="TotalActivatedZones" />
+                <ScalarProperty Name="StatusID" ColumnName="StatusID" />
+                <ScalarProperty Name="Map_Latitude" ColumnName="Map_Latitude" />
+                <ScalarProperty Name="Map_Longitude" ColumnName="Map_Longitude" />
+                <ScalarProperty Name="FirmwareVersion" ColumnName="FirmwareVersion" />
+                <ScalarProperty Name="WaterSavingAlgorithmID" ColumnName="WaterSavingAlgorithmID" />
+                <ScalarProperty Name="ConfigID" ColumnName="ConfigID" />
+                <ScalarProperty Name="LastModifiedDate" ColumnName="LastModifiedDate" />
+                <ScalarProperty Name="LastSynchronizeDate" ColumnName="LastSynchronizeDate" />
+                <ScalarProperty Name="CreationDate" ColumnName="CreationDate" />
+                <ScalarProperty Name="HoldUntilDate" ColumnName="HoldUntilDate" />
+                <ScalarProperty Name="TimeZoneID" ColumnName="TimeZoneID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="KeyValue">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.KeyValue">
+              <MappingFragment StoreEntitySet="KeyValue">
+                <ScalarProperty Name="KeyID" ColumnName="KeyID" />
+                <ScalarProperty Name="DeviceID" ColumnName="DeviceID" />
+                <ScalarProperty Name="Code" ColumnName="Code" />
+                <ScalarProperty Name="Value" ColumnName="Value" />
+                <ScalarProperty Name="ModifiedDate" ColumnName="ModifiedDate" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="listClockView">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.listClockView">
+              <MappingFragment StoreEntitySet="listClockView">
+                <ScalarProperty Name="ViewID" ColumnName="ViewID" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="listCycleSoakPattern">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.listCycleSoakPattern">
+              <MappingFragment StoreEntitySet="listCycleSoakPattern">
+                <ScalarProperty Name="PatternID" ColumnName="PatternID" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="listModel">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.listModel">
+              <MappingFragment StoreEntitySet="listModel">
+                <ScalarProperty Name="ModelID" ColumnName="ModelID" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="DeviceTypeID" ColumnName="DeviceTypeID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="listOperationSequence">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.listOperationSequence">
+              <MappingFragment StoreEntitySet="listOperationSequence">
+                <ScalarProperty Name="SequenceTypeID" ColumnName="SequenceTypeID" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="listStatus">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.listStatus">
+              <MappingFragment StoreEntitySet="listStatus">
+                <ScalarProperty Name="StatusID" ColumnName="StatusID" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="listTempratureUnit">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.listTempratureUnit">
+              <MappingFragment StoreEntitySet="listTempratureUnit">
+                <ScalarProperty Name="UnitID" ColumnName="UnitID" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="listType">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.listType">
+              <MappingFragment StoreEntitySet="listType">
+                <ScalarProperty Name="TypeID" ColumnName="TypeID" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ZoneMain">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.ZoneMain">
+              <MappingFragment StoreEntitySet="ZoneMain">
+                <ScalarProperty Name="ZoneID" ColumnName="ZoneID" />
+                <ScalarProperty Name="Number" ColumnName="Number" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="IsEnabled" ColumnName="IsEnabled" />
+                <ScalarProperty Name="DeviceID" ColumnName="DeviceID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ConfigManager">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.ConfigManager">
+              <MappingFragment StoreEntitySet="ConfigManager">
+                <ScalarProperty Name="ConfigID" ColumnName="ConfigID" />
+                <ScalarProperty Name="CreationDate" ColumnName="CreationDate" />
+                <ScalarProperty Name="SynDate" ColumnName="SynDate" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Device_DisplaySettings">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.Device_DisplaySettings">
+              <MappingFragment StoreEntitySet="Device_DisplaySettings">
+                <ScalarProperty Name="ConfigID" ColumnName="ConfigID" />
+                <ScalarProperty Name="DisplayCharset" ColumnName="DisplayCharset" />
+                <ScalarProperty Name="TempratureUnit" ColumnName="TempratureUnit" />
+                <ScalarProperty Name="ClockViewTypeID" ColumnName="ClockViewTypeID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ZoneMain1">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.ZoneMain1">
+              <MappingFragment StoreEntitySet="ZoneMain1">
+                <ScalarProperty Name="ConfigID" ColumnName="ConfigID" />
+                <ScalarProperty Name="ZoneID" ColumnName="ZoneID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ZonesSettings">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.ZonesSettings">
+              <MappingFragment StoreEntitySet="ZonesSettings">
+                <ScalarProperty Name="ConfigID" ColumnName="ConfigID" />
+                <ScalarProperty Name="OpenTiming" ColumnName="OpenTiming" />
+                <ScalarProperty Name="CloseTiming" ColumnName="CloseTiming" />
+                <ScalarProperty Name="OpenSequenceTypeID" ColumnName="OpenSequenceTypeID" />
+                <ScalarProperty Name="CloseSequenceTypeID" ColumnName="CloseSequenceTypeID" />
+                <ScalarProperty Name="CycleSoakPattern" ColumnName="CycleSoakPattern" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="EraSetting">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.EraSetting">
+              <MappingFragment StoreEntitySet="EraSetting">
+                <ScalarProperty Name="EraID" ColumnName="EraID" />
+                <ScalarProperty Name="CreationDate" ColumnName="CreationDate" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="linkEra2Session">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.linkEra2Session">
+              <MappingFragment StoreEntitySet="linkEra2Session">
+                <ScalarProperty Name="EraID" ColumnName="EraID" />
+                <ScalarProperty Name="SessionID" ColumnName="SessionID" />
+                <ScalarProperty Name="CreationDate" ColumnName="CreationDate" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="listSessionRestrictionType">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.listSessionRestrictionType">
+              <MappingFragment StoreEntitySet="listSessionRestrictionType">
+                <ScalarProperty Name="RestrictionTypeID" ColumnName="RestrictionTypeID" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Project">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.Project">
+              <MappingFragment StoreEntitySet="Project">
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="ProjectID" ColumnName="ProjectID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="SessionDaySetting">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.SessionDaySetting">
+              <MappingFragment StoreEntitySet="SessionDaySetting">
+                <ScalarProperty Name="ParentSessionID" ColumnName="ParentSessionID" />
+                <ScalarProperty Name="DayIndex" ColumnName="DayIndex" />
+                <ScalarProperty Name="IsIrrigationAllowed" ColumnName="IsIrrigationAllowed" />
+                <ScalarProperty Name="StartTimeSeconds" ColumnName="StartTimeSeconds" />
+                <ScalarProperty Name="EndTimeSeconds" ColumnName="EndTimeSeconds" />
+                <ScalarProperty Name="MaxDailyIrrigrationSeconds" ColumnName="MaxDailyIrrigrationSeconds" />
+                <ScalarProperty Name="MaxDailyCycles" ColumnName="MaxDailyCycles" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="SessionSetting">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.SessionSetting">
+              <MappingFragment StoreEntitySet="SessionSetting">
+                <ScalarProperty Name="SessionID" ColumnName="SessionID" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="StartDate" ColumnName="StartDate" />
+                <ScalarProperty Name="EndDate" ColumnName="EndDate" />
+                <ScalarProperty Name="IsIrrigationAllowed" ColumnName="IsIrrigationAllowed" />
+                <ScalarProperty Name="IsAutoUpdate" ColumnName="IsAutoUpdate" />
+                <ScalarProperty Name="SessionIndex" ColumnName="SessionIndex" />
+                <ScalarProperty Name="RestrictionType" ColumnName="RestrictionType" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Site">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.Site">
+              <MappingFragment StoreEntitySet="Site">
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="SiteID" ColumnName="SiteID" />
+                <ScalarProperty Name="ParentSiteID" ColumnName="ParentSiteID" />
+                <ScalarProperty Name="MapCenter_Latitude" ColumnName="MapCenter_Latitude" />
+                <ScalarProperty Name="MapCenter_Longitude" ColumnName="MapCenter_Longitude" />
+                <ScalarProperty Name="MapCenter_Zoom" ColumnName="MapCenter_Zoom" />
+                <ScalarProperty Name="MapCenter_Mode" ColumnName="MapCenter_Mode" />
+                <ScalarProperty Name="EraID" ColumnName="EraID" />
+                <ScalarProperty Name="WaterSavingAlgorithmID" ColumnName="WaterSavingAlgorithmID" />
+                <ScalarProperty Name="DefaultTimeZoneID" ColumnName="DefaultTimeZoneID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="listWaterSavingAlgorithm">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.listWaterSavingAlgorithm">
+              <MappingFragment StoreEntitySet="listWaterSavingAlgorithm">
+                <ScalarProperty Name="AlgorithmID" ColumnName="AlgorithmID" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="WaterSavingAlgorithm_P1">
+            <EntityTypeMapping TypeName="CyberRainAdminModel.WaterSavingAlgorithm_P1">
+              <MappingFragment StoreEntitySet="WaterSavingAlgorithm_P1">
+                <ScalarProperty Name="SiteID" ColumnName="SiteID" />
+                <ScalarProperty Name="IsEnabled" ColumnName="IsEnabled" />
+                <ScalarProperty Name="HottestMonthTemp" ColumnName="HottestMonthTemp" />
+                <ScalarProperty Name="NormalHumidity" ColumnName="NormalHumidity" />
+                <ScalarProperty Name="PreciptationTreshold" ColumnName="PreciptationTreshold" />
+                <ScalarProperty Name="ChangeTemp_Per5Deg" ColumnName="ChangeTemp_Per5Deg" />
+                <ScalarProperty Name="ChangeHumidity_Per5Precent" ColumnName="ChangeHumidity_Per5Precent" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </edmx:Mappings>
+  </edmx:Runtime>
+  <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <Connection>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="MetadataArtifactProcessing" Value="EmbedInOutputAssembly" />
+      </DesignerInfoPropertySet>
+    </Connection>
+    <Options>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="ValidateOnBuild" Value="true" />
+        <DesignerProperty Name="EnablePluralization" Value="false" />
+        <DesignerProperty Name="IncludeForeignKeysInModel" Value="true" />
+        <DesignerProperty Name="UseLegacyProvider" Value="false" />
+        <DesignerProperty Name="CodeGenerationStrategy" Value="None" />
+      </DesignerInfoPropertySet>
+    </Options>
+    <!-- Diagram content (shape and connector positions) -->
+    <Diagrams></Diagrams>
+  </Designer>
+</edmx:Edmx>

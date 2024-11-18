@@ -1,0 +1,11 @@
+{
+  "Profiles_PublicAccessUrl": "https://cdn-account-public.Maba-smart.com/Profiles",
+  "Profiles_PublicDefaultImageUrl": "https://cdn-common-public.Maba-smart.com/Defaults/Default-Profile-Image.png",
+  "Profiles_S3Settings": {
+    "DefaultBucketName": "Hydra2-bucket",
+    "DefaultFolder": "Production/Account/Public/Profiles",
+    "AwsAccessKeyId": "AKIAJWRQXGWQNZQNT2PA",
+    "AwsSecretAccessKey": "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",
+    "Region": "eu-west-1"
+  }
+}

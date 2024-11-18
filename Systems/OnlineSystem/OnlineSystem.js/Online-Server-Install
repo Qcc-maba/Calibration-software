@@ -1,0 +1,47 @@
+#!/bin/bash
+echo "Updating yum"
+sudo yum update -y
+
+rm -rf /home/ec2-user/online
+mkdir /home/ec2-user/online
+mkdir /home/ec2-user/online/forever
+
+echo ">>>>>>>>>>>>>>> ---  Installing nodeJS (ver 6.x)  --- <<<<<<<<<<<<<<<<<<<<<<"
+curl --silent --location https://rpm.nodesource.com/setup_6.x | bash -
+
+yum -y install nodejs
+
+echo ">>>>>>>>>>>>>>> ---  Installing forever  --- <<<<<<<<<<<<<<<<<<<<<<"
+npm install forever -g -y
+
+echo ">>>>>>>>>>>>>>>> ---  Development Tools  --- <<<<<<<<<<<<<<<<<<<<<<"
+yum groupinstall 'Development Tools' -y
+
+echo ">>>>>>>>>>>>>>> ---  Delete old files  --- <<<<<<<<<<<<<<<<<<<<<<"
+
+
+echo ">>>>>>>>>>>>>>>>> ---  Extract package --- <<<<<<<<<<<<<<<<<<<<<<<<"
+mkdir /home/ec2-user/online
+tar -xvf OnlineServer.tar --directory=/home/ec2-user/online
+
+sudo cp online/init.d/online-server /etc/init.d
+echo "change ownership of init.d file"
+sudo chown root /etc/init.d/online-server
+sudo chmod 755 /etc/init.d/online-server
+
+sudo chkconfig --add online-server
+sudo chkconfig --level 345 online-server on
+
+
+echo ">>>>>>>>>>>>>>>>> ---  Install NPM packages --- <<<<<<<<<<<<<<<<<<<<<<<<"
+cd /home/ec2-user/online
+npm install 
+
+
+echo ">>>>>>>>>>>>>>>>> ---  Starting Online-Server --- <<<<<<<<<<<<<<<<<<<<<<<<"
+sudo service online-server start
+
+
+echo "You are ready!...."
+
+

@@ -1,0 +1,27 @@
+﻿
+<div class="weatherOneDay col-xs-10" data-toggle="tooltip" title="{{oneDay.dayDes}}">
+    <!--<h1>shmulik</h1>-->
+    <h4 class="dayName"><b>{{locale.DATETIME_FORMATS.DAY[onedayweather.day] |  limitTo:3}}</b></h4>
+
+
+    <div >
+        <p class="templateColor header" ng-show="oneDay.temperature>0">{{oneDay.temperature | num}}°<small>{{oneDay.unitLabel}}</small></p>
+    </div>
+
+    <img class="centerDiv" ng-src={{onedayweather.skyIconURL}}>
+    <ul class="weatherList centerDiv">
+        <li ng-show="oneDay.humidity>0">
+            <span class="fontawesome-tint center slateGrey"><br /> {{oneDay.humidity | num}}%</span>
+        </li>
+
+
+        
+        <li>
+
+            <span class="fontawesome-umbrella right slateGrey" ng-show="oneDay.prec>0"><br />{{oneDay.prec | num}}</span>
+
+        </li>
+
+    </ul>
+</div>
+

@@ -1,0 +1,645 @@
+
+.flagImg{
+    width: 30px;
+    height: 30px;
+}
+.dropdown-menu > li > a {
+   padding: 0px 0px 5px 0px;
+}
+.boxAppAdmin{
+        margin: -5px 15px 0px 0px;
+}
+.boxAppAdmin i{
+     color:blue;
+}
+.fixbread{
+    font-size: 20px;
+    margin: 0 0 0 -15px;
+}
+.user-image{
+    width:150px;
+    height:150px;
+}
+.btnMinWidth{
+       width: 180px;
+}
+.disabled{
+        opacity: 0.4;
+    background: #f7f7f7;
+}
+.RolesDiv{
+    width:200px;
+    max-height:300px;
+    overflow-y:auto;
+}
+.profile .dropdown-menu {
+    top: 95%;
+    max-height: 100px;
+    min-width:250px;
+}
+.profile .timeZone.dropdown-menu >li {
+    font-size: 10px;
+}
+
+
+.PersonProfileImageInside{
+    vertical-align: middle;
+    width: 200px;
+    height: 200px;
+    border-radius: 200px;
+    margin: 0px 0px 0px 5px;
+    padding: 7px 7px 7px 7px;
+}
+.image-upload label {
+    font-weight: normal;
+    cursor: pointer;
+    background: #eee;
+    width: 214px;
+}
+.profileForm .btn-group > .btn:first-child:not(:last-child):not(.dropdown-toggle) {
+    width: 260px;
+}
+.profileForm .btn-group, .btn-group-vertical {
+    float: right;
+
+}
+.image-upload
+{
+        margin: 15px 0px 15px 15px;
+}
+.profileForm .form-group .control-label{
+    min-width:100px;
+}
+.image-upload > input
+{
+    display: none;
+}
+.image-upload:hover
+{
+    cursor:pointer;
+}
+.PersonProfileImageInside:hover + .pen
+{
+   display:block;
+   
+    
+}
+
+.image-upload .pen{
+  position: absolute;
+    width: 65px;
+    height: 25px;
+    background: rgba(51, 51, 51, 0.36);
+    padding: 7px 0px 0px 7px;
+    margin: -180px 0px 0px 70px;
+    display: none;
+    color: white;
+}
+.loadingContainer{
+    
+}
+.loadingContainer .loadingBar {
+    height: 7px;
+    width: 100%;
+    border-radius: 3px;
+    border: 1px solid lightgrey;
+    background: #eee;
+}
+.loadingContainer .loadingBar .fill{
+    height: 5px;
+    width: 0px;
+    border-radius: 2px;
+    background: grey;
+}
+.loadingContainer .precent{
+   display:table;
+   margin:0 auto;
+   font-size:18px;
+}
+.profileFixLoadingImage{
+    margin: -30px 0px 0px 14px;
+    position: absolute;
+    width: 216px;
+    display:none;
+}
+.page-header {
+    padding-bottom: 9px;
+    margin: 40px 0 20px;
+    border-bottom: 1px solid #eee;
+}
+.marginTop18{
+    margin-top:18px!important;
+}
+.startAnimation {
+    -moz-animation: spinPulse 1s infinite ease-in-out;
+    -webkit-animation: spinPulse 1s infinite linear;
+}
+  @-webkit-keyframes spinPulse {
+      0% {
+        -webkit-transform: rotate(0deg);
+      }
+      100% {
+        -webkit-transform: rotate(360deg);
+      }
+    }
+
+
+
+
+  
+@media (max-width: 992px) {
+
+    .image-upload
+    {
+        margin: 15px 0px 15px 0px;
+     }
+    .profileFixLoadingImage{
+      margin: -30px 0px 0px 0px;
+  
+    }
+    
+}
+
+@media (min-width: 768px) {
+    .main-content > .container {
+        min-height: 870px;
+    }
+}
+@media (max-width: 400px) {
+
+  .profileForm .btn-group, .btn-group-vertical {
+    float: left;
+
+}
+    
+}
+body, .main-container, .footer, .main-navigation, ul.main-navigation-menu > li > ul.sub-menu, .navigation-small ul.main-navigation-menu > li > ul.sub-menu {
+	background-color: #F6F6F6 !important;
+}
+.breadcrumb .boxAppAdmin i {
+    color: darkcyan;
+    font-size: 25px;
+}
+.xciOnline {
+    background-image: url("../img/dash_img2Bright.jpg")!important;
+    background-size: 100% 100%, cover!important;
+    color: black!important;
+}
+input[readonly=""] {
+  background: #D5D5D5!important;
+}
+.projectTree .Actions{
+        background: rgba(86, 144, 153, 0.21);
+}
+ul.main-navigation-menu  > li.open > a.Actions, ul.main-navigation-menu > li > a.Actions:hover, ul.main-navigation-menu > li:hover > a.Actions {
+     background: rgba(86, 144, 153, 0.21);
+}
+.rejection {
+    color: #9A0F0F!important;
+}
+.approved {
+    color: #15D815!important;
+}
+.waitting {
+    color: #ff9915!important;
+}
+.fixLoading {
+    background: mintcream;
+}
+.dateTextFiled{
+    background:#D9D9D9!important;
+    color:black!important;
+}
+.timePicker2{
+    background:#D9D9D9!important;
+    color:black!important;
+}
+
+.horizenTitle{
+    color:grey;
+}
+.has-switch span.switch-primary, .has-switch span.switch-left {
+    color: white;
+    background-image: none;
+    background:green!important; 
+}
+.has-switch span.switch-primary, .has-switch span.switch-right {
+    color: white;
+    background-image: none;
+    background:grey!important; 
+}
+.layout-boxed header, .layout-boxed .main-container, .layout-boxed .footer {
+
+	border-left-color: #C8C7CC;
+	border-right-color: #C8C7CC;
+}
+.navbar-inverse {
+	background: #569099;
+	border-color: #C8C7CC;
+}
+
+/* ie8 fixes */
+.ie8 .navbar-inverse {
+	background: #ffffff;
+}
+/**/
+.navbar-inverse .navbar-brand, .navbar-inverse .navbar-brand:hover, .navbar-inverse .nav > li > a {
+	color: #666666;
+}
+.navbar-inverse .navbar-brand i, .navbar-inverse .navbar-brand:hover i {
+	color: #007AFF;
+}
+
+
+.navbar-inverse .nav > li.current-user > a {
+	color: white !important;
+}
+.navbar-inverse .nav > li.current-user > a i {
+	display: inline-block;
+	text-align: center;
+	width: 1.25em;
+	font-size: 12px;
+}
+.navbar-inverse .nav > li:hover > a, .navbar-inverse .nav > li:active > a {
+	color: #555555!important;
+	background: #F5F5F5;
+}
+.navbar-inverse .nav li.dropdown.open > .dropdown-toggle, .navbar-inverse .nav li.dropdown.active > .dropdown-toggle, .navbar-inverse .nav li.dropdown.open.active > .dropdown-toggle {
+	background: #D9D9D9;
+	color: #555555!important;
+}
+
+.navbar-tools .dropdown-menu li .dropdown-menu-title {
+	background: #D9D9D9;
+	color: #555555;
+}
+.navbar-inverse .btn-navbar {
+	background-color: #D9D9D9;
+	background: -moz-linear-gradient(top, #34485e 0%, #283b52 100%); /* firefox */
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#34485e), color-stop(100%,#283b52)); /* webkit */
+}
+
+.nav > li.dropdown .dropdown-toggle .badge {
+	background-color: #007AFF;
+	border: none;
+}
+.navbar-toggle {
+	background:#569099;
+    color:white;
+}
+.navbar-inverse .navbar-toggle:hover, .navbar-inverse .navbar-toggle:focus {
+	background-color: transparent;
+	/*-moz-box-shadow: 0 0 15px #fff;
+	-webkit-box-shadow: 0 0 15px #fff;
+	box-shadow: 0px 0px 15px #fff;*/
+}
+.navbar-toggle span {
+	color: #999999;
+}
+
+.nav-tabs > li > a, .nav-tabs > li > a:focus {
+    background-color: whitesmoke;
+}
+
+
+ul.main-navigation-menu > li a {
+	border-bottom: none;
+	border-top-color: #C8C7CC;
+	color: #555555;
+}
+ul.main-navigation-menu > li a > i {
+	color: #569099;
+	font-weight: normal;
+}
+ul.main-navigation-menu > li.active > a {
+	background: #569099 !important;
+	border-top: none !important;
+	color: #fff;
+}
+ul.main-navigation-menu > li.active > a .selected:before {
+	color: #569099 !important;
+}
+ul.main-navigation-menu > li.active > a i {
+	color: #fff;
+}
+ul.main-navigation-menu > li.open > a, ul.main-navigation-menu > li > a:hover, ul.main-navigation-menu > li:hover > a {
+	background-color: #D9D9D9;
+}
+.navigation-toggler, .go-top {
+	background-color: #E4E5E6 !important;
+	color:#b1b1b1;
+}
+.navigation-toggler:hover i:first-child, .go-top:hover {
+	color: #555555;
+}
+.navigation-toggler:hover i:last-child {
+	color: #b1b1b1;
+}
+.navigation-small .navigation-toggler:hover i:first-child {
+	color: #b1b1b1;
+}
+.navigation-small .navigation-toggler:hover i:last-child {
+	color: #555555;
+}
+
+ul.main-navigation-menu li > ul.sub-menu > li.open > a, ul.main-navigation-menu li > ul.sub-menu > li.active > a, ul.main-navigation-menu li > ul.sub-menu > li > a:hover {
+	color: #000000 !important;
+	background: #D9D9D9 !important;
+}
+.breadcrumb i {
+	color: #cccccc;
+}
+.wizardTopMargin{
+    color:gray;
+}
+.breadcrumb a {
+	color: #007AFF;
+}
+.footer-fixed .footer {
+	background: rgba(255, 255, 255, 0.9) !important;
+	border-top-color: #C8C7CC;
+}
+/* ie8 fixes */
+.ie8 .footer-fixed .footer {
+	background: #ffffff;
+}
+/**/
+.footer-inner {
+	color: #555555;
+}
+.modal-header{
+    background: lightgray;
+}
+body.rtl .main-content .container {
+	border-left: none;
+	border-right: 1px solid #D9D9D9;
+}
+vr {
+    border-right-color:#569099;
+}
+.adviserBigImgFrame {
+  
+    color: black!important;
+    border: 1px solid lightgrey;
+    background: #EAF1F0;
+}
+.adviserBigImgFrame .innerImgFrame .title {
+    color: black;
+}
+.zoneMainImgContainer {
+   border: 1px solid lightgrey;
+    background: #EAF1F0;
+}
+
+.smallWeatherRight {
+    color: grey; 
+}
+.savingTag {
+  color: grey;
+}
+.btn-block {
+    background: white;
+}
+.btn-block .val {
+    background: rgba(86, 144, 153, 0.1);
+    border: 1px solid rgba(86, 144, 153, 0);
+}
+.gsiOnline{
+    background-image: url("../img/dash_img2Bright.jpg")!important;
+    background-size: 100% 100%, cover!important;
+    color: black!important;
+}
+.table thead tr {
+
+    background: rgba(211, 211, 211, 0.43);
+}
+.table-striped > tbody > tr:nth-child(even) > td,
+.table-striped > tbody > tr:nth-child(even) > th {
+  background-color: #EEF4F5;
+}
+.panel-body {
+    background: #FDFDFD;
+}
+.gsi-panel .gsi-panel-body {
+    background: #F9F9F9!important;
+}
+.gsi-panel .gsi-panel-body input[readonly=""] {
+    background: #DAE2DA!important;
+   
+}
+.programTableDivTitle {
+    background: rgba(86, 144, 153, 0.25);
+    color: black;
+}
+.ui-widget-content .ui-state-default {
+    background: #FDFDFD;
+}
+.ui-widget-header {
+    border: 1px solid #569099;
+    background: #f6a828 url("images/ui-bg_gloss-wave_35_f6a828_500x100.png") 50% 50% repeat-x;
+    color: black; 
+    font-weight: bold;
+}
+.table > tbody + tbody {
+    border-top: 2px solid lightgray;
+}
+.btn-block .wraperTitle {
+    background: #569099;
+}
+.btn-block {
+    background: #FDFDFD;
+}
+.hanukiyaFrame {
+    background: #EEF4F5;
+}
+hr {
+    border-top: 1px solid #eee;
+}
+@media (max-width: 767px) {
+	.navbar-inverse {
+		background: #569099;
+	}
+	.navbar-tools {
+		background: lightgray;
+		border-top-color: #C8C7CC;
+	}
+	/* ie8 fixes */
+	.ie8 .navbar-tools {
+		background: #ffffff;
+	}
+/**/
+	.navbar-header {
+		background-color: #569099;
+	}
+}
+.blackOrWhite{
+    color:black!important;
+}
+
+
+
+.outer , section{
+  background: rgb(229,229,229); /* Old browsers */
+/* IE9 SVG, needs conditional override of 'filter' to 'none' */
+background: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiA/Pgo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgdmlld0JveD0iMCAwIDEgMSIgcHJlc2VydmVBc3BlY3RSYXRpbz0ibm9uZSI+CiAgPGxpbmVhckdyYWRpZW50IGlkPSJncmFkLXVjZ2ctZ2VuZXJhdGVkIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIwJSIgeTI9IjEwMCUiPgogICAgPHN0b3Agb2Zmc2V0PSIxNCUiIHN0b3AtY29sb3I9IiNlNWU1ZTUiIHN0b3Atb3BhY2l0eT0iMSIvPgogICAgPHN0b3Agb2Zmc2V0PSIyNCUiIHN0b3AtY29sb3I9IiNlNWU1ZTUiIHN0b3Atb3BhY2l0eT0iMSIvPgogICAgPHN0b3Agb2Zmc2V0PSI1MSUiIHN0b3AtY29sb3I9IiNmZmZmZmYiIHN0b3Atb3BhY2l0eT0iMSIvPgogICAgPHN0b3Agb2Zmc2V0PSI3NSUiIHN0b3AtY29sb3I9IiNmZmZmZmYiIHN0b3Atb3BhY2l0eT0iMSIvPgogICAgPHN0b3Agb2Zmc2V0PSI5NCUiIHN0b3AtY29sb3I9IiNmZmZmZmYiIHN0b3Atb3BhY2l0eT0iMSIvPgogICAgPHN0b3Agb2Zmc2V0PSI5NCUiIHN0b3AtY29sb3I9IiNmZmZmZmYiIHN0b3Atb3BhY2l0eT0iMSIvPgogIDwvbGluZWFyR3JhZGllbnQ+CiAgPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0idXJsKCNncmFkLXVjZ2ctZ2VuZXJhdGVkKSIgLz4KPC9zdmc+);
+background: -moz-linear-gradient(top,  rgba(229,229,229,1) 14%, rgba(229,229,229,1) 24%, rgba(255,255,255,1) 51%, rgba(255,255,255,1) 75%, rgba(255,255,255,1) 94%, rgba(255,255,255,1) 94%); /* FF3.6+ */
+background: -webkit-gradient(linear, left top, left bottom, color-stop(14%,rgba(229,229,229,1)), color-stop(24%,rgba(229,229,229,1)), color-stop(51%,rgba(255,255,255,1)), color-stop(75%,rgba(255,255,255,1)), color-stop(94%,rgba(255,255,255,1)), color-stop(94%,rgba(255,255,255,1))); /* Chrome,Safari4+ */
+background: -webkit-linear-gradient(top,  rgba(229,229,229,1) 14%,rgba(229,229,229,1) 24%,rgba(255,255,255,1) 51%,rgba(255,255,255,1) 75%,rgba(255,255,255,1) 94%,rgba(255,255,255,1) 94%); /* Chrome10+,Safari5.1+ */
+background: -o-linear-gradient(top,  rgba(229,229,229,1) 14%,rgba(229,229,229,1) 24%,rgba(255,255,255,1) 51%,rgba(255,255,255,1) 75%,rgba(255,255,255,1) 94%,rgba(255,255,255,1) 94%); /* Opera 11.10+ */
+background: -ms-linear-gradient(top,  rgba(229,229,229,1) 14%,rgba(229,229,229,1) 24%,rgba(255,255,255,1) 51%,rgba(255,255,255,1) 75%,rgba(255,255,255,1) 94%,rgba(255,255,255,1) 94%); /* IE10+ */
+background: linear-gradient(to bottom,  rgba(229,229,229,1) 14%,rgba(229,229,229,1) 24%,rgba(255,255,255,1) 51%,rgba(255,255,255,1) 75%,rgba(255,255,255,1) 94%,rgba(255,255,255,1) 94%); /* W3C */
+filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#e5e5e5', endColorstr='#ffffff',GradientType=0 ); /* IE6-8 */
+
+
+}
+.weatherAddress h1{
+color: slategray;
+}
+.templateColor{
+  color:#569099;
+}
+section {
+    border-color: LIGHTGRAY;
+
+}
+section h1 {
+    color: slategray;
+}
+section h3 {
+    color: slategray;
+}
+section .temperature h2 {
+  color: #569099;
+  border-bottom-color: slategray;
+}
+section h4 {
+    color: #569099;
+    background: whitesmoke;
+}
+section p {
+    color: slategray;
+}
+.slateGrey{
+    color: slategray;
+}
+
+section ul li span {
+    
+    color: slategrey;
+}
+.dropdown-menu >li {
+  margin-left: 7px;
+  border-bottom-color: whitesmoke;
+}
+.table a {
+  border-bottom: none; 
+}
+.btn-dark-grey {
+	background-color: #569099;
+	border-color: #4d8189;
+	color: #ffffff;
+}
+.btn-dark-grey:hover, .btn-dark-grey:focus, .btn-dark-grey:active, .btn-dark-grey.active {
+	background-color: #4d8189;
+	border-color: #447178;
+	color: #ffffff;
+}
+.btn-dark-grey.disabled:hover, .btn-dark-grey.disabled:focus, .btn-dark-grey.disabled:active, .btn-dark-grey.disabled.active, .btn-dark-grey[disabled]:hover, .btn-dark-grey[disabled]:focus, .btn-dark-grey[disabled]:active, .btn-dark-grey[disabled].active, fieldset[disabled] .btn-dark-grey:hover, fieldset[disabled] .btn-dark-grey:focus, fieldset[disabled] .btn-dark-grey:active, fieldset[disabled] .btn-dark-grey.active {
+	background-color: #569099;
+	border-color: #569099;
+	color: #ffffff;
+}
+.btn-med-grey {
+	background-color: #FFB848;
+	border-color: #ffae2f;
+	color: #ffffff;
+}
+.btn-med-grey:hover, .btn-med-grey:focus, .btn-med-grey:active, .btn-med-grey.active {
+	background-color: #ffae2f;
+	border-color: #ffa415;
+	color: #ffffff;
+}
+.btn-med-grey.disabled:hover, .btn-med-grey.disabled:focus, .btn-med-grey.disabled:active, .btn-med-grey.disabled.active, .btn-med-grey[disabled]:hover, .btn-med-grey[disabled]:focus, .btn-med-grey[disabled]:active, .btn-med-grey[disabled].active, fieldset[disabled] .btn-med-grey:hover, fieldset[disabled] .btn-med-grey:focus, fieldset[disabled] .btn-med-grey:active, fieldset[disabled] .btn-med-grey.active {
+	background-color: #FFB848;
+	border-color: #FFB848;
+	color: #ffffff;
+}
+.navbar-inverse .nav > li > a {	
+  color: white;
+}
+/*switch*/
+.has-switch span.switch-primary, .has-switch span.switch-left {
+  
+  background-image: none;
+  background-color: lightgray;
+
+}
+.has-switch label {
+  background-color: white;
+  background-image: linear-gradient(to bottom, #ffffff, #e6e6e6);
+}
+/*weather*/
+.weatherAll .weatherOneDay {
+  border-right: 1px solid lavender;
+}
+
+/*text*/
+.txtInsideEditableTable {
+  color: black !important;
+  border: none !important;
+  border-color: transparent !important;
+  text-align: center;
+  background: rgba(230, 255, 255, 0.2) !important;
+}
+.btn-select{
+  color: #fff;
+  background-color: #4086AA;
+  border-color: #4086AA;
+
+}
+.btn-upload{
+  color: #fff;
+  background-color: #91C3DC;
+  border-color: #91C3DC;
+
+}
+/*pagination*/
+.pagination > li > a, .pagination > li > span {
+   background-color: white;   
+ }
+.pagination .prev  {
+  background-color: white;
+}
+.pagination > .disabled > span,
+.pagination > .disabled > span:hover,
+.pagination > .disabled > span:focus,
+.pagination > .disabled > a,
+.pagination > .disabled > a:hover,
+.pagination > .disabled > a:focus {
+  background-color: white;
+}
+.pagination > li > a:hover,
+.pagination > li > span:hover,
+.pagination > li > a:focus,
+.pagination > li > span:focus {
+   background-color: lightgray;
+}
+.pagination > .active > a,
+.pagination > .active > span,
+.pagination > .active > a:hover,
+.pagination > .active > span:hover,
+.pagination > .active > a:focus,
+.pagination > .active > span:focus {
+  background-color: #569099;
+}
+
+
+.colorBlue{
+       
+        color:grey!important;
+        
+}
+.txtInsideEditableTable {
+    background: rgba(255, 255, 255, 0.7) !important;
+}
+

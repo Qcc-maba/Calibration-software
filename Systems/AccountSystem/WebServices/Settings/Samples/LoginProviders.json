@@ -1,0 +1,53 @@
+{
+  "ProviderExternalCallbackUri": "http://localhost:10500/api/Account/",
+  "RegisterNewExternalUsers": false,
+  "ExternalLogins": [
+    {
+      "Name": "Google",
+      "IsEnabled": true,
+      "ClientId": "874580805343-7cbmr78b73dgd4pema3pggcl4256mkkh.apps.googleusercontent.com",
+      "ClientSecret": "m3iFmL5wPled7krCzMqNyRK7",
+      "ExtraProviderData": null,
+      "Scopes": [
+        "openid",
+        "profile",
+        "email",
+        "https://www.googleapis.com/auth/plus.me"
+      ]
+    },
+    {
+      "Name": "Facebook",
+      "IsEnabled": true,
+      "ClientId": "1457958214507828",
+      "ClientSecret": "81e530bd4e2f968ab0f957f0ad9f2b1f",
+      "ExtraProviderData": null,
+      "Scopes": [
+        "email"
+      ]
+    },
+    {
+      "Name": "Twitter",
+      "IsEnabled": false,
+      "ClientId": "ClientId",
+      "ClientSecret": "Secret",
+      "ExtraProviderData": null,
+      "Scopes": [
+        "openid",
+        "profile",
+        "email"
+      ]
+    },
+    {
+      "Name": "Microsoft",
+      "IsEnabled": false,
+      "ClientId": "ClientId",
+      "ClientSecret": "Secret",
+      "ExtraProviderData": null,
+      "Scopes": [
+        "openid",
+        "profile",
+        "email"
+      ]
+    }
+  ]
+}

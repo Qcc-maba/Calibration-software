@@ -1,0 +1,16 @@
+{
+  "ConnectorType": "NexmoClientConnector",
+  "InEnabled": true,
+  "Timeout": 5000,
+  "DefaultSenderName": "MabaSmart",
+  "Keys": [
+    {
+      "Key": "ApiKey",
+      "Value": "2d593260"
+    },
+    {
+      "Key": "ApiSecret",
+      "Value": "b19791b1"
+    }
+  ]
+}

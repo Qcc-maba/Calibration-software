@@ -1,0 +1,178 @@
+﻿
+.flagImg{
+    width: 30px;
+    height: 30px;
+}
+.dropdown-menu > li > a {
+   padding: 0px 0px 5px 0px;
+}
+.navbar-inverse .navbar-toggle {
+    display: none;
+}
+.boxAppAdmin{
+           margin: -4px -10px 0 0;
+}
+.boxAppAdmin i{
+     color:blue;
+}
+.fixbread{
+    font-size: 20px;
+    margin: 0 0 0 -15px;
+}
+.user-image{
+    width:150px;
+    height:150px;
+}
+.btnMinWidth{
+       width: 180px;
+}
+.disabled{
+        opacity: 0.4;
+    background: #f7f7f7;
+}
+.RolesDiv{
+    width:200px;
+    max-height:300px;
+    overflow-y:auto;
+}
+.profile .dropdown-menu {
+    top: 95%;
+    max-height: 100px;
+    min-width:250px;
+}
+.profile .timeZone.dropdown-menu >li {
+    font-size: 10px;
+}
+
+
+.PersonProfileImageInside{
+    vertical-align: middle;
+    width: 200px;
+    height: 200px;
+    border-radius: 200px;
+    margin: 0px 0px 0px 5px;
+    padding: 7px 7px 7px 7px;
+}
+.image-upload label {
+    font-weight: normal;
+    cursor: pointer;
+    background: #eee;
+    width: 214px;
+}
+.profileForm .btn-group > .btn:first-child:not(:last-child):not(.dropdown-toggle) {
+    width: 260px;
+}
+.profileForm .btn-group, .btn-group-vertical {
+    float: right;
+
+}
+.image-upload
+{
+        margin: 15px 0px 15px 15px;
+}
+.profileForm .form-group .control-label{
+    min-width:100px;
+}
+.image-upload > input
+{
+    display: none;
+}
+.image-upload:hover
+{
+    cursor:pointer;
+}
+.PersonProfileImageInside:hover + .pen
+{
+   display:block;
+   
+    
+}
+
+.image-upload .pen{
+  position: absolute;
+    width: 65px;
+    height: 25px;
+    background: rgba(51, 51, 51, 0.36);
+    padding: 7px 0px 0px 7px;
+    margin: -180px 0px 0px 70px;
+    display: none;
+    color: white;
+}
+.loadingContainer{
+    
+}
+.loadingContainer .loadingBar {
+    height: 7px;
+    width: 100%;
+    border-radius: 3px;
+    border: 1px solid lightgrey;
+    background: #eee;
+}
+.loadingContainer .loadingBar .fill{
+    height: 5px;
+    width: 0px;
+    border-radius: 2px;
+    background: grey;
+}
+.loadingContainer .precent{
+   display:table;
+   margin:0 auto;
+   font-size:18px;
+}
+.profileFixLoadingImage{
+    margin: -30px 0px 0px 14px;
+    position: absolute;
+    width: 216px;
+    display:none;
+}
+.page-header {
+    padding-bottom: 9px;
+    margin: 40px 0 20px;
+    border-bottom: 1px solid #eee;
+}
+.marginTop18{
+    margin-top:18px!important;
+}
+.startAnimation {
+    -moz-animation: spinPulse 1s infinite ease-in-out;
+    -webkit-animation: spinPulse 1s infinite linear;
+}
+  @-webkit-keyframes spinPulse {
+      0% {
+        -webkit-transform: rotate(0deg);
+      }
+      100% {
+        -webkit-transform: rotate(360deg);
+      }
+    }
+
+
+
+
+  
+@media (max-width: 992px) {
+
+    .image-upload
+    {
+        margin: 15px 0px 15px 0px;
+     }
+    .profileFixLoadingImage{
+      margin: -30px 0px 0px 0px;
+  
+    }
+    
+}
+
+@media (min-width: 768px) {
+    .main-content > .container {
+        min-height: 870px;
+    }
+}
+@media (max-width: 400px) {
+
+  .profileForm .btn-group, .btn-group-vertical {
+    float: left;
+
+}
+    
+}

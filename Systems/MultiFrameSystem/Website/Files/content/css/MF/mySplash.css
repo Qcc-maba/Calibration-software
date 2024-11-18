@@ -1,0 +1,183 @@
+﻿#splash-page{
+ height:100%;
+} 
+ #splash-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      z-index: 9999;
+      height:100%;
+      background-color: #e7e7e7 !important;
+    
+    }
+  #splash-screen .splashLogo {
+    position: absolute;
+    font-size: 30px;
+        width: 208px;
+    margin: 50px 0px 0px -107px;
+    animation: fadein 2s;
+    -moz-animation: fadein 2s; /* Firefox */
+    -webkit-animation: fadein 2s; /* Safari and Chrome */
+    -o-animation: fadein 2s; /* Opera */
+    }
+  #splash-screen .Galcon {
+    position: absolute;
+    font-size: 15px;
+    width:150px;
+    margin: 85px 0px 0px -34px;
+    color: steelblue;
+    animation: fadein 5s;
+    -moz-animation: fadein 5s; /* Firefox */
+    -webkit-animation: fadein 5s; /* Safari and Chrome */
+    -o-animation: fadein 5s; /* Opera */
+    }
+    #splash-screen .inner {
+      /* center child divs  */
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      /* x-border-box */
+      box-sizing: border-box;
+      -moz-box-sizing: border-box;
+      -ms-box-sizing: border-box;
+      -webkit-box-sizing: border-box;
+      /* x-unselectable */
+      user-select: none;
+      -o-user-select: none;
+      -ms-user-select: none;
+      -moz-user-select: -moz-none;
+      -webkit-user-select: none;
+      cursor: default;
+    }
+    .splash-screen-circle-outer {
+      z-index: 20000;
+      width: 100px;
+      height: 100px;
+      border-radius: 100px;
+     margin-top: -100px;
+    margin-left: -50px;
+      border: 5px solid rgba(87, 113, 145, 0.9);
+      opacity: .9;
+      border-right: 5px solid rgba(0, 0, 0, 0);
+      border-left: 5px solid rgba(0, 0, 0, 0);
+      box-shadow: 0 0 35px #577191;
+      -moz-animation: spinPulse 1s infinite ease-in-out;
+      -webkit-animation: spinPulse 1s infinite linear;
+    }
+    .splash-screen-circle-inner {
+      z-index: 20001;
+      width: 80px;
+      height: 80px;
+      border-radius: 80px;
+      margin-top: -90px;
+      margin-left: -40px;
+      background-color: rgba(0, 0, 0, 0);
+      border: 5px solid rgba(87, 113, 145, 0.9);
+      opacity: .9;
+      border-left: 5px solid rgba(0, 0, 0, 0);
+      border-right: 5px solid rgba(0, 0, 0, 0);
+      box-shadow: 0 0 15px #577191;
+      -moz-animation: spinoffPulse 1s infinite linear;
+      -webkit-animation: spinoffPulse 1s infinite linear;
+    }
+    .splash-screen-text {
+      z-index: 20002;
+      width: 100px;
+      height: 100px;
+      line-height: 100px;
+      margin-top: -50px;
+      margin-left: -50px;
+      font-family: Verdana, Geneva, sans-serif;
+      font-size: 13px;
+      text-align: center;
+      text-shadow: 1px 1px #cccccc;
+      vertical-align: middle;
+      color: #002951;   
+    }
+    @-moz-keyframes spinPulse {
+      0% {
+        -moz-transform: rotate(160deg);
+        opacity: 0;
+        box-shadow: 0 0 1px #577191;
+      }
+      50% {
+        -moz-transform: rotate(145deg);
+        opacity: 1;
+      }
+      100% {
+        -moz-transform: rotate(-320deg);
+        opacity: 0;
+      }
+    }
+    @-moz-keyframes spinoffPulse {
+      0% {
+        -moz-transform: rotate(0deg);
+      }
+      100% {
+        -moz-transform: rotate(360deg);
+      }
+    }
+    @-webkit-keyframes spinPulse {
+      0% {
+        -webkit-transform: rotate(160deg);
+        opacity: 0;
+        box-shadow: 0 0 1px #577191;
+      }
+      50% {
+        -webkit-transform: rotate(145deg);
+        opacity: 1;
+      }
+      100% {
+        -webkit-transform: rotate(-320deg);
+        opacity: 0;
+      }
+    }
+    @-webkit-keyframes spinoffPulse {
+      0% {
+        -webkit-transform: rotate(0deg);
+      }
+      100% {
+        -webkit-transform: rotate(360deg);
+      }
+
+
+    }
+
+
+
+    @keyframes fadein {
+    from {
+        opacity:0;
+    }
+    to {
+        opacity:1;
+    }
+}
+@-moz-keyframes fadein { /* Firefox */
+    from {
+        opacity:0;
+    }
+    to {
+        opacity:1;
+    }
+}
+@-webkit-keyframes fadein { /* Safari and Chrome */
+    from {
+        opacity:0;
+    }
+    to {
+        opacity:1;
+    }
+}
+@-o-keyframes fadein { /* Opera */
+    from {
+        opacity:0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+ 

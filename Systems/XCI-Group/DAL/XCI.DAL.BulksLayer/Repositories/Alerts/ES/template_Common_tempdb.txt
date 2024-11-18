@@ -1,0 +1,20 @@
+﻿PUT _template/templet_temp
+{
+  "template": "logs_tempdb",
+  "settings": {
+    "nMumber_of_shards": 4,
+    "number_of_replicas": 1
+  },
+  "mappings": {
+    "alerts": {
+      "_timestamp": {
+        "enabled": true,
+        "store": true
+      },
+      "_routing": {
+        "required": true,
+        "path": "sn"
+      }
+    }
+  }
+}

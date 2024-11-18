@@ -1,0 +1,126 @@
+﻿<!-- start: SIDEBAR -->
+<div class="navbar-content">
+
+    <div id="main-navigation" data-backdrop="false" class="main-navigation navbar-collapse tree" ng-class="{positionR:navbarType != 'menu' , widh100Precent:navbarType != 'menu' , menu:navbarType == 'menu' , 'collapse':navbarType == 'menu' , 'main-navigation-not-menu':navbarType != 'menu'}" close-main-nevigation>
+        <div class="mainNevigationWraper">
+            <!-- start: MAIN MENU TOGGLER BUTTON -->
+            <div class="navigation-toggler" ng-click="toggleNavbar()" ng-if="navbarType == 'menu'">
+                <i class="clip-chevron-left"></i>
+                <i class="clip-chevron-right"></i>
+            </div>
+            <!-- end: MAIN MENU TOGGLER BUTTON -->
+            <!-- start: MAIN NAVIGATION MENU -->
+            <ul id="main-navigation-menu" class="main-navigation-menu">
+
+
+
+                <li ng-if="navbarType=='menu'" class="projectTree ac">
+                    <a ng-click="togelAction($event)" class="Actions">
+                        <i class="clip-chevron-down actionsMenu"></i>
+                        <p class="inline width70Precent">{{'MF_G_PROJECT_ACTIONS'|translate}}</p>
+
+
+
+                    </a>
+
+                    <ul class="sub-menu">
+
+                        <div class="fixProjectActionSettings">
+                            <a data-toggle="modal" class="addProject" data-target="#addProject" data-backdrop="false">
+                                <span class="title"><i class="fa fa-plus addSomting"></i><span class="colMarginLeft">{{'MF_NAVBAR_ADD_A_PROJECT'|translate}}</span> </span>
+
+                            </a>
+                        </div>
+                        <div class="fixProjectActionSettings">
+                            <a ng-click="newSite=true" data-toggle="modal" data-target="#newSite" data-backdrop="false">
+
+                                <span class="title"><i class="fa fa-plus addSomting"></i><span class="colMarginLeft">{{'MF_PROJECT_ADD_NEW_SITE' | translate}}</span> </span>
+
+                            </a>
+                        </div>
+
+                        <div class="fixProjectActionSettings" add-ctrl>
+
+
+                        </div>
+                        <div class="fixProjectActionSettings">
+                            <a data-toggle="modal" data-target="#deleteSite" data-backdrop="false">
+
+                                <span class="title"><i class="fa fa-trash-o red"></i><span class="colMarginLeft">{{'MF_SITE_DELETE_SITE' | translate}}</span> </span>
+                            </a>
+                        </div>
+
+
+                    </ul>
+
+                </li>
+
+                <li>
+                    <div class="navbarSearchProject">
+                        <div class="wrapper" style="width:100%">
+                            <i class="fa fa-search fa-icon"></i>
+                            <input type="text" ng-model="textFilter" placeholder="{{'MF_G_SEARCH_PROJECT' | translate}}" class="form-control input-mask-product ng-valid ng-dirty ng-valid-parse ng-touched">
+                        </div>
+                    </div>
+
+                </li>
+                <li class="pageinationBackground">
+                    <div class="menuePager" ng-if="pagerFlag" paging comm="MenuConnector"></div>
+                </li>
+                <li class="projectTree" ng-repeat="p in projectsList | filter:textFilter track by $index" ng-class="{ open: ( (p.siteID == choosenProject) && (p.sites.length>0) ), active: p.siteID == choosenProject }">
+
+                    <a ng-click="goToSite(p,$event)">
+                        <i class="fa fa-map-marker"></i>
+                        <p class="title inline width70Precent" data-toggle="tooltip" title="{{p.name}}">{{p.name}}</p>
+                        <i ng-if="p.sites.length>0" class="icon-arrow "></i>
+                        <span class="selected"></span>
+                        <span class="pull-right" ng-switch="p.privilage">
+
+                            <span class="colorBlue" data-toggle="tooltip" title="{{'PRIVILEGE_'+p.privilage | translate}}" ng-switch-when="1"><i class="fa fa-eye" phone-tooltip var1="PRIVILEGE_'+p.privilage"></i></span>
+                            <span class="colorBlue" data-toggle="tooltip" title="{{'PRIVILEGE_'+p.privilage | translate}}" ng-switch-when="2"><i class="clip-settings" phone-tooltip var1="PRIVILEGE_'+p.privilage"></i></span>
+                            <span class="colorBlue" data-toggle="tooltip" title="{{'PRIVILEGE_'+p.privilage | translate}}" ng-switch-when="3"><i class="clip-user-5" phone-tooltip var1="PRIVILEGE_'+p.privilage"></i></span>
+                        </span>
+                    </a>
+
+                    <div class="sub-menu" ng-if="projectsList">
+
+                        <div data-angular-treeview="true"
+                             data-comm="MenuConnector"
+                             data-tree-id="{{type}}"
+                             data-tree-model="p.sites"
+                             data-node-id="siteID"
+                             data-node-privilige="{{p.sharingData.roleModify}}"
+                             data-node-label="name"
+                             data-node-children="sites">
+                        </div>
+                    </div>
+
+                </li>
+
+                <li class="hr"></li>
+
+
+            </ul>
+
+
+
+
+
+        </div>
+
+    </div>
+
+
+</div>
+<!--------------------------------------------------------------------------->
+<div id="addProject" class="modal" add-project></div>
+<!--------------------------------------------------------------------------->
+<div id="deleteSite" class="modal" close-model my-delete-confirm str="Please note!  If you delete Project OR Site, Devices associated with the Site will also be permanantly deleted." str1="please write the following text and press confirm" ng-model="siteId" typeattr="site" callback="DeleteSite()"></div>
+<!--------------------------------------------------------------------------->
+<!--------------------------------------------------------------------------->
+<div id="newSite" class="modal" close-model add-site ng-model="siteId"></div>
+
+
+
+
+

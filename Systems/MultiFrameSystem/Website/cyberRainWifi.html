@@ -1,0 +1,434 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title></title>
+    <style>
+        table {
+            width: 100%;
+        }
+
+        .sectionPadding {
+            padding: 5px 0px 10px 0;
+        }
+
+        .navbar {
+            position: relative;
+            min-height: 50px;
+            border: 1px solid transparent;
+        }
+
+        a {
+            cursor: pointer;
+            color: lightblue;
+        }
+
+        .navbar-default {
+            background-color: #303030;
+            border-color: #e7e7e7;
+            color: white;
+        }
+
+        input[type=text], input[type=password] {
+            min-width: 240px;
+        }
+
+        .centerDiv {
+            display: table;
+            margin: 0 auto;
+        }
+
+        .marginTop7 {
+            margin-top: 7px;
+        }
+
+        .marginButtom7 {
+            margin-bottom: 7px;
+        }
+
+        .content-container {
+            margin-top: 30px;
+        }
+
+        .network {
+            background: #f8f8f8;
+            border: 1px solid #e7e7e7;
+            padding: 7px;
+            position: relative;
+        }
+
+        .colMarginLeft {
+            margin-left: 7px;
+        }
+
+        .generalDetails {
+            background: rgba(173, 216, 230, 0.2);
+            padding: 7px;
+            border: 1px solid lightblue;
+        }
+
+        select {
+            margin-bottom: 7px;
+            min-width: 240px;
+        }
+
+        .securityContainer {
+            margin-bottom: -25px;
+        }
+
+        th {
+            background: rgb(239, 247, 250);
+        }
+
+        tr > td, tr > th {
+            text-align: center;
+            border: 1px solid lightgray;
+        }
+
+        .storedProfiles {
+            background: rgba(169, 169, 169, 0.02);
+        }
+
+        .buttonAdd, .buttonApply {
+            float: right;
+            margin-left: 7px;
+            margin-right: 7px;
+        }
+
+        .mac {
+            color: grey;
+            font-size: small;
+        }
+
+        .minHeightSection {
+            min-height: 70px;
+        }
+    </style>
+
+</head>
+<body>
+
+
+
+
+
+    <div class="content-container centerDiv">
+        <nav class="navbar navbar-default">
+            <div class="container-fluid">
+                <div class="navbar-header">
+                    <!--<h2 class="centerDiv marginTop7">Cyber-Rain WIFI</h2>-->
+                    <img class="centerDiv marginTop7" src="data:image/png;base64,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" />
+                </div>
+            </div>
+        </nav>
+        <div class="generalDetails">
+            <div class="sn inline">
+                <b>SN:</b><span class="colMarginLeft">__SL_P_CSN</span>
+            </div>
+            <br />
+            <div class="mac">
+                <span>MAC:</span><span class="colMarginLeft">__SL_G_N.D</span>
+            </div>
+        </div>
+        <div class="network">
+            <div class="sectionPadding securityContainer" style="display:none">
+                <b class="colMarginLeft">Network security type:</b>
+                <form class="radioButtons marginTop7" action="">
+                    <input type="radio" name="choosenSecurityType" value=" 0" checked> Open
+                    <input type="radio" name="choosenSecurityType" value="1"> WEP
+                    <input type="radio" name="choosenSecurityType" value="2"> WPA1
+                    <input type="radio" name="choosenSecurityType" value="3"> WPA2
+                </form>
+                <br />
+            </div>
+            <br />
+            <div class="sectionPadding">
+                <b class="colMarginLeft">Network name:</b>
+                <br />
+                <input type="text" class="networkName colMarginLeft marginButtom7" placeholder="SSID" readonly disabled />
+                <br />
+            </div>
+            <div class="sectionPadding minHeightSection">
+                <b class="colMarginLeft marginTop7">Network password:</b>
+                <br />
+                <input type="password" class="networkPassword colMarginLeft" />
+                <br />
+                <br />
+                <button style="display:none" class="buttonApply" onclick="closeAP()">Apply</button>
+                <button class="buttonAdd" onclick="addNewNetwork()">Add</button>
+            </div>
+
+        </div>
+        <div class="storedProfiles">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Profiles</th>
+                        <th>Security</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+                <tbody class="tbodyStoredProfiles"></tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        var serverPrefix = "http://cyber-rain.net/";
+        const SELECT_NETWORK = "-- Select Network --";
+        const MANUAL_NETWORK = "Manual network";
+        //--------------------arrays from device-------------------------------------
+
+        //var storedProfiles = [
+        //		{ SSID: '__SL_G_PN1', SecurityType : '__SL_G_PS1' , Priority: '__SL_G_PP1' , ProfileNumber: 1},
+        //		{ SSID: '__SL_G_PN2', SecurityType : '__SL_G_PS2' , Priority: '__SL_G_PP2' , ProfileNumber: 2},
+        //		{ SSID: '__SL_G_PN3', SecurityType : '__SL_G_PS3' , Priority: '__SL_G_PP3' , ProfileNumber: 3},
+        //		{ SSID: '__SL_G_PN4', SecurityType : '__SL_G_PS4' , Priority: '__SL_G_PP4' , ProfileNumber: 4},
+        //		{ SSID: '__SL_G_PN5', SecurityType : '__SL_G_PS5' , Priority: '__SL_G_PP5' , ProfileNumber: 5},
+        //		{ SSID: '__SL_G_PN6', SecurityType : '__SL_G_PS6' , Priority: '__SL_G_PP6' , ProfileNumber: 6},
+        //		{ SSID: '__SL_G_PN7', SecurityType : '__SL_G_PS7' , Priority: '__SL_G_PP7' , ProfileNumber: 7}
+        //];
+        var storedProfiles = [
+              { SSID: 'manual network ggg', SecurityType: 0, Priority: 4, ProfileNumber: 1 },
+              { SSID: 'ronen_peretz', SecurityType: 1, Priority: 3, ProfileNumber: 2 },
+              { SSID: 'arvivo', SecurityType: 0, Priority: 2, ProfileNumber: 3 },
+              { SSID: 'BezeqNGN_009882_2', SecurityType: 0, Priority: 1, ProfileNumber: 4 },
+              { SSID: 'BezeqNGN_009882_2', SecurityType: 2, Priority: 1, ProfileNumber: 5 },
+              { SSID: 'BezeqNGN_009882_2', SecurityType: 1, Priority: 1, ProfileNumber: 6 },
+              { SSID: 'BezeqNGN_009882_2', SecurityType: 0, Priority: 1, ProfileNumber: 7 },
+
+        ];
+        var networksValues = {
+            W1: '__SL_G_W01',
+            W2: '__SL_G_W02',
+            W3: '__SL_G_W03',
+            W4: '__SL_G_W04',
+            W5: '__SL_G_W05',
+            W6: '__SL_G_W06',
+            W7: '__SL_G_W07',
+            W8: '__SL_G_W08',
+            W9: '__SL_G_W09',
+            W10: '__SL_G_W10'
+        }
+        networksValues = {
+            W1: 'SSID:Bezeq Free, Type:00, RSSI:B.',
+            W2: 'SSID:y-g law, Type:03, RSSI:B.',
+            W3: 'SSID:ronen_peretz, Type:03, RSSI:C.',
+            W4: 'SSID:BezeqNGN_009882_2.4GHz_1, Type:00, RSSI:B.',
+            W5: 'SSID:Galcon2, Type:03, RSSI:A',
+            W6: 'SSID:Bezeq Free, Type:00, RSSI:C.',
+            W7: 'SSID:arvivo, Type:03, RSSI:C.',
+            W8: 'SSID:HP-nomodel.C6A0BF, Type:00, RSSI:A',
+            W9: 'SSID:Bezeq Free, Type:00, RSSI:A',
+            W10: 'SSID:Galcon, Type:03, RSSI:A'
+        }
+        var networks = [];
+        var SecurityTypes = {
+            Open: "0",
+            WEP: "1",
+            WPA1: "2",
+            WPA2: "3"
+        }
+        function getSecurityTypeString(num) {
+            for (var x in SecurityTypes) {
+                if (Number(SecurityTypes[x]) == num) {
+                    return x;
+                }
+            }
+        }
+        function parseNetworks() {
+            for (var i = 1; i <= 10; i++) {
+                var network = networksValues["W" + i];
+                if (!network.startsWith("SSID"))
+                    continue;
+
+                var parts = network.split(',');
+                var o = {};
+                for (p in parts) {
+                    var tuple = parts[p].split(':');
+                    switch (tuple[0].trim()) {
+                        case "SSID":
+                            o.SSID = tuple[1];
+                            break;
+                        case "Type":
+                            o.Type = Number(tuple[1]);
+                            break;
+                        case "RSSI":
+                            o.RSSI = tuple[1];
+                            break;
+                    }
+                }
+                networks.push(o);
+            }
+        }
+        function sendRequest(addr, params, success, error) {
+            var r;
+            if (window.XMLHttpRequest) {
+                r = new XMLHttpRequest();
+            } else {
+                r = new ActiveXObject("Microsoft.XMLHTTP")
+            }
+            r.open("POST", serverPrefix + addr, true);
+            r.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+
+            r.onreadystatechange = success;
+            r.onerror = error;
+
+            r.send(params);
+        }
+        function removeSelectedProfile(profileIndex) {
+            if (!profileIndex)
+                return;
+            sendRequest("remove_selected_profiles", "__SL_P_PRR=" + profileIndex);
+            document.getElementsByClassName("buttonApply")[0].style.display = "block";
+        }
+        function getNetwork(SSID) {
+            for (var net in networks) {
+                if (networks[net].SSID == SSID) {
+                    return networks[net];
+                }
+            }
+            return null;
+        }
+        function closeAP() {
+            sendRequest("No_content", "__SL_P_C01=0", function () {
+                window.close();
+            });
+        }
+
+        //this function called from UI (manual and auto)
+        function addNewNetwork() {
+            var select = document.getElementsByTagName('select')[0];
+            var manualSettings = select.options[select.selectedIndex].value == MANUAL_NETWORK ? manualSettings = true : manualSettings = false;
+            if (!manualSettings && (select.options[select.selectedIndex].value == SELECT_NETWORK))
+                return;
+            //save to device (POST)
+            var ssid = null;
+            var priority = 0;
+            var networkType = -1;
+            var password = document.getElementsByClassName("network")[0].querySelector(".networkPassword").value;
+            if (manualSettings) {
+                var form = document.getElementsByTagName("form")[0];
+                for (var i = 0; i < form.length; i++) {
+                    if (form[i].checked) {
+                        networkType = form[i].value;
+                    }
+                }
+                var temp = document.getElementsByClassName("network")[0].querySelector(".networkName").value;
+                if (temp != "") {
+                    ssid = temp;
+                }
+                else {
+                    return;
+                }
+                //ssid=get network ssid from UI
+                //networkType= get network type from UI
+            }
+            else {
+                var network = getNetwork(select.options[select.selectedIndex].value);
+                ssid = network.SSID;
+                networkType = network.Type;
+            }
+            var params = "__SL_P_P.A=" + ssid 								//SSID
+                               + "&__SL_P_P.B=" + networkType				//Type
+                             + "&__SL_P_P.C=" + password					//Password
+                               + "&__SL_P_P.D=" + priority;					//priority
+
+            sendRequest("profiles_add.html", params, function () {
+                //1. clear ui
+                select.selectedIndex = 0;
+                document.getElementsByClassName("securityContainer")[0].style.display = "none";
+                document.getElementsByClassName("network")[0].querySelector(".networkName").readOnly = false;
+                document.getElementsByClassName("network")[0].querySelector(".networkName").value = "";
+                document.getElementsByClassName("network")[0].querySelector(".networkPassword").value = "";
+                //2. show in table below
+                addStoredProfileToTable(ssid, networkType, null);
+                document.getElementsByClassName("buttonApply")[0].style.display = "block";
+            });
+        }
+
+        function addStoredProfileToTable(ssid, securityType, ProfileNumber) {
+
+            //add to ui (ssid name)
+            var tr = document.createElement('tr');
+            tr.setAttribute("ProfileNumber", ProfileNumber);
+            var td1 = document.createElement('td');
+
+            td1.innerHTML = ssid;
+            var td2 = document.createElement('td');
+            td2.innerHTML = getSecurityTypeString(securityType);
+            var tbody = document.getElementsByClassName("tbodyStoredProfiles")[0];
+            tr.appendChild(td1);
+            tr.appendChild(td2);
+            var td3 = document.createElement('td');
+            tr.appendChild(td3);
+            if (ProfileNumber) {
+                //add delete button
+                //button.onclick => removeSelectedProfile(p.ProfileNumber)
+                var a = document.createElement('a');
+                a.innerHTML = "X";
+                a.style.color = "red";
+                a.onclick = function () {
+                    removeSelectedProfile(this.parentNode.parentNode.getAttribute("ProfileNumber"))
+                    this.parentNode.parentNode.remove();
+                }
+                td3.appendChild(a);
+            }
+            tbody.appendChild(tr);
+        }
+
+        function onload() {
+            //-----------------prepare values-----------------
+            parseNetworks();
+            //fill the combobox for the auto ui
+            var select = document.createElement('select');
+            select.className = "colMarginLeft";
+            var option = document.createElement('option');
+            option.text = SELECT_NETWORK;
+            option.value = SELECT_NETWORK;
+            select.appendChild(option);
+            for (var i = 0; i < networks.length; i++) {
+                var option = document.createElement('option');
+                option.text = networks[i].SSID;
+                option.value = networks[i].SSID;
+                select.appendChild(option);
+            }
+            var option = document.createElement('option');
+            option.text = MANUAL_NETWORK;
+            option.value = MANUAL_NETWORK;
+            option.style.fontWeight = "bold";
+
+            select.appendChild(option);
+            select.onchange = function () {
+                var value = this.options[this.selectedIndex].value;
+                if (value == MANUAL_NETWORK) {
+                    document.getElementsByClassName("securityContainer")[0].style.display = "block";
+                    document.getElementsByClassName("network")[0].querySelector(".networkName").readOnly = false;
+                    document.getElementsByClassName("network")[0].querySelector(".networkName").disabled = false;
+                    document.getElementsByClassName("network")[0].querySelector(".networkName").value = "";
+
+                } else {
+                    document.getElementsByClassName("securityContainer")[0].style.display = "none";
+                    document.getElementsByClassName("network")[0].querySelector(".networkName").readOnly = true;
+                    document.getElementsByClassName("network")[0].querySelector(".networkName").disabled = true;
+                    document.getElementsByClassName("network")[0].querySelector(".networkName").value = value;
+
+                }
+                document.getElementsByClassName("network")[0].querySelector(".networkPassword").value = "";
+
+            }
+            var parent = document.getElementsByClassName("network")[0];
+            parent.insertBefore(select, parent.firstChild)
+            //----------prepare UI----------
+            //build stored profiles
+            for (var i = 0; i < storedProfiles.length; i++) {
+                var p = storedProfiles[i];
+
+                if (p.SSID) {
+                    addStoredProfileToTable(p.SSID, p.SecurityType, p.ProfileNumber);
+                }
+            }
+        }
+        onload();
+
+    </script>
+</body>
+</html>

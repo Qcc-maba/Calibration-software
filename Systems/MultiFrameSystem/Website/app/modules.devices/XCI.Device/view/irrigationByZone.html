@@ -1,0 +1,33 @@
+﻿<div class="table-responsive table-responsive-my" id="boxscroll2" ng-if="startPage">
+    <!--shmulik-->
+    <table class="table table-striped table-hover" id="sample-table-3">
+        <thead>
+            <tr>
+                <th>{{'MF_DEVICE_VIEW_STARTS'| translate}}</th>
+                <th ng-repeat="tb1 in scheduleview.titleDays track by $index" class="center fontSizeMed">{{locale.DATETIME_FORMATS.DAY[tb1.dayNumber] |  limitTo:3}}</th>
+                <th class="text-center fontSizeMed">{{'G_TOTAL'| translate}}</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr ng-repeat="tb5 in scheduleview.rows track by $index">
+                <td>{{translate.convertUnixToTime(tb5.time) | date:'shortTime'}}</td> <!--{{tb5.strTime}}-->
+                <td class="text-center" ng-repeat=" tb6 in tb5.days track by $index" ng-class="{noneIrrigationDay: !scheduleview.titleDays[$index].isAllowedDay}">
+                    <input class="txtInsideEditableTable smallTextFiled" type="text" ng-model="tb5.days[$index].durationStr" ng-change="bodyValChange(tb5.days[$index])" select-on-click /><span ng-if="tb5.days[$index].duration"></span>
+                </td>
+                <td class="text-center total">{{sumRow($index)}}</td>
+            </tr>
+            <tr class="data">
+                <td>{{'MF_DEVICE_ADVISER_TOTAL_WEEKLY_MINUTES'| translate}}:</td> <!--{{tb5.strTime}}-->
+                <td class="text-center"></td>
+                <td class="text-center"></td>
+                <td class="text-center"></td>
+                <td class="text-center"></td>
+                <td class="text-center"></td>
+                <td class="text-center"></td>
+                <td class="text-center"></td>
+                <td class="text-center">{{sumAll}}</td>
+            </tr>
+
+        </tbody>
+    </table>
+</div>

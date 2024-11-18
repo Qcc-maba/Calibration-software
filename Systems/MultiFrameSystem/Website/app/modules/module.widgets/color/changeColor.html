@@ -1,0 +1,38 @@
+﻿<link ng-href={{str}} rel="stylesheet" ng-if="str"/>
+<a class="dropdown-toggle" data-close-others="true" data-hover="dropdown" data-toggle="dropdown">
+
+
+    <img height="15" width="15" class="circle-img" alt="" src="http://www.icons101.com/icon_png/size_256/id_77445/YellowPaintbrush.png">
+    
+
+</a>
+<ul class="dropdown-menu color" role="menu">
+    <li ng-click="changeCssTo('Dark')">
+        <div class="clearfix">
+            <div class="thread-image smallMenuThreadImg">
+                <svg class="Img">
+                    <circle cx="12.5" cy="12.5" r="11" stroke="black" stroke-width="1" fill="#2a2d3c" />
+                </svg>
+            </div>
+            <div class="thread-content smallMenuThreadLanguage">
+                <span translate="MF_THEMES_DARK"></span>
+
+            </div>
+        </div>
+    </li>
+   
+    <li ng-click="changeCssTo('White')">
+        <div class="clearfix">
+            <div class="thread-image smallMenuThreadImg">
+                <svg class="Img">
+                    <circle cx="12.5" cy="12.5" r="11" stroke="black" stroke-width="1" fill="#569099" />
+                </svg>
+            </div>
+            <div class="thread-content smallMenuThreadLanguage">
+                <span translate="MF_THEMES_BRIGHT"></span>
+
+            </div>
+        </div>
+    </li>
+
+</ul>

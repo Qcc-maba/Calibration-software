@@ -1,0 +1,21 @@
+﻿{
+
+  "APIs": {
+    "MF_API": "http://online.galcon-smart.com/API"
+  },
+
+  "socketio": {
+    "httpPort": 3003,
+    "httpsPort": 8443,
+    "redis": {
+      "host": "onlinecluster.yn4uek.clustercfg.euw1.cache.amazonaws.com",
+      "port": "6379",
+      "dbIndex": 10
+    }
+  },
+  "redis": {
+    "host": "onlinecluster.yn4uek.clustercfg.euw1.cache.amazonaws.com",
+    "port": "6379"
+  }
+
+}

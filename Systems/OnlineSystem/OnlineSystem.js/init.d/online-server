@@ -1,0 +1,23 @@
+#!/bin/sh
+# chkconfig: 345 99 01
+# description: some startup script
+
+export PATH=$PATH:/usr/local/bin
+export NODE_PATH=$NODE_PATH:/usr/local/lib/node_modules
+
+
+case "$1" in
+  start)
+  exec forever --sourceDir=/home/ec2-user/online  -p /home/ec2-user/online/forever start onlineServer.js -m 10000
+  ;;
+
+stop)
+  exec forever stop /home/ec2-user/online/onlineServer.js
+  ;;
+*)
+  echo "Usage: /etc/init.d/nodeup {start|stop}"
+  exit 1
+  ;;
+esac
+
+exit 0

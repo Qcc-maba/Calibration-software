@@ -1,0 +1,101 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{5F9C6DC5-8CDC-4DB2-81D8-DEE36413782F}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Galcon.GSI.Systems.XCIGroup.DAL.DataAccessLayer</RootNamespace>
+    <AssemblyName>Galcon.GSI.Systems.XCIGroup.DAL.DataAccessLayer</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+    <SccProjectName>Svn</SccProjectName>
+    <SccLocalPath>Svn</SccLocalPath>
+    <SccAuxPath>Svn</SccAuxPath>
+    <SccProvider>SubversionScc</SccProvider>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Models\Device\AlertsSetting.cs" />
+    <Compile Include="Models\Device\AlertThresholdSettings.cs" />
+    <Compile Include="Models\Device\DeviceBase.cs" />
+    <Compile Include="Models\Device\TimeValue.cs" />
+    <Compile Include="Models\Zone\BaseAdvisorOptionalType.cs" />
+    <Compile Include="Models\Zone\AdvisorSunExposureType.cs" />
+    <Compile Include="Models\Zone\AdvisorSprinklerType.cs" />
+    <Compile Include="Models\Zone\AdvisorPlantType.cs" />
+    <Compile Include="Models\Zone\Categories.cs" />
+    <Compile Include="Models\Zone\ZoneIrrigationAccumulate.cs" />
+    <Compile Include="Models\Zone\ZoneIrrigationSettings.cs" />
+    <Compile Include="Models\Zone\ZoneIrrigationSuggestion.cs" />
+    <Compile Include="Models\Zone\ZoneList.cs" />
+    <Compile Include="Models\Zone\ZoneFlowSensorSettings.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Repositories\AdminRepository\IAdminRepository.cs" />
+    <Compile Include="Repositories\AdminRepository\T-SQL\T-SQL.AdminRepository.cs" />
+    <Compile Include="Models\Device\DaySettings.cs" />
+    <Compile Include="Models\Device\DeviceSchedule.cs" />
+    <Compile Include="Models\Device\DeviceScheduleZone.cs" />
+    <Compile Include="Models\Device\DeviceSettings.cs" />
+    <Compile Include="Models\Device\DisplaySettings.cs" />
+    <Compile Include="Models\Device\FlowSensorSettings.cs" />
+    <Compile Include="Models\Device\IrrigatingSettings.cs" />
+    <Compile Include="Models\Device\IrrigationSchedule.cs" />
+    <Compile Include="Models\Device\IrrigationScheduleItem.cs" />
+    <Compile Include="Models\Device\RainSensorSettings.cs" />
+    <Compile Include="Repositories\Device\IDeviceProcessingRepository.cs" />
+    <Compile Include="Models\Device\DeviceAccumulator.cs" />
+    <Compile Include="Models\Device\DeviceInfo.cs" />
+    <Compile Include="Repositories\Device\T-SQL\T-SQL.DeviceProcessingRepository.cs" />
+    <Compile Include="Repositories\RepositoryGenerator.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Repositories\AdminRepository\T-SQL\SQLScript_XCIAdmin_Create.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\Libraries\DAL\Rational\BaseDAL\BaseDAL.csproj">
+      <Project>{8509a6e5-7d70-4f73-b6c0-8a8f70d88926}</Project>
+      <Name>BaseDAL</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Repositories\AdminRepository\T-SQL\SQLScript_XCIAdmin_AddCategories.sql" />
+    <Content Include="Repositories\AdminRepository\T-SQL\SQLScript_XCIAdmin_AddTypes.sql" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

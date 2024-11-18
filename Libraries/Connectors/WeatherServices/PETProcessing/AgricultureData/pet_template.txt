@@ -1,0 +1,26 @@
+﻿PUT _template/template_pet_history
+{
+    "template" : "pet_history*",
+    "settings" : {
+        "number_of_shards" : 4,
+        "number_of_replicas" : 0
+    },
+
+      "mappings": {
+         "pet_data": {
+            "properties": {
+               
+               "location": {
+                
+                "type" : "geo_point"
+            
+               },
+			   "sID": {
+                  "type": "string",
+                  "index" : "not_analyzed"
+               }
+              
+			}
+		}
+	}
+}

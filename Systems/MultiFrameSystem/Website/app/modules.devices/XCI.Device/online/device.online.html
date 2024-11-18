@@ -1,0 +1,198 @@
+﻿ 
+      
+    <div class="row">
+        
+        
+        <div class="col-lg-3 col-md-5 col-xs-12">
+
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <i class="fa fa-list"></i>
+                    {{'MF_DEVICE_ONLINE_DEVICE_DETAILS'|translate}}
+                    <div class="panel-tools">
+                        <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                        <span data-toggle="tooltip" title="{{'DEVICE_ONLINE_DETAILS_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="DEVICE_ONLINE_DETAILS_QUESTION"></i></span>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div>
+                        <h4 data-toggle="tooltip" title="{{device.name}}" class="Dots_3 inline maxWidth150px marginBottom7px">{{device.name}}</h4>
+                      
+                        <table>
+                            <tbody>
+                                <tr>
+                                    <td class="firstRow"><b>{{'MF_DEVICE_ONLINE_SERIAL'|translate}}:</b></td>
+                                    <td class="firstRow">{{device.sn}}</td>
+                                </tr>
+                                <tr>
+                                    <td><b>{{'MF_DEVICE_ONLINE_TYPE'|translate}}:</b></td>
+                                    <td>{{device.deviceType.name}}</td>
+                                </tr>
+                                <tr>
+                                    <td><b>{{'MF_DEVICE_ONLINE_VERSION'|translate}}:</b></td>
+                                    <td>{{device.firmwareVersion}}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="outerOnlineLights">
+                            <div class="onlineLights">
+                                <div class="state" onlinetarget="deviceStatus">
+                                    <i class="icon glyphicon glyphicon-ok-sign"><span>{{'MF_DEVICE_ONLINE'|translate}}</span></i>
+                                </div>
+                                <div class="oneAlert pause" onlinetarget="pause">
+                                    <i class="icon fa fa-pause"></i>
+                                </div>
+                                <div class="oneAlert sync" onlinetarget="sync">
+                                    <i class="icon clip-refresh"></i>
+                                </div>
+                                <div class="oneAlert rain" onlinetarget="rain">
+                                    <i class="icon clip-cloud"></i>
+                                </div>
+                                <div class="oneAlert alert" onlinetarget="alert" data-toggle="tooltip" title="{{alertCoded}}">
+                                    <i class="icon clip-notification-2"></i>
+                                </div>
+
+                            </div>
+                        </div>
+                        <a ng-if="alertCoded.length>1" ng-click="resetAlrts()">{{'MF_DEVICE_ONLINE_RESET_ALERTS'|translate}}</a>
+                        <hr>
+                        <h4><i class="fa fa-envelope-o marginRight7"></i>{{'MF_DEVICE_ONLINE_MESSAGES' | translate: {count:13} }}</h4>
+
+                    </div>
+
+                </div>
+            </div>
+            <div class="zoneMainImgContainer  inline">
+                <div gmap-online location="device.location"></div>
+            </div>
+
+        </div>
+        <div class="col-lg-7 col-md-7 col-xs-12">
+            
+
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <i class="clip-settings"></i>
+                    <span>{{'MF_DEVICE_ONLINE_ZONES_ONLINE'| translate}}</span>
+                    <div class="panel-tools">
+                        <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                        <span data-toggle="tooltip" title="{{'DEVICE_ONLINE_LIST_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="DEVICE_ONLINE_LIST_QUESTION"></i></span>
+                    </div>
+
+                </div>
+                <div class="panel-body" style="min-height: 585px;">
+
+
+                    <div class="row">
+                        <div class="col-lg-7 col-md-12 col-xs-12">
+
+                            <table class="table cr-onlineLeft">
+                                <tbody>
+                                    <tr ng-repeat="zone in zonesList track by $index">
+                                        <td ng-class="{'firstRow':$index==0}">
+                                            <img class="circle-img adviserChoosenImg marginLeftSmallView" ng-src="{{zone.imageURI}}"/>
+                                        </td>
+                                        <td ng-class="{'firstRow':$index==0}">
+                                            <a data-toggle="tooltip" title="{{zone.zoneNumber}} / {{zone.name}}" class="fontSizeMed marginLeftSmallView middleLine Dots_3 inline maxWidth120px onlineTableNameMargin" ng-click="goToZone(zone.zoneNumber)">{{zone.zoneNumber}} / {{zone.name}}</a>
+                                        </td>
+                                        <td class="middleLine" ng-class="{'firstRow':$index==0}">
+
+                                            <button ng-if="!zone.timeLeftStr" class="btn btn-green" ng-click="getZone(zone.zoneNumber,zone.name)" data-toggle="modal" data-target="#setZoneTime" data-backdrop="false"><i class="fa fa-youtube-play"></i></button>
+                                            <button ng-if="zone.timeLeftStr" class="btn btn-primary" ng-click="startManualOperation(null,zone.zoneNumber)"><i class="fa fa-stop"></i></button>
+                                        </td>
+                                        <td ng-class="{'firstRow':$index==0}">
+                                            <div class="digitsOnline" ng-if="zone.timeLeftStr">{{zone.timeLeftStr}}</div>
+                                            <a ng-if="zone.timeLeftStr" ng-click="getZone(zone.zoneNumber,zone.name)" data-toggle="modal" data-target="#setZoneTime" data-backdrop="false">{{'G_UPDATE'| translate}}</a>
+                                        </td>
+
+
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-lg-5 hidden-xs hidden-sm hidden-md">
+
+                            <div ng-if="currentRuns.length > 0">
+                                <div class="zoneMainImgContainer centerDiv" ng-class="{imageOnlineMarginTop:currentRuns.length > 0}">
+                                    <img class="zoneMainImg" ng-src="{{zonesList[currentRuns[0]].imageURI}}" />
+                                </div>
+                                <h3 class="inline centerDiv">{{zonesList[currentRuns[0]].zoneNumber}} / {{zonesList[currentRuns[0]].name}}</h3>
+                                <br />
+
+                                <div ng-if="currentRuns.length >1">
+                                    <br />
+                                    <br />
+                                    <small>
+                                        {{'MF_DEVICE_ONLINE_MORE_IRRIGATING_ZONE'|translate}}
+                                    </small>
+                                    <hr />
+
+                                    <div class="space26" ng-repeat="cr in currentRuns track by $index" ng-if="$index!=0" ng-click="changeCurrentRunningZone($index)">
+                                        <div class="typeTitle ng-binding">{{zonesList[cr].name}}</div>
+                                        <div class="inline">
+                                            <img class="circle-img adviserChoosenImg" ng-src="{{zonesList[cr].imageURI}}">
+                                        </div>
+
+                                    </div>
+                                </div>
+
+
+
+                            </div>
+
+                            <div ng-if="currentRuns.length == 0">
+
+                                <img ng-src="{{currentZone.URL}}" class="width100Precent staticImageOnline" />
+                                <div>{{currentZone.index+1}} / {{currentZone.name}}</div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+            </div>
+        </div>
+        
+        <div class="col-lg-2 col-md-7 col-xs-12">
+            <div class="panel panel-default">
+                <div class="panel-heading gaugeBody">
+                    <i class="fa fa-tachometer"></i>
+                    {{'MF_DEVICE_ONLINE_DESHBORD_ONLINE'| translate}}
+                    <div class="panel-tools">
+                        <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                        <span data-toggle="tooltip" title="{{'DEVICE_ONLINE_DESHBOARD_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="DEVICE_ONLINE_DESHBOARD_QUESTION"></i></span>
+                    </div>
+                </div>
+                <div class="panel-body gaugeBody" style="min-height: 585px;">
+                    <div class="gaugeWraper">
+                        <div class="maGpm" speed ng-model="maValue" obj="maObj"></div>
+                        <div class="maGpm" speed ng-model="gpmValue" obj="gpmObj"></div><!--ng-if="device.deviceType.name=='XCI'"-->
+                        <div class="centerDiv" flipclock ng-model="flipValue"></div><!--ng-if="device.deviceType.name=='XCI'"-->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+
+    </div>
+
+
+
+<!--**********************************************************-->
+<div id="setZoneTime" class="modal">
+    <div class="modal-content setTimeModal">
+        <div class="modal-header"><span>{{'MF_DEVICE_ONLINE_SET_TIME'|translate}}:</span><span class="colMarginLeft fontSizeMed">{{currentZoneManual.zoneName}}</span></div>
+        <div set-time callback="startManualOperation"></div>
+    </div>
+</div>

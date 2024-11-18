@@ -1,0 +1,1238 @@
+
+(function (angular) {
+    'use strict';
+
+    //////////////// AngularJS //////////////
+    angular.module('module.accessories', []);
+
+})(angular);
+angular.module("module.admin",
+    [
+          "ui.router"
+       
+    ])
+.config(["$stateProvider", "$urlRouterProvider", function ($stateProvider, $urlRouterProvider) {
+
+  
+
+  
+
+    $stateProvider
+      .state('admin', {
+          url: '/admin',
+          views: {
+              'root@': {
+                  template: '<div class="adminMain" ui-view=""></div>',
+                  controller: ["$scope", "$stateParams", "$state", function ($scope, $stateParams, $state) {
+                      $("#splash-page").css("display", "none");
+                      $("#navbar").css("display", "block");
+                  }]
+                  ,
+                  'navbar@': {
+                      templateUrl: 'app/modules/module.navbar/navbar.html',
+                  }
+              }
+           
+          }
+      })
+    $stateProvider
+      .state('admin.users', {
+          url: '/users',
+          template: '<div users></div>',
+          controller: ['$scope', '$stateParams', '$state',
+               function ($scope, $stateParams, $state) {
+                  
+                   $("#splash-page").css("display", "none");
+               }]
+
+     
+      })
+    $stateProvider
+   .state('admin.user', {
+       url: '/user',
+       template: '<div user></div>',
+       controller: ['$scope', '$stateParams', '$state',
+          function ($scope, $stateParams, $state) {
+
+              $("#splash-page").css("display", "none");
+          }]
+
+
+    })
+     .state('admin.roles', {
+         url: '/roles',
+         template: '<div roles></div>',
+         controller: ['$scope', '$stateParams', '$state',
+               function ($scope, $stateParams, $state) {
+                  
+                   $("#splash-page").css("display", "none");
+               }]
+
+     })
+       .state('admin.language', {
+           url: '/language',
+           template: '<div language></div>',
+           controller: ['$scope', '$stateParams', '$state',
+                 function ($scope, $stateParams, $state) {
+
+                     $("#splash-page").css("display", "none");
+                 }]
+
+       })
+}]);
+
+
+(function (angular) {
+    'use strict';
+
+    //////////////// AngularJS //////////////
+    angular.module('module.httpProxies',[]);
+
+})(angular);
+(function (angular) {
+
+    mi = angular
+        .module('module.menuNavigation', []);
+})(angular);
+
+
+
+
+
+
+angular.module("module.profile",
+    [
+          "ui.router"
+
+    ])
+.config(["$stateProvider", "$urlRouterProvider", function ($stateProvider, $urlRouterProvider) {
+    $stateProvider
+      .state('profile', {
+          url: '/profile',
+          views: {
+              'root@': {
+                  template: '<div profile ui-view=""></div>',
+                  controller: ["$scope", "$stateParams", "$state", function ($scope, $stateParams, $state) {
+                      $("#splash-page").css("display", "none");
+                      $('.main-content').css("marginLeft", '0px');
+                  }]
+              }
+
+          }
+      })
+   
+}]);
+
+(function (angular) {
+    mi = angular.module("module.widgits", []);
+})(angular);
+(function (angular) {
+    'use strict';
+
+    angular.module('module.accessories')
+      .directive('generalClick', generalClickFactory);
+
+    /**********************************************************************************************************************************************************************/
+    function generalClickFactory() {
+
+
+        return {
+            restrict: 'A',
+            link: function (scope, element, attr) {
+
+                //****************************closeMessage*********************************************
+                function closeMessage(target) {
+                    if (target.parents(".messageSidebar").length || target.hasClass("messageSidebar")) {
+
+                    }
+                    else if (target.parents(".openMessage").length) {
+                        $('#body').css({ 'overflow-y': 'hidden' });
+
+                        if ($('#page-sidebar').css("right") == "0px") {
+                            $('#page-sidebar').css("right", "-500px");
+                            //element.removeClass('open');
+                        } else {
+                            $('#page-sidebar').css("right", "0px");
+                            //element.addClass('open');
+                        }
+                    }
+                    else {
+                        $('#page-sidebar').css("right", "-500px");
+                        $('#users').attr("style", { right: "0px" });
+                        if (target.parents('#ToggelApp').length >= 1) {
+                            $('#body').css({ 'overflow-y': 'hidden' });
+                        }
+                        else if (target.parents('#main-navigation-menu').length >= 1 && target.parents('.sub-menu').length < 1) {
+                            $('#body').css({ 'overflow-y': 'hidden' });
+                        }
+
+                        else {
+                            $('#body').css({ 'overflow-y': 'auto' });
+                        }
+
+                    }
+                }
+                //*****************************scrollToDiv*****************************************************
+                function scrollToDiv(target) {
+
+                    if (target.parents("#previewList").length || target.parents("#previewMap").length || target.parents("#previewSquares").length) {
+                        $('html,body').animate({
+                            scrollTop: $("#siteDevicesPanel").offset().top
+                        }, 'slow');
+                    }
+                    if (target[0].id == 'addDeviceGo') {
+                        $('html,body').animate({
+                            scrollTop: $("#addDeviceModalFooter").offset().top
+                        }, 'slow');
+                    }
+
+
+
+
+                }
+                //****************************closeMessage*********************************************
+                function closeSmallMenue(target) {
+                    if (target[0].id == 'openSmallMenue') {
+                        $('#smallMenue').css({ 'display': "block" });
+                    } else if (target.parents(".current-user").length || target.parents(".color").length) {
+                        $('#smallMenue').css({ 'display': "block" });
+                    }
+
+                    else {
+                        $('#smallMenue').css({ 'display': "none" });
+                    }
+                }
+
+                //**********************************************************************************************
+
+                $("body").click
+                (
+                  function (e) {
+                      var target = $(e.target);
+                      //closeMessage(target);
+                      //scrollToDiv(target);
+                      //closeSmallMenue(target);
+
+
+
+                  }
+                );
+
+            }
+        }
+
+    }
+})(angular);
+(function (angular) {
+    'use strict';
+    //////////////// AngularJS //////////////
+    angular.module('module.admin')
+        .directive('language', languageFactory);
+    /*************************************************************************************************************************************************************/
+    function languageFactory() {
+        return {
+            restrict: 'EA',
+            scope: {
+
+            },
+            templateUrl: 'app/modules/module.admin/language.html',
+            controller:['$scope', 'adminProxy', function ($scope, adminProxy) {
+                $scope.LanguageList = [{ "dateFormat": "MMM d, y", "timeFormat": "h:mm a", "fullLanguage": "English", "shortLanguage": "en-us", "flag": "http://orig04.deviantart.net/c2d8/f/2013/216/2/9/us_flag_icon_sugarislife28_by_sugarislife28-d6gnlqi.gif", "delete": false }, { "dateFormat": "d 'de' MMM 'de' y", "timeFormat": "H:mm", "fullLanguage": "Español", "shortLanguage": "es", "flag": "http://png-1.findicons.com/files/icons/282/flags/48/spain.png", "delete": false }, { "dateFormat": "d \u05d1MMM y", "timeFormat": "HH:mm", "fullLanguage": "עברית", "shortLanguage": "he-il", "flag": "http://www.gwmicro.com/images/flags/ISRAEL.gif", "delete": false }];
+
+
+                $scope.addLan = function () {
+                    var temp = { "dateFormat": "", "timeFormat": "", "fullLanguage": "", "shortLanguage": "", "flag": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcSHRzeImr4F8EZLGXdP_028sUbYWURJq0MaPcfvQiDJiGrsGTs7PXeI5g", "delete": false };
+                    $scope.LanguageList.unshift(temp);
+                }
+
+                $scope.save = function () {
+                    //send  $scope.LanguageList
+                }
+                $scope.nevigateTo = function () {
+                    window.location = MAIN_LINKS.ACCOUNT_APP_LIST.link;
+                }
+                $("img[value='lang']").click(function () {
+                    $("input[id='my_file']").click();
+                });
+            }],
+            link: function (scope, element, attrs, ngModel) {
+              
+            }
+
+        };
+    }
+
+})(angular);
+(function (angular) {
+    'use strict';
+    //////////////// AngularJS //////////////
+    angular.module('module.admin')
+        .directive('roles', rolesFactory);
+    /*************************************************************************************************************************************************************/
+    function rolesFactory() {
+        return {
+            restrict: 'EA',
+            scope: {
+
+            },
+            templateUrl: 'app/modules/module.admin/roles.html',
+            controller:['$scope', 'adminProxy', function ($scope, adminProxy) {
+              
+                $scope.data = [{ "ID": "1", "code": "400", "name": "Delete Projects", "description": "Delete Projects bla bla bla", "lock": true,"delete":false }, { "ID": "2", "code": "401", "name": "change status project", "description": "change status project bla bla bla", "lock": true,"delete":false }, { "ID": "3", "code": "402", "name": "Create project", "description": "Create project bla bla bla", "lock": false,"delete":false }];
+            
+
+                $scope.save = function (num) {
+                    //send currentRole and data to server
+                }
+
+                $scope.setCurrentRole = function (role) {
+                    
+                }
+                $scope.nevigateTo = function () {
+                    window.location = MAIN_LINKS.ACCOUNT_APP_LIST.link;
+                }
+            }],
+            link: function (scope, element, attrs, ngModel) {
+
+            }
+
+        };
+    }
+
+})(angular);
+
+(function (angular) {
+    'use strict';
+    //////////////// AngularJS //////////////
+    angular.module('module.admin')
+        .directive('user', userFactory);
+    /***********************************************************************************************************************************************************/
+    function userFactory() {
+        return {
+            restrict: 'EA',
+            scope: {
+
+            },
+            templateUrl: 'app/modules/module.admin/user.html',
+            controller:['$scope', 'adminProxy', function ($scope, adminProxy) {
+                $scope.showRoles = false;
+                $scope.user = { "ID": "1", "firstName": "shmulik", "lastName": "almani", "email": "shmuela@galcon.co.il", "emailConfirmation": true, "phone": "0547406075", "phoneConfirmation": false, "created": 1437311221063, "lastLogin": 1437311221063, "fullLanguage": "English", "shortLanguage": "en-us", "image": "https://scontent-lhr3-1.xx.fbcdn.net/hphotos-xta1/v/t1.0-9/1914315_164683579880_2348832_n.jpg?oh=9d0291467e9d7e15cb067dbdcc7978c0&oe=56B9361E" };
+                $scope.LanguageList = [{ "fullLanguage": "English", "shortLanguage": "en-us", "flag": "http://orig04.deviantart.net/c2d8/f/2013/216/2/9/us_flag_icon_sugarislife28_by_sugarislife28-d6gnlqi.gif", "delete": false }, { "dateFormat": "d 'de' MMM 'de' y", "timeFormat": "H:mm", "fullLanguage": "Español", "shortLanguage": "es", "flag": "http://png-1.findicons.com/files/icons/282/flags/48/spain.png", "delete": false }, { "dateFormat": "d \u05d1MMM y", "timeFormat": "HH:mm", "fullLanguage": "עברית", "shortLanguage": "he-il", "flag": "http://www.gwmicro.com/images/flags/ISRAEL.gif" }, { "fullLanguage": "English", "shortLanguage": "en-us", "flag": "http://orig04.deviantart.net/c2d8/f/2013/216/2/9/us_flag_icon_sugarislife28_by_sugarislife28-d6gnlqi.gif" }, { "fullLanguage": "Español", "shortLanguage": "es", "flag": "http://png-1.findicons.com/files/icons/282/flags/48/spain.png" }];
+                $scope.roles = [{ "name": "Delete Projects1", "allow": true }, { "name": "Delete Projects2", "allow": false }, { "name": "Delete Projects3", "allow": true }, { "name": "Delete Projects4", "allow": true }, { "name": "Delete Projects", "allow": true }, { "name": "Delete Projects", "allow": true }, { "name": "Delete Projects", "allow": true }, { "name": "Delete Projects", "allow": true }, { "name": "Delete Projects", "allow": true }, { "name": "Delete Projects", "allow": true }, { "name": "Delete Projects", "allow": true }, { "name": "Delete Projects", "allow": true }, { "name": "Delete Projects", "allow": true }, { "name": "Delete Projects", "allow": true }, { "name": "Delete Projects", "allow": true }, { "name": "Delete Projects", "allow": true }, { "name": "Delete Projects", "allow": true }, { "name": "Delete Projects", "allow": true }];
+                $scope.setUserLanguage = function (lan) {
+                    $scope.user.lan = lan;
+                }
+
+                $scope.passwordFormValidation = false;
+                $scope.resetPass = function(passwordForm){
+                    if (passwordForm) {
+                        $scope.passwordFormValidation = false;
+                        //send $scope.resetPassword to server
+                    } else {
+                        $scope.passwordFormValidation = true;
+                    }
+                }
+                $scope.lock = function () {
+
+                    //send $scope.user.ID to server
+
+                }
+                $scope.delete = function () {
+
+                    //send $scope.user.ID to server
+
+                }
+                $scope.nevigateTo = function () {
+                    window.location = MAIN_LINKS.ACCOUNT_APP_LIST.link;
+                }
+            }],
+            link: function (scope, element, attrs, ngModel) {
+            }
+        };
+    }
+})(angular);
+
+(function (angular) {
+    'use strict';
+    //////////////// AngularJS //////////////
+    angular.module('module.admin')
+        .directive('users', usersFactory);
+    /***********************************************************************************************************************************************************/
+    function usersFactory() {
+        return {
+            restrict: 'EA',
+            scope: {
+
+            },
+            templateUrl: 'app/modules/module.admin/users.html',
+            controller:['$scope', 'adminProxy', 'directiveComm', function ($scope, adminProxy, directiveComm) {
+                $scope.users = [ { "ID": "1", "firstName": "shmulik", "lastName": "almani", "userName": "shmulika", "creation": 1437311221063, "isLocked": true }
+                               , { "ID": "2", "firstName": "eliran", "lastName": "hadad", "userName": "eliranh", "creation": 1437311221063 , "isLocked":false }
+                               , { "ID": "3", "firstName": "eitan", "lastName": "revach", "userName": "eitanr", "creation": 1437311221063, "isLocked": true }
+                               , { "ID": "4", "firstName": "reli", "lastName": "peretz", "userName": "relip", "creation": 1437311536101, "isLocked": false }
+                               , { "ID": "5", "firstName": "harel", "lastName": "turgeman", "userName": "harelt", "creation": 1437311536101, "isLocked": true }
+                               , { "ID": "6", "firstName": "reli", "lastName": "peretz", "userName": "relip", "creation": 1437311536101, "isLocked": false }
+                               , { "ID": "7", "firstName": "reli", "lastName": "peretz", "userName": "relip", "creation": 1437311536101, "isLocked": true }
+                               , { "ID": "8", "firstName": "reli", "lastName": "peretz", "userName": "relip", "creation": 1437311536101, "isLocked": false }
+                               , { "ID": "9", "firstName": "reli", "lastName": "peretz", "userName": "relip", "creation": 1437311536101, "isLocked": true }
+                               , { "ID": "10", "firstName": "reli", "lastName": "peretz", "userName": "relip", "creation": 1437311536101, "isLocked": false }
+                               , { "ID": "11", "firstName": "reli", "lastName": "peretz", "userName": "relip", "creation": 1437311536101, "isLocked": true }
+                               , { "ID": "12", "firstName": "reli", "lastName": "peretz", "userName": "relip", "creation": 1437311536101, "isLocked": false }
+                               , { "ID": "13", "firstName": "reli", "lastName": "peretz", "userName": "relip", "creation": 1437311536101, "isLocked": true }
+
+                ]
+                $scope.nevigateTo = function () {
+                    window.location = MAIN_LINKS.ACCOUNT_APP_LIST.link;
+                }
+               
+            }],
+            link: function (scope, element, attrs, ngModel) {
+                
+            }
+
+        };
+    }
+
+})(angular);
+
+
+
+
+
+
+
+
+(function (angular) {
+    'use strict';
+
+    //////////////// AngularJS //////////////
+    angular.module('module.httpProxies')
+        .provider('baseProxy', baseProxy);
+
+
+    //////////////// JavaScript //////////////
+
+    function baseProxy() {
+
+        var translateProvider;
+
+        var _global = {
+            data: {
+
+
+                serverUri: ROOT_ADDR.SYSTEM_ACCOUNT_API,
+             // serverUri: "http://10.0.0.108/WebServices/api",
+             // serverUri: "http://bs.eitanr.com:10600/WebServices/api",   
+
+                GoogleKey: "AIzaSyCKESGfcYKGe4QLnn4DESThvwE7xDEObnA"
+            }
+        };
+        function buildPinLocation(lat, lan) {
+            while(lan < -180) {
+                lan=lan+360
+            }
+            while (lan > 180) {
+                lan = lan - 360
+            }
+            return {
+                latitude: lat,
+                longitude: lan
+            };
+        }
+       
+        function timeConverter(UNIX_timestamp) {
+            var a = new Date(UNIX_timestamp).toLocaleDateString();
+          
+            return a;
+        }
+        
+       
+
+
+
+
+        function buildLocation(lat, lan) {
+            return {
+
+                MapCenter: buildPinLocation(lat, lan),
+                zoomLevel: 8,
+                mode: "roadMap",
+                autoBounds: true
+            }
+
+        };
+
+        function saveManualMap(lat, lan, zoomLevel, mode, autoBounds) {
+            return {
+
+                MapCenter: buildPinLocation(lat, lan),
+                zoomLevel: zoomLevel,
+                mode: mode,
+                autoBounds: autoBounds
+            }
+
+        };
+
+
+
+        function convertToStringTime(time) {
+            var hours = String(Math.floor(time / 3600));
+            var min = String(Math.floor((time % 3600) / 60));
+            if (hours.length == 1)
+                hours = "0" + hours;
+            if (min.length == 1)
+                min = "0" + min;
+
+            return hours + ":" + min;
+
+        }
+
+        function convertFromStringTime(time) {
+            var d = new Date("1/1/2000 " + time);
+          
+
+            return d.getMinutes() * 60 + d.getHours() * 3600;
+
+        }
+        return {
+            $get: ["$http", function ($http ) {
+
+
+                //interface
+                return {
+                    Global: _global,
+                    buildPinLocation: buildPinLocation,
+                    buildLocation: buildLocation,
+                    saveManualMap: saveManualMap,
+                    timeConverter: timeConverter,
+                    convertToStringTime: convertToStringTime,
+                    convertFromStringTime: convertFromStringTime
+
+                };
+            }]
+        }
+    }
+})(angular);
+
+
+
+
+
+
+(function (angular) {
+
+    menuController.$inject = ["$scope", "$location", "$http"];
+    mi = angular
+        .module('module.menuNavigation')
+        .controller('menuController', menuController);
+
+    function menuController($scope, $location, $http) {
+        var runContainerHeight = function () {
+            mainContainer = $('.main-content > .container');
+            mainNavigation = $('.main-navigation');
+            if ($pageArea < 760) {
+                $pageArea = 760;
+            }
+            if (mainContainer.outerHeight() < mainNavigation.outerHeight() && mainNavigation.outerHeight() > $pageArea) {
+                mainContainer.css('min-height', mainNavigation.outerHeight());
+            } else {
+                mainContainer.css('min-height', $pageArea);
+            };
+            if ($windowWidth < 768) {
+                mainNavigation.css('min-height', $windowHeight - $('body > .navbar').outerHeight());
+            }
+            $("#page-sidebar .sidebar-wrapper").css('height', $windowHeight - $('body > .navbar').outerHeight()).scrollTop(0).perfectScrollbar('update');
+        };
+
+        $scope.toggleNavigationMenu = function (event) {
+
+            var toggleIcon = $(event.target).parent();
+
+            if (toggleIcon[0].localName == "li") {
+                toggleIcon = $(event.currentTarget);
+            }
+            if ($(toggleIcon).parent().children('ul').hasClass('sub-menu') && ((!$('body').hasClass('navigation-small') || $windowWidth < 767) || !$(toggleIcon).parent().parent().hasClass('main-navigation-menu'))) {
+                if (!$(toggleIcon).parent().hasClass('open')) {
+                    $(toggleIcon).parent().addClass('open');
+                    $(toggleIcon).parent().parent().children('li.open').not($(toggleIcon).parent()).not($('.main-navigation-menu > li.active')).removeClass('open').children('ul').slideUp(200);
+                    $(toggleIcon).parent().children('ul').slideDown(200, function () {
+                        runContainerHeight();
+                    });
+                } else {
+                    if (!$(toggleIcon).parent().hasClass('active')) {
+                        $(toggleIcon).parent().parent().children('li.open').not($('.main-navigation-menu > li.active')).removeClass('open').children('ul').slideUp(200, function () {
+                            runContainerHeight();
+                        });
+                    } else {
+                        $(toggleIcon).parent().parent().children('li.open').removeClass('open').children('ul').slideUp(200, function () {
+                            runContainerHeight();
+                        });
+                    }
+                }
+            }
+        }
+
+        function delete_cookie(name) {
+            document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        }
+        $scope.toggleNavbar = function () {
+            if (!$('body').hasClass('navigation-small')) {
+                $('body').addClass('navigation-small');
+                $('#main-navigation-menu').hide();
+
+            } else {
+                $('body').removeClass('navigation-small');
+                $('#main-navigation-menu').show();
+            };
+        }
+
+        $scope.logOut = function () {
+
+            window.location = MAIN_LINKS.LOGIN.link;
+            delete_cookie('AccessTokenAccount');
+        }
+
+        $scope.$on('profileToNavbar', function (event, data) {
+            $scope.name = data;
+
+        });
+        $scope.nevigateToHomePage = function () {
+            var location = getParameterByName('ReturnUrl');
+            window.location.href = location;
+        }
+        //************************************
+        function getParameterByName(name, url) {
+            if (!url) url = window.location.href;
+            name = name.replace(/[\[\]]/g, "\\$&");
+            var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+                results = regex.exec(url);
+            if (!results) return null;
+            if (!results[2]) return '';
+            return decodeURIComponent(results[2].replace(/\+/g, " "));
+        }
+        
+ 
+
+
+
+
+
+
+
+
+    }
+})(angular);
+
+
+
+
+
+
+(function (angular) {
+    'use strict';
+    //////////////// AngularJS //////////////
+    angular.module('module.menuNavigation')
+        .directive('menuDirective', menuDirectiveFactory);
+    function menuDirectiveFactory() {
+
+
+
+
+
+        var runToDoAction = function () {
+            if ($(this).parents('.navbar-collapse')) {
+                $(this).parents('.navbar-collapse').collapse('hide');;
+            }
+        };
+
+
+
+
+        
+
+        return {
+            restrict: 'A',
+
+            link: function (scope, element, attrs) {
+              
+                element.bind('click', runToDoAction);
+            }
+        };
+    }
+})(angular);
+
+
+
+
+
+
+
+(function (angular) {
+    'use strict';
+    //////////////// AngularJS //////////////
+    profileFactory.$inject = ["$log"];
+    angular.module('module.profile')
+        .directive('profile', profileFactory);
+
+
+
+    function profileFactory($log) {
+        return {
+            restrict: 'EA',
+
+            templateUrl: 'app/modules/module.profile/profile.html',
+
+            controller: ["$scope", "adminProxy", "$translate", "tmhDynamicLocale", function ($scope, adminProxy, $translate, tmhDynamicLocale) {
+                $scope.imgUrl = ROOT_ADDR.SYSTEM_ACCOUNT_API + "/Account/Profile/ImageUpload";
+                $scope.validation = {
+                    "profile": false,
+                    "password":false
+                }
+                $scope.ladda = {
+                 saveProfile:false
+                };
+                var precent;
+                var fill;
+                //***********************************shortToFull**************************************************
+
+                function shortToFull(short) {
+                    switch (short) {
+                        case "en":
+                            return "English"
+                            break;
+                        case "es":
+                            return  "Español"
+                            break;
+                        case "fr":
+                            return "français"
+                            break;
+
+                    }
+                    return "English"
+                }
+                //************************************************************GetCoockie*************************************************************
+                function getCookie(cname) {
+                    var name = cname + "=";
+                    var ca = document.cookie.split(';');
+                    for (var i = 0; i < ca.length; i++) {
+                        var c = ca[i];
+                        while (c.charAt(0) == ' ') c = c.substring(1);
+                        if (c.indexOf(name) == 0) return c.substring(name.length, c.length);
+                    }
+                    return "";
+                }
+                //************************************************************setCookie*********************************
+                function setCookie(cname, cvalue, exdays) {
+                    var d = new Date();
+                    d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
+                    var expires = "expires=" + d.toUTCString();
+                    document.cookie = cname + "=" + cvalue + "; path=/;" + expires;
+                   // document.cookie = cookieName + "=" + cookieValue + ";domain=.example.com;path=/;expires=" + myDate;
+                }
+                //**************************************************************************************
+                function getUsersKit() {
+
+                    return adminProxy.getUsersKit()
+                        .success(function (data) {
+
+                            $scope.calture = data.systemCultureCodeModel;
+                            $scope.timeZone = data.systemTimeZoneModel;
+                            $scope.temperatureUnit = data.systemTemperaturUnitModel;
+                            reloadUser();
+                        });
+                };
+                //********************************************************************************
+                $scope.chooseCalture = function(cl) {
+                    $scope.ExtraDetails.calture = cl.displayName;
+                    $scope.ExtraDetails.cultureCode = cl.cultureCode;
+                    if (cl.cultureCode == 'He-Iljjjj') {
+                    
+                        $translate.use(cl.cultureCode);
+                        tmhDynamicLocale.set(cl.cultureCode);
+                    }else{
+                     
+                        $translate.use('en');
+                        tmhDynamicLocale.set('en');
+                      
+                    }
+                }
+                //*********************************************************************************
+                $scope.chooseTimeZone= function(tz) {
+                    $scope.ExtraDetails.timeZone = "UTC - " + tz.actualOffset / 60 + " " + tz.displayName;
+                    $scope.ExtraDetails.zoneID = tz.zoneID;
+                }
+                //*********************************************************************************
+                $scope.chooseTemperatureUnit = function (tu) {
+                    $scope.ExtraDetails.temperatureUnit = tu.displayName;
+                    $scope.ExtraDetails.typeUnitID = tu.typeUnitID;
+                }
+                //********************************************************************************
+                function checkUserExtraDetails(userDetails) {
+                    for (var i = 0; i < $scope.calture.length; i++) {
+                        if ($scope.calture[i].cultureCode == userDetails.cultureCode) {
+                            $scope.ExtraDetails.calture = $scope.calture[i].displayName;
+                            $scope.ExtraDetails.cultureCode = $scope.calture[i].cultureCode;
+                            break;
+                        }
+                    }
+                    for (var i = 0; i < $scope.timeZone.length; i++) {
+                        if ($scope.timeZone[i].zoneID == userDetails.timeZoneID) {
+                            $scope.ExtraDetails.timeZone = "UTC - " + $scope.timeZone[i].actualOffset / 60 + " " + $scope.timeZone[i].displayName;
+                            $scope.ExtraDetails.zoneID = $scope.timeZone[i].zoneID;
+                            break;
+                        }
+                    }
+                    for (var i = 0; i < $scope.temperatureUnit.length; i++) {
+                        if ($scope.temperatureUnit[i].typeUnitID == userDetails.tempUnitID) {
+                            $scope.ExtraDetails.temperatureUnit = $scope.temperatureUnit[i].displayName;
+                            $scope.ExtraDetails.typeUnitID = $scope.temperatureUnit[i].typeUnitID;
+                            break;
+                        }
+                    }
+                }
+                //*********************************************************************************************
+                function reloadUser() {
+                    return adminProxy.loadCurrentProfile()
+
+                        .success(function (data) {
+                            $scope.ExtraDetails = {};
+                            $scope.userData = data;
+                            checkUserExtraDetails($scope.userData);
+                              
+                           
+                           
+                            
+                           
+                            $scope.$emit('profileToNavbar', data);
+
+                        });
+                };
+                //********************************************setUserLanguage******************************
+                $scope.setUserLanguage = function (short) {
+                    $scope.selectedLenguage = shortToFull(short);
+                    $scope.userData.cultureCode = short;
+               
+                }
+                //****************************************************************
+                $scope.saveUser = function (profileForm) {
+                    if (profileForm) {
+                        $scope.ladda.saveProfile = true;
+                        $scope.validation.profile = false;
+                        $scope.userData.timeZoneID = $scope.ExtraDetails.zoneID;
+                        $scope.userData.tempUnitID = $scope.ExtraDetails.typeUnitID;
+                        $scope.userData.cultureCode = $scope.ExtraDetails.cultureCode;
+                        return adminProxy.SaveCurrentProfile($scope.userData)
+                          .success(function (data, status, headers, config) {
+                              //$translate.use($scope.data.cultureCode);
+                              //tmhDynamicLocale.set($scope.data.cultureCode);
+                              //setCookie("selectedLanguage", $scope.data.cultureCode, 30);
+                              $scope.ladda.saveProfile = false;
+                              toastr.success(' Details  Saved', 'Success!');
+                         
+                          }).error(function (data, status, headers, config) {
+                              toastr.error('Details Not Saved', 'Error!');
+                          });
+                    } else {
+                        $scope.validation.profile = true;
+                    }
+                }
+                //**************************************************************
+                $scope.myCallback = function (valueFromDirective) {
+          
+                    if (valueFromDirective.result) {
+
+                        $scope.userData.imgURL = valueFromDirective.result;
+                       
+                        toastr.success('New Image  Saved', 'Success!');
+                        resetLoading();
+                        $scope.$apply();
+                    } else {
+                        toastr.error('Faild Upload Image', 'Error!');
+
+
+                        resetLoading();
+                        $scope.$apply();
+                    }
+
+                };
+
+                //**********************************************************
+                function resetLoading() {
+                
+                        $('.profileFixLoadingImage').css({ 'display': 'none' });
+                        fill.width('0');
+                        precent.html(0+ "%");
+                       
+                   
+                }
+                //*******************************************************************
+                $scope.myANCallback = function (val) {
+
+                    $('.profileFixLoadingImage').css({ 'display': 'block' });
+                     precent = $('.loadingContainer .precent');
+                     fill = $('.loadingContainer .loadingBar .fill');
+                };
+                //***************************************************************
+                
+
+                $scope.progress = function (val) {  // full width = 216px
+                    precent.html(parseInt(val) + "%");
+                    var currentWidth = parseInt ((val / 100) * 216);
+                    fill.width(currentWidth);
+                    $scope.$apply();
+                    
+                };
+                //**************************************************
+                getUsersKit();
+              
+               
+
+            }],
+            link: function (scope, element, attrs, ngModel) {
+                $("#navbar").css("display", "none");
+
+
+            }
+
+
+
+
+        };
+
+    }
+})(angular);
+
+
+
+
+
+angular.module('ngSimpleUpload', [])
+    .directive('ngSimpleUpload', [function () {
+        return {
+            scope: {
+                webApiUrl: '@',
+                callbackFn: '=',
+                callbackAn: '=',
+                callbackProgress: '=',
+                buttonId: '@'
+            },
+            link: function (scope, element, attrs) {
+                function getCookie(cname) {
+                    var name = cname + "=";
+                    var ca = document.cookie.split(';');
+                    for (var i = 0; i < ca.length; i++) {
+                        var c = ca[i];
+                        while (c.charAt(0) == ' ') c = c.substring(1);
+                        if (c.indexOf(name) == 0) return c.substring(name.length, c.length);
+                    }
+                    return "";
+                }
+                // if button id value exists
+                if (scope.buttonId) {
+                    $('#' + scope.buttonId).on('click', function () {
+                        
+                        // retrieves files from file input
+                        var files = element[0].files;
+                        // will not fire until file(s) are selected
+                        if (files.length == 0) {
+                            console.log('No files detected.');
+                            return false;
+                        }
+
+                        Upload(files);
+                    });
+                }
+                else {
+                    // original code, trigger upload on change
+                    element.on('change', function (evt) {
+
+                   
+                        scope.callbackAn(true);
+                      
+                   
+                        
+                        var files = evt.__files_ || (evt.target && evt.target.files);
+
+                        Upload(files);
+                        
+                        // removes file(s) from input
+                        $(this).val('');
+                    });
+                }
+
+
+
+
+
+                //************************************
+
+                function progress(e) {
+
+                    if (e.lengthComputable) {
+                        var max = e.total;
+                        var current = e.loaded;
+
+                        var Percentage = (current * 100) / max;
+                        Percentage = parseInt(Percentage);
+                        console.log(Percentage);
+
+
+                        if (Percentage <= 99) {
+                           scope.callbackProgress(Percentage);
+                        }
+                    }
+                }
+                //**
+
+                function Upload(files) {
+                    var fd = new FormData();
+                    angular.forEach(files, function (v, k) {
+                        fd.append('file', files[k]);
+                    });
+
+                    return $.ajax({
+                        type: 'POST',
+                        url: scope.webApiUrl,
+                        headers: { 'Authorization': 'Bearer ' + getCookie('AccessTokenAccount') },
+                        data: fd,
+                        xhr: function () {
+                            var myXhr = $.ajaxSettings.xhr();
+                            if (myXhr.upload) {
+                                myXhr.upload.addEventListener('progress', progress, false);
+                            }
+                            return myXhr;
+                        },
+                        async: true,
+                        cache: false,
+                        contentType: false,
+                        processData: false
+                    }).done(function (d) {
+                        // callback function in the controller
+                        scope.callbackFn(d);
+                    }).fail(function (x) {
+                        console.log(x);
+                    });
+
+                   
+                }
+            }
+        }
+    }]);
+(function (angular) {
+    'use strict';
+
+    closeMainNevigationFactory.$inject = ["$log"];
+    angular.module('module.widgits')
+      .directive('closeMainNevigation', closeMainNevigationFactory);
+
+    /**********************************************************************************************************************************************************************/
+    function closeMainNevigationFactory($log) {
+
+        return {
+            restrict: 'A',
+            link: function (scope, element, attr) {
+
+                element.bind('click', function (e) {
+                    if ($(e.target).parents('.navbar-collapse').length) {
+                        element.removeClass("in");
+                        element.attr("aria-expanded", false);
+                    }
+                })
+            }
+        }
+
+    }
+})(angular);
+(function (angular) {
+    'use strict';
+    //////////////// AngularJS //////////////
+    compareToFactory.$inject = ["$log"];
+    angular.module('module.widgits')
+        .directive('compareTo', compareToFactory);
+    /********************************************************************************************************************************************************************/
+    function compareToFactory($log) {
+
+        return {
+            require: "ngModel",
+            scope: {
+                otherModelValue: "=compareTo"
+            },
+            link: function (scope, element, attributes, ngModel) {
+
+                ngModel.$validators.compareTo = function (modelValue) { //will run if someting change on confirm textfild
+                    return modelValue == scope.otherModelValue; 
+                };
+
+                scope.$watch("otherModelValue", function () {
+                    ngModel.$validate(); // run  ngModel.$validators.compareTo if somting change on password
+                });
+            }
+        };
+    }
+
+    /*******************************************************************************************************************************************************************************/
+
+})(angular);
+
+
+
+
+
+
+
+
+
+
+
+(function (angular) {
+    'use strict';
+
+    //////////////// AngularJS //////////////
+    angular.module('module.httpProxies')
+        .provider('adminProxy', adminProxy);
+
+
+    //////////////// JavaScript //////////////
+
+    function adminProxy() {
+     
+      
+
+        return {
+
+            $get: ["$http", "baseProxy", function ($http, baseProxy) {
+
+                var data = baseProxy.Global.data.serverUri + '/Account/Profile';
+                var timeZone = baseProxy.Global.data.serverUri + '/Account';
+                ///////////////////////START DONE///////////////////////////////////////////////////////
+
+              
+
+                function _loadCurrentProfile() {
+                    return $http.get(data);
+                };
+          
+                function _getUsersKit() {
+                    return $http.get(timeZone + "/SystemTypes");
+                };
+             
+                //function _getUserImage(userID) {
+                //    return buildUri("GetUserImage/?UserID=" + (userID || 1), true);
+                //};
+
+                function _SaveCurrentProfile(userData) {
+                    return $http.post(data, userData);
+                };
+
+             
+
+
+              
+               
+
+
+
+
+
+
+               
+
+                //interface
+                return {
+                    loadCurrentProfile:_loadCurrentProfile,
+                    SaveCurrentProfile: _SaveCurrentProfile,
+                    getUsersKit: _getUsersKit
+                   
+
+
+                };
+            }]
+        }
+    }
+})(angular);
+var LanguagePrefix = ROOT_ADDR.SYSTEM_ACCOUNT_ROOT + "/Files/laguage/";
+var LanguagePrefix = "../Files/laguage/";
+(function (angular) {
+    var app = angular.module("mainApp",
+     ["ui.router"
+         , "module.admin"
+         , "module.profile"
+         , 'ngMessages'
+         , "module.httpProxies"
+         //, "module.translate"
+         , "module.menuNavigation"
+         , "module.widgits"
+         , 'angular-ladda'
+         , "pascalprecht.translate"
+         , "tmh.dynamicLocale"
+         , "ngSimpleUpload"
+     ]);
+
+    //***********************************************
+    function getCookie(cname) {
+        var name = cname + "=";
+        var ca = document.cookie.split(';');
+        for (var i = 0; i < ca.length; i++) {
+            var c = ca[i];
+            while (c.charAt(0) == ' ') c = c.substring(1);
+            if (c.indexOf(name) == 0) return c.substring(name.length, c.length);
+        }
+        return "";
+    }
+    //************************************************
+    app.factory('RequestService', function RequestService() {
+
+        var AccessTokenAccount = getCookie('AccessTokenAccount');
+        var request = function request(config) {
+            if (config.url.indexOf(LanguagePrefix) >= 0) {
+            }
+            else {
+                if (AccessTokenAccount) {
+                    config.headers['Authorization'] = 'Bearer ' + AccessTokenAccount;
+                    clearTimeWD();
+
+                }
+            }
+            return config;
+        }
+
+        return {
+            request: request
+        }
+    });
+    
+    
+   
+    app.config(
+                ['$httpProvider','$translateProvider','tmhDynamicLocaleProvider',
+    function ($httpProvider, $translateProvider, tmhDynamicLocaleProvider) {
+           
+            $httpProvider.interceptors.push('RequestService');
+            //default language
+            selectedLanguage = getCookie("selectedLanguage") || 'en';
+            //fallback language if entry is not found in current language
+            $translateProvider.fallbackLanguage('en');
+            //load language entries from files
+            $translateProvider.useStaticFilesLoader({
+                prefix: '../Files/laguage/',
+                suffix: '.txt' //file extension
+            });
+            $translateProvider.useSanitizeValueStrategy(null);
+
+            tmhDynamicLocaleProvider.localeLocationPattern('../Files/vendor/angular/i18n/angular-locale_{{locale}}.js')
+        }
+                ]
+    )
+    app.run(
+                ['$rootScope', '$state', '$stateParams' , '$translate', 'tmhDynamicLocale',
+        function ($rootScope, $state, $stateParams, $translate, tmhDynamicLocale) {
+            
+            $rootScope.$state = $state;
+            $rootScope.$stateParams = $stateParams;
+            $translate.use(selectedLanguage);
+            tmhDynamicLocale.set(selectedLanguage);
+        }
+                ]
+    )
+
+})(angular);

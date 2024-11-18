@@ -1,0 +1,207 @@
+﻿
+<!--Account-->
+<!DOCTYPE html>
+<html lang="en" class="no-js" >
+<head>
+    <title>Account</title>
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimum-scale=1.0, maximum-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta content="" name="description" />
+    <meta content="" name="author" />
+    <script>
+        //var Custom_SYSTEM_ACCOUNT__LOGIN_ROOT = "http://localhost:54790";
+        //var Custom_SYSTEM_ACCOUNT__ACCOUNT_ROOT = "http://localhost:54790/Account";
+        var Custom_SYSTEM_ACCOUNT__API = "http://account.galcon-smart.com/API";
+        var Custom_SYSTEM_MF_ROOT = "http://localhost:54000";
+
+    </script>
+    <!--start all systems scripts-->
+    <script src="../Files/all_systems/ServiceURI.js"></script>
+    <script src="../Files/all_systems/log_out_time.js"></script>
+    <script src="../Files/all_systems/files_manager.js"></script>
+    <!--end all systems scripts-->
+
+    <!-- start General css-->
+    <link id="general_css" rel="stylesheet" />
+    <script>
+        createDynamicTag(css_general_list, "link", "general_css");
+    </script>
+    <!-- start Template css-->
+    <link id="template_css" rel="stylesheet" />
+    <script>
+        createDynamicTag(css_template_list, "link", "template_css");
+    </script>
+    <!--End Template css-->
+  
+     <link href="../Files/content/css/account.css" rel="stylesheet" />
+     <link href="../Files/content/css/theme_light.css" rel="stylesheet" />
+  
+    <link href="../Files/vendor/ladda/ladda-themeless.min.css" rel="stylesheet" />
+
+</head>
+<!-- end: HEAD -->
+<!-- start: BODY -->
+<body ng-app="mainApp" ng-controller="menuController" general-click>
+    <!--class="navigation-small"-->
+    <!-- start: HEADER -->
+    <div id="fixLoading" class="fixLoading"><div class="fixLoading-inner"></div></div>
+    <div class="navbar navbar-inverse navbar-fixed-top">
+        <!-- start: TOP NAVIGATION CONTAINER -->
+        <div class="container">
+            <div class="navbar-header">
+                <!-- start: RESPONSIVE MENU TOGGLER -->
+                <button data-target=".navbar-collapse" data-toggle="collapse" class="navbar-toggle" type="button">
+                    <span class="clip-list-2"></span>
+                </button>
+                <!-- end: RESPONSIVE MENU TOGGLER -->
+                <!-- start: LOGO -->
+                <a class="navbar-brand" href="/Account/#/admin/users">
+                    <img src="../Content/img/logo.png" height="27">
+
+                </a>
+
+                <!-- end: LOGO -->
+            </div>
+            <div class="navbar-tools visible-xs" ng-if="openMenu">
+                <!-- start: TOP NAVIGATION MENU -->
+                <ul class="nav navbar-right">
+                    <!-- start: USER DROPDOWN -->
+
+                    <li>
+                        <a ui-sref="admin.device">
+                            <img src="/Content/img/en-US.png" class="circle-img" height="23" width="23" alt="">
+                        </a>
+                    </li>
+                    <!-- ************************************************************************************************* -->
+                    <!-- end: USER DROPDOWN -->
+
+                </ul>
+
+                <!-- end: TOP NAVIGATION MENU -->
+
+            </div>
+            <div class="navbar-tools hidden-xs">
+                <!-- start: TOP NAVIGATION MENU -->
+                <ul class="nav navbar-right">
+                    <li class="dropdown current-user">
+                        <a data-toggle="dropdown" data-hover="dropdown" class="dropdown-toggle" data-close-others="true">
+                            <img ng-src="{{name.imgURL}}" class="circle-img" height="23" width="23" alt="">
+                            <span class="username" ng-if="name">{{name.firstName}}</span>
+                            <i class="clip-chevron-down"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a ui-sref="profile">
+                                    <i class="clip-user-2"></i>
+                                    {{'MF_PROFILE_MENU_MY_PROFILE' | translate}}
+                                </a>
+                            </li>
+
+                            <li>
+                                <a ng-click="logOut()">
+                                    <i class="clip-exit"></i>
+                                    {{'G_LOG_OUT' | translate}}
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <!-- end: USER DROPDOWN -->
+
+                </ul>
+
+                <!-- end: TOP NAVIGATION MENU -->
+
+            </div>
+        </div>
+    </div>
+    <!-- end: TOP NAVIGATION CONTAINER -->
+    <!-- end: HEADER -->
+    <!-- start: MAIN CONTAINER -->
+    <div class="main-container">
+        <!--<ng-include id="navbar" src="'app/modules/module.navbar/navbar.html'"></ng-include>-->
+        <div ui-view="navbar"></div>
+
+        <!-- start: PAGE -->
+        <div class="main-content">
+
+            <div class="container">
+
+                <!-- start: PAGE CONTENT -->
+                <div ui-view="root"></div>
+                <!-- end: PAGE CONTENT-->
+            </div>
+        </div>
+        <!-- end: PAGE -->
+    </div>
+
+    <!-- end: HEADER -->
+    <!-- start General css-->
+
+    <script>
+        createDynamicTag(js_general_list, "script", "general_js");
+    </script>
+    <!--End General css-->
+    <script src="../Files/vendor/jquery-ui/jquery-ui.js"></script>
+
+
+
+    <script src="../Files/vendor/ladda/spin.js"></script>
+    <script src="../Files/vendor/ladda/ladda.js"></script>
+    <script src="../Files/vendor/ladda/prism.js"></script>
+    <script src="../Files/vendor/ladda/laddaDirective.js"></script>
+    <!-- module.translate-->
+    <script>
+        createDynamicTag(js_translate, "script");
+    </script>
+   
+    <!-- module.httpProxies-->
+    <script src="app/modules/module.httpProxies/module.httpProxies.1.js"></script>
+    <script src="app/modules/module.httpProxies/baseProxy.2.js"></script>
+    <script src="app/modules/module.httpProxies/adminProxy.3.js"></script>
+    <!-- module.widgits-->
+    <script src="app/modules/module.widgits/module.widgits.1.js"></script>
+    <script src="app/modules/module.widgits/confirmPasswordDirective.2.js"></script>
+    <script src="app/modules/module.widgits/paging/pagingDirective.2.js"></script>
+    
+
+    <!-- module.admin-->
+    <script src="app/modules/module.admin/module.admin.1.js"></script>
+    <script src="app/modules/module.admin/usersDirective.2.js"></script>
+    <script src="app/modules/module.admin/userDirctive.2.js"></script>
+
+
+
+    <!-- module.profile-->
+    <script src="app/modules/module.profile/module.profile.1.js"></script>
+    <script src="app/modules/module.profile/profileDirective.2.js"></script>
+    <script src="app/modules/module.profile/uploadFile.2.js"></script>
+
+
+    <!-- module.navbar-->
+    <script src="app/modules/module.navbar/module.menuNavigation.1.js"></script>
+    <script src="app/modules/module.navbar/menuController.2.js"></script>
+    <script src="app/modules/module.navbar/menuDirective.2.js"></script>
+    <!-- module.accessories-->
+    <script src="app/modules/module.accessories/module.accessories.1.js"></script>
+
+    <script src="app/modules/module.accessories/directiveCommProvider.2.js"></script>
+
+    <script src="app/fakeTemplateCash.js"></script>
+
+
+    <!-- final angular files-->
+    <script src="app/app.js"></script>
+
+    <!-- end: App-Angular JS -->
+    <!-- start: init JS -->
+    <script src="../Files/content/js/jqueryInit.js"></script>
+    <script src="app/modules/module.accessories/generalClick.2.js"></script>
+    <script src="app/modules/module.widgits/closeMainNevigation.2.js"></script>
+    <!-- end: init JS -->
+
+
+</body>
+</html>

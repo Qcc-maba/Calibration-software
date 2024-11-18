@@ -1,0 +1,55 @@
+﻿<div class="col-md-8 col-md-offset-2 col-xs-12  wizardTopMargin">
+    <table class="table">
+        <tbody>
+            <tr>
+                <td class="firstRow">
+                    {{'MF_G_SERIAL' | translate}}
+                </td>
+                <td class="firstRow">
+                    <input type="text" ng-model="ctrlDetails.serialNumber" class="HugeTextFiled" readonly />
+                </td>
+            </tr>
+            <tr class="form-group widh100Precent">
+                <td class="firstRow">{{'MF_DEVICE_ADD_VARIFICATION' | translate}}:</td>
+                <td class="firstRow">
+                    <div>
+                       
+                        <input type="text" class="form-control bigTextFiled inline" name="varification" ng-minlength="4" ng-model="ctrlDetails.verificationCode" required ng-pattern="/^[a-zA-Z0-9_]*$/">
+                        <button id="addDeviceGo"class="btn btn-green ladda-button" ladda="ladda.go" data-style="expand-right" data-spinner-size="30" ng-click="varify()">{{'Go' | translate}}</button>
+                    
+                            <div class="validationMsg" ng-messages="addDeviceForm.varification.$error" ng-if="notValid">
+
+                            <div ng-message="minlength">{{'G_F_V_MIN_LENGTH' | translate : {count:4} }}</div>
+                            <div ng-message="pattern">{{'G_F_V_DIGITS_NUMBERS' | translate}}</div>
+                            <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+
+                        </div>
+                    </div>
+                </td>
+
+            </tr>
+
+            <tr>
+
+            </tr>
+
+        </tbody>
+    </table>
+    <div class="msgDiv" ng-if="wifi">
+      
+        <p><b>{{'MF_DEVICE_ADD_WIFI_TITLE'|translate}}</b></p>
+        <p>{{'MF_DEVICE_ADD_WIFI_SUB_TITLE'|translate}}</p>
+        <ul>
+            <li>{{'MF_DEVICE_ADD_WIFI_1'|translate}}</li>
+            <li>{{'MF_DEVICE_ADD_WIFI_2'|translate}}</li>
+            <li>{{'MF_DEVICE_ADD_WIFI_3'|translate}}</li>
+            <li>{{'MF_DEVICE_ADD_WIFI_4'|translate}}</li>
+            <li>{{'MF_DEVICE_ADD_WIFI_5'|translate}}<a ng-click="goToNetwork()">{{'MF_DEVICE_ADD_SELECT_NETWORK'|translate}}</a></li>
+            <li>{{'MF_DEVICE_ADD_WIFI_6'|translate}}</li>
+            
+        </ul>
+       
+    </div>
+
+
+</div>

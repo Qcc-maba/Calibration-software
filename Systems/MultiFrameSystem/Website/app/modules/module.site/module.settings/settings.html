@@ -1,0 +1,296 @@
+﻿<!--settings-->
+<div class="row">
+
+    
+   
+    <div class="col-lg-9 col-md-12 col-xs-12">
+        
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <i class="fa fa-umbrella"></i>
+                    {{'MF_SITE_SETTINGS_WARERING_DAYS' | translate}}
+                    <div class="panel-tools">
+                        <span data-toggle="tooltip" title="{{'MF_SITE_SETTINGS_SEASON_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="MF_SITE_SETTINGS_SEASON_QUESTION"></i></span>
+                        <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="table-responsive containerSaveButtonMargin">
+
+                        <table class="table table-condensed table-hover info-table">
+                            <thead>
+                                <tr>
+                                    <th class="center">{{'MF_SITE_SETTINGS_SEASON_NAME' | translate}}</th>
+                                    <th>{{'G_START_DATE' | translate}}</th>
+                                    <th>{{'G_END_DATE' | translate}}</th>
+                                    <th class="center">{{'MF_SITE_SETTINGS_AUTO_UPDATE' | translate}}</th>
+
+                                    <th class="center">{{'MF_SITE_SETTINGS_WEEKLY_SETTINGS' | translate}}</th>
+                                    <th class="center">{{'G_DELETE' | translate}}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+
+                                <tr ng-if="SiteSeassonList" ng-repeat="s in SiteSeassonList track by $index">
+                                    <td class="center">
+                                        <input type="text" name="seassonName_{{$index}}" class=" bigTextFiled " ng-model="s.name" />
+
+                                        <!--<div class="validationMsg" ng-messages="SessonsForm['seassonName_'+$index].$error" ng-show="SessonsForm['seassonName_'+$index].$touched">
+                                            <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+                                        </div>-->
+                                    </td>
+                                    <td class="center">
+
+
+                                        <div class="input-group date">
+                                            <input type="text" ng-model="s.startDateStr" ng-click="saveLastDateObject(s)" class="form-control date-picker dateTextFiled ng-pristine ng-untouched ng-valid" date-picker-directive="" callback="dateValidateAndPharse" myrow="$index" mytype="'start'" readonly><!--ng-change="dateValidateAndPharse(s,$index,'start')"-->
+                                            <span class="input-group-addon"> <i class="fa fa-calendar"></i> </span>
+                                        </div>
+                                    </td>
+                                    <td class="center">
+
+
+                                        <div class="input-group date">
+                                            <input type="text" ng-model="s.endDateStr" ng-click="saveLastDateObject(s)" class="form-control date-picker dateTextFiled ng-pristine ng-untouched ng-valid" date-picker-directive="" callback="dateValidateAndPharse" myrow="$index" mytype="'end'" readonly> <!--ng-change="dateValidateAndPharse(s,$index,'end')"-->
+                                            <span class="input-group-addon"> <i class="fa fa-calendar"></i> </span>
+                                        </div>
+                                    </td>
+                                    <td class="center"><input type="checkbox" ng-model="s.isAutoUpdate" /></td>
+
+                                    <td class="center"><a ng-if="s.sessionID != -1" ng-click="getOneSesson(s.sessionID)" data-toggle="modal" data-target="#specificSeasson" data-backdrop="false">{{'G_EDIT' | translate}}</a></td>
+                                    <td class="center"><input type="checkbox" ng-model="s.isDelete" /></td>
+
+                                </tr>
+                                <tr ng-if="SiteSeassonList.length<4">
+                                    <td class="center"><input type="text" class=" bigTextFiled " ng-model="newSeasson.name" /></td>
+                                    <td class="center">
+
+
+                                        <div class="input-group date">
+                                            <input type="text" ng-model="newSeasson.startDateStr" ng-click="saveLastDateObject(newSeasson)" class="form-control date-picker dateTextFiled ng-pristine ng-untouched ng-valid" date-picker-directive="" callback="dateValidateAndPharse" myrow="'-1'" mytype="'start'" readonly> <!--ng-change="dateValidateAndPharse(newSeasson,SiteSeassonList.length,'start')"-->
+                                            <span class="input-group-addon"> <i class="fa fa-calendar"></i> </span>
+                                        </div>
+                                    </td>
+                                    <td class="center">
+
+
+                                        <div class="input-group date">
+                                            <input type="text" ng-model="newSeasson.endDateStr" ng-click="saveLastDateObject(newSeasson)" class="form-control date-picker dateTextFiled ng-pristine ng-untouched ng-valid" date-picker-directive="" callback="dateValidateAndPharse" myrow="-1" mytype="'end'" readonly><!--ng-change="dateValidateAndPharse(newSeasson,SiteSeassonList.length,'end')"-->
+                                            <span class="input-group-addon"> <i class="fa fa-calendar"></i> </span>
+                                        </div>
+                                    </td>
+                                    <td class="center"><input type="checkbox" ng-model="newSeasson.isAutoUpdate" /></td>
+
+                                    <td class="center"></td>
+                                    <td class="center"></td>
+
+                                </tr>
+
+
+
+                            </tbody>
+                        </table>
+
+
+                    </div>
+                    <button class="btn btn-dark-grey pull-right btnMarginTop ladda-button fixSavePosition" type="button" ng-click="saveSessons();" ladda="ladda.season" data-style="expand-right" data-spinner-size="30"><i class="fa fa-save"></i> | {{'G_SAVE' | translate}}</button>
+                </div>
+
+
+            </div>
+       
+    </div>
+
+    <div class="col-lg-3 col-md-12 col-xs-12" ng-if="sharingData.isOwner">
+
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <i class="clip-transfer"></i>
+                {{'MF_SITE_SETTINGS_OUTER_TRTANSFER_SITE' | translate}}
+                <div class="panel-tools">
+                    <span data-toggle="tooltip" title="{{'MF_SITE_SETTINGS_OUTER_TRTANSFER_SITE_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="MF_SITE_SETTINGS_OUTER_TRTANSFER_SITE_QUESTION"></i></span>
+                    <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                </div>
+            </div>
+            <div class="panel-body">
+                <input type="radio" ng-model="transferType" value="Inner"><b>{{'MF_SH_INNER_TRANSFER' | translate}}</b> <br /><br />
+                <div class="marginLeft25">
+                    <span>{{'MF_SH_NEW_LOCATION' | translate}}:</span>
+                    <a ng-click="tttt=true" class="colMarginLeft" data-toggle="modal" data-target="#openTree" data-backdrop="false">{{'MF_SH_SHOW_TREE' | translate}}</a>
+
+                </div>
+                <br />
+                <input type="radio" ng-model="transferType" value="Outer"> <b>{{'MF_SH_OUTER_TRANSFER' | translate}}</b> <br /><br />
+                <div class="marginLeft25">
+                    <form name="transferForm" novalidate ng-if="transferStatus.transferStatus==0">
+                        <table class="table table-condensed table-hover info-table">
+
+
+                            <tbody>
+                                <tr>
+                                    <td class="firstRow">{{'MF_SH_CHOOSE_NEW_USER' |translate}}:</td>
+                                    <td class="firstRow">
+
+                                        <input type="email" ng-model="userEmailTransfer.address" placeholder="User email" class="HugeTextFiled" id="email" name="email" required>
+                                        <div class="validationMsg" ng-messages="transferForm.email.$error" ng-if="emailValidationTransfer">
+                                            <div ng-message="email">{{'G_F_V_EMAIL' | translate }}</div>
+                                            <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+
+                                        </div>
+
+
+                                    </td>
+
+
+
+                                </tr>
+                                <tr></tr>
+                            </tbody>
+                        </table>
+                        <div class="pull-right">
+                            <button class="btn btn-dark-grey btnFix btnMarginTop ladda-button" type="button" ng-click="transferProject(siteId)" ladda="ladda.transfer" data-style="expand-right" data-spinner-size="30"><i class="clip-arrow-right-3"></i> | {{'G_SEND' |translate}}</button>
+                        </div>
+                    </form>
+                    <div ng-if="transferStatus.transferStatus==1 || transferStatus.transferStatus==3">
+                        <div class="space15 allDiv">
+
+                            <div ng-if="transferStatus.transferStatus==1" class="space15">{{'MF_SH_USER_PENDING_MSG' | translate:{date:transferStatus.transferDate , email:transferStatus.targetUser} }}</div>
+
+                            <div ng-if="transferStatus.transferStatus==3" class="space15">{{'MF_SH_USER_CANCLE' | translate:{email:transferStatus.targetUser} }}</div>
+                        </div>
+                        <a class="btn btn-bricky space15" ng-click="cancelTransfer(siteId)">
+                            <i class="clip-cancel-circle"></i>
+                            {{'G_CANCEL' | translate}}
+                        </a>
+                    </div>
+                </div>
+
+
+
+
+
+
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+    <!-------------------------------------------------------------------------------------------------------------------------------------------------->
+    
+
+</div>
+
+<div class="row">
+    <div class="col-lg-9 col-md-12 col-xs-12">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <i class="clip-share"></i>
+                {{'MF_SITE_SETTINGS_SHARE_SITE' | translate}}
+                <div class="panel-tools">
+                    <span data-toggle="tooltip" title="{{'MF_SITE_SETTINGS_SHARE_SITE_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip="MF_SITE_SETTINGS_SHARE_SITE_QUESTION" var1="clip-question-2"></i></span>
+                    <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                </div>
+            </div>
+
+            <div class="panel-body">
+            
+                    <form name="shareForm" class="containerSaveButtonMargin" novalidate>
+                        <div class="table-responsive">
+                            <table class="table table-strip table-hover space15">
+
+                                <thead>
+                                    <tr>
+                                        <th>{{'MF_SH_USER_EMAIL' |translate}}</th>
+                                        <th class="center">{{'MF_SH_PRIVILAGE_1' |translate}}</th>
+                                        <th class="center">{{'MF_SH_PRIVILAGE_2' |translate}}</th>
+                                        <th class="center">{{'MF_SH_PRIVILAGE_3' |translate}}</th>
+                                        <th class="center">{{'MF_SH_PRIVILAGE_4' |translate}}</th>
+                                        <th class="center">{{'MF_SH_STATUS' |translate}}</th>
+                                        <th class="center">{{'G_DELETE' |translate}}</th>
+                                    </tr>
+
+                                </thead>
+                                <tbody>
+                                    <tr ng-repeat="user in usersList">
+
+                                        <td><span class="HugeTextFiled">{{user.email}}</span></td>
+
+                                        <td class="center"><input type="checkbox" ng-model="user.roleViewOnly" /></td>
+                                        <td class="center"><input type="checkbox" ng-model="user.roleModify" /></td>
+                                        <td class="center"><input type="checkbox" ng-model="user.roleControlRT" /></td>
+                                        <td class="center"><input type="checkbox" ng-model="user.roleAdmin" /></td>
+                                        <td class="center"><code ng-class="{rejection: user.verificationStatus == '2' ,  approved: user.verificationStatus == '3' ,waitting: user.verificationStatus == '1' }">{{'MF_SH_STATUS_'+user.verificationStatus |translate}}</code></td>
+                                        <td class="center">
+                                            <a class="btn  btn-bricky" ng-click="deleteUser(user.linkedUserID)">
+                                                <i class="fa fa-trash-o"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td><input type="text" class="HugeTextFiled" ng-model="addUser.email" placeholder="{{'MF_SH_CHOOSE_NEW_USER'|translate}}" /></td>
+                                        <td class="center"><input type="checkbox" ng-model="addUser.roleViewOnly" /></td>
+                                        <td class="center"><input type="checkbox" ng-model="addUser.roleModify" /></td>
+                                        <td class="center"><input type="checkbox" ng-model="addUser.roleControlRT" /></td>
+                                        <td class="center"><input type="checkbox" ng-model="addUser.roleAdmin" /></td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+
+
+
+                                    <tr></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </form>
+                    <button class="btn btn-dark-grey pull-right btnMarginTop btnFix ladda-button fixSavePosition" type="button" ng-click="sendShareUser()" ladda="ladda.share" data-style="expand-right" data-spinner-size="30"><i class="clip-arrow-right-3"></i> | {{'G_SEND' |translate}}</button>
+                </div>
+           
+
+
+        </div>
+    </div>
+    
+</div>
+<br />
+<!--*********************************************************************************************-->
+<div id="specificSeasson" class="modal fade"  day-setting comm="daySettingConnector"></div> <!--ng-if="SeassonModalTable"-->
+<!--**************************************************************************************************-->
+<div ng-if="tttt" id="openTree" class="modal fade" close-model="">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+               Inner Transfer Site
+            </div>
+            <div class="modal-body">
+                <p class="marginTop7">
+                    <span class="label label-success"> {{'NOTE'|translate}}: </span>
+                    <span class="colMarginLeft">Please choose destination site you want to transfer your current site</span>
+                </p>
+                <div navbar-directive atr="checkBox"></div>
+
+              
+            </div>
+            <div class="modal-footer">
+                <button type="button" data-dismiss="modal" class="btn btn-default">
+                    <i class="clip-close-3"></i> | {{'Close' | translate}}
+                </button>
+                <button type="button" class="btn btn-dark-grey" ng-click="localTransfer()">
+                  
+                    <i class="clip-transfer"></i> | Transfer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+

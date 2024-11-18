@@ -1,0 +1,582 @@
+﻿<!DOCTYPE html>
+<!-- Template Name: Clip-One - Responsive Admin Template build with Twitter Bootstrap 3.x Version: 1.4 Author: ClipTheme -->
+<!--[if IE 8]><html class="ie8 no-js" lang="en"><![endif]-->
+<!--[if IE 9]><html class="ie9 no-js" lang="en"><![endif]-->
+<!--[if !IE]><!-->
+<html lang="en" class="no-js" ><!--ng-app="mainApp"-->
+<!--<![endif]-->
+<head>
+    <title>Cyber-Rain</title>
+
+    <meta charset="utf-8" />
+    <!--[if IE]><meta http-equiv='X-UA-Compatible' content="IE=edge,IE=9,IE=8,chrome=1" /><![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimum-scale=1.0, maximum-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta content="" name="description" />
+    <meta content="" name="author" />
+    <script>
+        var Custom_SYSTEM_ACCOUNT__LOGIN_ROOT = "http://localhost:54790";
+        var Custom_SYSTEM_ACCOUNT__ACCOUNT_ROOT = "http://localhost:54790/Account";
+        var Custom_SYSTEM_ACCOUNT__API = "http://account.galcon-smart.com/API";
+        var Custom_SYSTEM_MF_ROOT = "http://localhost:54000";
+        var Custom_ONLINE_SERVER = "https://onlinelb.cheers2.net:8443";
+
+    </script>
+    <!--start all systems scripts-->
+
+    <script src="Files/all_systems/ServiceURI.js"></script>
+    <script src="Files/all_systems/log_out_time.js"></script>
+    <!--<script src="Files/all_systems/files_manager.js"></script>-->
+    <!--end all systems scripts-->
+    <!-- start General css-->
+    <!--<link id="general_css" rel="stylesheet" />-->
+    <!--<script>
+        createDynamicTag(css_general_list, "link", "general_css");
+    </script>-->
+    <link href="Files/vendor/bootstrap/bootstrap.css" rel="stylesheet" />
+    <link href="Files/vendor/bootstrap/switch/bootstrap-switch.css" rel="stylesheet" />
+    <link href="Files/vendor/fonts/font-awesome/font-awesome.css" rel="stylesheet" />
+    <link href="Files/vendor/fonts/style.css" rel="stylesheet" />
+    <link href="Files/vendor/general/toastr/toastr.css" rel="stylesheet" />
+    <link href="Files/vendor/jquery-ui/jquery-ui.css" rel="stylesheet" />
+    <link href="Files/vendor/bootstrap/timepicker/bootstrap-clockpicker.css" rel="stylesheet" />
+    <link href="Files/vendor/bootstrap/colorpicker/colorpicker.css" rel="stylesheet" />
+    <!--End General css-->
+    <!-- start Template css-->
+    <!--<link id="template_css" rel="stylesheet" />
+    <script>
+        createDynamicTag(css_template_list, "link", "template_css");
+    </script>-->
+    <link href="Files/content/css/main.css" rel="stylesheet" />
+    <link href="Files/content/css/main-responsive.css" rel="stylesheet" />
+    <link href="Files/content/css/generalCss.css" rel="stylesheet" />
+    <!--End Template css-->
+    <!--Start Unique css-->
+    <!--Vendor-->
+    <link href="Files/content/css/widgets/jquery.flipcountdown.css" rel="stylesheet" />
+    <link href="Files/content/css/widgets/clockpicker.css" rel="stylesheet" />
+    <link href="Files/content/css/widgets/spinner.css" rel="stylesheet" />
+    <link href="Files/content/css/widgets/timeTo.css" rel="stylesheet" />
+    <link href="Files/vendor/ladda/ladda-themeless.min.css" rel="stylesheet" />
+    <link href="app/modules/module.widgets/tree/css/angular.treeview.css" rel="stylesheet" />
+    <!--My-->
+    <!--MF-->
+    <link href="Files/content/css/MF/myProgressBar.css" rel="stylesheet" />
+    <link href="Files/content/css/MF/mySplash.css" rel="stylesheet" />
+    <link href="Files/content/css/MF/myWeatherForcast.css" rel="stylesheet" />
+    <link href="Files/content/css/MF/onlyMf.css" rel="stylesheet" />
+
+    <!--cyber-rain-->
+
+    <link href="Files/content/css/Cyber-Rain/myFlipClock.css" rel="stylesheet" />
+    <link href="Files/content/css/Cyber-Rain/advizer.css" rel="stylesheet" />
+    <link href="Files/content/css/Cyber-Rain/cyber-rain.css" rel="stylesheet" />
+
+    <!--GSI-->
+    <link href="Files/content/css/GSI/hanukiya.css" rel="stylesheet" />
+    <link href="Files/content/css/GSI/gsi.css" rel="stylesheet" />
+
+    <!--[if IE]>
+        <link href="Files/content/css/MF/ie.css" rel="stylesheet" />
+    <![endif]-->
+
+
+    <!--End Unique css-->
+
+
+
+
+</head>
+<!-- end: HEAD -->
+<!-- start: BODY -->
+<body id="body" ng-controller="mainController" general-click>
+    <div class="overlay"></div>
+    <!--class="navigation-small"-->
+    <!-- start: HEADER -->
+    <div id="fixLoading" class="fixLoading"><div class="fixLoading-inner"></div></div>
+    <div class="navbar navbar-inverse navbar-fixed-top">
+        <!-- start: TOP NAVIGATION CONTAINER -->
+        <div class="container">
+            <div class="navbar-header">
+                <!-- start: RESPONSIVE MENU TOGGLER -->
+                <button id="ToggelApp" data-target=".navbar-collapse" data-toggle="collapse" class="navbar-toggle" type="button" ><!--togel-directive-->
+                    <span class="clip-list-2 smallNavbarIcon"></span>
+                </button>
+                <!-- end: RESPONSIVE MENU TOGGLER -->
+                <!-- start: LOGO -->
+                <a id="openSmallMenue" class="navbar-toggle">
+                    {{'G_SETTINGS' | translate}}
+                </a>
+                <a class="navbar-brand" ng-click="nevigateToHomePage()">
+                    <img ng-src="{{logo}}" height="27">
+
+                </a>
+                <!-- end: LOGO -->
+            </div>
+            <div class="visible-xs">
+                <div style="display:none" id="smallMenue" class="navbar-tools">
+                    <!-- start: TOP NAVIGATION MENU -->
+                    <ul class="nav navbar-right blackOrWhite">
+
+
+
+                        <!--**************************************************************************************************************************-->
+
+                        <li class="dropdown color" color></li>
+
+                        <!--**************************************************************************************************************************-->
+                        <li class="openMessage" ng-if="messageNum>0">
+                            <a class="white"><i class="clip-bubble-3"><span class="badge"> {{messageNum}}</span></i></a>
+                        </li>
+                        <!-- ******************************************************************************************************-->
+                        <li>
+                            <a class="white" ui-sref="support">
+                                <i class="clip-question"></i>
+                            </a>
+                        </li>
+                        <!-- ************************************************************************************************* -->
+                        <li class="dropdown current-user">
+                            <a data-toggle="dropdown" data-hover="dropdown" class="dropdown-toggle" data-close-others="true">
+                                <img ng-src="{{user.info.imgURL}}" class="circle-img" height="23" width="23" alt="">
+                                <span class="username">{{user.info.firstName}}</span>
+                                <i class="clip-chevron-down"></i>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a ng-click="goToProfile()">
+                                        <i class="clip-user-2"></i>
+                                        {{'MF_PROFILE_MENU_MY_PROFILE' | translate}}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a ui-sref="alerts">
+                                        <i class="clip-warning"></i>
+                                        {{'MF_ALERTS_ALERTS' | translate}}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a ng-click="logOut()">
+                                        <i class="clip-exit"></i>
+                                        {{'G_LOG_OUT' | translate}}
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+
+
+
+
+
+                        <!-- end: USER DROPDOWN -->
+
+                    </ul>
+
+                    <!-- end: TOP NAVIGATION MENU -->
+
+                </div>
+            </div>
+            <div class="navbar-tools hidden-xs">
+                <!-- start: TOP NAVIGATION MENU -->
+                <ul class="nav navbar-right">
+                    <!-- start: USER DROPDOWN -->
+                    <!--**************************************************************************************************************************-->
+
+                    <li class="dropdown" color></li>
+
+                    <!--**************************************************************************************************************************-->
+                    <li class="openMessage" ng-if="messageInfo.messageNum>0">
+                        <a class="white"><i class="clip-bubble-3"><span class="badge">{{messageInfo.messageNum}}</span></i></a>
+                    </li>
+                    <!--**************************************************************************************************************************-->
+                    <li>
+                        <a class="white" ui-sref="support">
+                            <i class="clip-question"></i>
+                        </a>
+                    </li>
+                    <!--**************************************************************************************************************************-->
+                    <li class="dropdown current-user">
+                        <a data-toggle="dropdown" data-hover="dropdown" class="dropdown-toggle" data-close-others="true">
+                            <img ng-src="{{user.info.imgURL}}" class="circle-img" height="23" width="23" alt="">
+                            <span class="username">{{user.info.firstName}}</span>
+                            <i class="clip-chevron-down"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a ng-click="goToProfile()">
+                                    <i class="clip-user-2"></i>
+                                    {{'MF_PROFILE_MENU_MY_PROFILE' | translate}}
+                                </a>
+                            </li>
+                            <li>
+                                <a ui-sref="alerts">
+                                    <i class="clip-warning"></i>
+                                    {{'MF_ALERTS_ALERTS' | translate}}
+                                </a>
+                            </li>
+                            <li>
+                                <a ng-click="logOut()">
+                                    <i class="clip-exit"></i>
+                                    {{'G_LOG_OUT' | translate}}
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+
+
+
+                    <!-- end: USER DROPDOWN -->
+
+                </ul>
+
+                <!-- end: TOP NAVIGATION MENU -->
+
+            </div>
+        </div>
+        
+    </div>
+
+
+
+    <div id="main-container" class="main-container">
+        <!--<ng-include id="MyNavbar" src="'app/modules/module.navbar/navbar.html'"></ng-include>-->
+        <!--<div navbar-directive atr="menu"></div>-->
+        <div ui-view="navbar"></div>
+        <!-- start: PAGE -->
+        <div id="dragbar">
+            <div class="dragButton">
+                <i class="clip-arrow-3"></i>
+            </div>
+        </div>
+        <div class="main-content">
+
+
+            <div class="container">
+
+                <!-- start: PAGE CONTENT -->
+                <div ui-view="root"></div>
+                <!-- end: PAGE CONTENT-->
+            </div>
+        </div>
+        <!-- end: PAGE -->
+    </div>
+    <div id="page-sidebar" class="messageSidebar" all-messages></div>
+    <!--splash page-->
+    <div id="splash-page">
+
+        <div id="splash-screen">
+            <div class="inner">
+                <div class="splashLogo">Galcon - Smart</div>
+                <div class="Galcon">by Galcon</div>
+                <div class="splash-screen-text"></div>
+                <div class="splash-screen-circle-outer"></div>
+                <div class="splash-screen-circle-inner"></div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+    <!-- end: HEADER -->
+    <!--Start Google-->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC4GOEIPbjen7-vzEPh4CbOGQCgl-_oyKE&libraries=places"></script>
+    <!--End Google-->
+    <!-- start General css-->
+
+    <!--<script>
+        createDynamicTag(js_general_list, "script", "general_js");
+    </script>-->
+    <script src="Files/vendor/jquery/jquery-2.1.3.js"></script>
+    <script src="Files/vendor/bootstrap/bootstrap.js"></script>
+    <script src="Files/vendor/bootstrap/switch/bootstrap-switch.js"></script>
+    <script src="Files/vendor/general/perfect-scrollbar.js"></script>
+    <script src="Files/vendor/angular/angular.js"></script>
+    <script src="Files/vendor/angular-ui/angular-ui-router.js"></script>
+    <script src="Files/vendor/angular/angular-messages.js"></script>
+    <script src="Files/vendor/angular/angular-sanitize.js"></script>
+    <script src="Files/vendor/general/toastr/toastr.js"></script>
+
+    <!--End General css-->
+    <!-- start: Unique -->
+    <!--<script>
+        createDynamicTag(js_MF_list, "script", "general_js");
+    </script>-->
+    <script src="Files/vendor/jquery-ui/jquery-ui.js"></script>
+    <script src="Files/vendor/bootstrap/colorpicker/bootstrap-colorpicker-module.js"></script>
+
+
+
+    <script src="Files/vendor/jquery-knob/jquery.knob.js"></script>
+    <script src="app/modules/module.widgets/tree/angular.treeview.js"></script>
+    <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+
+    <script src="Files/vendor/ladda/spin.js"></script>
+    <script src="Files/vendor/ladda/ladda.js"></script>
+    <script src="Files/vendor/ladda/prism.js"></script>
+    <script src="Files/vendor/ladda/laddaDirective.js"></script>
+ 
+    <script src="app/modules/module.welcome/module.welcome.1.js"></script>
+    <script src="app/fakeTemplateCash.js"></script>
+    <!-- module.main-->
+    <script src="app/modules/module.main/module.main.1.js"></script>
+    <script src="app/modules/module.main/mainRouterProvider.2.js"></script>
+    <script src="app/modules/module.main/onlineProvider.2.js"></script>
+    <script src="app/modules/module.main/mainProvider.2.js"></script>
+    <script src="app/modules/module.main/userProvider.2.js"></script>
+    <script src="app/modules/module.main/mainController.2.js"></script>
+    <script src="app/modules/module.main/generalClick.2.js"></script>
+
+    <!-- module.translate-->
+
+
+    <script src="app/modules/module.translate/module.translate.1.js"></script>
+    <script src="app/modules/module.translate/translateDirective.2.js"></script>
+    <script src="app/modules/module.translate/translateProvider.2.js"></script>
+    <script src="Files/content/angular_general_modules/module.translate/angular-translate.js"></script>
+    <script src="Files/content/angular_general_modules/module.translate/angular-translate-loader-static-files.js"></script>
+    <script src="Files/content/angular_general_modules/module.translate/tmhDynamicLocale.js"></script>
+
+    <!-- module.httpProxies-->
+
+    <script src="app/modules/module.httpProxies/module.httpProxies.1.js"></script>
+    <script src="app/modules/module.httpProxies/baseProxy.2.js"></script>
+    <script src="app/modules/module.httpProxies/projectProxy.3.js"></script>
+    <script src="app/modules/module.httpProxies/siteProxy.3.js"></script>
+    <script src="app/modules/module.httpProxies/deviceProxy.3.js"></script>
+    <script src="app/modules/module.httpProxies/zoneProxy.3.js"></script>
+    <script src="app/modules/module.httpProxies/profileProxy.3.js"></script>
+    <script src="app/modules/module.httpProxies/statsProxy.3.js"></script>
+    <script src="app/modules/module.httpProxies/weatherProxy.3.js"></script>
+
+    <!--(profile) module.alerts-->
+    <script src="app/modules/module.alert/module.allAlerts.1.js"></script>
+    <script src="app/modules/module.alert/allAlertsDirective.2.js"></script>
+
+    <!-- module.navbar-->
+    <script src="app/modules/module.navbar/module.menuNavigation.1.js"></script>
+    <script src="app/modules/module.navbar/menuController.2.js"></script>
+    <script src="app/modules/module.navbar/togelDirective.2.js"></script>
+    <script src="app/modules/module.navbar/navbarDirective.2.js"></script>
+    <script src="app/modules/module.navbar/addProjectDirective.2.js"></script>
+    <!-- module.accessories-->
+    <script src="app/modules/module.accessories/module.accessories.1.js"></script>
+    <script src="app/modules/module.accessories/coordinatorProvider.2.js"></script>
+    <script src="app/modules/module.accessories/directiveCommProvider.2.js"></script>
+    <!-- module.site-->
+    <script src="app/modules/module.site/module.site.1.js"></script>
+    <script src="app/modules/module.site/addSiteDirective.2.js"></script>
+    <script src="app/modules/module.site/leftMessagesDirective.2.js"></script>
+    <script src="app/modules/module.site/wifiDirective.3.js"></script>
+    <!-- module.preview-->
+    <script src="app/modules/module.site/module.preview/module.site.preview.2.js"></script>
+    <!-- module.map-->
+    <script src="app/modules/module.site/module.preview/map/mapSiteDirective.3.js"></script>
+    <!-- module.preview.list-->
+    <script src="app/modules/module.site/module.preview/list/controllersTableDirective.3.js"></script>
+    <!-- module.preview.Squares-->
+    <script src="app/modules/module.site/module.preview/Squares/SquaresDirective.3.js"></script>
+    <!-- module.preview.Calander-->
+    <script src="app/modules/module.site/module.preview/calandar/calandarDirective.3.js"></script>
+    <!-- module.preview.graph-->
+    <script src="app/modules/module.site/module.preview/graph/graphDirective.3.js"></script>
+    <!-- module.reports-->
+    <script src="app/modules/module.site/module.Reports/module.Reports.1.js"></script>
+    <script src="app/modules/module.site/module.Reports/ReportsDirective.2.js"></script>
+    <!--module.settings-->
+    <script src="app/modules/module.site/module.settings/module.site.settings.2.js"></script>
+    <script src="app/modules/module.site/module.settings/siteAdvancedDitailsDirective.3.js"></script>
+    <script src="app/modules/module.site/module.settings/seassonDirective.3.js"></script>
+    <!--module.stats-->
+    <script src="app/modules/module.site/module.stats/module.site.stats.2.js"></script>
+    <script src="app/modules/module.site/module.stats/usageLogDirective.3.js"></script>
+    <script src="app/modules/module.site/module.stats/alertsLogDirective.3.js"></script>
+    <script src="app/modules/module.site/module.stats/statsGeneralDirective.3.js"></script>
+    <script src="app/modules/module.site/module.stats/chartsDirective.3.js"></script>
+    <script src="app/modules/module.site/module.stats/pieCharts.3.js"></script>
+    <script src="app/modules/module.site/module.stats/stackedBarCharts.3.js"></script>
+    <script src="app/modules/module.site/module.stats/statsProvider.3.js"></script>
+
+    <!-- module.device-->
+    <script src="app/modules/module.device/module.device.1.js"></script>
+    <!--module.device.addDevice-->
+    <script src="app/modules/module.device/addDevice/addCtrlDirective.2.js"></script>
+    <script src="app/modules/module.device/addDevice/googleplaceDirective.2.js"></script>
+    <script src="app/modules/module.device/addDevice/gMapAddDevice.2.js"></script>
+    <!--module.device.adviser-->
+    <script src="app/modules/module.device/adviser/adviser.2.js"></script>
+    <!--module.device.setTime-->
+    <script src="app/modules/module.device/setTime/setOnlineTime.2.js"></script>
+   
+    
+    
+     <!-- module.XCI.device-->
+    <script src="app/modules.devices/XCI.Device/module.XCI.device.2.js"></script>
+    <script src="app/modules.devices/XCI.Device/activateZoneDirective.3.js"></script>
+
+    <!-- module.XCI.device.view-->
+
+    <script src="app/modules.devices/XCI.Device/view/device.view.directive.3.js"></script>
+    <script src="app/modules.devices/XCI.Device/view/zonesTableDirective.3.js"></script>
+    <script src="app/modules.devices/XCI.Device/view/zonesIrrigationByday.3.js"></script>
+    <script src="app/modules.devices/XCI.Device/view/irrigationByZone.3.js"></script>
+    <script src="app/modules.devices/XCI.Device/view/daySettingDirective.3.js"></script>
+
+    <!--module.XCI.device.online-->
+
+    <script src="app/modules.devices/XCI.Device/online/onlineDirective.3.js"></script>
+
+    <script src="app/modules.devices/XCI.Device/online/onlineMap.3.js"></script>
+    <script src="app/modules.devices/XCI.Device/online/ctrlHoldDirective.3.js"></script>
+
+
+    <!--module.XCI.zone.-->
+    <script src="app/modules.devices/XCI.Device/module.XCI.zone/module.XCI.zone.3.js"></script>
+    <script src="app/modules.devices/XCI.Device/module.XCI.zone/zonesCategories.4.js"></script>
+    <script src="app/modules.devices/XCI.Device/module.XCI.zone/zoneOddEvenDirective.4.js"></script>
+
+
+
+
+
+    <!-- module.GSI.device-->
+    <script src="app/modules.devices/GSI.Device/module.GSI.device.2.js"></script>
+
+    <!-- module.GSI.device.settings-->
+    <script src="app/modules.devices/GSI.Device/settings/module.GSI.device.settings.3.js"></script>
+    <script src="app/modules.devices/GSI.Device/settings/alert/gsiAlertsSettingsDirective.4.js"></script>
+    <script src="app/modules.devices/GSI.Device/settings/unit/gsiUnitSettingsDirective.4.js"></script>
+    <script src="app/modules.devices/GSI.Device/settings/station/gsiStationSettingsDirective.4.js"></script>
+    <!-- module.GSI.device.status-->
+    <script src="app/modules.devices/GSI.Device/status/statusDirective.3.js"></script>
+    <!--module.GSI.device.online-->
+    <script src="app/modules.devices/GSI.Device/online/hanukiyaDirective.3.js"></script>
+    <script src="app/modules.devices/GSI.Device/online/GSI_Online_Directive.3.js"></script>
+    <!--module.GSI.device.generalLogs-->
+    <script src="app/modules.devices/GSI.Device/generalLogs/generalLogsDirective.3.js"></script>
+    <!--module.GSI.device.programs-->
+    <script src="app/modules.devices/GSI.Device/programs/GSI_Programs_Directive.3.js"></script>
+
+
+
+
+
+    <!-- module.filters-->
+    <script src="app/modules/module.filters/module.filters.1.js"></script>
+    <script src="app/modules/module.filters/filters.2.js"></script>
+    <!-- module.widgets-->
+    <script src="app/modules/module.widgets/module.widgets.1.js"></script>
+    <script src="app/modules/module.widgets/knobdirective.2.js"></script>
+    <script src="app/modules/module.widgets/ngConfirmClickDirective.2.js"></script>
+    <script src="app/modules/module.widgets/confirmPasswordDirective.2.js"></script>
+    <script src="app/modules/module.widgets/loadingDirective.2.js"></script>
+    <script src="app/modules/module.widgets/progressBar/progressBarDirective.2.js"></script>
+    <script src="app/modules/module.widgets/datePickerDirective.2.js"></script>
+    <script src="app/modules/module.widgets/closeModelDirective.2.js"></script>
+    <script src="app/modules/module.widgets/timepicker2/clockpicker.js"></script>
+    <script src="app/modules/module.widgets/timepicker2/timePickerDirective.2.js"></script>
+    <script src="app/modules/module.widgets/selectOnClickDirective.2.js"></script>
+    <script src="app/modules/module.widgets/clickOnPenEditName.2.js"></script>
+    <script src="app/modules/module.widgets/EditInputTextDirective.2.js"></script>
+    <script src="app/modules/module.widgets/flipClock/flipclockDirective.2.js"></script>
+    <script src="app/modules/module.widgets/flipClock/jquery.flipcountdown.js"></script>
+    <script src="app/modules/module.widgets/deleteRowDirective.2.js"></script>
+    <script src="app/modules/module.widgets/deleteConfirm/deleteConfirm.2.js"></script>
+    <script src="app/modules/module.widgets/htmlApendDirective.2.js"></script>
+    <script src="app/modules/module.widgets/speed.online/speedometer.js"></script>
+    <script src="app/modules/module.widgets/speed.online/speedDirective.2.js"></script>
+    <script src="app/modules/module.widgets/paging/pagingDirective.2.js"></script>
+    <script src="app/modules/module.widgets/color/changeColorDirective.2.js"></script>
+    <script src="app/modules/module.widgets/closePanelDirective.2.js"></script>
+    <script src="app/modules/module.widgets/tooltip.2.js"></script>
+    <script src="app/modules/module.widgets/closeMainNevigation.2.js"></script>
+    <script src="app/modules/module.widgets/jquery.nicescroll.2.js"></script>
+    <script src="app/modules/module.widgets/timeTo/jquery.timeTo.2.js"></script>
+    <script src="app/modules/module.widgets/addMeRemoveAll.2.js"></script>
+    <script src="app/modules/module.widgets/readOnlyCondition.2.js"></script>
+    <script src="app/modules/module.widgets/imageSettings/imageSettingsDirective.2.js"></script>
+    <script src="app/modules/module.widgets/dropDownMenueDirective.2.js"></script>
+    <script src="app/modules/module.widgets/ngRepeatFilter.2.js"></script>
+    <script src="app/modules/module.widgets/gsiAccordionDirective.2.js"></script>
+    <script src="app/modules/module.widgets/uploadFile.2.js"></script>
+    <script src="app/modules/module.widgets/tooltip/phoneTooltipDirective.2.js"></script>
+    <script src="app/modules/module.widgets/dragButton.2.js"></script>
+    <!-- module.messages-->
+    <script src="app/modules/module.message/module.message.1.js"></script>
+    <script src="app/modules/module.message/gMapDirective1.2.js"></script>
+    <script src="app/modules/module.message/allMessagesDirective.2.js"></script>
+    <script src="app/modules/module.message/messageListDirective.2.js"></script>
+    <script src="app/modules/module.message/messageTypeDirective.2.js"></script>
+    <!-- module.support-->
+    <script src="app/modules/module.support/module.support.1.js"></script>
+    <script src="app/modules/module.support/supportDirective.1.js"></script>
+
+    <!-- module.weather.forecast-->
+    <script src="app/modules/module.weather/foreCast/module.weather.forecast.1.js"></script>
+    <script src="app/modules/module.weather/foreCast/weatherDirective.2.js"></script>
+    <script src="app/modules/module.weather/foreCast/oneDayDirective.2.js"></script>
+    <script src="app/modules/module.weather/foreCast/weatherPrecipitationFilter.2.js"></script>
+
+
+
+
+
+
+    <!-- final angular files-->
+    <script>
+        function setCookie(cname, cvalue, exdays) {
+            var d = new Date();
+            d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
+            var expires = "expires=" + d.toUTCString();
+            document.cookie = cname + "=" + cvalue + "; " + expires;
+        }
+        function GetAccountCookies(cookie) {
+            if (cookie.tokens.AccessTokenAccount) {
+         
+                accountToken = cookie.tokens.AccessTokenAccount;
+            }
+            setCookie("selectedLanguage", cookie.tokens.selectedLanguage || "en", 30);
+            var postRequest = $.ajax({
+
+                type: "GET",
+                contentType: "application/json",
+                url: ROOT_ADDR.MF_API_SERVER + "/Project/Exchange",
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Authorization", 'Bearer ' + accountToken);
+                },
+
+                dataType: "json",
+                success: function (data) {
+
+                    if (!data.body.newToken) {
+                        window.location = MAIN_LINKS.LOGIN.link + "&returnUrl=" + encodeURIComponent(window.location.href);
+                    } else {
+
+                        GLOBAL_DATA.OLD_AccessToken = cookie.tokens.AccessTokenAccount;
+                        GLOBAL_DATA.accessToken = data.body.newToken;
+                        GLOBAL_DATA.exchangeData = data.body.exchangeData;
+                        GLOBAL_DATA.userModel = data.body.userModel;
+
+                        angular.bootstrap(document, ['mainApp']);
+                    }
+                }
+            });
+        }
+
+    </script>
+
+    <script src="http://account.galcon-smart.com/API/Account/GetCookie?callback=GetAccountCookies"></script>
+
+    <script src="app/app.js"></script>
+    <!-- end: App-Angular JS -->
+    <!-- start: init JS -->
+
+    
+
+
+</body>
+
+</html>

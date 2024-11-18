@@ -1,0 +1,52 @@
+﻿<div class="modal-dialog">
+    <div class="modal-content">
+        <div class="modal-header">
+            {{seasson.sessionName}}
+        </div>
+        <div class="modal-body">
+            <p class="marginTop7">
+                <span class="label label-success"> {{'NOTE'|translate}}: </span>
+                <span class="colMarginLeft">{{'MF_SITE_SETTINGS_AVOID_IRRIGATION_MSG' | translate}}</span>
+            </p>
+
+            <div class="table-responsive ">
+                <table class="table table-condensed table-hover info-table">
+                    <thead>
+                        <tr>
+                            <th>{{'G_DAY' | translate}}</th>
+                            <th>{{'MF_SITE_SETTINGS_WATERING_ALLOWED' | translate}}</th>
+                            <th>{{'G_START_TIME' | translate}}</th>
+                            <th>{{'G_END_TIME' | translate}}</th>
+                            <th>{{'MF_SITE_SETTINGS_MAX_MINUTES' | translate}}</th>
+                            <th>{{'MF_SITE_SETTINGS_MAX_CYCLES' | translate}}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="s in seasson.listDays track by $index" ng-if="type">
+                            <td>{{s.dayIndex}}</td>
+                            <td><input type="checkbox" ng-model="s.isIrrigationAllowed" /></td>
+                            <td><input type="text" ng-change="changeTime($index,'start')" class="txtInsideEditableTable bigTextFiled" ng-model="s.StartTimeStr" time-picker-2 param="{{type}}" /></td>
+                            <td><input type="text" ng-change="changeTime($index,'end')" class="txtInsideEditableTable bigTextFiled" ng-model="s.EndTimeStr" time-picker-2 param="{{type}}" /></td>
+                            <td><input type="text" ng-change="changeMinutes($index)" class="txtInsideEditableTable bigTextFiled" ng-model="s.MaxMinutesStr" /></td>
+                            <td><input type="text" class="txtInsideEditableTable bigTextFiled" ng-model="s.maxDailyCycles" /></td>
+                        </tr>
+
+                        <tr></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!--************************************-->
+        </div>
+        <div class="modal-footer">
+            <button type="button" data-dismiss="modal" class="btn btn-default">
+                <i class="clip-close-3"></i> | {{'Close' | translate}}
+            </button>
+            <button type="button" class="btn btn-dark-grey" ng-click="saveOneSesson(dismiss);">
+                <i class="fa fa-save ng-scope"></i> | {{'Save' | translate}}
+            </button>
+        </div>
+    </div>
+</div>
+       
+      

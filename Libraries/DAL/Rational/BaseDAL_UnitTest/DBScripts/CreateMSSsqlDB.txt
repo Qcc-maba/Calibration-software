@@ -1,0 +1,354 @@
+﻿CREATE DATABASE [BaseDAL_TesterDB]
+ CONTAINMENT = NONE
+ ON  PRIMARY 
+( NAME = N'BaseDAL_TesterDB', FILENAME = N'C:\Program Files\Microsoft SQL Server\MSSQL11.RELIP1\MSSQL\DATA\BaseDAL_TesterDB.mdf' , SIZE = 5120KB , MAXSIZE = UNLIMITED, FILEGROWTH = 1024KB )
+ LOG ON 
+( NAME = N'BaseDAL_TesterDB_log', FILENAME = N'C:\Program Files\Microsoft SQL Server\MSSQL11.RELIP1\MSSQL\DATA\BaseDAL_TesterDB_log.ldf' , SIZE = 1024KB , MAXSIZE = 2048GB , FILEGROWTH = 10%)
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET COMPATIBILITY_LEVEL = 110
+GO
+
+IF (1 = FULLTEXTSERVICEPROPERTY('IsFullTextInstalled'))
+begin
+EXEC [BaseDAL_TesterDB].[dbo].[sp_fulltext_database] @action = 'enable'
+end
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET ANSI_NULL_DEFAULT OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET ANSI_NULLS OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET ANSI_PADDING OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET ANSI_WARNINGS OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET ARITHABORT OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET AUTO_CLOSE OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET AUTO_CREATE_STATISTICS ON 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET AUTO_SHRINK OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET AUTO_UPDATE_STATISTICS ON 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET CURSOR_CLOSE_ON_COMMIT OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET CURSOR_DEFAULT  GLOBAL 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET CONCAT_NULL_YIELDS_NULL OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET NUMERIC_ROUNDABORT OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET QUOTED_IDENTIFIER OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET RECURSIVE_TRIGGERS OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET  DISABLE_BROKER 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET AUTO_UPDATE_STATISTICS_ASYNC OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET DATE_CORRELATION_OPTIMIZATION OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET TRUSTWORTHY OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET ALLOW_SNAPSHOT_ISOLATION OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET PARAMETERIZATION SIMPLE 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET READ_COMMITTED_SNAPSHOT OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET HONOR_BROKER_PRIORITY OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET RECOVERY FULL 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET  MULTI_USER 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET PAGE_VERIFY CHECKSUM  
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET DB_CHAINING OFF 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET FILESTREAM( NON_TRANSACTED_ACCESS = OFF ) 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET TARGET_RECOVERY_TIME = 0 SECONDS 
+GO
+
+ALTER DATABASE [BaseDAL_TesterDB] SET  READ_WRITE 
+GO
+
+
+
+
+USE [BaseDAL_TesterDB]
+GO
+/****** Object:  StoredProcedure [dbo].[sp_GetResultInt32]    Script Date: 20/11/2014 12:36:33 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+CREATE PROCEDURE [dbo].[sp_GetResultInt32]
+	-- Add the parameters for the stored procedure here
+	@RecordID_32   INT out
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+	set @RecordID_32 = ( SELECT max( RecordID_32)   FROM [dbo].[Records])
+    	return @RecordID_32
+	
+END
+
+GO
+/****** Object:  StoredProcedure [dbo].[sp_GetResultInt64]    Script Date: 20/11/2014 12:36:33 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+CREATE PROCEDURE [dbo].[sp_GetResultInt64]
+	-- Add the parameters for the stored procedure here
+	@RecordID_64   bigint out
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+	set @RecordID_64 = ( SELECT max( RecordID_64)   FROM [dbo].[Records])
+	return @RecordID_64
+    -- Insert statements for procedure here
+	
+END
+
+GO
+/****** Object:  StoredProcedure [dbo].[sp_InsertRecord]    Script Date: 20/11/2014 12:36:33 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+CREATE PROCEDURE [dbo].[sp_InsertRecord]
+	
+	 @RecordID_64 bigint,
+	 @RecordID_32 int,
+	 @FirstName nvarchar(50),
+	 @LastName nvarchar(50),
+	 @CreationDate datetime,
+	 @IsEnabled bit,
+	 @StationNumber smallint,
+     @Flow decimal(11,3),
+     @Data varbinary(20),
+     @RecordID_Null INT,
+	 @ProgramNumber smallint
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+	
+	INSERT INTO [dbo].[Records]
+           ([RecordID_64]
+           ,[RecordID_32]
+			,CreationDate
+           ,[IsEnabled]
+           ,[FirstName]
+           ,[LastName]
+		    ,StationNumber 
+			 ,Flow 
+			, Data 
+			 ,RecordID_Null
+			 ,ProgramNumber)
+     VALUES
+           ( @RecordID_64,
+		     @RecordID_32 ,
+			 @CreationDate,
+			 @IsEnabled,
+			 @FirstName ,
+			 @LastName ,
+			 @StationNumber ,
+			 @Flow ,
+			 @Data ,
+			 @RecordID_Null,
+			@ProgramNumber
+			  )
+
+
+	
+END
+
+GO
+/****** Object:  StoredProcedure [dbo].[spAddProduct]    Script Date: 20/11/2014 12:36:33 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+CREATE PROCEDURE [dbo].[spAddProduct] 
+	
+AS
+BEGIN
+	update LogicArea
+	set CreationDate = GETUTCDATE()
+
+END
+
+GO
+/****** Object:  StoredProcedure [dbo].[UpdateAllUsers]    Script Date: 20/11/2014 12:36:33 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+CREATE PROCEDURE [dbo].[UpdateAllUsers]
+	@rowEffect BIGINT OUTPUT
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+
+	update LoginUser
+	set  CreationDate = GETUTCDATE()
+	
+
+	SET @rowEffect = @@ROWCOUNT
+
+	SELECT @rowEffect;
+    RETURN @rowEffect;
+    
+END
+
+
+GO
+/****** Object:  UserDefinedFunction [dbo].[func_Scalar]    Script Date: 20/11/2014 12:36:33 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date, ,>
+-- Description:	<Description, ,>
+-- =============================================
+CREATE FUNCTION [dbo].[func_Scalar]
+(
+	@RecordID_32   INT 
+)
+RETURNS int
+AS
+BEGIN
+	-- Declare the return variable here
+	DECLARE @countRecord int
+
+	-- Add the T-SQL statements to compute the return value here
+	SELECT @countRecord = (select count([RecordID_64]) from [Records])
+
+	-- Return the result of the function
+	RETURN @countRecord
+
+END
+
+GO
+/****** Object:  Table [dbo].[Records]    Script Date: 20/11/2014 12:36:33 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_PADDING ON
+GO
+CREATE TABLE [dbo].[Records](
+	[RecordID_64] [bigint] NULL,
+	[RecordID_32] [int] NULL,
+	[CreationDate] [datetime] NULL,
+	[IsEnabled] [bit] NULL,
+	[FirstName] [nvarchar](50) NULL,
+	[LastName] [nvarchar](50) NULL,
+	[StationNumber] [tinyint] NULL,
+	[ProgramNumber] [smallint] NULL,
+	[Flow] [decimal](11, 3) NULL,
+	[Data] [varbinary](20) NULL,
+	[RecordID_Null] [int] NULL
+) ON [PRIMARY]
+
+GO
+SET ANSI_PADDING OFF
+GO
+/****** Object:  UserDefinedFunction [dbo].[func_SelectRecords]    Script Date: 20/11/2014 12:36:33 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+CREATE FUNCTION [dbo].[func_SelectRecords]
+(	
+	@ID_Min int,
+	@ID_Max int
+)
+RETURNS TABLE 
+AS
+RETURN 
+(
+	
+	SELECT *
+	FROM [dbo].[Records]
+	where [RecordID_64] >= @ID_Min and [RecordID_64] <=@ID_Max
+
+)
+
+GO

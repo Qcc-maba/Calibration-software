@@ -1,0 +1,36 @@
+﻿<form name="addProjectform" novalidate>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                {{'MF_NAVBAR_ADD_A_PROJECT'|translate}}
+                <div class="panel-tools">
+                    <span data-toggle="tooltip" title="{{'MF_ADD_PROJECT_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="MF_ADD_PROJECT_QUESTION" var2="modal"></i></span>
+                    <i data-dismiss="modal" class="clip-close-3" ng-click="resetModal(addProjectform)"></i>
+
+                </div>
+            </div>
+            <div class="modal-body">
+
+                <div>
+                    {{'MF_G_PROJECT_NAME'|translate}}:
+                    <input type="text" ng-model="ProjectName" id="ProjectName" name="ProjectName" class="HugeTextFiled" ng-minlength="2" required />
+                    <br />
+                    <div class="validationMsg" ng-messages="addProjectform.ProjectName.$error" ng-show="addProjectform.ProjectName.$touched">
+                        <span ng-message="minlength">{{'G_F_V_MIN_LENGTH' | translate : {count:2} }}</span>
+                        <span ng-message="required">{{'G_F_V_REQUIRED' | translate}}</span>
+                    </div>
+                </div>
+                <br />
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" data-dismiss="modal" class="btn btn-default" ng-click="resetModal(addProjectform)">
+                    {{'G_CLOSE'|translate}}
+                </button>
+                <button type="button" class="btn btn-dark-grey ladda-button" ng-click="saveNewProject(dismiss, addProjectform.$valid)" ladda="ladda.addProject" data-style="expand-right" data-spinner-size="30">
+                    {{'G_SAVE'|translate}}
+                </button>
+            </div>
+        </div>
+    </div>
+</form>

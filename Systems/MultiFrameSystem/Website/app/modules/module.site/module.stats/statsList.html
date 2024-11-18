@@ -1,0 +1,33 @@
+﻿
+
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <i class="clip-stats"></i>
+                 {{'MF_SITE_STATS_IRRIGATION' | translate}}
+                <div class="panel-tools">
+                    <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                    <span data-toggle="tooltip" title="{{'MF_SITE_STATS_IRRIGATION_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="MF_SITE_STATS_IRRIGATION_QUESTION"></i></span>
+                </div>
+            
+            </div>
+            <div class="panel-body">
+                <div usage-log-directive ng-model="siteId" type="site"></div>
+            </div>
+
+        </div>
+
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <i class="clip-notification-2"></i>
+                {{'MF_SITE_STATS_ALERTS' | translate}}
+                <div class="panel-tools">
+                    <i class="toggelPanel fa fa-chevron-down" close-panel=""></i>
+                    <span data-toggle="tooltip" title="{{'MF_SITE_STATS_ALERTS_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="MF_SITE_STATS_ALERTS_QUESTION"></i></span>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div alert-log-directive ng-model="siteId" type="site"></div>
+            </div>
+
+        </div>
+

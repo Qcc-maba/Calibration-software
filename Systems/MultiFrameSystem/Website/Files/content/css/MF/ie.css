@@ -1,0 +1,6 @@
+﻿@media (max-width: 991px) {
+    .my-box:first-child {
+               margin: 0;
+        }
+    
+}

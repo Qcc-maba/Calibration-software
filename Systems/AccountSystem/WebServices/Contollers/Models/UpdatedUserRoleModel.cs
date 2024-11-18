@@ -1,0 +1,16 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Maba.AccountSystem.WebServices.Contollers.Models
+{
+    public class UpdatedUserRoleModel
+    {
+        public int RoleID { get; set; }
+
+        public bool Checked { get; set; }
+
+    }
+}

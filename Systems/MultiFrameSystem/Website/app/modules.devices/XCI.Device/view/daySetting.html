@@ -1,0 +1,71 @@
+﻿<div class="modal-dialog" ng-if="start">
+    <div class="modal-content">
+        <div class="modal-header">
+            {{daySetting.sessionName}}
+            <div class="panel-tools">
+                <a data-toggle="tooltip" title="{{'MF_DAY_SETTINGS_QUESTION' | translate}}"><i class="clip-question-2" phone-tooltip var1="MF_DAY_SETTINGS_QUESTION" var2="modal"></i></a>
+                <i data-dismiss="modal" class="clip-close-3"></i>
+            </div>
+        </div>
+        <div class="modal-body">
+            <p class="marginTop7">
+                <span class="label label-success">{{'NOTE'|translate}}: </span>
+                <span class="colMarginLeft">{{'MF_SITE_SETTINGS_AVOID_IRRIGATION_MSG' | translate}}</span>
+            </p>
+
+            <div class="table-responsive ">
+                <table class="table table-condensed">
+                    <thead>
+                        <tr>
+                            <th>{{'MF_DAY_SETTINGS_TIME_DAY'|translate}}</th>
+                            <th ng-repeat="day in daySetting.listDays">
+                                {{locale.DATETIME_FORMATS.DAY[day.dayIndex] |  limitTo:3}}
+                            </th>
+                            
+                        </tr>
+                    </thead>
+                    <tbody class="daySettings">
+                        <tr>
+                            <td><span>{{'MF_SITE_SETTINGS_MAX_MINUTES'|translate}}</span><span class="blueFont margin7"><i class="fa fa-pencil edit-user-info"></i></span></td>
+                            <td ng-repeat="d in daySetting.listDays">
+                                <input type="text" class="txtInsideEditableTable smallTextFiled" ng-model="d.maxDailyIrrigrationSeconds" />
+                         <td>
+                        </tr>
+                         <tr>
+                             <td><span>{{'MF_SITE_SETTINGS_MAX_CYCLES'|translate}}</span><span class="blueFont margin7"><i class="fa fa-pencil edit-user-info"></i></span></td>
+                             <td ng-repeat="d in daySetting.listDays">
+
+                                 <input type="text" class="txtInsideEditableTable smallTextFiled" ng-model="d.maxDailyCycles"  />
+                        <td>
+                        </tr>
+                        <tr ng-repeat="time in daySetting.listDays[0].times | filter:time" ng-init="parentIndex = $index">
+                            <td>
+            
+                                <input ng-if="parentIndex==0 || parentIndex==daySetting.listDays[0].times.length-1" class="txtInsideEditableTable bigTextFiled timePicker2 trans" type="text" ng-model="time.timeStr" readonly/>  
+                                <input ng-if="!(parentIndex==0 || parentIndex==daySetting.listDays[0].times.length-1)" class="txtInsideEditableTable bigTextFiled timePicker2" ng-click="saveLastDateObject(time,parentIndex)" type="text" ng-change="dateValidateAndPharse(time,parentIndex)" ng-model="time.timeStr" time-picker2 param="{{clockType}}" readonly />   <!--ng-click="saveLastClickedItem(time,$index)" ng-change="isAllowedTimeChanged($index,time)"-->
+                            </td>
+                            <td ng-repeat="d in daySetting.listDays">
+
+                                <input type='checkbox' class="css-checkbox" ng-model="d.times[parentIndex].allowed" id="{{parentIndex}}{{$index}}" /><label for="{{parentIndex}}{{$index}}"></label>
+                            </td>
+                        </tr>
+
+                        
+                    </tbody>
+                </table>
+            </div>
+
+            <!--************************************-->
+        </div>
+        <div class="modal-footer">
+            <button type="button" data-dismiss="modal" class="btn btn-default">
+                <i class="clip-close-3"></i> | {{'Close' | translate}}
+            </button>
+            <button ng-if="privilige" type="button" class="btn btn-dark-grey ladda-button" ladda="ladda.saveDaySetting" data-style="expand-right" data-spinner-size="30" ng-click="saveDaySetting(dismiss);">
+                <i class="fa fa-save ng-scope"></i> | {{'Save' | translate}}
+            </button>
+        </div>
+    </div>
+</div>
+
+

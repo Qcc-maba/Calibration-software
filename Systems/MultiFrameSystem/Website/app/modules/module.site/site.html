@@ -1,0 +1,68 @@
+﻿
+    
+
+
+    <div class="row" >
+
+
+
+
+    <ol class="breadcrumb">
+
+        <li>
+
+            <div class="horizenTitle inline">{{'MF_G_PROJECT' | translate}}:</div> <a class="fontSizeMed inline Dots_3 maxBreadCrampWidth" ng-click="goToParentProject(projectID)" data-toggle="tooltip" title="{{projectName}}">{{projectName}}</a>  <!--ng-click="goToParentProject()"-->
+        </li>
+        <li ng-if="projectID!=siteId">
+            <div class="horizenTitle inline">{{'MF_G_SITE' | translate}}:</div> <span class="fontSizeMed inline Dots_3 maxBreadCrampWidth" data-toggle="tooltip" title="{{siteName}}">{{siteName}}</span>
+        </li>
+      
+
+    </ol>
+    <div class="smallViewSiteTabs"></div>
+
+
+
+
+</div> 
+<div class="col-lg-12 col-md-12 col-xs-12" ng-if="startSite">
+    <div class="page-header">
+        <!--@@@@@-->
+
+
+    
+        <input ng-if="roleModify" type="text" class="HugeTextFiled Name ng-pristine ng-valid ng-touched colMarginLeft font17" ng-model="siteName" select-on-click="" edit-input-text="changeSiteName(siteId,siteName)"><input ng-if="roleModify" type="button" class="editGo" value="GO" style="display: none;"><a><i ng-if="roleModify" pen class="fa fa-pencil edit-user-info"></i></a>
+        <input ng-if="!roleModify" type="text" class="HugeTextFiled Name ng-pristine ng-valid ng-touched colMarginLeft font17" ng-model="siteName" readonly />
+        <!--<div ng-if="!roleModify">
+            <input type="text" class="HugeTextFiled Name ng-pristine ng-valid ng-touched colMarginLeft font17" ng-model="siteName"/>
+        </div>-->
+        <div class="pull-right">
+            <div class="fc-header-right topNevigation">
+                <span ng-click="goTo('PMap')" class="fc-button fc-button-month fc-state-default fc-corner-left" ng-class="{active: $state.includes('site.preview')}"> {{'MF_SITE_PREVIEW' | translate}}</span>
+                <span ng-click="goTo('SList')" class="fc-button fc-button-month fc-state-default fc-corner-left" ng-class="{active: $state.includes('site.stats')}">{{'MF_SITE_STATS' | translate}}</span>
+                <span ng-click="goTo('settings')" class="fc-button fc-button-month fc-state-default fc-corner-left" ng-class="{active: $state.includes('site.settings')}">{{'G_SETTINGS' | translate}}</span>
+                <!--<span ng-click="goTo('Reports')" class="fc-button fc-button-month fc-state-default fc-corner-left" ng-class="{active: $state.includes('site.reports')}">Reports</span>-->
+            </div>
+        </div>
+        <div class="pull-right weathersmallView">
+            <div weather-directive param="site" ng-model="siteId" class="minHeightWeather" ng-class="{weatherSmall:privilige}"></div>
+        </div>
+
+        
+        <!--<hr />-->
+    </div>
+    <br />
+    <br />
+    <br />
+    <br />
+    <br />
+</div>
+
+ <div ui-view="" class="viewMarginTop">
+
+</div>
+
+<!--------------------------------------------------------------------------->
+<div ng-if="bbb" id="addCtrl" class="modal" close-model add-ctrl></div>
+<!--------------------------------------------------------------------------->
+<div  id="newSite" class="modal" close-model add-site ng-model="siteId"></div>

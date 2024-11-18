@@ -1,0 +1,61 @@
+﻿
+<div class="btn-group smallMainAction devicePage gsiSmallMainAction">
+    <a data-toggle="dropdown" class="btn btn-med-grey dropdown-toggle">
+        Actions<span class="caret"></span>
+    </a>
+
+    <ul class="dropdown-menu" role="menu">
+        <li role="presentation">
+
+
+            <a ng-click="bbb=true" data-toggle="modal" data-target="#activateZones" data-backdrop="false"><i class="fa fa-plus marginRight7 addSomting"></i>{{'MF_DEVICE_ZONES_ACTIVATE_ZONES' | translate}}</a>
+
+        </li>
+        <li role="presentation">
+
+
+            <a ng-click="hold=true" data-toggle="modal" data-target="#hold" data-backdrop="false"><i class="fa fa-pause marginRight7 addSomting"></i>{{'MF_DEVICE_ONLINE_HOLD'| translate}}</a>
+
+        </li>
+        <li role="presentation">
+
+
+
+            <a ng-confirm-click="Please note!  If you delete this Device, Zones associated with the Device will also be permanantly deleted.  To confirm, please enter CONFIRM." confirmed-click="DeleteDevice(deviceId)"><i class="fa fa-trash-o marginRight7 deleteSomting"></i>{{'MF_DEVICE_DELETE_DEVICE' | translate}}</a>
+
+        </li>
+
+    </ul>
+
+
+</div>
+<div class="pull-right">
+    <div class="fc-header-right topNevigation gsiMainNevigation">
+        <span ng-click="goTo('status')" class="fc-button fc-button-month fc-state-default fc-corner-left" ng-class="{active: $state.includes('device.GSI_device.status')}">Status</span>
+        <span ng-click="goTo('programs')" class="fc-button fc-button-month fc-state-default fc-corner-left" ng-class="{active: $state.includes('device.GSI_device.programs')}">Programs</span>
+        <span ng-click="goTo('settings')" class="fc-button fc-button-month fc-state-default fc-corner-left" ng-class="{active: $state.includes('device.GSI_device.settings')}">Settings</span>
+        <span ng-click="goTo('reports')" class="fc-button fc-button-month fc-state-default fc-corner-left" ng-class="{active: $state.includes('device.GSI_device.reports')}">Reports</span>
+        <span ng-click="goTo('generalLogs')" class="fc-button fc-button-month fc-state-default fc-corner-left" ng-class="{active: $state.includes('device.GSI_device.generalLogs')}">Logs</span>
+    </div>
+
+</div>
+
+
+
+<hr />
+<div class="row">
+
+    <div class="col-lg-1 col-md-1 col-xs-12">
+        <div left-messages class="leftMessages"></div>
+    </div>
+    <div class="col-lg-11 col-md-11 col-xs-12">
+       
+       
+        <div ui-view="">
+
+        </div>
+       
+    </div>
+
+</div>
+

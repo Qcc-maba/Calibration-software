@@ -1,0 +1,46 @@
+﻿<div class="col-md-8 col-md-offset-2 col-xs-12  wizardTopMargin">
+
+    <table class="table">
+
+        <tbody>
+            <tr class="form-group">
+                <td class="firstRow">{{'MF_G_DEVICE_NAME' | translate}}:</td>
+                <td class="firstRow">
+                    <input type="text" class="form-control HugeTextFiled" name="name" ng-model="ctrlDetails.deviceName" ng-minlength="3" required >
+                    <div class="validationMsg" ng-messages="addDeviceForm.name.$error" ng-if="notValid">
+                        <div ng-message="minlength">{{'G_F_V_MIN_LENGTH' | translate : {count:3} }}</div>
+                        <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+
+                    </div>
+                </td>
+
+            </tr>
+
+            <tr class="form-group">
+                <td class="firstRow">{{'MF_G_SERIAL' | translate}}:</td>
+                <td class="firstRow">
+                    <div class="input-group">
+                        <input type="text" class="form-control HugeTextFiled" name="SerialNumber" ng-model="ctrlDetails.serialNumber" ng-minlength="16" ng-maxlength="16" required ng-pattern="/^[a-zA-Z0-9_]*$/">
+
+                    </div>
+                    <div class="validationMsg" ng-messages="addDeviceForm.SerialNumber.$error" ng-if="notValid">
+                        <div ng-message="minlength">{{'G_F_V_LENGTH' | translate : {count:16} }}</div>
+                        <div ng-message="maxlength">{{'G_F_V_LENGTH' | translate : {count:16} }}</div>
+                        <div ng-message="pattern">{{'G_F_V_DIGITS_NUMBERS' | translate}}</div>
+                        <div ng-message="required">{{'G_F_V_REQUIRED' | translate}}</div>
+
+                    </div>
+                </td>
+
+            </tr>
+
+
+
+
+        </tbody>
+    </table>
+
+
+    <!--{{addDeviceForm.$invalid}}    true/false to next page-->
+</div>
+

@@ -1,0 +1,19 @@
+﻿PUT _template/template_weatherdata  
+{
+  "template": "forecasts_*_dwh*",
+      "mappings": {
+         "forecasts": {
+            "_routing": {
+               "required": true
+            },
+            "_timestamp": {
+               "enabled": true
+            },
+            "properties": {
+               "location": {
+                  "type": "geo_point"
+               }
+            }
+         }
+      }
+}

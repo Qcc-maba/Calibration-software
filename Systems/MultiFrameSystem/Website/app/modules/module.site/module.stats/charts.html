@@ -1,0 +1,81 @@
+﻿<div class="hidden-sm hidden-xs">
+    <div class="row">
+        <div class="col-md-12 btn-group space15">
+            <a data-toggle="dropdown" class="btn btn-med-grey dropdown-toggle ladda-button statsDropDown" ladda="ladda.alertLoad" data-style="expand-right" data-spinner-size="30">
+                {{ chartsBy | translate}} <span class="caret"></span>
+            </a>
+
+            <ul class="dropdown-menu" role="menu">
+
+                <li role="presentation" ng-click="GetDates('lastYear')">
+
+
+                    {{'G_LAST_YEAR'| translate}}
+
+                </li>
+                <li role="presentation" ng-click="GetDates('lastMonth')">
+
+
+
+                    {{'G_LAST_MONTH'| translate}}
+
+                </li>
+                <li role="presentation" ng-click="GetDates('lastWeek')">
+
+
+                    {{'G_LAST_WEEK'| translate}}
+
+                </li>
+                <li role="presentation" ng-click="GetDates('Costom')">
+
+                    {{'G_CUSTOM'| translate}}
+
+                </li>
+
+            </ul>
+
+            <div class="pull-right">
+                <form name="myForm">
+                    <input type="radio" ng-model="radioType" value="Quantity" ng-change='radioCange("Quantity")'><span class="colMarginLeft">{{'MF_SITE_STATS_QUANTITY'|translate}}</span> <br />
+                    <input type="radio" ng-model="radioType" value="Duration" ng-change='radioCange("Duration")'><span class="colMarginLeft">{{'MF_SITE_STATS_DURATION'|translate}}</span> <br />
+
+</form>
+
+            </div>
+
+        </div>
+    </div>
+
+    <div class="row" ng-if="costom">
+        <div class="col-lg-2 col-md-4 col-xs-12">
+            <div class="input-group date">
+                <input type="text" ng-model="CostomDate.startStr" ng-change="UnixTime(CostomDate.startStr , 0)" class="form-control date-picker ng-pristine ng-untouched ng-valid dateTextFiled" placeholder="{{'G_START_DATE' | translate }}" date-picker-directive="" readonly>
+                <span class="input-group-addon"> <i class="fa fa-calendar"></i> </span>
+            </div>
+            <br />
+
+        </div>
+        <div class="col-lg-2 col-md-4 col-xs-12">
+            <div class="input-group date">
+                <input type="text" ng-model="CostomDate.endStr" ng-change="UnixTime(CostomDate.endStr , 1)" class="form-control date-picker ng-pristine ng-untouched ng-valid dateTextFiled" placeholder="{{'G_END_DATE' | translate}}" date-picker-directive="" readonly>
+                <span class="input-group-addon"> <i class="fa fa-calendar"></i> </span>
+            </div>
+            <br />
+        </div>
+
+        <div class="col-lg-2 col-md-4 col-xs-12">
+
+            <button class="btn btn-dark-grey ng-pristine ng-valid ng-touched textFiledMargin ladda-button" ng-click="filter()" ladda="ladda.filter" data-style="expand-right" data-spinner-size="30"><i class="fa fa-filter"></i> | {{'G_FILTER'|translate}}</button>
+
+        </div>
+    </div>
+    <div class="row">
+      
+        <div ng-if="stackBarMatrix" stacked-bar-charts obj1="stackBarObj" class=" col-md-7 col-lg-5 col-xs-12"></div>
+        <div ng-if="pieObj" class="col-md-7 col-lg-7 col-xs-12" pie-charts obj="pieObj" style="height:400px;"></div>
+
+    </div>
+
+</div>
+
+
