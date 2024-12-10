@@ -1,5 +1,0 @@
-﻿
-        public DateTime? ExpectedDateSaving { get; set; }
-        public int? TempSavingPercent { get; set; }
-        public int? HumiditySavingPercent { get; set; }
-        public int? TotalSavingPercent { get; set; }
