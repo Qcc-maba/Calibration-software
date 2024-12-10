@@ -1,5 +1,0 @@
-{
-  "ProtectionProviderType": "Maba.Connectors.OWINLibrary.Cryptography.AES.AesDataProtectorProvider, Maba.Connectors.OWINLibrary",
-  "AppName": "Maba Default DataProtectionProvider",
-  "Purposes": null
-}
