@@ -1,5 +1,0 @@
-{
-  "TemplateFiles": "https://cdn-account-public.Maba-smart.com/EmailTemplates",
-  "TemplateFile_ConfirmEmail": "EmailTemplate_ConfirmEmail{0}.xsl",
-  "TemplateFile_ResetPassword": "EmailTemplate_ResetPassword{0}.xsl"
-}
