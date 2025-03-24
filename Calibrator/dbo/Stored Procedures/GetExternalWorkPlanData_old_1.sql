@@ -11,7 +11,7 @@ BEGIN
 	SET NOCOUNT ON;
 
 	-- Get work plan list from today
-	SELECT	dbo.WorkPlan.Id AS WorkPlanId, dbo.WorkPlan.RequiredCalibrationDate, dbo.WorkPlan.OrderNumber, dbo.WorkPlan.MbaNumber, 
+/*	SELECT	dbo.WorkPlan.Id AS WorkPlanId, dbo.WorkPlan.RequiredCalibrationDate, dbo.WorkPlan.OrderNumber, dbo.WorkPlan.MbaNumber, 
 			dbo.WorkPlan.OpenDate AS [Work Open Date], dbo.Orders.CustomerName, dbo.Orders.CustomerCity, dbo.Cars.LicenseNumber AS [Car Number]
 	FROM	dbo.Cars INNER JOIN
 			dbo.CarsToWorkplan ON dbo.Cars.ID = dbo.CarsToWorkplan.CarId RIGHT OUTER JOIN
@@ -48,5 +48,5 @@ BEGIN
 	-- קטגוריית כיול ראשית
 
 	-- רשימת כיילים לפי פילטרים
-
+	*/
 END

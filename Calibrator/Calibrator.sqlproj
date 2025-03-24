@@ -185,6 +185,7 @@
     <Build Include="dbo\Synonyms\MyInstrCorrections.sql" />
     <Build Include="dbo\Stored Procedures\GetExternalWorkPlanData_old_1.sql" />
     <Build Include="dbo\Stored Procedures\CreateEquipmentRecord.sql" />
+    <Build Include="dbo\Stored Procedures\EditEquipmentRecord.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />

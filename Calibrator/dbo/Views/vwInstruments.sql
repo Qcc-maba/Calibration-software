@@ -3,7 +3,7 @@ AS
 SELECT        dbo.MeasurementDevices.MabaID, dbo.Measurements.NameHe AS Measurement
 FROM            dbo.MeasurementDevices INNER JOIN
                          dbo.Departments ON dbo.MeasurementDevices.ID = dbo.Departments.ID INNER JOIN
-                         dbo.Measurements ON dbo.Departments.ID = dbo.Measurements.Department
+                         dbo.Measurements ON dbo.Departments.ID = dbo.Measurements.DepartmentId
 
 GO
 EXECUTE sp_addextendedproperty @name = N'MS_DiagramPane1', @value = N'[0E232FF0-B466-11cf-A24F-00AA00A3EFFF, 1.00]
