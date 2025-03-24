@@ -1,0 +1,8 @@
+﻿CREATE PROCEDURE [dbo].[GetUserNames]
+AS
+BEGIN
+	SELECT Email 
+	FROM Users 
+	WHERE LEN(TRIM(Email))>0
+	ORDER BY Email
+END

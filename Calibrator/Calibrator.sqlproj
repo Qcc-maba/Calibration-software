@@ -1,0 +1,201 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Name>Calibrator</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.1</ProjectVersion>
+    <ProjectGuid>{cef430e6-4d5f-47d6-b399-3fbef44b5d15}</ProjectGuid>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql160DatabaseSchemaProvider</DSP>
+    <OutputType>Database</OutputType>
+    <RootPath>
+    </RootPath>
+    <RootNamespace>Calibrator</RootNamespace>
+    <AssemblyName>Calibrator</AssemblyName>
+    <ModelCollation>1037,CS</ModelCollation>
+    <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
+    <DeployToDatabase>True</DeployToDatabase>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetLanguage>CS</TargetLanguage>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <SqlServerVerification>False</SqlServerVerification>
+    <IncludeCompositeObjects>True</IncludeCompositeObjects>
+    <TargetDatabaseSet>True</TargetDatabaseSet>
+    <DefaultCollation>Hebrew_BIN</DefaultCollation>
+    <DefaultFilegroup>PRIMARY</DefaultFilegroup>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>bin\Debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">11.0</VisualStudioVersion>
+    <!-- Default to the v11.0 targets path if the targets file for the current VS version is not found -->
+    <SSDTExists Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets')">True</SSDTExists>
+    <VisualStudioVersion Condition="'$(SSDTExists)' == ''">11.0</VisualStudioVersion>
+  </PropertyGroup>
+  <Import Condition="'$(SQLDBExtensionsRefPath)' != ''" Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <ItemGroup>
+    <Folder Include="Properties" />
+    <Folder Include="dbo\" />
+    <Folder Include="dbo\Tables\" />
+    <Folder Include="dbo\Views\" />
+    <Folder Include="dbo\Functions\" />
+    <Folder Include="dbo\Stored Procedures\" />
+    <Folder Include="Assemblies\" />
+    <Folder Include="dbo\Synonyms\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="dbo\Tables\DeviceTypes.sql" />
+    <Build Include="dbo\Tables\CalibratedUnitsWorkStatus.sql" />
+    <Build Include="dbo\Tables\CalibratedUnits.sql" />
+    <Build Include="dbo\Tables\MeasurementDevicesCorrections_orig_temp.sql" />
+    <Build Include="dbo\Tables\MeasurementDevicesSubClass.sql" />
+    <Build Include="dbo\Tables\Alerts.sql" />
+    <Build Include="dbo\Tables\MeasurementDevices.sql" />
+    <Build Include="dbo\Tables\CalibratedUnitsTypes.sql" />
+    <Build Include="dbo\Tables\ConversionParameters.sql" />
+    <Build Include="dbo\Tables\CalibratedUnitsStatusDescriptionToUnits.sql" />
+    <Build Include="dbo\Tables\CalibratedUnitsStatusDescription.sql" />
+    <Build Include="dbo\Tables\MeasurementDeviceStatus.sql" />
+    <Build Include="dbo\Tables\Report.sql" />
+    <Build Include="dbo\Tables\CalibratorsToWorkPlan.sql" />
+    <Build Include="dbo\Tables\SpecialCare_wp.sql" />
+    <Build Include="dbo\Tables\MeasurementDevicesParents.sql" />
+    <Build Include="dbo\Tables\MBA_CALIBLOAD_INIT.sql" />
+    <Build Include="dbo\Tables\InstrCorrections.sql" />
+    <Build Include="dbo\Tables\MBA_CALIBLOAD.sql" />
+    <Build Include="dbo\Tables\SpecialCareToWorkPlan.sql" />
+    <Build Include="dbo\Tables\Translate.sql" />
+    <Build Include="dbo\Tables\WorkPlan.sql" />
+    <Build Include="dbo\Tables\UserMessages.sql" />
+    <Build Include="dbo\Tables\CustomerSupportDepartmentParts.sql" />
+    <Build Include="dbo\Tables\UsersToDepartments.sql" />
+    <Build Include="dbo\Tables\Calibrators.sql" />
+    <Build Include="dbo\Tables\CalibratedUnitsToWorkPlan.sql" />
+    <Build Include="dbo\Tables\ReportStatus.sql" />
+    <Build Include="dbo\Tables\CalibEquipments.sql" />
+    <Build Include="dbo\Tables\Orders.sql" />
+    <Build Include="dbo\Tables\Units.sql" />
+    <Build Include="dbo\Tables\MeasurementDevicesManufacturers.sql" />
+    <Build Include="dbo\Tables\CalibEquipmentsToWorkplan.sql" />
+    <Build Include="dbo\Tables\Notes.sql" />
+    <Build Include="dbo\Tables\CalibrationHistory.sql" />
+    <Build Include="dbo\Tables\OrderDevices_.sql" />
+    <Build Include="dbo\Tables\CalendarEventsToParticipants.sql" />
+    <Build Include="dbo\Tables\Orders_.sql" />
+    <Build Include="dbo\Tables\CalendarEvents.sql" />
+    <Build Include="dbo\Tables\Measurements.sql" />
+    <Build Include="dbo\Tables\MeasurementDevicesMainClasses.sql" />
+    <Build Include="dbo\Tables\CarsToOrder.sql" />
+    <Build Include="dbo\Tables\CalibratorsAvailability.sql" />
+    <Build Include="dbo\Tables\MeasurementDevicesModels.sql" />
+    <Build Include="dbo\Tables\CalibratorsRanks.sql" />
+    <Build Include="dbo\Tables\CalibratorsCertifications.sql" />
+    <Build Include="dbo\Tables\CertificationsToCalibrators.sql" />
+    <Build Include="dbo\Tables\FreeDays.sql" />
+    <Build Include="dbo\Tables\Users.sql" />
+    <Build Include="dbo\Tables\StatusesCategories.sql" />
+    <Build Include="dbo\Tables\Lodging_wp.sql" />
+    <Build Include="dbo\Tables\Statuses.sql" />
+    <Build Include="dbo\Tables\Cars.sql" />
+    <Build Include="dbo\Tables\MeasurementDevices_.sql" />
+    <Build Include="dbo\Tables\MeasurementDevicesCorrections.sql" />
+    <Build Include="dbo\Tables\UnitGroups.sql" />
+    <Build Include="dbo\Tables\CarsToWorkplan.sql" />
+    <Build Include="dbo\Tables\SyncVersionTable.sql" />
+    <Build Include="dbo\Tables\CarsToEquipment.sql" />
+    <Build Include="dbo\Tables\Departments.sql" />
+    <Build Include="dbo\Tables\UsersToRoles.sql" />
+    <Build Include="dbo\Tables\Roles.sql" />
+    <Build Include="dbo\Tables\Equipment.sql" />
+    <Build Include="dbo\Views\vwGetDepartmentOrdersByUserId.sql" />
+    <Build Include="dbo\Views\vwGetCustomersRemarks.sql" />
+    <Build Include="dbo\Views\View_1.sql" />
+    <Build Include="dbo\Views\vwInstruments.sql" />
+    <Build Include="dbo\Views\vwGetOrdersData.sql" />
+    <Build Include="dbo\Views\vwGetOrderDevices.sql" />
+    <Build Include="dbo\Views\vwGetOrderScreen_temp.sql" />
+    <Build Include="dbo\Views\vwWorkPlan.sql" />
+    <Build Include="dbo\Views\vwGerDevicesByOrder.sql" />
+    <Build Include="dbo\Views\vwGetSerialNumbersByOrderNumber.sql" />
+    <Build Include="dbo\Views\View_MeasurementDevicesCorrections.sql" />
+    <Build Include="dbo\Views\vwCustomersOrders_FromERP.sql" />
+    <Build Include="dbo\Functions\tttt.sql" />
+    <Build Include="dbo\Functions\tabula_hebconvert.sql" />
+    <Build Include="dbo\Functions\ParseCSVToTable.sql" />
+    <Build Include="dbo\Functions\SplitExpression.sql" />
+    <Build Include="dbo\Functions\SplitExpressionCols.sql" />
+    <Build Include="dbo\Stored Procedures\GetCarManagementTableData.sql" />
+    <Build Include="dbo\Stored Procedures\EditCarRecord.sql" />
+    <Build Include="dbo\Stored Procedures\DeleteCalendarEvent.sql" />
+    <Build Include="dbo\Stored Procedures\CreateMeasurementDevicesCorrectionsRecord.sql" />
+    <Build Include="dbo\Stored Procedures\GetWorkPlansByOrderNumberAndMbaNumber.sql" />
+    <Build Include="dbo\Stored Procedures\GetDepartmentFromERP.sql" />
+    <Build Include="dbo\Stored Procedures\GetOrdersforCustomerSupport.sql" />
+    <Build Include="dbo\Stored Procedures\GetMabaContactNames.sql" />
+    <Build Include="dbo\Stored Procedures\ValidateUser.sql" />
+    <Build Include="dbo\Stored Procedures\GetUserNames.sql" />
+    <Build Include="dbo\Stored Procedures\GetLoginUser.sql" />
+    <Build Include="dbo\Stored Procedures\GetOrdersScreen_ShortList.sql" />
+    <Build Include="dbo\Stored Procedures\GetLaboratoryViewDepartmentDelays.sql" />
+    <Build Include="dbo\Stored Procedures\GetLaboratoryViewAgentsWaitingList.sql" />
+    <Build Include="dbo\Stored Procedures\GetOrdersScreen_Details.sql" />
+    <Build Include="dbo\Stored Procedures\GetMeasurementDevices.sql" />
+    <Build Include="dbo\Stored Procedures\GetCalibrators.sql" />
+    <Build Include="dbo\Stored Procedures\SyncOrdersTable.sql" />
+    <Build Include="dbo\Stored Procedures\GetExternalWorkPlanData.sql" />
+    <Build Include="dbo\Stored Procedures\GetDevicesByOrder.sql" />
+    <Build Include="dbo\Stored Procedures\GetExternalWorkPlanTotalPages.sql" />
+    <Build Include="dbo\Stored Procedures\CreateCalendarEvent.sql" />
+    <Build Include="dbo\Stored Procedures\GetExternalWorkPlanData_old.sql" />
+    <Build Include="dbo\Stored Procedures\GetCalendarEvents.sql" />
+    <Build Include="dbo\Stored Procedures\EditCalendarEvent.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllCalibrators.sql" />
+    <Build Include="dbo\Stored Procedures\AssignCarToOrder.sql" />
+    <Build Include="dbo\Stored Procedures\CancelOrders.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllCars.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllEmployees.sql" />
+    <Build Include="dbo\Stored Procedures\AssignCalibratorsToOrder.sql" />
+    <Build Include="dbo\Stored Procedures\GetCalibrationDeviceConfigurationData.sql" />
+    <Build Include="dbo\Stored Procedures\GetSensorByName.sql" />
+    <Build Include="dbo\Stored Procedures\GetOrdersByDepartment.sql" />
+    <Build Include="dbo\Stored Procedures\CreateCarRecord.sql" />
+    <Build Include="dbo\Synonyms\MyInstr.sql" />
+    <Build Include="dbo\Synonyms\MyInstrCorrections.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Assemblies\hebutils.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="hebutils">
+      <HintPath>Assemblies\hebutils.dll</HintPath>
+      <SqlAssemblyName>hebutils</SqlAssemblyName>
+      <IsModelAware>True</IsModelAware>
+      <GenerateSqlClrDdl>False</GenerateSqlClrDdl>
+      <SqlOwnerName>dbo</SqlOwnerName>
+      <SqlPermissionSet>SAFE</SqlPermissionSet>
+    </Reference>
+  </ItemGroup>
+</Project>
