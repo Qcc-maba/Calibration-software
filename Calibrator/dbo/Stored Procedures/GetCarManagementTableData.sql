@@ -4,7 +4,7 @@
 -- Description:	This SP should get data for the car management table
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-169
 -- =============================================
-CREATE PROCEDURE dbo.GetCarManagementTableData
+CREATE   PROCEDURE [dbo].[GetCarManagementTableData]
 @LicenseNumber NVARCHAR(50) = NULL,
 @Model NVARCHAR(50) = NULL,
 @NumberOfSeats INT = NULL,
@@ -68,7 +68,7 @@ CONCAT(
   LEFT JOIN [dbo].[Users] as u1 ON c.[OwnerId] = u1.[ID]
   LEFT JOIN [dbo].[CarsToEquipment] as ce ON c.[CarId] = ce.[CarId] '
   ,CASE WHEN @AssociatedEquipmentId IS NOT NULL THEN ' JOIN #AssociatedEquipmentIDs as f ON ce.[EquipmentId] = f.[EquipmentId] ' ELSE ' ' END
-  ,'LEFT JOIN [dbo].[Equipment] as e ON ce.[EquipmentId] = e.EquipmentId
+  ,'LEFT JOIN [dbo].[CalibEquipments] as e ON ce.[EquipmentId] = e.ID
   WHERE  1=1 '
   ,CASE WHEN @LicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] = '''+ @LicenseNumber+''' 'ELSE ' ' END
   ,CASE WHEN @Model IS NOT NULL THEN ' AND c.[Model] = '''+ @Model+''' 'ELSE ' ' END
@@ -85,9 +85,3 @@ PRINT @sql
 EXEC sp_executesql @sql
 
 END
-
-
-
-
-
-

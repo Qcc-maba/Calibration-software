@@ -1,6 +1,6 @@
 ﻿CREATE FUNCTION dbo.ParseCSVToTable
 (
-    @CSVString NVARCHAR(MAX)=N''
+    @CSVString NVARCHAR(MAX)
 )
 RETURNS @ParsedTable TABLE (Value NVARCHAR(MAX))
 AS

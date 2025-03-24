@@ -1,5 +1,15 @@
-﻿
-CREATE   VIEW [dbo].[vwWorkPlan]
+﻿--USE [Calibrator]
+--GO
+
+--/****** Object:  View [dbo].[vwWorkPlan]    Script Date: 3/24/2025 1:43:00 PM ******/
+--SET ANSI_NULLS ON
+--GO
+
+--SET QUOTED_IDENTIFIER ON
+--GO
+
+
+CREATE    VIEW [dbo].[vwWorkPlan]
 AS
 SELECT DISTINCT 
                          TOP (100) PERCENT dbo.Orders.OrderNumber, dbo.Orders.CalibDate, dbo.Orders.Klita, SpecialCareList.SpecialCares, dbo.Orders.CustomerName, dbo.Orders.CustomerCity, MainCategotiesList.MainCategoties, 
@@ -19,7 +29,7 @@ FROM            (SELECT        STRING_AGG(dbo.SpecialCare_wp.Name, ', ') AS Spec
                                FROM            dbo.Cars INNER JOIN
                                                          dbo.CarsToWorkplan AS CarsToWorkplan_1 ON CarsToWorkplan_1.CarId = dbo.Cars.CarId
                                GROUP BY CarsToWorkplan_1.WorkPlanId) AS CarsList ON dbo.WorkPlan.Id = CarsList.WorkPlanId LEFT OUTER JOIN
-                             (SELECT        STRING_AGG(dbo.CalibEquipments.Name, ', ') AS Equipments, dbo.CalibEquipmentsToWorkplan.WorkplanID
+                             (SELECT        STRING_AGG(dbo.CalibEquipments.EquipmentName, ', ') AS Equipments, dbo.CalibEquipmentsToWorkplan.WorkplanID
                                FROM            dbo.CalibEquipments INNER JOIN
                                                          dbo.CalibEquipmentsToWorkplan ON dbo.CalibEquipmentsToWorkplan.EquipmentID = dbo.CalibEquipments.ID
                                GROUP BY dbo.CalibEquipmentsToWorkplan.WorkplanID) AS EquipmentsList ON dbo.WorkPlan.Id = EquipmentsList.WorkplanID LEFT OUTER JOIN
