@@ -4,12 +4,12 @@
 -- Description:	This SP should edit a calendar event. It must take the event title, start time, end time, and a string with participant ids divided by comma.
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-183
 -- =============================================
-CREATE   PROCEDURE dbo.GetCalendarEvents
+CREATE   PROCEDURE [dbo].[GetCalendarEvents]
 @StartDate DATE,
 @EndDate DATE,
 @RowsPerPage INT = 50,
 @PageNumber INT = 1,
-@OrderBy NVARCHAR(9) = N'StartDate',-- Only this list of valid values for parameter Title|StartDate|EndDate
+@OrderBy NVARCHAR(255) = N'StartDate',-- Only this list of valid values for parameter Title|StartDate|EndDate
 @OrderByAsc BIT = 1
 
 /*
@@ -40,4 +40,3 @@ CONCAT(
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY; ')
 PRINT @sql
 EXEC sp_executesql @sql
-

@@ -29,9 +29,12 @@
     [DepartmentName]       NVARCHAR (50)  NULL,
     [CalibStatusCode]      INT            NULL,
     [CalibStatus]          NVARCHAR (12)  NULL,
-    [Device manufacturer]  NVARCHAR (255) NULL,
     [Klita]                NVARCHAR (20)  NULL,
     [IsCancelled]          BIT            DEFAULT ((0)) NOT NULL,
+    [ModifiedDate]         DATETIME2 (0)  DEFAULT (getdate()) NOT NULL,
+    [BkGen]                BINARY (32)    NULL,
+    [Deleted]              BIT            DEFAULT ((0)) NULL,
+    [DeviceManufacturer]   NVARCHAR (255) NULL,
     CONSTRAINT [PK_Orders_1] PRIMARY KEY CLUSTERED ([ID] ASC)
 );
 

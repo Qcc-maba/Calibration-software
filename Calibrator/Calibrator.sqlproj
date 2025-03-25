@@ -187,6 +187,7 @@
     <Build Include="dbo\Stored Procedures\CreateEquipmentRecord.sql" />
     <Build Include="dbo\Stored Procedures\EditEquipmentRecord.sql" />
     <Build Include="dbo\Stored Procedures\GetEquipmentManagementTableData.sql" />
+    <Build Include="dbo\Stored Procedures\SyncOrders.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />

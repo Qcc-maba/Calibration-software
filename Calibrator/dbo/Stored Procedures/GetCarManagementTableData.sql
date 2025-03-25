@@ -17,7 +17,7 @@ CREATE   PROCEDURE [dbo].[GetCarManagementTableData]
 @AssociatedEquipmentId NVARCHAR(200) = NULL, 
 @RowsPerPage INT = 50,
 @PageNumber INT = 1,
-@OrderBy NVARCHAR(9) = N'Model',-- Only this list of valid values for parameter CarId|Model|LicenseNumber|Seats|TreatmentPeriod|NextTreatmentDate|NextYearlyTestDate|OwnerId|OwnerFullName|CarStatusId|StatusDescriptionENG|StatusDescriptionHEB|AssignedCalibratorId|CalibratorFullName|EquipmentId|EquipmentName
+@OrderBy NVARCHAR(255) = N'Model',-- Only this list of valid values for parameter CarId|Model|LicenseNumber|Seats|TreatmentPeriod|NextTreatmentDate|NextYearlyTestDate|OwnerId|OwnerFullName|CarStatusId|StatusDescriptionENG|StatusDescriptionHEB|AssignedCalibratorId|CalibratorFullName|EquipmentId|EquipmentName
 @OrderByAsc BIT = 1
 
 /*
@@ -60,8 +60,9 @@ CONCAT(
 	  ,s.[StatusDescriptionHEB]
       ,c.[AssignedCalibratorId]
 	  ,CONCAT(u.LastName,'' '', u.FirstName) as CalibratorFullName
-	  ,ce.EquipmentId
-	  ,e.EquipmentName
+	  ,STRING_AGG(ce.EquipmentId,'','') as EquipmentId
+	  ,STRING_AGG(e.EquipmentName,'','') as EquipmentName
+	  ,COUNT(1) OVER(PARTITION BY 1 ORDER BY c.[CarId] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
   FROM [dbo].[Cars] as c
   JOIN [dbo].[Statuses] as s ON c.[CarStatusId] = s.[StatusId]
   LEFT JOIN [dbo].[Users] as u ON c.[AssignedCalibratorId] = u.[ID]
@@ -70,15 +71,30 @@ CONCAT(
   ,CASE WHEN @AssociatedEquipmentId IS NOT NULL THEN ' JOIN #AssociatedEquipmentIDs as f ON ce.[EquipmentId] = f.[EquipmentId] ' ELSE ' ' END
   ,'LEFT JOIN [dbo].[CalibEquipments] as e ON ce.[EquipmentId] = e.ID
   WHERE  1=1 '
-  ,CASE WHEN @LicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] = '''+ @LicenseNumber+''' 'ELSE ' ' END
-  ,CASE WHEN @Model IS NOT NULL THEN ' AND c.[Model] = '''+ @Model+''' 'ELSE ' ' END
-  ,CASE WHEN @NumberOfSeats > 0 THEN' AND c.[Seats] = '+CAST(@NumberOfSeats as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @StatusId > 0 THEN' AND c.[CarStatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @OwnerId > 0 THEN ' AND c.[OwnerId] = '+CAST(@OwnerId as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @AssignedCalibrator > 0 THEN ' AND c.[AssignedCalibratorId] = '+CAST(@AssignedCalibrator as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @TreatmentPeriod > 0 THEN ' AND c.[TreatmentPeriod] = '+CAST(@TreatmentPeriod as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @LicenseNumber IS NOT NULL THEN' OR c.[LicenseNumber] = '''+ @LicenseNumber+''' 'ELSE ' ' END
+  ,CASE WHEN @Model IS NOT NULL THEN ' OR c.[Model] = '''+ @Model+''' 'ELSE ' ' END
+  ,CASE WHEN @NumberOfSeats > 0 THEN' OR c.[Seats] = '+CAST(@NumberOfSeats as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @StatusId > 0 THEN' OR c.[CarStatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @OwnerId > 0 THEN ' OR c.[OwnerId] = '+CAST(@OwnerId as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @AssignedCalibrator > 0 THEN ' OR c.[AssignedCalibratorId] = '+CAST(@AssignedCalibrator as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @TreatmentPeriod > 0 THEN ' OR c.[TreatmentPeriod] = '+CAST(@TreatmentPeriod as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @NextTreatmentDate IS NOT NULL THEN ' c.[NextTreatmentDate] = '''+ CAST(@NextTreatmentDate AS NVARCHAR(20))+''' ' ELSE ' ' END
   ,CASE WHEN @NextTestDate IS NOT NULL THEN' c.[NextYearlyTestDate] = '''+ CAST(@NextTestDate AS NVARCHAR(20))+''' 'ELSE ' ' END
+  ,'  GROUP BY 
+	   c.[CarId]
+      ,c.[Model]
+      ,c.[LicenseNumber]
+      ,c.[Seats]
+      ,c.[TreatmentPeriod]
+      ,c.[NextTreatmentDate]
+      ,c.[NextYearlyTestDate]
+      ,c.[OwnerId]
+	  ,CONCAT(u1.LastName,'' '', u1.FirstName)
+      ,c.[CarStatusId]
+	  ,s.[StatusDescriptionENG]
+	  ,s.[StatusDescriptionHEB]
+      ,c.[AssignedCalibratorId]
+	  ,CONCAT(u.LastName,'' '', u.FirstName)'
   ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql

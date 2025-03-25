@@ -1,4 +1,5 @@
-﻿--USE [Calibrator]
+﻿
+--USE [Calibrator]
 --GO
 
 --/****** Object:  View [dbo].[vwWorkPlan]    Script Date: 3/24/2025 1:43:00 PM ******/
@@ -9,12 +10,12 @@
 --GO
 
 
-CREATE    VIEW [dbo].[vwWorkPlan]
+CREATE     VIEW [dbo].[vwWorkPlan]
 AS
 SELECT DISTINCT 
                          TOP (100) PERCENT dbo.Orders.OrderNumber, dbo.Orders.CalibDate, dbo.Orders.Klita, SpecialCareList.SpecialCares, dbo.Orders.CustomerName, dbo.Orders.CustomerCity, MainCategotiesList.MainCategoties, 
                          dbo.WorkPlan.OpenDate AS WorkPlanOpenDate, CarsList.Cars, UsersList.Calibrators, EquipmentsList.Equipments, dbo.WorkPlan.Notes, dbo.Orders.PartDescription AS PartName, dbo.Orders.DeviceDescription, 
-                         dbo.Orders.DepartmentName, dbo.Orders.MbaReportNumber, dbo.Orders.SerialNumber, dbo.Orders.[Device manufacturer] AS DeviceManufacturer, dbo.Orders.DeviceModel
+                         dbo.Orders.DepartmentName, dbo.Orders.MbaReportNumber, dbo.Orders.SerialNumber, dbo.Orders.[DeviceManufacturer] AS DeviceManufacturer, dbo.Orders.DeviceModel
 FROM            (SELECT        STRING_AGG(dbo.SpecialCare_wp.Name, ', ') AS SpecialCares, dbo.SpecialCareToWorkPlan.WorkPlanId
                           FROM            dbo.SpecialCare_wp INNER JOIN
                                                     dbo.SpecialCareToWorkPlan ON dbo.SpecialCareToWorkPlan.SpecialCareId = dbo.SpecialCare_wp.ID
