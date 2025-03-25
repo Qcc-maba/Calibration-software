@@ -71,15 +71,15 @@ CONCAT(
   ,CASE WHEN @AssociatedEquipmentId IS NOT NULL THEN ' JOIN #AssociatedEquipmentIDs as f ON ce.[EquipmentId] = f.[EquipmentId] ' ELSE ' ' END
   ,'LEFT JOIN [dbo].[CalibEquipments] as e ON ce.[EquipmentId] = e.ID
   WHERE  1=1 '
-  ,CASE WHEN @LicenseNumber IS NOT NULL THEN' OR c.[LicenseNumber] = '''+ @LicenseNumber+''' 'ELSE ' ' END
-  ,CASE WHEN @Model IS NOT NULL THEN ' OR c.[Model] = '''+ @Model+''' 'ELSE ' ' END
-  ,CASE WHEN @NumberOfSeats > 0 THEN' OR c.[Seats] = '+CAST(@NumberOfSeats as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @StatusId > 0 THEN' OR c.[CarStatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @OwnerId > 0 THEN ' OR c.[OwnerId] = '+CAST(@OwnerId as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @AssignedCalibrator > 0 THEN ' OR c.[AssignedCalibratorId] = '+CAST(@AssignedCalibrator as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @TreatmentPeriod > 0 THEN ' OR c.[TreatmentPeriod] = '+CAST(@TreatmentPeriod as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @NextTreatmentDate IS NOT NULL THEN ' c.[NextTreatmentDate] = '''+ CAST(@NextTreatmentDate AS NVARCHAR(20))+''' ' ELSE ' ' END
-  ,CASE WHEN @NextTestDate IS NOT NULL THEN' c.[NextYearlyTestDate] = '''+ CAST(@NextTestDate AS NVARCHAR(20))+''' 'ELSE ' ' END
+  ,CASE WHEN @LicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] = N'''+ @LicenseNumber+''' 'ELSE ' ' END
+  ,CASE WHEN @Model IS NOT NULL THEN ' AND c.[Model] = N'''+ @Model+''' 'ELSE ' ' END
+  ,CASE WHEN @NumberOfSeats > 0 THEN' AND c.[Seats] = '+CAST(@NumberOfSeats as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @StatusId > 0 THEN' AND c.[CarStatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @OwnerId > 0 THEN ' AND c.[OwnerId] = '+CAST(@OwnerId as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @AssignedCalibrator > 0 THEN ' AND c.[AssignedCalibratorId] = '+CAST(@AssignedCalibrator as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @TreatmentPeriod > 0 THEN ' AND c.[TreatmentPeriod] = '+CAST(@TreatmentPeriod as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @NextTreatmentDate IS NOT NULL THEN ' AND c.[NextTreatmentDate] = '''+ CAST(@NextTreatmentDate AS NVARCHAR(20))+''' ' ELSE ' ' END
+  ,CASE WHEN @NextTestDate IS NOT NULL THEN' AND c.[NextYearlyTestDate] = '''+ CAST(@NextTestDate AS NVARCHAR(20))+''' 'ELSE ' ' END
   ,'  GROUP BY 
 	   c.[CarId]
       ,c.[Model]
