@@ -62,6 +62,10 @@ u.LastName LIKE '%'+@CalibratorFullName+'%'
 		OR u.FirstName LIKE '%'+@CalibratorFullName+'%'
 		OR u.FirstNameEng LIKE '%'+@CalibratorFullName+'%'
 		OR u.LastNameEng LIKE '%'+@CalibratorFullName+'%'
+		OR CONCAT(u.FirstName,' ',u.LastName) LIKE '%'+@CalibratorFullName+'%'
+		OR CONCAT(u.FirstNameEng,' ',u.LastNameEng) LIKE '%'+@CalibratorFullName+'%'
+		OR CONCAT(u.LastName,' ',u.FirstName) LIKE '%'+@CalibratorFullName+'%'
+		OR CONCAT(u.LastNameEng,' ',u.FirstNameEng) LIKE '%'+@CalibratorFullName+'%'
 )
 END
 
