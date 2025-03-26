@@ -18,7 +18,10 @@ CREATE   PROCEDURE [dbo].[GetCarManagementTableData]
 @RowsPerPage INT = 50,
 @PageNumber INT = 1,
 @OrderBy NVARCHAR(255) = N'Model',-- Only this list of valid values for parameter CarId|Model|LicenseNumber|Seats|TreatmentPeriod|NextTreatmentDate|NextYearlyTestDate|OwnerId|OwnerFullName|CarStatusId|StatusDescriptionENG|StatusDescriptionHEB|AssignedCalibratorId|CalibratorFullName|EquipmentId|EquipmentName
-@OrderByAsc BIT = 1
+@OrderByAsc BIT = 1,
+@CalibratorFullName NVARCHAR(200) = NULL,
+@StatusDescription NVARCHAR(255) = NULL, 
+@EquipmentName NVARCHAR(255) = NULL
 
 /*
 EXEC dbo.GetCarManagementTableData 
@@ -42,7 +45,54 @@ EquipmentId INT
 DECLARE @AssociatedEquipment NVARCHAR(200) = @AssociatedEquipmentId
 
 INSERT #AssociatedEquipmentIDs(EquipmentId)
-SELECT Value FROM dbo.ParseCSVToTable(@AssociatedEquipment)
+SELECT Value 
+FROM dbo.ParseCSVToTable(@AssociatedEquipment)
+
+IF @CalibratorFullName IS NOT NULL
+BEGIN
+DROP TABLE IF EXISTS #Calibrators
+CREATE TABLE #Calibrators
+(
+CalibratorId INT
+)
+INSERT #Calibrators(CalibratorId)
+SELECT u.ID FROM [dbo].[Users] as u 
+WHERE u.IsActive = 1 AND (
+u.LastName LIKE '%'+@CalibratorFullName+'%' 
+		OR u.FirstName LIKE '%'+@CalibratorFullName+'%'
+		OR u.FirstNameEng LIKE '%'+@CalibratorFullName+'%'
+		OR u.LastNameEng LIKE '%'+@CalibratorFullName+'%'
+)
+END
+
+IF @EquipmentName IS NOT NULL
+BEGIN
+DROP TABLE IF EXISTS #EquipmentName
+CREATE TABLE #EquipmentName
+(
+EquipmentId INT
+)
+INSERT #EquipmentName(EquipmentId)
+SELECT u.ID FROM [dbo].[CalibEquipments] as u 
+WHERE u.EquipmentName LIKE '%'+@EquipmentName+'%'
+END
+
+IF @StatusDescription IS NOT NULL
+BEGIN
+DROP TABLE IF EXISTS #StatusDescriptions
+CREATE TABLE #StatusDescriptions
+(
+StatusId INT
+)
+INSERT #StatusDescriptions(StatusId)
+SELECT s.StatusId
+	FROM [dbo].[Statuses] as s
+	JOIN [dbo].[StatusesCategories] as c On s.[StatusCategoryId] = c.[StatusCategoryId]
+	WHERE c.StatusDescriptionENG = 'CarStatus'
+	AND (s.StatusDescriptionENG LIKE '%'+@StatusDescription+'%'
+    OR s.StatusDescriptionHEB LIKE '%'+@StatusDescription+'%'
+	)
+END
 
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
@@ -55,11 +105,13 @@ CONCAT(
       ,c.[NextYearlyTestDate]
       ,c.[OwnerId]
 	  ,CONCAT(u1.LastName,'' '', u1.FirstName) as OwnerFullName
+	  ,CONCAT(u1.LastNameEng,'' '', u1.FirstNameEng) as OwnerFullNameENG
       ,c.[CarStatusId]
 	  ,s.[StatusDescriptionENG]
 	  ,s.[StatusDescriptionHEB]
       ,c.[AssignedCalibratorId]
 	  ,CONCAT(u.LastName,'' '', u.FirstName) as CalibratorFullName
+	  ,CONCAT(u.FirstNameEng,'' '', u.LastNameEng) as CalibratorFullNameENG
 	  ,STRING_AGG(ce.EquipmentId,'','') as EquipmentId
 	  ,STRING_AGG(e.EquipmentName,'','') as EquipmentName
 	  ,COUNT(1) OVER(PARTITION BY 1 ORDER BY c.[CarId] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
@@ -69,6 +121,9 @@ CONCAT(
   LEFT JOIN [dbo].[Users] as u1 ON c.[OwnerId] = u1.[ID]
   LEFT JOIN [dbo].[CarsToEquipment] as ce ON c.[CarId] = ce.[CarId] '
   ,CASE WHEN @AssociatedEquipmentId IS NOT NULL THEN ' JOIN #AssociatedEquipmentIDs as f ON ce.[EquipmentId] = f.[EquipmentId] ' ELSE ' ' END
+  ,CASE WHEN @CalibratorFullName IS NOT NULL THEN ' JOIN #Calibrators as cf ON c.[AssignedCalibratorId] = cf.[CalibratorId] ' ELSE ' ' END
+  ,CASE WHEN @EquipmentName IS NOT NULL THEN ' JOIN #EquipmentName as cen ON ce.EquipmentId = cen.[EquipmentId] ' ELSE ' ' END
+  ,CASE WHEN @StatusDescription IS NOT NULL THEN ' JOIN #StatusDescriptions as sdf ON c.[CarStatusId] = sdf.[StatusId] ' ELSE ' ' END
   ,'LEFT JOIN [dbo].[CalibEquipments] as e ON ce.[EquipmentId] = e.ID
   WHERE  1=1 '
   ,CASE WHEN @LicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] = N'''+ @LicenseNumber+''' 'ELSE ' ' END
@@ -76,10 +131,10 @@ CONCAT(
   ,CASE WHEN @NumberOfSeats > 0 THEN' AND c.[Seats] = '+CAST(@NumberOfSeats as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @StatusId > 0 THEN' AND c.[CarStatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @OwnerId > 0 THEN ' AND c.[OwnerId] = '+CAST(@OwnerId as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @AssignedCalibrator > 0 THEN ' AND c.[AssignedCalibratorId] = '+CAST(@AssignedCalibrator as NVARCHAR(50))+' 'ELSE ' ' END
+ -- ,CASE WHEN @AssignedCalibrator > 0 THEN ' AND c.[AssignedCalibratorId] = '+CAST(@AssignedCalibrator as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @TreatmentPeriod > 0 THEN ' AND c.[TreatmentPeriod] = '+CAST(@TreatmentPeriod as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @NextTreatmentDate IS NOT NULL THEN ' AND c.[NextTreatmentDate] = '''+ CAST(@NextTreatmentDate AS NVARCHAR(20))+''' ' ELSE ' ' END
-  ,CASE WHEN @NextTestDate IS NOT NULL THEN' AND c.[NextYearlyTestDate] = '''+ CAST(@NextTestDate AS NVARCHAR(20))+''' 'ELSE ' ' END
+  ,CASE WHEN @NextTreatmentDate IS NOT NULL AND @NextTestDate > '1900-01-01' THEN ' AND c.[NextTreatmentDate] = '''+ CAST(@NextTreatmentDate AS NVARCHAR(20))+''' ' ELSE ' ' END
+  ,CASE WHEN @NextTestDate IS NOT NULL AND @NextTestDate > '1900-01-01' THEN' AND c.[NextYearlyTestDate] = '''+ CAST(@NextTestDate AS NVARCHAR(20))+''' 'ELSE ' ' END
   ,'  GROUP BY 
 	   c.[CarId]
       ,c.[Model]
@@ -90,11 +145,13 @@ CONCAT(
       ,c.[NextYearlyTestDate]
       ,c.[OwnerId]
 	  ,CONCAT(u1.LastName,'' '', u1.FirstName)
+	  ,CONCAT(u1.LastNameEng,'' '', u1.FirstNameEng) 
       ,c.[CarStatusId]
 	  ,s.[StatusDescriptionENG]
 	  ,s.[StatusDescriptionHEB]
       ,c.[AssignedCalibratorId]
-	  ,CONCAT(u.LastName,'' '', u.FirstName)'
+	  ,CONCAT(u.LastName,'' '', u.FirstName)
+	  ,CONCAT(u.FirstNameEng,'' '', u.LastNameEng) '
   ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql
