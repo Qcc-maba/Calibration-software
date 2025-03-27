@@ -127,8 +127,6 @@
     <Build Include="dbo\Tables\SyncVersionTable.sql" />
     <Build Include="dbo\Tables\CarsToEquipment.sql" />
     <Build Include="dbo\Tables\Departments.sql" />
-    <Build Include="dbo\Tables\UsersToRoles.sql" />
-    <Build Include="dbo\Tables\Roles.sql" />
     <Build Include="dbo\Views\vwGetDepartmentOrdersByUserId.sql" />
     <Build Include="dbo\Views\vwGetCustomersRemarks.sql" />
     <Build Include="dbo\Views\View_1.sql" />
@@ -188,6 +186,8 @@
     <Build Include="dbo\Stored Procedures\EditEquipmentRecord.sql" />
     <Build Include="dbo\Stored Procedures\GetEquipmentManagementTableData.sql" />
     <Build Include="dbo\Stored Procedures\SyncOrders.sql" />
+    <Build Include="dbo\Tables\UsersToUserRoles.sql" />
+    <Build Include="dbo\Tables\UserRoles.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />
@@ -201,5 +201,10 @@
       <SqlOwnerName>dbo</SqlOwnerName>
       <SqlPermissionSet>SAFE</SqlPermissionSet>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <PostDeploy Include="1_PopulateDataForStatusesCategories.sql" />
+    <None Include="2_PopulateDataStatuses.sql" />
+    <None Include="3_PopulateDataUserRoles.sql" />
   </ItemGroup>
 </Project>

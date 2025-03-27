@@ -42,7 +42,7 @@ DECLARE @UpdatedRows INT
 			  ,[DepartmentName]
 			  ,[CalibStatusCode]
 			  ,[CalibStatus]
-			  ,[Device manufacturer]
+			  ,[DeviceManufacturer]
 			  ,[Klita]	
 	)	
 		SELECT [OrderNumber]

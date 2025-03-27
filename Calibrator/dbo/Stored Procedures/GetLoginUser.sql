@@ -1,4 +1,5 @@
-﻿CREATE PROCEDURE [dbo].[GetLoginUser]
+﻿
+CREATE PROCEDURE [dbo].[GetLoginUser]
     @email NVARCHAR(100),
     @password NVARCHAR(100)
 AS
@@ -44,10 +45,19 @@ BEGIN
     END
 
     -- If user exists, is active, and password is correct
-    SELECT dbo.Users.ID, dbo.Users.FirstName, dbo.Users.LastName, dbo.Users.Email, dbo.Users.Mobile, dbo.Roles.ID AS RoleId, dbo.Roles.RoleName
-	FROM            dbo.Roles INNER JOIN
-						dbo.UsersToRoles ON dbo.Roles.ID = dbo.UsersToRoles.RoleId  RIGHT OUTER JOIN
-						dbo.Users ON dbo.UsersToRoles.UserId = dbo.Users.ID
-	WHERE        (dbo.Users.Email = @email) AND (dbo.Users.Password = @password)
+	SELECT u.ID
+		,u.FirstName
+		,u.LastName
+		,u.Email
+		,u.Mobile
+		,r.UserRoleId AS RoleId
+		,ur.UserRoleName as RoleName
+		,ur.UserRoleDescriptionENG	
+		,ur.UserRoleDescriptionHEB
+	FROM dbo.Users as u
+	JOIN dbo.UsersToUserRoles as r ON r.UserId = u.ID
+	JOIN dbo.UserRoles as ur ON r.UserRoleId = ur.UserRoleId
+	WHERE u.Email = @email AND u.Password = @password
+
 
 END
