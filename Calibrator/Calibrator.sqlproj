@@ -188,6 +188,8 @@
     <Build Include="dbo\Stored Procedures\SyncOrders.sql" />
     <Build Include="dbo\Tables\UsersToUserRoles.sql" />
     <Build Include="dbo\Tables\UserRoles.sql" />
+    <Build Include="dbo\Stored Procedures\GetUsersByRole.sql" />
+    <Build Include="dbo\Stored Procedures\GetStatusByCategory.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />
