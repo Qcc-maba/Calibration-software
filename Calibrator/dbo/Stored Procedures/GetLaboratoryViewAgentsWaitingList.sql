@@ -14,8 +14,8 @@ BEGIN
 		,sv.[Customer Number] AS CustomerNumber
 		,sv.[Customer Name] AS CustomerName
 		,sv.klita as Klita
-	FROM [31.154.20.231].amaba.dbo.servcalls_view as sv
-	INNER JOIN [31.154.20.231].amaba.dbo.DOCSTATS ON sv.[סטטוס תעודת קליטה] = DOCSTATS.STATDES
+	FROM [31.168.173.93].amaba.dbo.servcalls_view as sv
+	INNER JOIN [31.168.173.93].amaba.dbo.DOCSTATS ON sv.[סטטוס תעודת קליטה] = DOCSTATS.STATDES
 	WHERE DOCSTATS.DOCSTAT IN( 62,63,91,58)
 	ORDER BY sv.[agent name]
 		,sv.klita

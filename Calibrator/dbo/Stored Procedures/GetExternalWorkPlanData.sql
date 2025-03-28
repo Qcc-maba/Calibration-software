@@ -46,7 +46,8 @@ BEGIN
         [MbaReportNumber] NVARCHAR(100),
         [PrintedNumber] NVARCHAR(100),
 		[ProducedIn] NVARCHAR(255),
-		[DeviceModel] NVARCHAR(100)
+		[DeviceModel] NVARCHAR(100),
+		[IsCancelled] BIT
 
     );
 
@@ -71,7 +72,8 @@ BEGIN
         [MbaReportNumber],
         [SerialNumber],
 		[DeviceManufacturer],
-		[DeviceModel]
+		[DeviceModel],
+		[IsCancelled]
     FROM [Calibrator].[dbo].[vwWorkPlan] WITH(NOLOCK)
     WHERE 
 
@@ -123,5 +125,4 @@ BEGIN
 		
     OFFSET (@PageNumber-1) * @RowsOfPage ROWS FETCH NEXT @RowsOfPage ROWS ONLY;
 
-	SET ANSI_WARNINGS ON;
 END

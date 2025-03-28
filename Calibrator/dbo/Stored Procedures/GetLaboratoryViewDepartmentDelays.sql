@@ -19,7 +19,7 @@ BEGIN
 		END  AS Color
 	FROM   (
 		SELECT TOP (100) PERCENT dbo.CustomerSupportDepartmentParts.Department, ROUND(COUNT(servcalls.SKU) / dbo.CustomerSupportDepartmentParts.Average, 1) AS Delay
-		FROM  [31.154.20.231].amaba.dbo.servcalls_view AS servcalls INNER JOIN
+		FROM  [31.168.173.93].amaba.dbo.servcalls_view AS servcalls INNER JOIN
 				dbo.CustomerSupportDepartmentParts ON servcalls.SKU = dbo.CustomerSupportDepartmentParts.Item
 		WHERE   (servcalls.[Service status] = 'נקלט')
 		GROUP BY dbo.CustomerSupportDepartmentParts.Department, dbo.CustomerSupportDepartmentParts.Average) AS CustomerSupportDepartmentDelays

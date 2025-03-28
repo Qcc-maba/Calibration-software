@@ -15,7 +15,7 @@ DECLARE @sql NVARCHAR(MAX);
                          dbo.vwGetOrderDevices.[Serial Number] AS [Embedded Number], dbo.vwGetOrderDevices.NextCalibDate AS [Calibration last date], dbo.vwGetOrderDevices.[Device model], 
                          dbo.vwGetCustomersRemarks.Remarks AS ClientRemarks
 	FROM            dbo.vwGetCustomersRemarks INNER JOIN
-							 [31.154.20.231].amaba.dbo.DOCUMENTS ON dbo.vwGetCustomersRemarks.CUST = DOCUMENTS.CUST INNER JOIN
+							 [31.168.173.93].amaba.dbo.DOCUMENTS ON dbo.vwGetCustomersRemarks.CUST = DOCUMENTS.CUST INNER JOIN
 							 dbo.vwGetOrderDevices ON DOCUMENTS.DOCNO = dbo.vwGetOrderDevices.[Order Number]
 	WHERE        (DOCUMENTS.DOCNO =  @OrderNumber) AND (dbo.vwGetOrderDevices.MBANUM = @MbaNumber)';
 	

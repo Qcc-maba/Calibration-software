@@ -35,6 +35,6 @@
     [BkGen]                BINARY (32)    NULL,
     [Deleted]              BIT            DEFAULT ((0)) NULL,
     [DeviceManufacturer]   NVARCHAR (255) NULL,
-    CONSTRAINT [PK_Orders_1] PRIMARY KEY CLUSTERED ([ID] ASC)
+    CONSTRAINT [PK_Orders_1] PRIMARY KEY CLUSTERED ([ID] ASC) WITH (DATA_COMPRESSION = PAGE)
 );
 

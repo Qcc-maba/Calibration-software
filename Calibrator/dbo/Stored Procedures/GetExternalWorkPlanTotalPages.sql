@@ -46,7 +46,8 @@ BEGIN
         [MbaReportNumber] NVARCHAR(100),
         [SerialNumber] NVARCHAR(100),
 		[DeviceManufacturer] NVARCHAR(100),
-		[DeviceModel] NVARCHAR(100)
+		[DeviceModel] NVARCHAR(100),
+		[IsCancelled] BIT
 
     );
 

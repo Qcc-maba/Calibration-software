@@ -4,7 +4,7 @@
 -- Description:	This SP should edit a record for the car management table.
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-172
 -- =============================================
-CREATE   PROCEDURE dbo.EditCarRecord
+CREATE   PROCEDURE [dbo].[EditCarRecord]
 @CarId INT,
 @LicenseNumber NVARCHAR(50),
 @Model NVARCHAR(50),
@@ -59,8 +59,8 @@ SELECT Value FROM dbo.ParseCSVToTable(@AssociatedEquipmentId)
 
 if EXISTS (
 SELECT 1 FROM #AssociatedEquipmentIDs as t
-LEFT JOIN [dbo].[Equipment] as e ON e.EquipmentId = t.EquipmentId
-WHERE  e.EquipmentId IS NULL
+LEFT JOIN [dbo].[CalibEquipments] as e ON e.ID = t.EquipmentId
+WHERE  e.ID IS NULL
 )
 THROW 51000, 'Incorrect or inactive equipment were found in list.', 1;
 
