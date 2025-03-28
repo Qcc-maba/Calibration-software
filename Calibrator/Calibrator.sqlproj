@@ -129,7 +129,6 @@
     <Build Include="dbo\Tables\Departments.sql" />
     <Build Include="dbo\Views\vwGetDepartmentOrdersByUserId.sql" />
     <Build Include="dbo\Views\vwGetCustomersRemarks.sql" />
-    <Build Include="dbo\Views\View_1.sql" />
     <Build Include="dbo\Views\vwInstruments.sql" />
     <Build Include="dbo\Views\vwGetOrdersData.sql" />
     <Build Include="dbo\Views\vwGetOrderDevices.sql" />
@@ -161,7 +160,6 @@
     <Build Include="dbo\Stored Procedures\GetOrdersScreen_Details.sql" />
     <Build Include="dbo\Stored Procedures\GetMeasurementDevices.sql" />
     <Build Include="dbo\Stored Procedures\GetCalibrators.sql" />
-    <Build Include="dbo\Stored Procedures\SyncOrdersTable.sql" />
     <Build Include="dbo\Stored Procedures\GetExternalWorkPlanData.sql" />
     <Build Include="dbo\Stored Procedures\GetDevicesByOrder.sql" />
     <Build Include="dbo\Stored Procedures\GetExternalWorkPlanTotalPages.sql" />

@@ -14,7 +14,7 @@ BEGIN
 
     -- Get Departments
 	SELECT	TOP (100) PERCENT DEPTNAME, DEPTDES
-	FROM    [31.154.20.231].amaba.dbo.DEPT
+	FROM    [31.168.173.93].amaba.dbo.DEPT
 	WHERE   (DEPTNAME <> '') AND (DEPTDES <> '')
 	ORDER BY DEPTDES;	
 

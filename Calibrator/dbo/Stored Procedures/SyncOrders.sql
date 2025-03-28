@@ -25,7 +25,7 @@ SELECT
       ,[MBAContactName]
       ,[MBAContactPhone]
       ,[MBAContactMobile]
-    --  ,[ClientRemarks]
+      ,[ClientRemarks]
       ,[MbaReportNumber]
       ,[Serial Number] as [SerialNumber]
       ,[Manufacturer Number] as [ManufacturerNumber]
@@ -57,7 +57,7 @@ SELECT
 			,COALESCE([MBAContactName], '')
 			,COALESCE([MBAContactPhone], '')
 			,COALESCE([MBAContactMobile], '')
-		--	,COALESCE([ClientRemarks], '')
+			,COALESCE([ClientRemarks], '')
 			,COALESCE([MbaReportNumber], '')
 			,COALESCE([Serial Number], '')
 			,COALESCE([Manufacturer Number], '')
@@ -77,7 +77,7 @@ SELECT
 			,COALESCE([Device manufacturer], '')
 			,COALESCE([Klita], '')
 			)) AS BkGen
-FROM [31.154.20.231].[amaba].[dbo].[vwGetOrders_WorkPlan_Full]
+FROM [31.168.173.93].[amaba].[dbo].[vwGetOrders_WorkPlan_Full]
 WHERE OpenDate >= DATEADD(year,-4,GETDATE())
 	) AS source
 	ON dest.[BkGen] = source.[BkGen]
@@ -96,7 +96,7 @@ WHEN NOT MATCHED BY TARGET
 			,[MBAContactName]
 			,[MBAContactPhone]
 			,[MBAContactMobile]
-		--	,[ClientRemarks]
+			,[ClientRemarks]
 			,[MbaReportNumber]
 			,[SerialNumber]
 			,[ManufacturerNumber]
@@ -131,7 +131,7 @@ WHEN NOT MATCHED BY TARGET
 			,source.[MBAContactName]
 			,source.[MBAContactPhone]
 			,source.[MBAContactMobile]
-			--,source.[ClientRemarks]
+			,source.[ClientRemarks]
 			,source.[MbaReportNumber]
 			,source.[SerialNumber]
 			,source.[ManufacturerNumber]

@@ -4,7 +4,7 @@
 -- Description:	This SP should edit a calendar event. It must take the event title, start time, end time, and a string with participant ids divided by comma.
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-183
 -- =============================================
-CREATE   PROCEDURE dbo.CreateCarRecord
+CREATE   PROCEDURE [dbo].[CreateCarRecord]
 @LicenseNumber NVARCHAR(50),
 @Model NVARCHAR(50),
 @NumberOfSeats TINYINT,
@@ -25,7 +25,7 @@ EXEC [dbo].[CreateCarRecord]
   ,@TreatmentPeriod = 30000
   ,@NextTreatment = '2025-03-19'
   ,@NextTestDate = '2026-03-19'
-  ,@AssociatedEquipmentIDs = '1,2,3,4'
+  ,@AssociatedEquipmentIDs = '1'
 */
 
 AS
@@ -45,8 +45,8 @@ SELECT Value FROM dbo.ParseCSVToTable(@AssociatedEquipmentIDs)
 --- Check equipment id's is valid
 if EXISTS (
 SELECT 1 FROM #AssociatedEquipmentIDs as t
-LEFT JOIN [dbo].[Equipment] as e ON e.EquipmentId = t.EquipmentId
-WHERE  e.EquipmentId IS NULL -----needs to be extened
+LEFT JOIN [dbo].[CalibEquipments] as e ON e.ID = t.EquipmentId
+WHERE  e.ID IS NULL -----needs to be extened
 )
 THROW 51000, 'Incorrect or inactive equipment were found in list.', 1;
 

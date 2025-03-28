@@ -4,7 +4,7 @@
 -- Description:	This SP should assign a car to a specific order. It should return the status of the operation.
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-182
 -- =============================================
-CREATE   PROCEDURE dbo.AssignCarToOrder
+CREATE   PROCEDURE [dbo].[AssignCarToOrder]
 @CarID INT,
 @OrderNumber NCHAR(12),
 @Date DATE,
@@ -39,23 +39,49 @@ WHERE c.CarId = @CarID
 )
 THROW 51000, 'Incorrect car id passed.', 1;
 
+DECLARE 
+@part0db BIT,
+@part1db BIT,
+@part2db BIT,
+@part3db BIT,
+@exists BIT
 
-if exists
-(
-SELECT 1 FROM [dbo].[CarsToOrder] as cto
-WHERE cto.CarId = @CarID AND cto.OrderNumber = @OrderNumber AND cto.AssignDate = @Date
-)
-THROW 51000, 'Car already assigned to order.', 1;
+SELECT  
+    @part0db = MAX(CASE WHEN QuarterId = 0 THEN 1 ELSE NULL END),
+    @part1db = MAX(CASE WHEN QuarterId = 1 THEN 1 ELSE NULL END),
+    @part2db = MAX(CASE WHEN QuarterId = 2 THEN 1 ELSE NULL END),
+    @part3db = MAX(CASE WHEN QuarterId = 3 THEN 1 ELSE NULL END)
+FROM #QuartersOfDay;
 
+SELECT  @part0db =  COALESCE(@part0db,AssignQuater0),
+		@part1db =  COALESCE(@part1db,AssignQuater1),
+		@part2db =  COALESCE(@part2db,AssignQuater2),
+		@part3db =  COALESCE(@part3db,AssignQuater3),
+		@exists = 1
+FROM [dbo].[CarsToOrder] as cto
+WHERE cto.CarId = @CarID AND cto.OrderNumber = @OrderNumber 
+		AND cto.AssignDate = @Date
+
+IF @exists IS NULL
 
 INSERT [dbo].[CarsToOrder](CarId,OrderNumber,AssignDate,AssignQuater0,AssignQuater1,AssignQuater2,AssignQuater3)
 SELECT @CarID as CarID, 
 	   @OrderNumber as OrderNumber,
 	   @Date as AssignDate,
-	   MAX(IIF(QuarterId = 0,1,NULL)) as AssignQuater0,
-	   MAX(IIF(QuarterId = 1,1,NULL)) as AssignQuater1,
-	   MAX(IIF(QuarterId = 2,1,NULL)) as AssignQuater2,
-	   MAX(IIF(QuarterId = 3,1,NULL)) as AssignQuater3
-FROM #QuartersOfDay
+	   @part0db as AssignQuater0,
+	   @part1db as AssignQuater1,
+	   @part2db as AssignQuater2,
+	   @part3db as AssignQuater3
+
+
+ELSE
+
+UPDATE [dbo].[CarsToOrder]
+SET AssignQuater0 = @part0db,
+	AssignQuater1 = @part1db,
+	AssignQuater2 = @part2db,
+	AssignQuater3 = @part3db
+WHERE CarId = @CarID AND OrderNumber = @OrderNumber 
+		AND AssignDate = @Date
 
 END
