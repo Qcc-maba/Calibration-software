@@ -187,6 +187,9 @@
     <Build Include="dbo\Tables\UserRoles.sql" />
     <Build Include="dbo\Stored Procedures\GetUsersByRole.sql" />
     <Build Include="dbo\Stored Procedures\GetStatusByCategory.sql" />
+    <Build Include="dbo\Stored Procedures\GetMeasurementDevicesCorrections.sql" />
+    <Build Include="dbo\Stored Procedures\GetConversionParameter.sql" />
+    <Build Include="dbo\Stored Procedures\CreateConversionParameter.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />
