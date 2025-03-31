@@ -102,7 +102,6 @@
     <Build Include="dbo\Tables\CalibEquipmentsToWorkplan.sql" />
     <Build Include="dbo\Tables\Notes.sql" />
     <Build Include="dbo\Tables\CalibrationHistory.sql" />
-    <Build Include="dbo\Tables\OrderDevices_.sql" />
     <Build Include="dbo\Tables\CalendarEventsToParticipants.sql" />
     <Build Include="dbo\Tables\Orders_.sql" />
     <Build Include="dbo\Tables\CalendarEvents.sql" />
@@ -190,6 +189,7 @@
     <Build Include="dbo\Stored Procedures\GetMeasurementDevicesCorrections.sql" />
     <Build Include="dbo\Stored Procedures\GetConversionParameter.sql" />
     <Build Include="dbo\Stored Procedures\CreateConversionParameter.sql" />
+    <None Include="4_CustomerSupportDepartmentParts.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />

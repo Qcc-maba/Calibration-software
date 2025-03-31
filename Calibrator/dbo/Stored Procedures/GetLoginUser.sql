@@ -57,7 +57,7 @@ BEGIN
 	FROM dbo.Users as u
 	JOIN dbo.UsersToUserRoles as r ON r.UserId = u.ID
 	JOIN dbo.UserRoles as ur ON r.UserRoleId = ur.UserRoleId
-	WHERE u.Email = @email AND u.Password = @password
+	WHERE u.Email = @email AND u.Password = @password AND ur.IsApplicationRole = 1
 
 
 END
