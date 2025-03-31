@@ -1,0 +1,20 @@
+﻿<?xml version="1.0"?>
+<DTS:ConnectionManager xmlns:DTS="www.microsoft.com/SqlServer/Dts"
+  DTS:DelayValidation="True"
+  DTS:ObjectName="SourceDB"
+  DTS:DTSID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}"
+  DTS:CreationName="ADO.NET:System.Data.SqlClient.SqlConnection, System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+  <DTS:PropertyExpression
+    DTS:Name="ConnectionString">@[$Project::OnPremSource]</DTS:PropertyExpression>
+  <DTS:ObjectData>
+    <DTS:ConnectionManager
+      DTS:ConnectionString="Data Source=10.3.0.3;User ID=kyulan;Initial Catalog=amaba;Persist Security Info=True;Encrypt=False;TrustServerCertificate=True;">
+      <DTS:Password
+        DTS:Name="Password"
+        Sensitive="1"
+        p4:Salt="GiJuLBQO8L8="
+        p4:IV="Ca/Mq+aviqf0z3TJuMfcWQ=="
+        p4:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" xmlns:p4="www.microsoft.com/SqlServer/SSIS">2ZYnN9TdS72rGirixp5VmVM8TUzOsr0EhQshKMQKVZRJIfzPL/GMHIzgRT4ScG2FFuXpCdDOCqFIkCIMJi2LooI4T0WbAaEQcweMGPCi6PuhFdn4BG1yVN7zNyWuvuhIK6XJrV4YF2sJQYXerqNo6hv772CHpvHYewGKUGyKyTs=</DTS:Password>
+    </DTS:ConnectionManager>
+  </DTS:ObjectData>
+</DTS:ConnectionManager>
