@@ -65,6 +65,10 @@
     <Folder Include="dbo\Stored Procedures\" />
     <Folder Include="Assemblies\" />
     <Folder Include="dbo\Synonyms\" />
+    <Folder Include="stg\" />
+    <Folder Include="stg\Tables\" />
+    <Folder Include="stg\Stored Procedures\" />
+    <Folder Include="Security\" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="dbo\Tables\DeviceTypes.sql" />
@@ -190,9 +194,13 @@
     <Build Include="dbo\Stored Procedures\GetConversionParameter.sql" />
     <Build Include="dbo\Stored Procedures\CreateConversionParameter.sql" />
     <None Include="4_CustomerSupportDepartmentParts.sql" />
+    <Build Include="stg\Tables\stg_Equip.sql" />
+    <Build Include="stg\Stored Procedures\MergeCalibEquipmentData.sql" />
+    <Build Include="Security\stg.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />
+    <None Include="AddETLUser.sql" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="hebutils">

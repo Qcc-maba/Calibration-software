@@ -58,6 +58,7 @@ BEGIN
 	JOIN dbo.UsersToUserRoles as r ON r.UserId = u.ID
 	JOIN dbo.UserRoles as ur ON r.UserRoleId = ur.UserRoleId
 	WHERE u.Email = @email AND u.Password = @password AND ur.IsApplicationRole = 1
+	AND u.ID > 0
 
 
 END
