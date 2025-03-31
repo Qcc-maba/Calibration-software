@@ -76,6 +76,7 @@ CONCAT(
       ,ce.[CarId]
 	  ,c.Model	
 	  ,c.LicenseNumber
+	  ,COUNT(1) OVER(PARTITION BY 1 ORDER BY ce.[ID] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
   FROM [dbo].[CalibEquipments] as ce
   JOIN [dbo].[Departments] as d ON ce.DepartmentId = d.ID
   LEFT JOIN [dbo].[Statuses] as s ON s.StatusId = ce.[StatusId]
