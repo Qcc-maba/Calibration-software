@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35919.96 d17.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{C9674DCB-5085-4A16-B785-4C70DD1589BD}") = "CalibratorSSIS", "CalibratorSSIS.dtproj", "{332EB5E9-C4A7-46FA-1F82-ACFF2220FB91}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Development|Default = Development|Default
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{332EB5E9-C4A7-46FA-1F82-ACFF2220FB91}.Development|Default.ActiveCfg = Development
+		{332EB5E9-C4A7-46FA-1F82-ACFF2220FB91}.Development|Default.Build.0 = Development
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3408B7CB-142B-4BB6-B1B7-E15E71A5C4E2}
+	EndGlobalSection
+EndGlobal
