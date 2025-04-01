@@ -16,8 +16,10 @@ CREATE    PROCEDURE [dbo].[GetEquipmentManagementTableData]
 @CalibratorId INT = -1,
 @CarId INT = -1,
 @MainCategory NVARCHAR(100)= NULL,
-@NextCalibrationDate DATE = NULL
-
+@NextCalibrationDate DATE = NULL,
+@CarLicenseNumber NVARCHAR(100)= NULL,
+@CalibratorFullName NVARCHAR(200) = NULL,
+@StatusDescription NVARCHAR(255) = NULL 
 /*
 EXEC dbo.GetEquipmentManagementTableData
 @DepartmentId  = 1,
@@ -59,6 +61,46 @@ SELECT 1 FROM Cars WHERE CarId = @CarId
 )
 THROW 51000, 'Incorrect car was assigned.', 1;
 
+IF @CalibratorFullName IS NOT NULL
+BEGIN
+DROP TABLE IF EXISTS #Calibrators
+CREATE TABLE #Calibrators
+(
+CalibratorId INT
+)
+INSERT #Calibrators(CalibratorId)
+SELECT u.ID FROM [dbo].[Users] as u 
+JOIN [dbo].[UsersToUserRoles] as r ON u.ID = r.UserId
+WHERE u.IsActive = 1 AND r.UserRoleId = 3 --Calibrator
+	AND (
+u.LastName LIKE '%'+@CalibratorFullName+'%' 
+		OR u.FirstName LIKE '%'+@CalibratorFullName+'%'
+		OR u.FirstNameEng LIKE '%'+@CalibratorFullName+'%'
+		OR u.LastNameEng LIKE '%'+@CalibratorFullName+'%'
+		OR CONCAT(u.FirstName,' ',u.LastName) LIKE '%'+@CalibratorFullName+'%'
+		OR CONCAT(u.FirstNameEng,' ',u.LastNameEng) LIKE '%'+@CalibratorFullName+'%'
+		OR CONCAT(u.LastName,' ',u.FirstName) LIKE '%'+@CalibratorFullName+'%'
+		OR CONCAT(u.LastNameEng,' ',u.FirstNameEng) LIKE '%'+@CalibratorFullName+'%'
+)
+END
+
+IF @StatusDescription IS NOT NULL
+BEGIN
+DROP TABLE IF EXISTS #StatusDescriptions
+CREATE TABLE #StatusDescriptions
+(
+StatusId INT
+)
+INSERT #StatusDescriptions(StatusId)
+SELECT s.StatusId
+	FROM [dbo].[Statuses] as s
+	JOIN [dbo].[StatusesCategories] as c On s.[StatusCategoryId] = c.[StatusCategoryId]
+	WHERE c.StatusDescriptionENG = 'CalibrationEquipmentStatus'
+	AND (s.StatusDescriptionENG LIKE '%'+@StatusDescription+'%'
+    OR s.StatusDescriptionHEB LIKE '%'+@StatusDescription+'%'
+	)
+END
+
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 'SELECT ce.[ID] AS EquipmentId
@@ -81,16 +123,20 @@ CONCAT(
   JOIN [dbo].[Departments] as d ON ce.DepartmentId = d.ID
   LEFT JOIN [dbo].[Statuses] as s ON s.StatusId = ce.[StatusId]
   LEFT JOIN [dbo].[Users] as u ON ce.[CalibratorId] = u.ID
-  LEFT JOIN [dbo].[Cars] as c ON ce.[CarId] = c.CarId
+  LEFT JOIN [dbo].[Cars] as c ON ce.[CarId] = c.CarId'
+  ,CASE WHEN @CalibratorFullName IS NOT NULL THEN ' JOIN #Calibrators as cf ON ce.[CalibratorId] = cf.[CalibratorId] ' ELSE ' ' END
+  ,CASE WHEN @StatusDescription IS NOT NULL THEN ' JOIN #StatusDescriptions as sdf ON ce.[StatusId] = sdf.[StatusId] ' ELSE ' ' END
+  ,'
   WHERE 1=1'
   ,CASE WHEN @EquipmentName IS NOT NULL THEN' AND ce.[EquipmentName] = '''+ @EquipmentName+''' 'ELSE ' ' END
-  ,CASE WHEN @SerialNumber IS NOT NULL THEN' AND ce.[SerialNumber] = '''+ @SerialNumber+''' 'ELSE ' ' END
-  ,CASE WHEN @MainCategory IS NOT NULL THEN' AND ce.[MainCategory] = '''+ @MainCategory+''' 'ELSE ' ' END
+  ,CASE WHEN @SerialNumber IS NOT NULL THEN' AND ce.[SerialNumber] LIKE ''%'+ @SerialNumber+'%'' 'ELSE ' ' END
+  ,CASE WHEN @CarLicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] LIKE ''%'+ @CarLicenseNumber+'%'' 'ELSE ' ' END
+  ,CASE WHEN @MainCategory IS NOT NULL THEN' AND ce.[MainCategory] LIKE ''%'+ @MainCategory+'%'' 'ELSE ' ' END
   ,CASE WHEN @StatusId > 0 THEN' AND ce.[StatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @CalibratorId > 0 THEN' AND ce.[CalibratorId] = '+CAST(@CalibratorId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @DepartmentId > 0 THEN' AND ce.[DepartmentId] = '+CAST(@DepartmentId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @CarId > 0 THEN' AND ce.[CarId] = '+CAST(@CarId as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @NextCalibrationDate IS NOT NULL THEN' AND ce.[NextCalibrationDate] = '''+CAST(@NextCalibrationDate as NVARCHAR(50))+''' 'ELSE ' ' END
+  ,CASE WHEN @NextCalibrationDate IS NOT NULL AND @NextCalibrationDate > '1900-01-01' THEN' AND ce.[NextCalibrationDate] = '''+CAST(@NextCalibrationDate as NVARCHAR(50))+''' 'ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql

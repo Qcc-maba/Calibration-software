@@ -198,6 +198,8 @@
     <Build Include="stg\Stored Procedures\MergeCalibEquipmentData.sql" />
     <Build Include="Security\stg.sql" />
     <Build Include="dbo\Stored Procedures\AssignCarToEquipment.sql" />
+    <Build Include="stg\Tables\stg_Orders.sql" />
+    <Build Include="stg\Stored Procedures\MergeOrdersData.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />

@@ -57,8 +57,10 @@ CalibratorId INT
 )
 INSERT #Calibrators(CalibratorId)
 SELECT u.ID FROM [dbo].[Users] as u 
-WHERE u.IsActive = 1 AND (
-u.LastName LIKE '%'+@CalibratorFullName+'%' 
+JOIN [dbo].[UsersToUserRoles] as r ON u.ID = r.UserId
+WHERE u.IsActive = 1 AND r.UserRoleId = 3 --Calibrator
+      AND (
+        u.LastName LIKE '%'+@CalibratorFullName+'%' 
 		OR u.FirstName LIKE '%'+@CalibratorFullName+'%'
 		OR u.FirstNameEng LIKE '%'+@CalibratorFullName+'%'
 		OR u.LastNameEng LIKE '%'+@CalibratorFullName+'%'
@@ -158,7 +160,7 @@ CONCAT(
 	  ,CONCAT(u.FirstNameEng,'' '', u.LastNameEng) '
   ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
-PRINT @sql
+--PRINT @sql
 EXEC sp_executesql @sql
 
 END
