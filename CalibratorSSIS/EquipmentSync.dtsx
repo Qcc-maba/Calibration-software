@@ -12,8 +12,8 @@
   DTS:ObjectName="EquipmentSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="11"
-  DTS:VersionGUID="{2C4FB472-0129-41FC-93B9-A11D04FE1738}">
+  DTS:VersionBuild="12"
+  DTS:VersionGUID="{CA2B1355-A4C8-466A-B1E2-B501F60634F8}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -370,7 +370,7 @@ JOIN WorkPlan.dbo.LABORATORY_WS as l ON e.LAB_EQUIP = l.ID_LAB</property>
       <DTS:ObjectData>
         <SQLTask:SqlTaskData
           SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
-          SQLTask:SqlStatementSource="TRUNCATE TABLE stg.stg_Equip" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
+          SQLTask:SqlStatementSource="EXEC stg.MergeCalibEquipmentData" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
       </DTS:ObjectData>
     </DTS:Executable>
     <DTS:Executable
@@ -425,6 +425,10 @@ JOIN WorkPlan.dbo.LABORATORY_WS as l ON e.LAB_EQUIP = l.ID_LAB</property>
           Id="Package\Load data to stg_Equip"
           TopLeft="124.666660155687,106.033332634237" />
         <NodeLayout
+          Size="224,41.6"
+          Id="Package\Merge data to CalibEquipments"
+          TopLeft="103.833327960636,200.699999349117" />
+        <NodeLayout
           Size="168.8,41.6"
           Id="Package\Truncate stg_Equip"
           TopLeft="128.333326321509,26.8666664798392" />
@@ -450,10 +454,6 @@ JOIN WorkPlan.dbo.LABORATORY_WS as l ON e.LAB_EQUIP = l.ID_LAB</property>
             <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
-        <NodeLayout
-          Size="224,41.6"
-          Id="Package\Merge data to CalibEquipments"
-          TopLeft="103.833327960636,200.699999349117" />
         <EdgeLayout
           Id="Package.PrecedenceConstraints[Constraint 1]"
           TopLeft="216.449994058162,147.633332634237">
@@ -518,7 +518,7 @@ JOIN WorkPlan.dbo.LABORATORY_WS as l ON e.LAB_EQUIP = l.ID_LAB</property>
     </LayoutInfo>
   </TaskHost>
   <PipelineComponentMetadata
-    design-time-name="Package\Load data to stg_Equip\Insert data to Calibrator staging">
+    design-time-name="Package\Load data to stg_Equip\Get data from WorkPlan">
     <Properties>
       <Property>
         <Name>DataSourceViewID</Name>
@@ -526,7 +526,7 @@ JOIN WorkPlan.dbo.LABORATORY_WS as l ON e.LAB_EQUIP = l.ID_LAB</property>
     </Properties>
   </PipelineComponentMetadata>
   <PipelineComponentMetadata
-    design-time-name="Package\Load data to stg_Equip\Get data from WorkPlan">
+    design-time-name="Package\Load data to stg_Equip\Insert data to Calibrator staging">
     <Properties>
       <Property>
         <Name>DataSourceViewID</Name>
