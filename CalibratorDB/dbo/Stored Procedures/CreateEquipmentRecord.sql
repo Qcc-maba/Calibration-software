@@ -4,7 +4,7 @@
 -- Description:	This SP should edit a calendar event. It must take the event title, start time, end time, and a string with participant ids divided by comma.
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-173
 -- =============================================
-CREATE   PROCEDURE dbo.CreateEquipmentRecord
+CREATE   PROCEDURE [dbo].[CreateEquipmentRecord]
  @DepartmentId INT
 ,@StatusId INT
 ,@EquipmentName NVARCHAR(255)
@@ -46,7 +46,7 @@ THROW 51000, 'Incorrect @StatusId', 1;
 IF @StatusId NOT IN (SELECT StatusId
 				FROM [dbo].[Statuses] as s
 				JOIN [dbo].[StatusesCategories] as c On s.[StatusCategoryId] = c.[StatusCategoryId]
-				WHERE c.StatusDescriptionENG = 'EquipmentStatus' )
+				WHERE c.StatusDescriptionENG = 'CalibrationEquipmentStatus' )
 THROW 51000, 'Incorrect status was assigned.', 1;
 
 if @CalibratorId IS NOT NULL AND NOT EXISTS (

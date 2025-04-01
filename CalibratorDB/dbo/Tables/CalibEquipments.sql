@@ -13,7 +13,7 @@
     [CreatedDate]         DATETIME2 (0)  DEFAULT (getdate()) NULL,
     [UpdatedDate]         DATETIME2 (0)  NULL,
     [UpdatedByUserId]     INT            NULL,
-    [SourceId]            INT            NOT NULL,
+    [SourceId]            INT            NULL,
     CONSTRAINT [PK_Tools] PRIMARY KEY CLUSTERED ([ID] ASC),
     CONSTRAINT [FK_CalibEquipments_CalibratorId] FOREIGN KEY ([CalibratorId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_CalibEquipments_CarId] FOREIGN KEY ([CarId]) REFERENCES [dbo].[Cars] ([CarId]),
