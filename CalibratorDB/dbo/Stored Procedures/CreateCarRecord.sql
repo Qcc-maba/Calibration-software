@@ -46,9 +46,9 @@ SELECT Value FROM dbo.ParseCSVToTable(@AssociatedEquipmentIDs)
 if EXISTS (
 SELECT 1 FROM #AssociatedEquipmentIDs as t
 LEFT JOIN [dbo].[CalibEquipments] as e ON e.ID = t.EquipmentId
-WHERE  e.ID IS NULL -----needs to be extened
+WHERE  e.ID IS NULL OR e.StatusId <> 30
 )
-THROW 51000, 'Incorrect or inactive equipment were found in list.', 1;
+THROW 51000, 'Incorrect or inactive equipment were found in list or equipment not in available state.', 1;
 
 if EXISTS (
 SELECT 1 FROM [dbo].[Cars] as c

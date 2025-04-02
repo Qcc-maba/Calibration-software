@@ -11,7 +11,7 @@ CREATE   PROCEDURE [dbo].[CreateEquipmentRecord]
 ,@SerialNumber NVARCHAR(100) = NULL
 ,@CalibratorId INT = NULL
 ,@MainCategory NVARCHAR(100) = NULL
-,@NextCalibrationDate DATE
+,@NextCalibrationDate DATE = NULL
 ,@CarId INT = NULL
 
 /*
@@ -78,7 +78,7 @@ VALUES
 ,@SerialNumber
 ,@CalibratorId
 ,@MainCategory
-,@NextCalibrationDate
+,NULLIF(@NextCalibrationDate,'1900-01-01')
 ,@CarId
 )
 END

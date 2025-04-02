@@ -10,7 +10,7 @@ CREATE   PROCEDURE [dbo].[AssignCarToOrder]
 @Date DATE,
 @QuartersOfDay NVARCHAR(10)
 
---EXEC dbo.AssignCarToOrder @CarID = 3,@OrderNumber = 'LA24101404',@Date = '2025-04-11',@QuartersOfDay ='0,1,2,3'
+--EXEC dbo.AssignCarToOrder @CarID = 3,@OrderNumber = 'LA25101669',@Date = '2025-04-11',@QuartersOfDay ='0,1,2,3'
 
 AS
 BEGIN
@@ -27,10 +27,10 @@ SELECT Value FROM dbo.ParseCSVToTable(@QuartersOfDay)
 if (SELECT SUM(QuarterId) FROM #QuartersOfDay) > 6
 THROW 51000, 'Incorrect values passed for quaters.', 1;
 
-if NOT EXISTS (
-SELECT 1 FROM Orders as o 
-WHERE OrderNumber = @OrderNumber --add filters for isdeleted and isactive
-)
+DECLARE @OrderWorkPlanId INT
+SELECT @OrderWorkPlanId =  o.OrderWorkPlanId FROM [dbo].[OrderWorkPlans] as o 
+WHERE o.OrderNumber = @OrderNumber 
+IF @OrderWorkPlanId IS NULL
 THROW 51000, 'Incorrect or not active order number passed.', 1;
 
 if NOT EXISTS (
@@ -59,14 +59,14 @@ SELECT  @part0db =  COALESCE(@part0db,AssignQuater0),
 		@part3db =  COALESCE(@part3db,AssignQuater3),
 		@exists = 1
 FROM [dbo].[CarsToOrder] as cto
-WHERE cto.CarId = @CarID AND cto.OrderNumber = @OrderNumber 
+WHERE cto.CarId = @CarID AND cto.OrderWorkPlanId = @OrderWorkPlanId 
 		AND cto.AssignDate = @Date
 
 IF @exists IS NULL
 
-INSERT [dbo].[CarsToOrder](CarId,OrderNumber,AssignDate,AssignQuater0,AssignQuater1,AssignQuater2,AssignQuater3)
+INSERT [dbo].[CarsToOrder](CarId,OrderWorkPlanId,AssignDate,AssignQuater0,AssignQuater1,AssignQuater2,AssignQuater3)
 SELECT @CarID as CarID, 
-	   @OrderNumber as OrderNumber,
+	   @OrderWorkPlanId as OrderWorkPlanId,
 	   @Date as AssignDate,
 	   @part0db as AssignQuater0,
 	   @part1db as AssignQuater1,
@@ -81,7 +81,7 @@ SET AssignQuater0 = @part0db,
 	AssignQuater1 = @part1db,
 	AssignQuater2 = @part2db,
 	AssignQuater3 = @part3db
-WHERE CarId = @CarID AND OrderNumber = @OrderNumber 
+WHERE CarId = @CarID AND OrderWorkPlanId = @OrderWorkPlanId 
 		AND AssignDate = @Date
 
 END

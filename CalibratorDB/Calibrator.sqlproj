@@ -90,20 +90,17 @@
     <Build Include="dbo\Tables\MBA_CALIBLOAD_INIT.sql" />
     <Build Include="dbo\Tables\InstrCorrections.sql" />
     <Build Include="dbo\Tables\MBA_CALIBLOAD.sql" />
-    <Build Include="dbo\Tables\SpecialCareToWorkPlan.sql" />
     <Build Include="dbo\Tables\Translate.sql" />
     <Build Include="dbo\Tables\WorkPlan.sql" />
     <Build Include="dbo\Tables\UserMessages.sql" />
     <Build Include="dbo\Tables\CustomerSupportDepartmentParts.sql" />
     <Build Include="dbo\Tables\UsersToDepartments.sql" />
     <Build Include="dbo\Tables\Calibrators.sql" />
-    <Build Include="dbo\Tables\CalibratedUnitsToWorkPlan.sql" />
     <Build Include="dbo\Tables\ReportStatus.sql" />
     <Build Include="dbo\Tables\CalibEquipments.sql" />
     <Build Include="dbo\Tables\Orders.sql" />
     <Build Include="dbo\Tables\Units.sql" />
     <Build Include="dbo\Tables\MeasurementDevicesManufacturers.sql" />
-    <Build Include="dbo\Tables\CalibEquipmentsToWorkplan.sql" />
     <Build Include="dbo\Tables\Notes.sql" />
     <Build Include="dbo\Tables\CalibrationHistory.sql" />
     <Build Include="dbo\Tables\CalendarEventsToParticipants.sql" />
@@ -200,6 +197,21 @@
     <Build Include="dbo\Stored Procedures\AssignCarToEquipment.sql" />
     <Build Include="stg\Tables\stg_Orders.sql" />
     <Build Include="stg\Stored Procedures\MergeOrdersData.sql" />
+    <Build Include="dbo\Tables\OrderWorkPlans.sql" />
+    <Build Include="dbo\Tables\OrderDetails.sql" />
+    <Build Include="dbo\Tables\ClientRemarks.sql" />
+    <Build Include="dbo\Tables\CalibEquipmentsToOrderHeaders.sql" />
+    <Build Include="Security\RoleMemberships_1.sql" />
+    <Build Include="Security\RoleMemberships_2.sql" />
+    <Build Include="Security\RoleMemberships_3.sql" />
+    <Build Include="Security\RoleMemberships_4.sql" />
+    <Build Include="Security\RoleMemberships_5.sql" />
+    <Build Include="Security\RoleMemberships_6.sql" />
+    <Build Include="Security\RoleMemberships_7.sql" />
+    <Build Include="Security\RoleMemberships_8.sql" />
+    <Build Include="dbo\Stored Procedures\GetDepartments.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllEquipment.sql" />
+    <Build Include="dbo\Stored Procedures\AssignEquipmentToOrder.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />

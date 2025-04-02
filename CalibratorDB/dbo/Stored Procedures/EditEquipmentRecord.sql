@@ -4,7 +4,7 @@
 -- Description:	This SP should edit a record for the equipment management table. 
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-174
 -- =============================================
-CREATE   PROCEDURE dbo.EditEquipmentRecord
+CREATE   PROCEDURE [dbo].[EditEquipmentRecord]
  @ID INT
 ,@DepartmentId INT
 ,@StatusId INT
@@ -12,7 +12,7 @@ CREATE   PROCEDURE dbo.EditEquipmentRecord
 ,@SerialNumber NVARCHAR(100) = NULL
 ,@CalibratorId INT = NULL
 ,@MainCategory NVARCHAR(100) = NULL
-,@NextCalibrationDate DATE
+,@NextCalibrationDate DATE = NULL
 ,@CarId INT = NULL
 
 /*
@@ -25,7 +25,7 @@ EXEC dbo.EditEquipmentRecord
 ,@CalibratorId = 107
 ,@MainCategory = 'Test category'
 ,@NextCalibrationDate = '2025-03-24'
-,@CarId = 1
+,@CarId = ''
 */
 
 AS
@@ -54,7 +54,7 @@ THROW 51000, 'Incorrect @StatusId', 1;
 IF @StatusId NOT IN (SELECT StatusId
 				FROM [dbo].[Statuses] as s
 				JOIN [dbo].[StatusesCategories] as c On s.[StatusCategoryId] = c.[StatusCategoryId]
-				WHERE c.StatusDescriptionENG = 'EquipmentStatus' )
+				WHERE c.StatusDescriptionENG = 'CalibrationEquipmentStatus' )
 THROW 51000, 'Incorrect status was assigned.', 1;
 
 if @CalibratorId IS NOT NULL AND NOT EXISTS (
@@ -76,7 +76,7 @@ UPDATE [dbo].[CalibEquipments]
       ,[SerialNumber] = @SerialNumber
       ,[CalibratorId] = @CalibratorId
       ,[MainCategory] = @MainCategory
-      ,[NextCalibrationDate] = @NextCalibrationDate
+      ,[NextCalibrationDate] = NULLIF(@NextCalibrationDate,'1900-01-01')
       ,[CarId] = @CarId
       ,[UpdatedDate] = GETDATE()
  WHERE ID = @ID

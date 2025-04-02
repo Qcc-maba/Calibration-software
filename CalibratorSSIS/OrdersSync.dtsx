@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="16"
-  DTS:VersionGUID="{F271B950-00BF-4BD8-825C-22526BF95B0E}">
+  DTS:VersionBuild="17"
+  DTS:VersionGUID="{F8F026CF-0EC5-4F68-9AB3-ABCC71C1B645}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />

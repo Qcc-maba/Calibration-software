@@ -4,8 +4,10 @@
     [CalibratorsId] INT NOT NULL,
     CONSTRAINT [PK_CalibratorsToWorkPlan] PRIMARY KEY CLUSTERED ([ID] ASC),
     CONSTRAINT [FK_CalibratorsToWorkPlan_Calibrators] FOREIGN KEY ([CalibratorsId]) REFERENCES [dbo].[Calibrators] ([ID]),
-    CONSTRAINT [FK_CalibratorsToWorkPlan_WorkPlan] FOREIGN KEY ([WorkPlanId]) REFERENCES [dbo].[WorkPlan] ([Id])
+    CONSTRAINT [FK_CalibratorsToWorkPlan_WorkPlan] FOREIGN KEY ([WorkPlanId]) REFERENCES [dbo].[OrderWorkPlans] ([OrderWorkPlanId])
 );
+
+
 
 
 GO
