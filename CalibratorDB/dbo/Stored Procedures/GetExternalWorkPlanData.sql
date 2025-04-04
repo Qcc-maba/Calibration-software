@@ -69,28 +69,6 @@ BEGIN
 
 	END
 
-  -- Create a table variable to hold filtered results
-  --  DECLARE @FilteredResults TABLE (
-  --      [OrderNumber] NVARCHAR(20),--+
-  --      [Date] DATETIME,--+
-  --      [WorkOrder] NVARCHAR(100),---
-  --      [SpecialCares] NVARCHAR(100),--+
-  --      [ClientName] NVARCHAR(255),--+
-  --      [Location] NVARCHAR(100),--+
-  --      [MainCategoties] NVARCHAR(100),---
-  --      [WorkPlanOpenDate] DATETIME,--+
-  --      [Cars] NVARCHAR(100),--+
-  --      [Calibrators] NVARCHAR(100),--+
-  --      [Equipments] NVARCHAR(100),--+
-  --      [Notes] NVARCHAR(100),--+ client remarks
-  --      [ProductType] NVARCHAR(100),---
-  --      [DeviceDescription] NVARCHAR(100),---
-  --      [MainCategory] NVARCHAR(100),--+
-  --      [MbaReportNumber] NVARCHAR(100),---
-  --      [PrintedNumber] NVARCHAR(100),---
-		--[ProducedIn] NVARCHAR(255),---
-		--[DeviceModel] NVARCHAR(100),---
-		--[IsCancelled] BIT
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 '
@@ -102,7 +80,6 @@ CONCAT(
         od.[CustomerCity] as [Location],
         wp.[WorkPlanOpenDate] as [WorkPlanOpenDate],
         co.[Cars],
-        cp.Calibrators,
         coh.Equipments,
         NULL as Notes,
 		wp.[IsCancelled]
@@ -117,13 +94,6 @@ CONCAT(
 		GROUP BY co.OrderWorkPlanId
 	 ) as co
 	ON wp.OrderWorkPlanId = co.OrderWorkPlanId
-	LEFT JOIN 
-	(
-		SELECT cp.OrderWorkPlanId, STRING_AGG(cp.CalibratorId,'','') AS Calibrators
-		FROM [dbo].[CalibratorsToWorkPlan] as cp 
-		GROUP BY cp.OrderWorkPlanId
-	) as cp
-	ON wp.OrderWorkPlanId = cp.OrderWorkPlanId 
 	LEFT JOIN 
 	( 
 	  SELECT coh.OrderWorkPlanId, STRING_AGG(coh.CalibEquipmentId,'','') as Equipments
@@ -153,7 +123,6 @@ CONCAT(
 	od.[CustomerCity],
 	wp.[WorkPlanOpenDate],
 	co.[Cars],
-    cp.[Calibrators],
     coh.[Equipments],
 	wp.[IsCancelled]'
   ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '

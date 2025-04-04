@@ -1,0 +1,21 @@
+﻿-- =============================================
+-- Author:		Eduard Kudlaiev
+-- Create date: 04/04/2025
+-- Description:	Get info about calibrators for specific order
+-- JiraLink: 
+-- =============================================
+CREATE   Procedure dbo.GetAssignedCalibratorsForOrders
+@OrderNumber NVARCHAR(100)
+AS
+SELECT 
+ctp.OrderWorkPlanId,
+p.OrderNumber,
+u.ID AS UserId,
+u.FirstName AS FirstNameHEB,
+u.LastName AS LastNameHEB,
+u.FirstNameEng AS FirstNameENG,
+u.LastNameEng AS LastNameENG
+FROM [dbo].[CalibratorsToWorkPlan] as ctp
+JOIN [dbo].[OrderWorkPlans] as p ON ctp.OrderWorkPlanId = p.OrderWorkPlanId
+JOIN [dbo].[Users] as u ON ctp.CalibratorId = u.ID
+WHERE p.OrderNumber = @OrderNumber

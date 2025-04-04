@@ -201,6 +201,8 @@
     <Build Include="dbo\Stored Procedures\GetDepartments.sql" />
     <Build Include="dbo\Stored Procedures\GetAllEquipment.sql" />
     <Build Include="dbo\Stored Procedures\AssignEquipmentToOrder.sql" />
+    <Build Include="dbo\Stored Procedures\GetAssignedCalibratorsForOrders.sql" />
+    <Build Include="dbo\Stored Procedures\GetAssignedSpecialCaresForOrders.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />
