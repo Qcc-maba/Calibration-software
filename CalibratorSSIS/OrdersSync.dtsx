@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="17"
-  DTS:VersionGUID="{F8F026CF-0EC5-4F68-9AB3-ABCC71C1B645}">
+  DTS:VersionBuild="18"
+  DTS:VersionGUID="{CAEF46A4-A587-48CB-8CF0-C2CD8608102D}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -78,7 +78,7 @@
       ,[PART]
       ,[Klita]
   FROM [dbo].[vwGetOrders_WorkPlan_Full]
-  WHERE [OpenDate] &gt; DATEADD(MONTH,-3,GETDATE())</property>
+  WHERE [OpenDate] &gt; DATEADD(DAY,-7,GETDATE())</property>
                 <property
                   dataType="System.Int32"
                   description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
@@ -1368,13 +1368,13 @@
       <GraphLayout
         Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
-          Size="176,41.6"
-          Id="Package\Load data to stg_Orders\Get data from amaba"
-          TopLeft="325.999995142222,96.9999985545874" />
-        <NodeLayout
           Size="223.2,41.6"
           Id="Package\Load data to stg_Orders\Insert data to Calibrator staging"
           TopLeft="309.99999538064,213.999996811152" />
+        <NodeLayout
+          Size="176,41.6"
+          Id="Package\Load data to stg_Orders\Get data from amaba"
+          TopLeft="325.999995142222,96.9999985545874" />
         <EdgeLayout
           Id="Package\Load data to stg_Orders.Paths[ADO NET Source Output]"
           TopLeft="417.799995261431,138.599998554587">

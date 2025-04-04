@@ -22,14 +22,13 @@ SELECT
 	,od.OrderWorkPlanId as OrderId
 	,od.PartDescription AS [Device type]
 	,od.DepartmentId 
-	,d.DepartmentName AS [Main field]
-	,od.DeviceDescription AS [Secondary field]
+	,od.MainCategory AS [Main field]
+	,od.SecondCategory AS [Secondary field]
 	,od.SerialNumber AS [Device number]
 	,od.DeviceModel AS [Device model]
 	,od.MbaReportNumber
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
-LEFT JOIN [dbo].[Departments] as d ON d.ID = od.DepartmentId
 WHERE (OrderNumber = TRIM(@OrderNumber))
 
 ORDER BY OrderNumber

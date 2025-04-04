@@ -5,13 +5,13 @@
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-180
 -- =============================================
 
-CREATE   PROCEDURE dbo.AssignCalibratorsToOrder
+CREATE   PROCEDURE [dbo].[AssignCalibratorsToOrder]
 @OrderNumber NCHAR(12),
 @StartDate DATETIME2(0),
 @CalibratorIDs NVARCHAR(300),
 @Note NVARCHAR(255)
 
---exec dbo.AssignCalibratorsToOrder @OrderNumber = N'LA24101900', @StartDate = '2025-03-17 16:23:00', @CalibratorIDs = '2,6,7', @Note = N'test record'
+--exec dbo.AssignCalibratorsToOrder @OrderNumber = N'LA25100557', @StartDate = '2025-03-17 16:23:00', @CalibratorIDs = '2,6,7,8', @Note = N'test record'
 AS
 BEGIN
 
@@ -34,25 +34,25 @@ WHERE ul.ID IS NULL OR ul.IsActive = 0
 )
 THROW 51000, 'Incorrect or inactive calibrators were found in list.', 1;
 
-if EXISTS (
-SELECT wp.Notes FROM [dbo].[WorkPlan] as wp
-WHERE wp.OrderNumber = @OrderNumber and wp.Notes = @Note AND wp.OpenDate = @StartDate
-)
-THROW 51000, 'Event workplan exist.', 1;
-
 DECLARE @WorkPlanId INT
 
-BEGIN TRANSACTION
+SELECT @WorkPlanId = wp.OrderWorkPlanId FROM [dbo].[OrderWorkPlans]  as wp
+WHERE wp.OrderNumber = @OrderNumber 
 
-INSERT [dbo].[WorkPlan] (OrderNumber,Notes,OpenDate)
-VALUES (@OrderNumber,@Note,@StartDate)
 
-SELECT @WorkPlanId = SCOPE_IDENTITY()  
+BEGIN TRAN 
 
-INSERT dbo.CalibratorsToWorkPlan(WorkPlanId,CalibratorsId)
+UPDATE [dbo].[OrderWorkPlans]
+SET Notes = @Note
+WHERE OrderWorkPlanId = @WorkPlanId
+
+INSERT dbo.CalibratorsToWorkPlan(OrderWorkPlanId,CalibratorId)
 SELECT DISTINCT @WorkPlanId, CalibratorID
-FROM #CalibratorIDs
+FROM #CalibratorIDs as c 
+LEFT JOIN dbo.CalibratorsToWorkPlan as wp ON c.CalibratorID = wp.CalibratorId AND wp.OrderWorkPlanId = @WorkPlanId
+WHERE wp.CalibratorId IS NULL
 
 COMMIT
 
 END
+ROLLBACK

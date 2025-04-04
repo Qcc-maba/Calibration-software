@@ -4,7 +4,7 @@
 -- Description:	Assign equipment to order
 -- JiraLink: 
 -- =============================================
-CREATE   PROCEDURE dbo.AssignEquipmentToOrder
+CREATE   PROCEDURE [dbo].[AssignEquipmentToOrder]
 @OrderID INT,
 @EquipmentIDs NVARCHAR(200)
 
@@ -33,24 +33,18 @@ WHERE  e.ID IS NULL OR e.StatusId <> 30 -- only available equipment
 )
 THROW 51000, 'Incorrect or inactive equipment were found in list or equipment not in available state.', 1;
 
-/*
-if NOT EXISTS (
-SELECT 1 FROM [dbo].[Users] WHERE Email = @Email AND IsActive = 1
-)
-THROW 51000, 'Incorrect or inactive user provided.', 1;
-
-DECLARE @UserId INT
-SELECT @UserId = ID FROM [dbo].[Users] WHERE Email = @Email*/
-
 INSERT [dbo].[CalibEquipmentsToOrderHeaders]
 (
-OrderId,
+OrderWorkPlanId,
 CalibEquipmentId
 )
 SELECT 
     @OrderID,
 	EquipmentId
-FROM #AssociatedEquipmentIDs
+FROM #AssociatedEquipmentIDs as aei
+LEFT JOIN [dbo].[CalibEquipmentsToOrderHeaders] as cih 
+		ON cih.CalibEquipmentId = aei.EquipmentId AND cih.OrderWorkPlanId = @OrderID
+WHERE aei.EquipmentId IS NULL
 
 
 END

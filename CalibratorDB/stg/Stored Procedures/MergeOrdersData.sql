@@ -4,7 +4,7 @@
 -- Description:	Merge orders data from amaba
 -- JiraLink: 
 -- =============================================
-CREATE PROCEDURE stg.MergeOrdersData
+CREATE PROCEDURE [stg].[MergeOrdersData]
 AS
 BEGIN
 
@@ -13,7 +13,6 @@ DECLARE @dt DATETIME2(0) = GETDATE()
 MERGE INTO [dbo].[OrderWorkPlans] AS dest
 USING (
 	SELECT DISTINCT [OrderNumber]
-		,NULL AS [SpecialCareTypeId]
 		,[OpenDate] AS [WorkPlanOpenDate]
 		,GETDATE() AS [CreatedDate]
 		,0 AS [CreatedByUserId]
@@ -24,21 +23,18 @@ WHEN MATCHED
 	AND dest.[WorkPlanOpenDate] <> source.[WorkPlanOpenDate]
 	THEN
 		UPDATE
-		SET dest.[SpecialCareTypeId] = source.[SpecialCareTypeId]
-			,dest.[WorkPlanOpenDate] = source.[WorkPlanOpenDate]
+		SET dest.[WorkPlanOpenDate] = source.[WorkPlanOpenDate]
 			,dest.[UpdatedDate] = @dt
 			,dest.[UpdatedByUserId] = 0
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
 			[OrderNumber]
-			,[SpecialCareTypeId]
 			,[WorkPlanOpenDate]
 			,[CreatedByUserId]
 			)
 		VALUES (
 			source.[OrderNumber]
-			,source.[SpecialCareTypeId]
 			,source.[WorkPlanOpenDate]
 			,0
 			);
@@ -56,12 +52,11 @@ USING (
 		,o.[MBAContactName]
 		,o.[MBAContactPhone]
 		,o.[MBAContactMobile]
-		,NULL AS [MainCategoties]
 		,o.[InHouse] AS [IsInHouse]
 		,NULL AS [Notes]
 		,o.[PartName]
-		,o.[DeviceDescription]
-		,d.[ID] AS [DepartmentId]
+		,o.[DeviceDescription] as [SecondCategory]
+		,o.DepartmentName as [MainCategory]
 		,o.[MbaReportNumber]
 		,o.[CalibDate]
 		,o.[NextCalibDate]
@@ -77,9 +72,9 @@ USING (
 		,o.Devicemodel AS [DeviceModel]
 		,o.[Klita]
 		,0 AS [CreatedByUserId]
+		--add special care
 	FROM [stg].[stg_Orders] AS o
 	JOIN [dbo].[OrderWorkPlans] AS wp ON o.OrderNumber = wp.OrderNumber
-	LEFT JOIN [dbo].[Departments] AS d ON d.DepartmentName = o.DepartmentName
 	LEFT JOIN [dbo].[Statuses] AS s ON o.CalibStatud = s.StatusDescriptionHEB
 		AND s.StatusCategoryId = 12
 	WHERE o.[Klita] IS NOT NULL
@@ -101,12 +96,11 @@ WHEN MATCHED
 			,dest.[MBAContactName] = source.[MBAContactName]
 			,dest.[MBAContactPhone] = source.[MBAContactPhone]
 			,dest.[MBAContactMobile] = source.[MBAContactMobile]
-			,dest.[MainCategoties] = source.[MainCategoties]
 			,dest.[IsInHouse] = source.[IsInHouse]
 			,dest.[Notes] = source.[Notes]
 			,dest.[PartName] = source.[PartName]
-			,dest.[DeviceDescription] = source.[DeviceDescription]
-			,dest.[DepartmentId] = source.[DepartmentId]
+			,dest.[SecondCategory] = source.[SecondCategory]
+			,dest.[MainCategory] = source.[MainCategory]
 			,dest.[CalibDate] = source.[CalibDate]
 			,dest.[NextCalibDate] = source.[NextCalibDate]
 			,dest.[CALIBMONTH] = source.[CALIBMONTH]
@@ -135,12 +129,11 @@ WHEN NOT MATCHED BY TARGET
 			,[MBAContactName]
 			,[MBAContactPhone]
 			,[MBAContactMobile]
-			,[MainCategoties]
 			,[IsInHouse]
 			,[Notes]
 			,[PartName]
-			,[DeviceDescription]
-			,[DepartmentId]
+			,[SecondCategory]
+			,[MainCategory]
 			,[MbaReportNumber]
 			,[CalibDate]
 			,[NextCalibDate]
@@ -169,12 +162,11 @@ WHEN NOT MATCHED BY TARGET
 			,source.[MBAContactName]
 			,source.[MBAContactPhone]
 			,source.[MBAContactMobile]
-			,source.[MainCategoties]
 			,source.[IsInHouse]
 			,source.[Notes]
 			,source.[PartName]
-			,source.[DeviceDescription]
-			,source.[DepartmentId]
+			,source.[SecondCategory]
+			,source.[MainCategory]
 			,source.[MbaReportNumber]
 			,source.[CalibDate]
 			,source.[NextCalibDate]
@@ -232,3 +224,7 @@ WHERE ISNULL(d.ClientRemarkId,0) <> c.ClientRemarkId
 TRUNCATE TABLE [stg].[stg_Orders]
 
 END
+
+
+ALTER TABLE [dbo].[OrderDetails]
+ALTER COLUMN DepartmentId NVARCHAR(100)

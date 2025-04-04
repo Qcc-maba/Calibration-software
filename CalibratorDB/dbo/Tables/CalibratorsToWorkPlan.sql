@@ -1,16 +1,17 @@
 ﻿CREATE TABLE [dbo].[CalibratorsToWorkPlan] (
-    [ID]            INT IDENTITY (1, 1) NOT NULL,
-    [WorkPlanId]    INT NOT NULL,
-    [CalibratorsId] INT NOT NULL,
-    CONSTRAINT [PK_CalibratorsToWorkPlan] PRIMARY KEY CLUSTERED ([ID] ASC),
-    CONSTRAINT [FK_CalibratorsToWorkPlan_Calibrators] FOREIGN KEY ([CalibratorsId]) REFERENCES [dbo].[Calibrators] ([ID]),
-    CONSTRAINT [FK_CalibratorsToWorkPlan_WorkPlan] FOREIGN KEY ([WorkPlanId]) REFERENCES [dbo].[OrderWorkPlans] ([OrderWorkPlanId])
+    [OrderWorkPlanId] INT           NOT NULL,
+    [CalibratorId]    INT           NOT NULL,
+    [CreatedByUserId] INT           NULL,
+    [CreatedDate]     DATETIME2 (0) DEFAULT (getdate()) NOT NULL,
+    CONSTRAINT [PK_CalibratorsToWorkPlan] PRIMARY KEY CLUSTERED ([OrderWorkPlanId] ASC, [CalibratorId] ASC),
+    CONSTRAINT [FK_CalibratorsToWorkPlan_Calibrators] FOREIGN KEY ([CalibratorId]) REFERENCES [dbo].[Users] ([ID]),
+    CONSTRAINT [FK_CalibratorsToWorkPlan_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[Users] ([ID]),
+    CONSTRAINT [FK_CalibratorsToWorkPlan_WorkPlan] FOREIGN KEY ([OrderWorkPlanId]) REFERENCES [dbo].[OrderWorkPlans] ([OrderWorkPlanId])
 );
 
 
 
 
-GO
-CREATE UNIQUE NONCLUSTERED INDEX [IX_CalibratorsToWorkPlan]
-    ON [dbo].[CalibratorsToWorkPlan]([CalibratorsId] ASC, [WorkPlanId] ASC);
 
+
+GO

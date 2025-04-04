@@ -8,12 +8,16 @@ CREATE   PROCEDURE [dbo].[AssignCarToOrder]
 @CarID INT,
 @OrderNumber NCHAR(12),
 @Date DATE,
-@QuartersOfDay NVARCHAR(10)
-
+@QuartersOfDay NVARCHAR(10),
+@Email NVARCHAR(100) = NULL
 --EXEC dbo.AssignCarToOrder @CarID = 3,@OrderNumber = 'LA25101669',@Date = '2025-04-11',@QuartersOfDay ='0,1,2,3'
 
 AS
 BEGIN
+
+DECLARE @Userid INT
+IF @Email IS NOT NULL
+SELECT @Userid = ID FROM dbo.Users WHERE Email = @Email
 
 DROP TABLE IF EXISTS #QuartersOfDay
 CREATE TABLE #QuartersOfDay
@@ -64,14 +68,15 @@ WHERE cto.CarId = @CarID AND cto.OrderWorkPlanId = @OrderWorkPlanId
 
 IF @exists IS NULL
 
-INSERT [dbo].[CarsToOrder](CarId,OrderWorkPlanId,AssignDate,AssignQuater0,AssignQuater1,AssignQuater2,AssignQuater3)
+INSERT [dbo].[CarsToOrder](CarId,OrderWorkPlanId,AssignDate,AssignQuater0,AssignQuater1,AssignQuater2,AssignQuater3,CreatedByUserId)
 SELECT @CarID as CarID, 
 	   @OrderWorkPlanId as OrderWorkPlanId,
 	   @Date as AssignDate,
 	   @part0db as AssignQuater0,
 	   @part1db as AssignQuater1,
 	   @part2db as AssignQuater2,
-	   @part3db as AssignQuater3
+	   @part3db as AssignQuater3,
+	   @Userid
 
 
 ELSE
@@ -80,7 +85,8 @@ UPDATE [dbo].[CarsToOrder]
 SET AssignQuater0 = @part0db,
 	AssignQuater1 = @part1db,
 	AssignQuater2 = @part2db,
-	AssignQuater3 = @part3db
+	AssignQuater3 = @part3db,
+	CreatedByUserId = @Userid
 WHERE CarId = @CarID AND OrderWorkPlanId = @OrderWorkPlanId 
 		AND AssignDate = @Date
 

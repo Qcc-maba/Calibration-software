@@ -1,7 +1,11 @@
 ﻿CREATE TABLE [dbo].[CalibEquipmentsToOrderHeaders] (
-    [OrderId]          INT           NOT NULL,
+    [OrderWorkPlanId]  INT           NOT NULL,
     [CalibEquipmentId] INT           NOT NULL,
-    [CreateDate]       DATETIME2 (0) DEFAULT (getdate()) NULL,
-    CONSTRAINT [PK_CalibEquipmentsToOrderHeaders] PRIMARY KEY CLUSTERED ([OrderId] ASC, [CalibEquipmentId] ASC)
+    [CreatedByUserId]  INT           NULL,
+    [CreateDate]       DATETIME2 (0) DEFAULT (getdate()) NOT NULL,
+    CONSTRAINT [PK_CalibEquipmentsToOrderHeaders] PRIMARY KEY CLUSTERED ([OrderWorkPlanId] ASC, [CalibEquipmentId] ASC),
+    CONSTRAINT [FK_CalibEquipmentsToOrderHeaders_CalibEquipmentId] FOREIGN KEY ([CalibEquipmentId]) REFERENCES [dbo].[CalibEquipments] ([ID]),
+    CONSTRAINT [FK_CalibEquipmentsToOrderHeaders_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[Users] ([ID]),
+    CONSTRAINT [FK_CalibEquipmentsToOrderHeaders_OrderWorkPlanId] FOREIGN KEY ([OrderWorkPlanId]) REFERENCES [dbo].[OrderWorkPlans] ([OrderWorkPlanId])
 );
 
