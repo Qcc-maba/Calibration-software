@@ -11,7 +11,7 @@ namespace Maba.VCT.Core.Device.Sessions
     {
 
         #region Ctor
-        public InitChannelsSession(DeviceHost parent)
+        public InitChannelsSession(HardwareDeviceHost parent)
             : base(parent)
         {
 
@@ -21,7 +21,7 @@ namespace Maba.VCT.Core.Device.Sessions
 
         #region Overridden Methods
 
-        internal override bool HandlePacket(Common.Packet p)
+        internal override bool HandlePacket(Common.HardwarePacket p)
         {
             if (LastRequest != null && LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.InitChannelsRequest))
             {
@@ -44,7 +44,8 @@ namespace Maba.VCT.Core.Device.Sessions
             this.QueueRequest(Request);
             return new Common.API.RemoteProtocolService.InitChannelsResponse(true);
         }
-        protected override void ProccessRequest(Common.API.DeviceBaseRequest r)
+
+        protected override void ProccessRequest(Common.API.BaseRequest r)
         {
             if (r.GetType() == typeof(Common.API.RemoteProtocolService.InitChannelsRequest))
             {

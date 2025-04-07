@@ -23,6 +23,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -32,8 +33,15 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="NModbus, Version=3.0.81.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\..\..\packages\NModbus.3.0.81\lib\net46\NModbus.dll</HintPath>
+    </Reference>
+    <Reference Include="NModbus4, Version=2.1.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\..\..\packages\NModbus4.2.1.0\lib\net40\NModbus4.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.configuration" />
     <Reference Include="System.Core" />
@@ -83,6 +91,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Monitor\APIProtocolForm.resx">
       <DependentUpon>APIProtocolForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Monitor\DigiMonitor.resx">
       <DependentUpon>DigiMonitor.cs</DependentUpon>
@@ -106,6 +115,7 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
+    <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -124,9 +134,9 @@
       <Project>{fd4c664f-2453-4584-9506-45de6bc13691}</Project>
       <Name>Maba.Libs.ProccessTracer</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\..\Hydra-Group\ComServer\ComServerBL\ComServer.BL.Hydra.csproj">
+    <ProjectReference Include="..\..\..\Hydra-Group\ComServer\ComServerBL\ComServer.BL.csproj">
       <Project>{2F424179-46D9-4915-BC36-1DE2FE48E836}</Project>
-      <Name>ComServer.BL.Hydra</Name>
+      <Name>ComServer.BL</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\VCT\VCT.Libs.Accessories\VCT.Libs.Accessories.csproj">
       <Project>{31f7ef6c-874a-4cea-9b6a-7ddfe92354a8}</Project>
@@ -152,6 +162,9 @@
       <Project>{9453683E-792D-4229-93F9-319CAAE7C814}</Project>
       <Name>VCT.Core</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Connected Services\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -12,6 +12,8 @@ namespace Maba.DAL.BaseDAL
 {
     public class MSSqlServer : BaseDALConnector
     {
+
+
         #region Ctor(s)
 
         public MSSqlServer(DbProviderFactory providerFactory, DbConnection connectionObj)
@@ -25,7 +27,7 @@ namespace Maba.DAL.BaseDAL
         {
 
         }
-
+       
         #endregion
 
         #region Overloading from BaseDALConnector

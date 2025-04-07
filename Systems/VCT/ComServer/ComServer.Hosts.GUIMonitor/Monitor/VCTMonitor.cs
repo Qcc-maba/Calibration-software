@@ -16,11 +16,11 @@ namespace Maba.VCT.CommServer.Monitor
 
         public VCT.Core.ServerCore CoreServer { get; private set; }
 
-        private List<DeviceRecord<VCT.Core.Device.DeviceHost>> _identifiedConnection = new List<DeviceRecord<VCT.Core.Device.DeviceHost>>();
-        private List<DeviceRecord<VCT.Core.Device.DeviceHost>> _bareConnection = new List<DeviceRecord<VCT.Core.Device.DeviceHost>>();
+        private List<DeviceRecord<VCT.Core.Device.IDeviceHost>> _identifiedConnection = new List<DeviceRecord<VCT.Core.Device.IDeviceHost>>();
+        private List<DeviceRecord<VCT.Core.Device.IDeviceHost>> _bareConnection = new List<DeviceRecord<VCT.Core.Device.IDeviceHost>>();
 
-        private System.Collections.Concurrent.ConcurrentQueue<DeviceRecord<VCT.Core.Device.DeviceHost>> Identified_ItemsToAdd = null;
-        private System.Collections.Concurrent.ConcurrentQueue<DeviceRecord<VCT.Core.Device.DeviceHost>> Bare_ItemsToAdd = null;
+        private System.Collections.Concurrent.ConcurrentQueue<DeviceRecord<VCT.Core.Device.IDeviceHost>> Identified_ItemsToAdd = null;
+        private System.Collections.Concurrent.ConcurrentQueue<DeviceRecord<VCT.Core.Device.IDeviceHost>> Bare_ItemsToAdd = null;
 
         #endregion
 
@@ -30,8 +30,8 @@ namespace Maba.VCT.CommServer.Monitor
         {
             InitializeComponent();
 
-            Identified_ItemsToAdd = new System.Collections.Concurrent.ConcurrentQueue<DeviceRecord<VCT.Core.Device.DeviceHost>>();
-            Bare_ItemsToAdd = new System.Collections.Concurrent.ConcurrentQueue<DeviceRecord<VCT.Core.Device.DeviceHost>>();
+            Identified_ItemsToAdd = new System.Collections.Concurrent.ConcurrentQueue<DeviceRecord<VCT.Core.Device.IDeviceHost>>();
+            Bare_ItemsToAdd = new System.Collections.Concurrent.ConcurrentQueue<DeviceRecord<VCT.Core.Device.IDeviceHost>>();
         }
 
         public VCTMonitor(VCT.Core.ServerCore _CoreServer) : this()
@@ -54,7 +54,7 @@ namespace Maba.VCT.CommServer.Monitor
             bool updateIdentifiedList = false;
             var identifiedToAdd = new List<ListViewItem>();
 
-            DeviceRecord<VCT.Core.Device.DeviceHost> item = null;
+            DeviceRecord<VCT.Core.Device.IDeviceHost> item = null;
 
             #region  new items
 
@@ -75,7 +75,7 @@ namespace Maba.VCT.CommServer.Monitor
                                  item.Device.InternalComLayer.ParentTunnel.Name
                    });
                     item.ViewItem.ForeColor = item.Device.IsConnected ? Color.Blue : Color.Gray;
-                    item.ActionToDo = DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.New;
+                    item.ActionToDo = DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.New;
 
                     identifiedToAdd.Add(item.ViewItem);
                 }
@@ -87,14 +87,14 @@ namespace Maba.VCT.CommServer.Monitor
 
             foreach (ListViewItem listItem in listViewVCTIdentified.Items)
             {
-                item = listItem.Tag as DeviceRecord<VCT.Core.Device.DeviceHost>;
+                item = listItem.Tag as DeviceRecord<VCT.Core.Device.IDeviceHost>;
 
                 switch (item.ActionToDo)
                 {
-                    case DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Idle:
-                    case DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.New:
+                    case DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.Idle:
+                    case DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.New:
                         break;
-                    case DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Update:
+                    case DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.Update:
                         item.ViewItem.Text = item.Device.InternalComLayer == null ? item.Device.IsConnected.ToString() : item.Device.InternalComLayer.Title;
                         item.ViewItem.Tag = item;
                         item.ViewItem.SubItems.AddRange(new string[]
@@ -104,10 +104,10 @@ namespace Maba.VCT.CommServer.Monitor
                                  item.Device.InternalComLayer.ParentTunnel.Name
                         });
                         item.ViewItem.ForeColor = item.Device.IsConnected ? Color.Blue : Color.Gray;
-                        item.ActionToDo = DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Idle;
+                        item.ActionToDo = DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.Idle;
                         updateIdentifiedList = true;
                         break;
-                    case DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Remove:
+                    case DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.Remove:
                         updateIdentifiedList = true;
                         break;
                 }
@@ -121,7 +121,7 @@ namespace Maba.VCT.CommServer.Monitor
                 ListViewItem[] allElements = new ListViewItem[listViewVCTIdentified.Items.Count];
                 listViewVCTIdentified.Items.CopyTo(allElements, 0);
                 List<ListViewItem> list = allElements.ToList();
-                list.RemoveAll(i => ((DeviceRecord<VCT.Core.Device.DeviceHost>)i.Tag).ActionToDo == DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Remove);
+                list.RemoveAll(i => ((DeviceRecord<VCT.Core.Device.HardwareDeviceHost>)i.Tag).ActionToDo == DeviceRecord<VCT.Core.Device.HardwareDeviceHost>.Actions.Remove);
                 if (identifiedToAdd.Count > 0)
                 {
                     list.AddRange(identifiedToAdd.ToArray());
@@ -141,13 +141,13 @@ namespace Maba.VCT.CommServer.Monitor
 
             bool updateUnIdentifiedList = false;
             var baresToAdd = new List<ListViewItem>();
-            DeviceRecord<VCT.Core.Device.DeviceHost> bareItem = null;
+            DeviceRecord<VCT.Core.Device.IDeviceHost> bareItem = null;
 
             #region add new
 
             while (Bare_ItemsToAdd.TryDequeue(out bareItem))
             {
-                if (bareItem.ActionToDo == DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.New)
+                if (bareItem.ActionToDo == DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.New)
                 {
                     updateUnIdentifiedList = true;
 
@@ -157,7 +157,7 @@ namespace Maba.VCT.CommServer.Monitor
                     };
                     bareItem.ViewItem.SubItems.Add(bareItem.Device.IsConnected.ToString());
 
-                    bareItem.ActionToDo = DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Idle;
+                    bareItem.ActionToDo = DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.Idle;
                     baresToAdd.Add(bareItem.ViewItem);
                 }
             }
@@ -168,23 +168,23 @@ namespace Maba.VCT.CommServer.Monitor
 
             foreach (ListViewItem listItem in listViewVCTBare.Items)
             {
-                bareItem = listItem.Tag as DeviceRecord<VCT.Core.Device.DeviceHost>;
+                bareItem = listItem.Tag as DeviceRecord<VCT.Core.Device.IDeviceHost>;
 
                 updateUnIdentifiedList = true;
 
                 switch (bareItem.ActionToDo)
                 {
-                    case DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Idle:
-                    case DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.New:
+                    case DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.Idle:
+                    case DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.New:
                         break;
-                    case DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Update:
+                    case DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.Update:
                         updateUnIdentifiedList = true;
                         bareItem.ViewItem.Text = bareItem.Device.InternalComLayer.Title;
                         bareItem.ViewItem.Tag = bareItem;
                         bareItem.ViewItem.SubItems.Add(bareItem.Device.IsConnected.ToString());
-                        bareItem.ActionToDo = DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Idle;
+                        bareItem.ActionToDo = DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.Idle;
                         break;
-                    case DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Remove:
+                    case DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.Remove:
                         updateUnIdentifiedList = true;
                         break;
                 }
@@ -197,7 +197,7 @@ namespace Maba.VCT.CommServer.Monitor
                 ListViewItem[] allElements = new ListViewItem[listViewVCTBare.Items.Count];
                 listViewVCTBare.Items.CopyTo(allElements, 0);
                 List<ListViewItem> list = allElements.ToList();
-                list.RemoveAll(i => ((DeviceRecord<VCT.Core.Device.DeviceHost>)i.Tag).ActionToDo == DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Remove);
+                list.RemoveAll(i => ((DeviceRecord<VCT.Core.Device.HardwareDeviceHost>)i.Tag).ActionToDo == DeviceRecord<VCT.Core.Device.HardwareDeviceHost>.Actions.Remove);
                 if (baresToAdd.Count > 0)
                 {
                     list.AddRange(baresToAdd.ToArray());
@@ -228,7 +228,7 @@ namespace Maba.VCT.CommServer.Monitor
 
         private void MainEventsBus_DeviceConnnection(object o, VCT.Core.Events.DeviceConnectionEventArgs e)
         {
-            DeviceRecord<VCT.Core.Device.DeviceHost> _device = null;
+            DeviceRecord<VCT.Core.Device.IDeviceHost> _device = null;
 
             lock (_identifiedConnection)
             {
@@ -246,15 +246,15 @@ namespace Maba.VCT.CommServer.Monitor
             if (_device != null)
             {
                 _device.Device = e.Device;
-                _device.ActionToDo = DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Update;
+                _device.ActionToDo = DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.Update;
             }
             else
             {
                 //no exists connnection was found, create new
-                _device = new DeviceRecord<VCT.Core.Device.DeviceHost>()
+                _device = new DeviceRecord<VCT.Core.Device.IDeviceHost>()
                 {
                     Device = e.Device,
-                    ActionToDo = DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.New
+                    ActionToDo = DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.New
                 };
                 lock (_identifiedConnection)
                 {
@@ -276,7 +276,7 @@ namespace Maba.VCT.CommServer.Monitor
                         var bare = _bareConnection[i];
                         if (bare.Device.InternalComLayer == _device.Device.InternalComLayer)
                         {
-                            bare.ActionToDo = DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Remove;
+                            bare.ActionToDo = DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.Remove;
                             foundBare = true;
                             break;
                         }
@@ -292,10 +292,10 @@ namespace Maba.VCT.CommServer.Monitor
 
         private void MainEventsBus_DeviceUnIdentifyConnnection(object o, VCT.Core.Events.DeviceConnectionEventArgs e)
         {
-            var _device = new DeviceRecord<VCT.Core.Device.DeviceHost>()
+            var _device = new DeviceRecord<VCT.Core.Device.IDeviceHost>()
             {
                 Device = e.Device,
-                ActionToDo = DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.New
+                ActionToDo = DeviceRecord<VCT.Core.Device.IDeviceHost>.Actions.New
             };
 
             lock (_bareConnection)
@@ -319,7 +319,7 @@ namespace Maba.VCT.CommServer.Monitor
         {
             if (listViewVCTIdentified.SelectedItems.Count > 0)
             {
-                var devHost = listViewVCTIdentified.SelectedItems[0].Tag as DeviceRecord<VCT.Core.Device.DeviceHost>;
+                var devHost = listViewVCTIdentified.SelectedItems[0].Tag as DeviceRecord<VCT.Core.Device.HardwareDeviceHost>;
                 Protocol7EMonitor protocol = new Protocol7EMonitor(devHost.Device);
                 protocol.FormClosed += Protocol_FormClosed;
                 protocol.Show();
@@ -335,7 +335,7 @@ namespace Maba.VCT.CommServer.Monitor
             ListViewItem[] allElements = new ListViewItem[listViewVCTBare.Items.Count];
             listViewVCTBare.Items.CopyTo(allElements, 0);
             List<ListViewItem> list = allElements.ToList();
-            list.RemoveAll(i => ((DeviceRecord<VCT.Core.Device.DeviceHost>)i.Tag).ActionToDo == DeviceRecord<VCT.Core.Device.DeviceHost>.Actions.Remove);
+            list.RemoveAll(i => ((DeviceRecord<VCT.Core.Device.HardwareDeviceHost>)i.Tag).ActionToDo == DeviceRecord<VCT.Core.Device.HardwareDeviceHost>.Actions.Remove);
             listViewVCTBare.Items.Clear();
             listViewVCTBare.Items.AddRange(list.ToArray());
             listViewVCTBare.EndUpdate();

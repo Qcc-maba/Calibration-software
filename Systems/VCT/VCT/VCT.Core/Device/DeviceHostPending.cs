@@ -14,6 +14,6 @@ namespace Maba.VCT.Core.Device
         public int TotalAwakeConnectPackets { get; set; }
         public DateTime? LastAwakeConnectPacket { get; set; }
 
-        public DeviceHost D { get; set; }
+        public IDeviceHost D { get; set; }
     }
 }

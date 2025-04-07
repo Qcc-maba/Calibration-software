@@ -1,10 +1,7 @@
-﻿using Maba.VCT.CommServer.BL.HydraDevices.Settings;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Timers;
+﻿using Maba.VCT.CommServer.BL.HydraDevices.Device;
+using Maba.VCT.CommServer.BL.HydraDevices.Settings;
+using Maba.VCT.Core.Device;
+using Maba.VCT.Core.Events;
 
 namespace Maba.VCT.CommServer.BL.HydraDevices.BLCore
 {
@@ -12,35 +9,50 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.BLCore
     {
         #region Members
 
-        private Core.ServerCore VCT_Server;
-
+        internal Core.ServerCore VCT_Server;
+        private Hydra2DeviceBL bl;
         #endregion
 
         #region properties
 
-        public HydraBL_Settings DeviceSettings { get; private set; }
+        public HardwareBL_Settings DeviceSettings { get; private set; }
 
         #endregion
 
         #region IBLCore Methods
 
-        public bool OnDeviceConnetion(Core.Device.DeviceHost device)
+        public bool OnDeviceConnetion(HardwareDeviceHost device)
         {
             bool isAllowed = device != null && device.SN != null && device.IsConnected && device.SN.Contains("2625");
             if (isAllowed)
             {
                 if ((device.BL == null) || !(device.BL is Device.Hydra2DeviceBL))
                 {
-                    var bl = new Device.Hydra2DeviceBL(this);
+                    this.bl = new Device.Hydra2DeviceBL(this);
+                    device.BL = this.bl;
                     bl.Start(device);
                 }
             }
             return (isAllowed);
         }
+
+        public void OnEvent(DeviceEventArgs e)
+        {
+            if (bl != null)
+            {
+                bl.OnEvent(e);
+            }
+        }
+
+        public void OnWebSocketDeviceConnetion(WebSocketDeviceHost device)
+        {
+            bl.Start(device);
+        }
+
         public void Start(Core.ServerCore server)
         {
             this.VCT_Server = server;
-            this.DeviceSettings = Settings.HydraBL_Settings.Read();
+            this.DeviceSettings = Settings.HardwareBL_Settings.Read();
         }
 
         public void Stop()

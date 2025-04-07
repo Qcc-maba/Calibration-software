@@ -16,11 +16,11 @@ namespace Maba.DAL.BaseDAL
         }
 
 
-        public TesterConnector(string providerName, string stringConnection)
-            : base(providerName, stringConnection)
-        {
-            initCtor();
-        }
+        //public TesterConnector(string providerName, string stringConnection)
+        //    : base(providerName, stringConnection)
+        //{
+        //    initCtor();
+        //}
 
         public TesterConnector(string stringConnectionSectionName)
             : base(stringConnectionSectionName)

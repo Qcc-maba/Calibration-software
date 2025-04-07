@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Maba.VCT.Common.API.RemoteProtocolService
 {
-    public class GetSetDateRequest : DeviceBaseRequest
+    public class GetSetDateRequest : BaseRequest
     {
 
         #region ctors(s)

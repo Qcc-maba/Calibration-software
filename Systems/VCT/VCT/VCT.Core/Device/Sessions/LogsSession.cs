@@ -1,18 +1,11 @@
-﻿using Maba.VCT.Common;
-using Maba.VCT.Common.API.RemoteProtocolService;
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Maba.VCT.Common.API.RemoteProtocolService;
 
 namespace Maba.VCT.Core.Device.Sessions
 {
     internal class LogsSession : BaseSession
     {
         #region ctors(s)
-        public LogsSession(DeviceHost parent)
+        public LogsSession(HardwareDeviceHost parent)
             : base(parent)
         {
 
@@ -21,38 +14,38 @@ namespace Maba.VCT.Core.Device.Sessions
 
         #region overiden methods
 
-        protected override void ProccessRequest(Common.API.DeviceBaseRequest r)
+        protected override void ProccessRequest(Common.API.BaseRequest r)
         {
-            if (r.GetType() == typeof(Common.API.RemoteProtocolService.LogsRequest))
+            if (r.GetType() == typeof(LogsRequest))
             {
                 SendPacket(r.Packet);
                 if (!r.Packet.Wait4Respons)
                 {
-                    AnswerLastRequest(new LogsResponse(true));
+                    AnswerLastRequest(new LogsResponse(true, (r as LogsRequest).LogCommand));
                 }
             }
         }
 
-        internal override bool HandlePacket(Common.Packet p)
+        internal override bool HandlePacket(Common.HardwarePacket p)
         {
             if (LastRequest != null)
             {
                 if ((LastRequest as LogsRequest).LogCommand == LogsRequest.LogCommands.LogCount)
                 {
-                    string numOfLogs = p.Response.Replace("\r\n", "").Replace("=>", "");
-                    int numOfLogsLength = int.Parse(numOfLogs);
-                    AnswerLastRequest(new LogsResponse(p.OK, (LastRequest as LogsRequest).LogCommand, numOfLogsLength));
+                    var res = (new LogsResponse(p.OK, (LastRequest as LogsRequest).LogCommand));
+                    res.ParseLogResponse(LastRequest.Packet, p, (LastRequest as LogsRequest).LogCommand);
+                    AnswerLastRequest(res);
                 }
                 else if ((LastRequest as LogsRequest).LogCommand == LogsRequest.LogCommands.GetLogs)
                 {
-                    var res = new LogsResponse(p, (LastRequest as LogsRequest).LogCommand, !LastRequest.Packet.Command.Contains("DATA"));
+                    var res = new LogsResponse(p.OK, (LastRequest as LogsRequest).LogCommand);
+                    res.ParseLogResponse(LastRequest.Packet, p, (LastRequest as LogsRequest).LogCommand);
                     AnswerLastRequest(res);
                 }
                 else
                 {
                     AnswerLastRequest(new LogsResponse(p.OK, (LastRequest as LogsRequest).LogCommand));
                 }
-
             }
             return true;
         }
@@ -61,10 +54,9 @@ namespace Maba.VCT.Core.Device.Sessions
         {
             if (LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.LogsRequest))
             {
-                AnswerLastRequest(new Common.API.RemoteProtocolService.LogsResponse(false)
-                {
-                    Message = "Request was timed-out!"
-                });
+                var res = new LogsResponse(false, (LastRequest as LogsRequest).LogCommand);
+                res.Message = "Request was timed-out!";
+                AnswerLastRequest(res);
             }
         }
 
@@ -78,11 +70,11 @@ namespace Maba.VCT.Core.Device.Sessions
             {
                 this.QueueRequest(Request);
 
-                return new Common.API.RemoteProtocolService.LogsResponse(true);
+                return new LogsResponse(true, (Request as LogsRequest).LogCommand);
             }
             else
             {
-                return new Common.API.RemoteProtocolService.LogsResponse(false);
+                return new LogsResponse(false, (Request as LogsRequest).LogCommand);
             }
         }
 

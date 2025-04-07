@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Maba.VCT.ComLayer
@@ -22,6 +23,7 @@ namespace Maba.VCT.ComLayer
         public string PortName { get; private set; }
 
         public int BaudRate { get; private set; }
+        public int Timeout { get; private set; }
 
         #endregion
 
@@ -32,18 +34,18 @@ namespace Maba.VCT.ComLayer
         #region members
         private byte[] _Buffer = new byte[8192];
         protected SerialPort _SerialPort { get; set; }
-
+        int writeIndex = 0;
         #endregion
 
         #region ctor
 
-        public SerialCom(string portName, int baudRate, Tunnel parentTupple = null)
+        public SerialCom(string portName, int baudRate,int timeout, Tunnel parentTupple = null)
         {
             PortName = portName;
             BaudRate = baudRate;
+            Timeout = timeout;
             this.Title = String.Format("Port Name:{0} , BaudeRate:{1}", portName, baudRate);
             this.CreationTime = DateTime.UtcNow;
-
             this.ParentTunnel = parentTupple;
         }
 
@@ -51,30 +53,36 @@ namespace Maba.VCT.ComLayer
 
         #region private methods
 
-        public virtual bool IncomingData(byte[] b, ref int offset, ref int count)
-        {
-            return true;
-        }
-
         protected void _SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
             lock (_SerialPort)
             {
-                var lastRead = _SerialPort.Read(_Buffer, 0, _SerialPort.BytesToRead);
-                if (lastRead > 0)
+                try
                 {
-                    LastRX_Time = DateTime.UtcNow;
-
+                    Thread.Sleep(_SerialPort.ReadTimeout);
                     int offset = 0;
-                    if (IncomingData(_Buffer, ref offset, ref lastRead))
+                    var lastRead = _SerialPort.Read(_Buffer, offset,_SerialPort.BytesToRead);
+                    //var lastRead = _SerialPort.ReadLine();
+                    writeIndex += lastRead;
+                    if (writeIndex > 0)
                     {
+                        //writeIndex += lastRead;
+                        LastRX_Time = DateTime.UtcNow;
+
 
                         if (DataReceived != null)
                         {
-                            var e1 = new DataReceivedEventArgs(_Buffer, offset, lastRead);
+                            var e1 = new DataReceivedEventArgs(_Buffer, offset, writeIndex);
+                            //var e1 = new DataReceivedEventArgs(lastRead);
                             DataReceived(this, e1);
                         }
+                        writeIndex = 0;
+                        _SerialPort.DiscardInBuffer();
                     }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"IOException: {ex.Message}");
                 }
             }
         }
@@ -98,6 +106,7 @@ namespace Maba.VCT.ComLayer
         {
             lock (_SerialPort)
             {
+                Thread.Sleep(_SerialPort.WriteTimeout);
                 LastTX_Time = DateTime.UtcNow;
                 _SerialPort.Write(b, offset, count);
             };
@@ -110,11 +119,19 @@ namespace Maba.VCT.ComLayer
 
         public void SendString(string s)
         {
-            lock (_SerialPort)
+            try
             {
-                LastTX_Time = DateTime.UtcNow;
-                _SerialPort.WriteLine(s);
-            };
+                lock (_SerialPort)
+                {
+                    LastTX_Time = DateTime.UtcNow;
+                    _SerialPort.WriteLine(s);
+                };
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message.ToString());
+            }
+
         }
 
         public virtual void Open()
@@ -126,10 +143,25 @@ namespace Maba.VCT.ComLayer
             _SerialPort.DataReceived += _SerialPort_DataReceived;
             _SerialPort.PortName = PortName;
             _SerialPort.BaudRate = BaudRate;
+            _SerialPort.ReadTimeout = Timeout;
+
+            //_SerialPort.NewLine = "\r\n";
+            //_SerialPort.DataBits = 8;
+            //_SerialPort.StopBits = StopBits.Two;
+            _SerialPort.DtrEnable = true;
+            _SerialPort.RtsEnable = true;
+            //_SerialPort.Handshake = Handshake.None;
+
+            //_SerialPort.Parity = Parity.None;
+
+
 
             try
             {
-                _SerialPort.Open();
+                if (!_SerialPort.IsOpen)
+                {
+                    _SerialPort.Open();
+                }
             }
             catch (Exception)
             {

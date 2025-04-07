@@ -5,6 +5,7 @@ using System.Data;
 using System.Data.Common;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 
@@ -29,7 +30,7 @@ namespace Maba.DAL.BaseDAL
 
         #endregion
 
-        #region properties
+        #region Properties
 
         public bool ThrowExceptions { get; set; }
 
@@ -39,7 +40,7 @@ namespace Maba.DAL.BaseDAL
         public Exception LastException { get; set; }
         public DbConnection ConnectionObj { get; private set; }
         public DbProviderFactory ProviderFactory { get; private set; }
-        public int? CommandTimeout { get; set; }
+        public int CommandTimeout { get; set; }
 
         public bool IsConnectionOpen
         {
@@ -58,6 +59,7 @@ namespace Maba.DAL.BaseDAL
         {
             ThrowExceptions = false;
             KeepConnectionStates = true;
+            CommandTimeout = 30;
         }
 
         protected BaseDALConnector(DbProviderFactory providerFactory, DbConnection connectionObj)
@@ -102,8 +104,8 @@ namespace Maba.DAL.BaseDAL
                         command.Parameters.Add(returnValueParameter);
                     }
 
-                    if (CommandTimeout.HasValue)
-                        command.CommandTimeout = CommandTimeout.Value;
+                    if (CommandTimeout > 0)
+                        command.CommandTimeout = CommandTimeout;
 
                     Result = true;
                     return command;
@@ -134,7 +136,7 @@ namespace Maba.DAL.BaseDAL
 
                 if (parameters != null)
                 {
-                 command.Parameters.AddRange(parameters);   
+                    command.Parameters.AddRange(parameters);
                     //foreach (IDataParameter parameter in parameters)
                     //{
                     //    command.Parameters.Add(parameter);
@@ -162,7 +164,7 @@ namespace Maba.DAL.BaseDAL
 
             if (ForceInvokeException)
             {
-                throw e;
+                VCT.Libs.Trace.Tracer.Error(e.Message);
             }
         }
 
@@ -193,11 +195,12 @@ namespace Maba.DAL.BaseDAL
             var connection = factory.CreateConnection();
             connection.ConnectionString = connectionString;
 
-            if (factory is MySql.Data.MySqlClient.MySqlClientFactory)
-            {
-                return new MySQLConnector(factory, connection);
-            }
-            else if (factory is System.Data.SqlClient.SqlClientFactory)
+            //if (factory is MySql.Data.MySqlClient.MySqlClientFactory)
+            //{
+            //    return new MySQLConnector(factory, connection);
+            //}
+            //else
+            if (factory is System.Data.SqlClient.SqlClientFactory)
             {
                 return new MSSqlServer(factory, connection);
             }
@@ -961,13 +964,12 @@ namespace Maba.DAL.BaseDAL
         }
 
         #endregion
-
-        public async Task<DbDataReader> RunProcedureAsync(string StoredProcedureName, IDataParameter[] parameters)
+        public DbDataReader RunProcedure(string StoredProcedureName, IDataParameter[] parameters)
         {
             DBOpenResults firstConnectionState = DBOpenResults.Failed;
             try
             {
-                firstConnectionState = await OpenAsync();
+                firstConnectionState = Open();
 
                 if (!IsConnectionOpen && firstConnectionState == DBOpenResults.Failed)
                     return null;
@@ -978,8 +980,8 @@ namespace Maba.DAL.BaseDAL
                 if (subResult)
                 {
                     command.CommandType = CommandType.StoredProcedure;
+                    var returnReader = command.ExecuteReader();
 
-                    var returnReader = await command.ExecuteReaderAsync();
                     //if DbConnectionObj will be closed here, no data can be read...
                     //!!! DON'T !!! Close();  !!! DON'T !!!         
                     return returnReader;
@@ -996,6 +998,82 @@ namespace Maba.DAL.BaseDAL
             }
         }
 
+
+        public async Task<DbDataReader> RunProcedureAsync(string storedProcedureName, IDataParameter[] parameters)
+        {
+            Console.WriteLine("Starting RunProcedureAsync");
+
+            try
+            {
+                // Set a timeout for the entire operation
+                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
+                {
+                    Console.WriteLine("Attempting to open connection...");
+
+                    // Open connection with timeout
+                    var openTask = OpenAsync();
+                    if (await Task.WhenAny(openTask, Task.Delay(5000, cts.Token)) != openTask)
+                    {
+                        Console.WriteLine("Connection timeout after 5 seconds");
+                        return null;
+                    }
+
+                    var firstConnectionState = await openTask;
+                    Console.WriteLine($"Connection state: {firstConnectionState}");
+
+                    if (!IsConnectionOpen && firstConnectionState == DBOpenResults.Failed)
+                    {
+                        Console.WriteLine("Connection failed to open");
+                        return null;
+                    }
+
+                    bool subResult = false;
+                    Console.WriteLine("Building command...");
+                    using (DbCommand command = BuildQueryCommand(storedProcedureName, parameters, out subResult))
+                    {
+                        if (!subResult)
+                        {
+                            Console.WriteLine("Failed to build command");
+                            return null;
+                        }
+
+                        command.CommandType = CommandType.StoredProcedure;
+                        command.CommandTimeout = CommandTimeout; // 30 seconds timeout
+
+                        Console.WriteLine("Executing command...");
+                        try
+                        {
+                            // Execute with timeout
+                            var readerTask = command.ExecuteReaderAsync(cts.Token);
+                            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(CommandTimeout), cts.Token);
+
+                            var completedTask = await Task.WhenAny(readerTask, timeoutTask);
+                            if (completedTask == timeoutTask)
+                            {
+                                Console.WriteLine("Command execution timed out");
+                                return null;
+                            }
+
+                            var reader = await readerTask;
+                            Console.WriteLine("Command executed successfully");
+                            return reader;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error executing command: {ex.Message}");
+                            throw;
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Error in RunProcedureAsync: {e.Message}");
+                Console.WriteLine($"Stack trace: {e.StackTrace}");
+                SetLastExceptionError(e);
+                return null;
+            }
+        }
         public DbDataReader RunProcedure(string StoredProcedureName, IDataParameter[] parameters, out bool Result)
         {
             Result = false;

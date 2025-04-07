@@ -52,24 +52,24 @@ namespace Maba.DAL.BaseDAL.UnitTest.Connectors
         public async void fff()
         {
 
-            List<CorrectionValues> CV= new List<CorrectionValues>();
-            //bool results;
-            string TC = "21-449";
+            //List<CorrectionValues> CV= new List<CorrectionValues>();
+            ////bool results;
+            //string TC = "21-449";
 
-            SqlParameter id = new SqlParameter("@ID", SqlDbType.NVarChar, 50);
-            {
-                id.Direction = ParameterDirection.Input;
-                id.Value = TC;
-            }
-            var t = await Connector.RunProcedureAsync("GetSensorByName", new IDataParameter[] { id });
+            //SqlParameter id = new SqlParameter("@ID", SqlDbType.NVarChar, 50);
+            //{
+            //    id.Direction = ParameterDirection.Input;
+            //    id.Value = TC;
+            //}
+            //var t = await Connector.RunProcedureAsync("GetSensorByName", new IDataParameter[] { id });
 
-            while (t.Read())
-            {
-                var row = new CorrectionValues();
-                row.TemperatureValue = t.GetDouble(0);
-                row.Deviation = t.GetDouble(1);
-                CV.Add(row);
-            }
+            //while (t.Read())
+            //{
+            //    var row = new CorrectionValues();
+            //    row.TemperatureValue = t.GetDouble(0);
+            //    row.Deviation = t.GetDouble(1);
+            //    CV.Add(row);
+            //}
 
         }
         public async Task<List<CorrectionValues>> ffff()
@@ -77,24 +77,24 @@ namespace Maba.DAL.BaseDAL.UnitTest.Connectors
 
             List<CorrectionValues> CV = new List<CorrectionValues>();
 
-            //bool results;
-            string TC = "30-800";
+            ////bool results;
+            //string TC = "30-800";
 
-            SqlParameter id = new SqlParameter("@MabaID", SqlDbType.NVarChar, 50);
-            {
-                id.Direction = ParameterDirection.Input;
-                id.Value = TC;
-            }
-            var t = await Connector.RunProcedureAsync("GetSensorByName", new IDataParameter[] { id });
+            //SqlParameter id = new SqlParameter("@MabaID", SqlDbType.NVarChar, 50);
+            //{
+            //    id.Direction = ParameterDirection.Input;
+            //    id.Value = TC;
+            //}
+            //var t = await Connector.RunProcedureAsync("GetSensorByName", new IDataParameter[] { id });
 
-            while (t.Read())
-            {
-                var row = new CorrectionValues();
-                row.TemperatureValue = t.GetDouble(0);
-                row.HumidityValue = t.GetDouble(1);
-                row.Deviation = t.GetDouble(2);
-                CV.Add(row);
-            }
+            //while (t.Read())
+            //{
+            //    var row = new CorrectionValues();
+            //    row.TemperatureValue = t.GetDouble(0);
+            //    row.HumidityValue = t.GetDouble(1);
+            //    row.Deviation = t.GetDouble(2);
+            //    CV.Add(row);
+            //}
             return CV;
         }
 

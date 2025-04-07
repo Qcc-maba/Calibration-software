@@ -1,15 +1,14 @@
-﻿using System;
+﻿using Maba.VCT.Common;
+using Maba.VCT.Common.API.RemoteProtocolService;
+using Maba.VCT.Common.Calibration_results;
+using Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations;
+using Maba.VCT.CommServer.BL.HydraDevices.BLCore;
+using Maba.VCT.CommServer.BL.HydraDevices.Settings;
+using Maba.VCT.Core.Events;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using Maba.DAL.BaseDAL;
-using Maba.VCT.Common;
-using Maba.VCT.Common.API.RemoteProtocolService;
-using Maba.VCT.CommServer.BL.HydaDevices.Device.Calculations;
-using Maba.VCT.CommServer.BL.HydraDevices.BLCore;
-using Maba.VCT.Core.Events;
+using System.Runtime;
 
 namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 {
@@ -32,28 +31,24 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         public CommonBL.SingleState StateMachine_InitChannles { get; private set; }
         public CommonBL.SingleState StateMachine_Logs { get; private set; }
         public CommonBL.SingleState StateMachine_Stop { get; private set; }
-        //public CommonBL.SingleState StateMachine_Format { get; private set; }
 
         #endregion
 
         #region properties
+        private HydraCalculations HC;
+        private HardwareBL_Settings settings;
 
-        //public DeviceMetadata Metadata { get; private set; }
-        private MSSqlServer connector = null;
-        private List<LogsResponse> responses = new List<LogsResponse>();
-        HydraCalculations HC;
         #endregion
 
         #region ctor
 
         public Hydra3DeviceBL(Hydra3BLCore parent) : base(parent)
         {
-            connector = new MSSqlServer(parent.DeviceSettings.GeneralDBName);
-            connector.Open();
-            HC = new HydraCalculations(connector);
-            HC.Init("21-449");
-            //TODO change when UI is ready.
+            settings = parent.DeviceSettings;
+            HC = new HydraCalculations(parent.VCT_Server.connector);
         }
+
+
 
         #endregion
 
@@ -61,6 +56,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         protected override CommonBL.SingleState[] OnCreateStates()
         {
+            HC.Init(settings.Hydra3type.Masters);
 
             if (this.StateMachine_InitSystem == null)
             {
@@ -123,6 +119,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             return states
                         .OrderBy(s => s.State)
                         .ToArray();
+
         }
 
         protected override bool OnStepStart(DeviceSteps step)
@@ -156,8 +153,6 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         public override void OnEvent(DeviceEventArgs e)
         {
             base.OnEvent(e);
-            //TODO craete WebClient to onlie - post operation
-            //Maba.Connectors.HTTPLibrary.Test for examle of web client post
         }
         #endregion
 
@@ -171,19 +166,25 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             switch (singleState.CurrentStep)
             {
                 case 0:
-                    req = new InitSystemRequest();
-                    req.Packet = Common.HydraProtocolHelper.Build_Reset2Packet();
-                    VCT_Device.Reset(req);
+                    req = new InitSystemRequest
+                    {
+                        Packet = Common.HydraProtocolHelper.Build_Reset2Packet()
+                    };
+                    HW_Device.Reset(req);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
                 case 1:
-                    req = new InitSystemRequest();
-                    req.Packet = Common.HydraProtocolHelper.BuildDisplayStatPacket();
-                    VCT_Device.Reset(req);
+                    req = new InitSystemRequest
+                    {
+                        Packet = Common.HydraProtocolHelper.BuildDisplayStatPacket()
+                    };
+                    HW_Device.Reset(req);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
                 case 2:
-                    req = new InitSystemRequest();
-                    req.Packet = Common.HydraProtocolHelper.BuildRoutPacket();
-                    VCT_Device.Reset(req);
+                    req = new InitSystemRequest
+                    {
+                        Packet = Common.HydraProtocolHelper.BuildRoutPacket()
+                    };
+                    HW_Device.Reset(req);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
             }
             return CommonBL.SingleState.StepWorkResponses.StateFinished;
@@ -199,14 +200,18 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             switch (singleState.CurrentStep)
             {
                 case 0:
-                    request = new GetSetDateRequest();
-                    request.Packet = HydraProtocolHelper.Build_SetDate2Packet();
-                    this.VCT_Device.SetDate(request);
+                    request = new GetSetDateRequest
+                    {
+                        Packet = HydraProtocolHelper.Build_SetDate2Packet()
+                    };
+                    this.HW_Device.SetDate(request);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
                 case 1:
-                    request = new GetSetDateRequest();
-                    request.Packet = HydraProtocolHelper.Build_SetTime2Packet();
-                    this.VCT_Device.SetTime(request);
+                    request = new GetSetDateRequest
+                    {
+                        Packet = HydraProtocolHelper.Build_SetTime2Packet()
+                    };
+                    this.HW_Device.SetTime(request);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
             }
             return CommonBL.SingleState.StepWorkResponses.StateFinished;
@@ -222,9 +227,11 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             switch (singleState.CurrentStep)
             {
                 case 0:
-                    req = new RateRequest();
-                    req.Packet = Common.HydraProtocolHelper.Build_SetRate2Packet(RateRequest.MeasurementRates.Slow);
-                    VCT_Device.Rate(req);
+                    req = new RateRequest
+                    {
+                        Packet = HydraProtocolHelper.Build_SetRate2Packet(settings.Hydra3type.MeasurementRate)
+                    };
+                    HW_Device.Rate(req);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
 
             }
@@ -236,22 +243,25 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         private CommonBL.SingleState.StepWorkResponses StateWork__Init_Channels(CommonBL.SingleState singleState)
         {
-            var numberOfChannels = 1;
             InitChannelsRequest req;
             switch (singleState.CurrentStep)
             {
                 case 0:
-                    for (var i = 0; i < numberOfChannels; i++)
+                    for (var i = 0; i < settings.Hydra3type.Channels.Count; i++)
                     {
-                        req = new InitChannelsRequest();
-                        req.Packet = HydraProtocolHelper.Build_InitChannelsPacket(1, InitChannelsRequest.ThermocoupleTypes.K);
-                        VCT_Device.InitChannels(req);
+                        req = new InitChannelsRequest
+                        {
+                            Packet = HydraProtocolHelper.Build_InitChannelsPacket(settings.Hydra3type.Channels[i], settings.Hydra3type)
+                        };
+                        HW_Device.InitChannels(req);
                     }
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
                 case 1:
-                    req = new InitChannelsRequest();
-                    req.Packet = HydraProtocolHelper.Build_RoutScanPacket(numberOfChannels);
-                    VCT_Device.InitChannels(req);
+                    req = new InitChannelsRequest
+                    {
+                        Packet = HydraProtocolHelper.Build_RoutScanPacket(settings.Hydra3type.Channels)
+                    };
+                    HW_Device.InitChannels(req);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
             }
 
@@ -264,33 +274,43 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         private CommonBL.SingleState.StepWorkResponses StateWork__Logs(CommonBL.SingleState singleState)
         {
-            LogsRequest req;
+            LogsRequest req = null;
             switch (singleState.CurrentStep)
             {
                 case 0:
-                    req = new LogsRequest(LogsRequest.LogCommands.ClearLogs);
-                    req.Packet = Common.HydraProtocolHelper.Build_ClearLogs2Packet();
-                    VCT_Device.GetLogs(req);
+                    req = new LogsRequest(LogsRequest.LogCommands.ClearLogs)
+                    {
+                        Packet = Common.HydraProtocolHelper.Build_ClearLogs2Packet()
+                    };
+                    HW_Device.GetLogs(req);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
                 case 1:
-                    req = new LogsRequest(LogsRequest.LogCommands.LogCount, 1);
-                    req.Packet = Common.HydraProtocolHelper.Build_IntervalBetweenScanPacket(req);
-                    VCT_Device.GetLogs(req);
+                    req = new LogsRequest(LogsRequest.LogCommands.LogCount)
+                    {
+                        Packet = Common.HydraProtocolHelper.Build_IntervalBetweenScanPacket(settings.Hydra3type.Interval)
+                    };
+                    HW_Device.GetLogs(req);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
                 case 2:
-                    req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.GetLogs);
-                    req.Packet = Common.HydraProtocolHelper.Build_ScanIndex();
-                    VCT_Device.GetLogs(req);
+                    req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.GetLogs)
+                    {
+                        Packet = Common.HydraProtocolHelper.Build_ScanIndex()
+                    };
+                    HW_Device.GetLogs(req);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
                 case 3:
-                    req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.ClearLogs);
-                    req.Packet = Common.HydraProtocolHelper.Build_ScanLogs2Packet();
-                    VCT_Device.GetLogs(req);
+                    req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.ClearLogs)
+                    {
+                        Packet = Common.HydraProtocolHelper.Build_ScanLogs2Packet()
+                    };
+                    HW_Device.GetLogs(req);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
                 case 4:
-                    req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.LogCount);
-                    req.Packet = Common.HydraProtocolHelper.Build_DataPointPacket();
-                    VCT_Device.GetLogs(req, LogResponseCallBack);
+                    req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.LogCount)
+                    {
+                        Packet = Common.HydraProtocolHelper.Build_DataPointPacket()
+                    };
+                    HW_Device.GetLogs(req, LogResponseCallBack);
                     return CommonBL.SingleState.StepWorkResponses.Wait4Work;
             }
             return CommonBL.SingleState.StepWorkResponses.StateFinished;
@@ -306,44 +326,50 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                     case LogsRequest.LogCommands.LogCount:
                         if (response.LogCount == 0)
                         {
-                            req = new LogsRequest(LogsRequest.LogCommands.LogCount);
-                            req.Packet = HydraProtocolHelper.Build_DataPointPacket();
-                            VCT_Device.GetLogs(req, LogResponseCallBack);
+                            req = new LogsRequest(LogsRequest.LogCommands.LogCount)
+                            {
+                                Packet = HydraProtocolHelper.Build_DataPointPacket()
+                            };
+                            HW_Device.GetLogs(req, LogResponseCallBack);
                         }
                         else
                         {
-                            for (int i = 0; i < response.LogCount; i++)
+                            req = new LogsRequest(LogsRequest.LogCommands.GetLogs)
                             {
-                                req = new LogsRequest(LogsRequest.LogCommands.GetLogs);
-                                req.Packet = HydraProtocolHelper.Build_DataReadPacket();
-                                VCT_Device.GetLogs(req, LogResponseCallBack);
-                            }
+                                Packet = HydraProtocolHelper.Build_DataReadPacket()
+                            };
+                            HW_Device.GetLogs(req, LogResponseCallBack);
 
-                            req = new LogsRequest(LogsRequest.LogCommands.LogCount);
-                            req.Packet = HydraProtocolHelper.Build_DataPointPacket();
-                            VCT_Device.GetLogs(req, LogResponseCallBack);
+                            //req = new LogsRequest(LogsRequest.LogCommands.LogCount)
+                            //{
+                            //    Packet = HydraProtocolHelper.Build_DataPointPacket()
+                            //};
+                            //HW_Device.GetLogs(req, LogResponseCallBack);
                         }
                         break;
 
                     case LogsRequest.LogCommands.GetLogs:
+
+
                         HandelLogs(response);
 
-                        req = new LogsRequest(LogsRequest.LogCommands.GetLogs);
-                        req.Packet = HydraProtocolHelper.Build_DataPointPacket();
-                        VCT_Device.GetLogs(req, LogResponseCallBack);
+                        req = new LogsRequest(LogsRequest.LogCommands.LogCount)
+                        {
+                            Packet = HydraProtocolHelper.Build_DataPointPacket()
+                        };
 
-                        req = new LogsRequest(LogsRequest.LogCommands.GetLogs);
-                        req.Packet = HydraProtocolHelper.Build_DataReadPacket();
-                        VCT_Device.GetLogs(req, LogResponseCallBack);
+                        HW_Device.GetLogs(req, LogResponseCallBack);
                         break;
                     case LogsRequest.LogCommands.StartScan:
                         if (response.LogCount == 0)
                         {
-                            req = new LogsRequest(LogsRequest.LogCommands.StartScan);
-                            req.Packet = HydraProtocolHelper.Build_ID_Packet();
-                            VCT_Device.GetLogs(req, LogResponseCallBack);
+                            req = new LogsRequest(LogsRequest.LogCommands.StartScan)
+                            {
+                                Packet = HydraProtocolHelper.Build_DataReadPacket()
+                            };
+                            HW_Device.GetLogs(req, LogResponseCallBack);
                             req.Packet = HydraProtocolHelper.Build_DataPointPacket();
-                            VCT_Device.GetLogs(req, LogResponseCallBack);
+                            HW_Device.GetLogs(req, LogResponseCallBack);
                         }
                         break;
                 }
@@ -358,29 +384,26 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         #endregion
 
+        #endregion
+
         #region Private Methods
 
         private void HandelLogs(LogsResponse response)
         {
-            //TODO  from DB.
-            bool flagType = true;
-            foreach (var item in response.Mesurements)
-            {
-                Console.WriteLine("The Value is: " + item);
-            }
-            responses.Add(response);
-            if (flagType)
-            {
-                var results = HC.CalcCalibrationDeviationForTemperature(response);
-            }
-            else
-            {
-                double result = HC.CalcCalibrationDeviationForTemperatureAndHumidity(response);
-            }
+            /* Tuple<double, int>
+             * Double- Value.
+             * Int- status.
+             * 0- OK
+             * 1- Low Value
+             * 2- High Value
+             * 3- Wrong value
+             * */
+
+            HC.ProcessResults(response, settings.Hydra2type);
+
         }
-
-        #endregion
-
-        #endregion
     }
+
+    #endregion
+
 }

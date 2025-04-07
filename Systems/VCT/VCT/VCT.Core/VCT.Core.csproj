@@ -21,6 +21,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -29,11 +30,11 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\..\..\..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\..\..\..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -45,18 +46,20 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Device\IDeviceHost.cs" />
     <Compile Include="Device\Sessions\BaseSession.cs" />
     <Compile Include="Device\Sessions\InitChannelsSession.cs" />
     <Compile Include="Device\Sessions\GetSetTimeSession.cs" />
     <Compile Include="Device\Sessions\InitSystemSession.cs" />
     <Compile Include="Device\Sessions\LogsSession.cs" />
-    <Compile Include="Device\DeviceHost.cs" />
+    <Compile Include="Device\HardwareDeviceHost.cs" />
     <Compile Include="Device\DeviceHostPending.cs" />
     <Compile Include="Device\IDeviceBL.cs" />
     <Compile Include="Device\VCTTunnel.cs" />
+    <Compile Include="Device\WebSocketDeviceHost.cs" />
     <Compile Include="Events\DeviceConnectionEventArgs.cs" />
     <Compile Include="Events\DeviceEventArgs.cs" />
-    <Compile Include="Events\EventsBus7E.cs" />
+    <Compile Include="Events\EventsBus.cs" />
     <Compile Include="Device\Sessions\RateSession.cs" />
     <Compile Include="OTA\OTAItem.cs" />
     <Compile Include="OTA\OTAService.cs" />
@@ -72,6 +75,10 @@
       <Project>{fd4c664f-2453-4584-9506-45de6bc13691}</Project>
       <Name>Maba.Libs.ProccessTracer</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\..\..\Libraries\DAL\Rational\BaseDAL\BaseDAL.csproj">
+      <Project>{8509A6E5-7D70-4F73-B6C0-8A8F70D88926}</Project>
+      <Name>BaseDAL</Name>
+    </ProjectReference>
     <ProjectReference Include="..\VCT.ComLayer\VCT.ComLayer.csproj">
       <Project>{82fa8a75-ac3a-4ba3-b4f0-6cdfb131a2c2}</Project>
       <Name>VCT.ComLayer</Name>
@@ -86,9 +93,9 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

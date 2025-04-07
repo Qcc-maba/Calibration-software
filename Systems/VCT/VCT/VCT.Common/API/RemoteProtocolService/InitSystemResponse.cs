@@ -6,12 +6,11 @@ using System.Threading.Tasks;
 
 namespace Maba.VCT.Common.API.RemoteProtocolService
 {
-    public class InitSystemResponse : DeviceBaseResponse
+    public class InitSystemResponse : BaseResponse
     {
-
-        public InitSystemResponse()
+        public InitSystemResponse(HardwarePacket p)
         {
-
+            Message = p.ToString();
         }
         public InitSystemResponse(bool result)
             : base()

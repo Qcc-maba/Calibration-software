@@ -16,5 +16,21 @@ namespace Maba.DAL.BaseDAL.Records
         public double HumidityValue { get; set; }
         #endregion
 
+        public CorrectionValues()
+        {
+
+        }
+        public CorrectionValues(double temprature,  double deviation)
+        {
+            this.TemperatureValue = temprature;
+            this.Deviation = deviation;
+        }
+
+        public CorrectionValues(List<double> temp)
+        {
+            this.TemperatureValue = temp[0];
+            this.HumidityValue = temp[1];
+            this.Deviation = temp[2];
+        }
     }
 }

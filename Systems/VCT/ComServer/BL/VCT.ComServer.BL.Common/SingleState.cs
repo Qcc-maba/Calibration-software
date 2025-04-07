@@ -60,6 +60,7 @@ namespace Maba.VCT.CommServer.CommonBL
         {
             State = state;
             Name = name;
+            this.ManualExecutionInterval = TimeSpan.FromSeconds(2);
         }
 
         #endregion

@@ -12,26 +12,26 @@ namespace Maba.VCT.Core.Device.Sessions
     {
         #region Peopeties
 
-        public DeviceHost Parent { get; private set; }
+        public HardwareDeviceHost Parent { get; private set; }
 
         public virtual bool Avilable4Transport
         {
             get { return LastRequest == null; }
         }
 
-        protected Common.API.DeviceBaseRequest LastRequest { get; set; }
+        protected Common.API.BaseRequest LastRequest { get; set; }
 
         #endregion
 
         #region Members
 
-        private ConcurrentQueue<Common.API.DeviceBaseRequest> QueuedRequests = new ConcurrentQueue<Common.API.DeviceBaseRequest>();
+        private ConcurrentQueue<Common.API.BaseRequest> QueuedRequests = new ConcurrentQueue<Common.API.BaseRequest>();
 
         #endregion
 
         #region Ctor(s)
 
-        public BaseSession(DeviceHost parent)
+        public BaseSession(HardwareDeviceHost parent)
         {
             Parent = parent;
         }
@@ -44,7 +44,7 @@ namespace Maba.VCT.Core.Device.Sessions
         {
             if (Avilable4Transport && QueuedRequests.Count > 0)
             {
-                Common.API.DeviceBaseRequest r = null;
+                Common.API.BaseRequest r = null;
                 if (QueuedRequests.TryDequeue(out r))
                 {
                     LastRequest = r;
@@ -63,7 +63,7 @@ namespace Maba.VCT.Core.Device.Sessions
 
         }
 
-        internal virtual bool HandlePacket(Common.Packet p)
+        internal virtual bool HandlePacket(Common.HardwarePacket p)
         {
             return true;
         }
@@ -72,7 +72,7 @@ namespace Maba.VCT.Core.Device.Sessions
 
         #region protected/abstract methods
 
-        protected void SendPacket(Common.Packet p)
+        protected void SendPacket(Common.HardwarePacket p)
         {
             Parent.SendPacket(p);
         }
@@ -81,7 +81,7 @@ namespace Maba.VCT.Core.Device.Sessions
         {
             this.LastRequest = null;
 
-            Common.API.DeviceBaseRequest r = null;
+            Common.API.BaseRequest r = null;
 
             //empty all queued sessions
             while (this.QueuedRequests.TryDequeue(out r))
@@ -95,11 +95,11 @@ namespace Maba.VCT.Core.Device.Sessions
 
         }
 
-        protected abstract void ProccessRequest(Common.API.DeviceBaseRequest r);
+        protected abstract void ProccessRequest(Common.API.BaseRequest r);
 
         protected abstract void LastRequestTimedOut();
 
-        protected void QueueRequest(Common.API.DeviceBaseRequest r)
+        protected void QueueRequest(Common.API.BaseRequest r)
         {
             //Libs.Trace.Tracer.Info($"BaseSession : New Request : {r.GetType().Name}");
 

@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Maba.VCT.CommServer.Monitor
@@ -14,9 +11,16 @@ namespace Maba.VCT.CommServer.Monitor
         [STAThread]
         static void Main()
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new FormMain());
+            try
+            {
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new FormMain());
+            }
+            catch (Exception e)
+            {
+                Libs.Trace.Tracer.Info(e.Message);
+            }
         }
     }
 }

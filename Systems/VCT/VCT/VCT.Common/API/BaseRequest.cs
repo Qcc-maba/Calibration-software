@@ -20,7 +20,7 @@ namespace Maba.VCT.Common.API
 
         public bool ExpectedResponse { get; set; }
 
-        public Packet Packet { get; set; }
+        public HardwarePacket Packet { get; set; }
         /// <summary>
         /// Time-To-Live in Seconds
         /// </summary>

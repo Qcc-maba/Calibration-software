@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Maba.VCT.Common;
+using Maba.VCT.CommServer.BL.HydraDevices.Settings;
 using Maba.VCT.Core.Device;
 using Maba.VCT.Core.Events;
+
 
 namespace Maba.VCT.CommServer.CommonBL
 {
@@ -27,11 +30,14 @@ namespace Maba.VCT.CommServer.CommonBL
 
         private SingleState[] States = null;
 
+        private HardwareBL_Settings Settings;
         #endregion
 
         #region properties
+
         public IBLCore Parent { get; private set; }
-        public Core.Device.DeviceHost VCT_Device { get; private set; }
+        public Core.Device.HardwareDeviceHost HW_Device { get; private set; }
+        public Core.Device.WebSocketDeviceHost WS_Device { get; private set; }
         public DeviceSteps CurrentStep { get; private set; } = DeviceSteps.Start;
         #endregion
 
@@ -74,7 +80,7 @@ namespace Maba.VCT.CommServer.CommonBL
                 {
                     if (OnStepStart(DeviceSteps.Routine))
                     {
-                        //VCT.Libs.Trace.Tracer.Info($"Device #{this.VCT_Device.SN} - [Step__Routine_Work]");
+                        VCT.Libs.Trace.Tracer.Info($"Device #{this.HW_Device.SN} - [Step__Routine_Work]");
 
                         //go to next step
                         CurrentStep = DeviceSteps.Routine;
@@ -137,7 +143,7 @@ namespace Maba.VCT.CommServer.CommonBL
 
         public void OnTimer()
         {
-            if (this.VCT_Device != null && VCT_Device.IsConnected)
+            if (this.HW_Device != null && HW_Device.IsConnected)
             {
                 switch (CurrentStep)
                 {
@@ -155,21 +161,28 @@ namespace Maba.VCT.CommServer.CommonBL
             }
         }
 
-        public void Start(DeviceHost device)
+        public void Start(IDeviceHost device)
         {
-            VCT_Device = device;
-            VCT_Device.BL = this;
-
-            OnConnection(true);
+            if (device is HardwareDeviceHost host)
+            {
+                OnConnection(true);
+                HW_Device = host;
+                HW_Device.BL = this;
+            }
+            else
+            {
+                WS_Device = (WebSocketDeviceHost)device;
+                WS_Device.BL = this;
+            }
         }
 
         public void Disconnect()
         {
-           
+
         }
-        
+
         #endregion
-         
+
         #region protected/virtual methods
 
         protected abstract SingleState[] OnCreateStates();

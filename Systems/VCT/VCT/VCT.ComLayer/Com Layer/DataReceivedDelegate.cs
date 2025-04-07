@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Linq;
+using System.Text;
 
 namespace Maba.VCT.ComLayer
 {
@@ -11,12 +13,12 @@ namespace Maba.VCT.ComLayer
     public class DataReceivedEventArgs : EventArgs
     {
         #region proeprties
-
+        public string DataString { get;private set; }
         public byte[] Data { get; private set; }
+        public float FloatData { get; private set; }
         public int Offset { get; private set; }
         public int Count { get; private set; }
 
-        public string StringData { get; private set; }
         #endregion
 
         #region ctor
@@ -28,12 +30,22 @@ namespace Maba.VCT.ComLayer
             Offset = offset;
             Count = count;
         }
-        public DataReceivedEventArgs(string data) : base()
+        public DataReceivedEventArgs(string data) : this(ASCIIEncoding.ASCII.GetBytes(data),0,data.Length)
         {
-            StringData = data;
-            this.Data = System.Text.ASCIIEncoding.ASCII.GetBytes(data);
-            this.Offset = 0;
-            this.Count = data.Length;
+            DataString = data;
+        }
+
+        public DataReceivedEventArgs(float response, int offset, int count)
+        {
+            this.FloatData = response;
+            Offset = offset;
+            Count = count;
+        }
+        public DataReceivedEventArgs(ushort[] response, int offset, int count)
+        {
+            this.Data = response.SelectMany(x => BitConverter.GetBytes(x)).ToArray();
+            Offset = offset;
+            Count = count;
         }
         #endregion
     }

@@ -13,12 +13,11 @@ namespace Maba.VCT.ComLayer
         string Title { get; set; }
 
         bool IsConnected { get; }
+        Tunnel ParentTunnel { get; }
 
         DateTime CreationTime { get; set; }
         DateTime? LastRX_Time { get; }
         DateTime? LastTX_Time { get; }
-
-        Tunnel ParentTunnel { get; }
 
         #endregion
 

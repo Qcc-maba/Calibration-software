@@ -1,13 +1,21 @@
-﻿using System;
+﻿using Maba.DAL.BaseDAL;
+using Maba.VCT.Accessories;
+using Maba.VCT.ComLayer.Com_Layer;
+using Maba.VCT.Common;
+using Maba.VCT.Core.Device;
+using Maba.VCT.Core.Events;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
+using System.Net.WebSockets;
 using System.Threading.Tasks;
 using System.Timers;
+using System.Web;
+using static System.Net.WebRequestMethods;
 
 namespace Maba.VCT.Core
 {
@@ -15,7 +23,7 @@ namespace Maba.VCT.Core
     {
         #region members
 
-        private Dictionary<string, VCTDeviceSettings> Dic_DeviceSettings = new Dictionary<string, VCTDeviceSettings>();
+        private Dictionary<string, DeviceSettings> Dic_DeviceSettings = new Dictionary<string, DeviceSettings>();
 
         #endregion
 
@@ -23,7 +31,7 @@ namespace Maba.VCT.Core
 
         public Settings.VCTSettings CurrentServerSettings { get; private set; }
 
-        public Events.EventsBus7E MainEventsBus { get; private set; }
+        public Events.EventsBus MainEventsBus { get; private set; }
 
         #endregion
 
@@ -31,10 +39,24 @@ namespace Maba.VCT.Core
 
         private Timer TimerManager_DeviceHost = null;
 
-        private Accessories.MyReaderWriterLockSlim<ConcurrentDictionary<string, Device.DeviceHost>> DeviceHost_Slim = new Accessories.MyReaderWriterLockSlim<ConcurrentDictionary<string, Device.DeviceHost>>(new ConcurrentDictionary<string, Device.DeviceHost>());
-        private Accessories.MyReaderWriterLockSlim<List<Device.DeviceHostPending>> DeviceHost_Pending_Slim = new Accessories.MyReaderWriterLockSlim<List<Device.DeviceHostPending>>(new List<Device.DeviceHostPending>());
+        private MyReaderWriterLockSlim<ConcurrentDictionary<string, Device.HardwareDeviceHost>> DeviceHost_Slim = new MyReaderWriterLockSlim<ConcurrentDictionary<string, Device.HardwareDeviceHost>>(new ConcurrentDictionary<string, Device.HardwareDeviceHost>());
+        private MyReaderWriterLockSlim<ConcurrentDictionary<string, Device.WebSocketDeviceHost>> WSDeviceHost_Slim = new MyReaderWriterLockSlim<ConcurrentDictionary<string, Device.WebSocketDeviceHost>>(new ConcurrentDictionary<string, Device.WebSocketDeviceHost>());
+        private MyReaderWriterLockSlim<List<Device.DeviceHostPending>> DeviceHost_Pending_Slim = new MyReaderWriterLockSlim<List<Device.DeviceHostPending>>(new List<Device.DeviceHostPending>());
 
         private List<Socket> Device_MainSockets = null;
+
+        #region Websocket Members
+
+        private HttpListener _listener;
+        string WebSocketAddress = "http://localhost:50001/";
+        HttpListenerContext context;
+        #endregion
+
+
+
+        #region DB Members
+        public MSSqlServer connector = null;
+        #endregion
 
         #endregion
 
@@ -42,7 +64,7 @@ namespace Maba.VCT.Core
 
         public ServerCore()
         {
-            this.MainEventsBus = new Events.EventsBus7E();
+            this.MainEventsBus = new Events.EventsBus();
             CurrentServerSettings = new Settings.VCTSettings();
         }
 
@@ -55,7 +77,7 @@ namespace Maba.VCT.Core
             Start(Settings.VCTSettings.Read());
         }
 
-        public void Start(Settings.VCTSettings _Settings)
+        public async void Start(Settings.VCTSettings _Settings)
         {
             CurrentServerSettings = _Settings;
 
@@ -80,11 +102,55 @@ namespace Maba.VCT.Core
 
             TimerManager_DeviceHost = new Timer();
             TimerManager_DeviceHost.Interval = CurrentServerSettings.ServerTimerInterval;
-            TimerManager_DeviceHost.Elapsed += TimerManager_Hydra2_Elapsed;
-            TimerManager_DeviceHost.AutoReset = false;
+            TimerManager_DeviceHost.Elapsed += TimerManager_Device_Elapsed;
+            TimerManager_DeviceHost.AutoReset = true;
             TimerManager_DeviceHost.Start();
 
             #endregion
+
+            #region WebSocket
+            //WebSocketInit();
+            #endregion
+
+            #region DB connector
+            connector = new MSSqlServer(CurrentServerSettings.GeneralDBName);
+            await connector.OpenAsync();
+            #endregion
+        }
+
+        private async void WebSocketInit()
+        {
+            try
+            {
+
+                _listener = new HttpListener();
+                _listener.Prefixes.Add(WebSocketAddress);
+                _listener.Start();
+                context = await _listener.GetContextAsync();
+                if (context != null && context.Request.IsWebSocketRequest)
+                {
+
+                    HttpListenerWebSocketContext webSocketContext = await context.AcceptWebSocketAsync(null);
+                    WebSocket webSocket = webSocketContext.WebSocket;
+                    WebSocketCom wsc = new WebSocketCom(webSocket);
+                    WebSocketDeviceHost wsdh = new WebSocketDeviceHost(MainEventsBus, wsc, "Eliran");
+                    WSDeviceHost_Slim.MyWriteLock(list =>
+                    {
+                        list.TryAdd("Eliran", wsdh);
+                    });
+
+                    MainEventsBus.Fire_WebSocketConnection(this, new Events.DeviceConnectionEventArgs(wsdh));
+
+
+                    Console.WriteLine("Client connected!");
+
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Libs.Trace.Tracer.Info(ex.Message);
+            }
         }
 
         public void Stop()
@@ -138,16 +204,16 @@ namespace Maba.VCT.Core
 
             #region Close Device Host Timer
 
-            TimerManager_DeviceHost.Elapsed -= TimerManager_Hydra2_Elapsed;
+            TimerManager_DeviceHost.Elapsed -= TimerManager_Device_Elapsed;
             TimerManager_DeviceHost.Stop();
             TimerManager_DeviceHost = null;
 
             #endregion
         }
 
-        private VCTDeviceSettings Lookup4Settings(string name)
+        private DeviceSettings Lookup4Settings(string name)
         {
-            VCTDeviceSettings value = null;
+            DeviceSettings value = null;
             if (Dic_DeviceSettings.TryGetValue(name, out value))
             {
                 if (value != null)
@@ -156,35 +222,35 @@ namespace Maba.VCT.Core
                 }
             }
 
-            return new VCTDeviceSettings();
+            return new DeviceSettings();
         }
 
-        public void AddDevice_Pending_ComLayer(ComLayer.IComLayer layer)
+        public void AddDevice_Pending_ComLayer(ComLayer.IComLayer layer, string SN = "")
         {
-
             var deviceSettings = Lookup4Settings(layer.ParentTunnel.Name);
 
-            var g = new Device.DeviceHostPending()
-            {
-                D = new Device.DeviceHost(MainEventsBus, layer, deviceSettings.Clone())
-            };
+            var g = new Device.DeviceHostPending();
 
+            g = new Device.DeviceHostPending()
+            {
+                D = new Device.HardwareDeviceHost(MainEventsBus, layer, deviceSettings.Clone())
+            };
             DeviceHost_Pending_Slim.MyWriteLock(list =>
                     {
                         list.Add(g);
                     });
 
-            MainEventsBus.Fire_UnIdentifiedConnection(this, new Events.DeviceConnectionEventArgs(g.D));
+            //MainEventsBus.Fire_DeviceConnection(this, new Events.DeviceConnectionEventArgs(g.D));
         }
 
-        public Task<Device.DeviceHost> GetDeviceAsync(string sn)
+        public Task<Device.HardwareDeviceHost> GetDeviceAsync(string sn)
         {
-            return Task.Run<Device.DeviceHost>(() => GetDevice(sn));
+            return Task.Run<Device.HardwareDeviceHost>(() => GetDevice(sn));
         }
 
-        public Device.DeviceHost GetDevice(string sn)
+        public Device.HardwareDeviceHost GetDevice(string sn)
         {
-            Device.DeviceHost dev = null;
+            Device.HardwareDeviceHost dev = null;
 
             DeviceHost_Slim.MyReadLock(list =>
             {
@@ -206,6 +272,7 @@ namespace Maba.VCT.Core
         //    });
         //}
 
+
         #endregion
 
         #region Private methods
@@ -214,11 +281,13 @@ namespace Maba.VCT.Core
         {
             try
             {
-                var _state = (Tuple<ComLayer.Tunnel, Socket>)ar.AsyncState;
+                //var _state = (Tuple<ComLayer.Tunnel, Socket>)ar.AsyncState;
+                var _state = (Socket)ar.AsyncState;
+
                 try
                 {
-                    var newSocket = _state.Item2.EndAccept(ar);
-                    var s = new ComLayer.SocketCom(newSocket, _state.Item1);
+                    var newSocket = _state.EndAccept(ar);
+                    var s = new ComLayer.SocketCom(newSocket);
                     this.AddDevice_Pending_ComLayer(s);
                     s.Open();
                 }
@@ -226,7 +295,7 @@ namespace Maba.VCT.Core
                 {
                 }
 
-                _state.Item2.BeginAccept(new AsyncCallback(DevicesSocket_Accpet_AsyncCallback), _state);
+                _state.BeginAccept(new AsyncCallback(DevicesSocket_Accpet_AsyncCallback), _state);
             }
             catch
             {
@@ -272,7 +341,7 @@ namespace Maba.VCT.Core
         List<Device.DeviceHostPending> _TempDeviceHost = new List<Device.DeviceHostPending>();
 
 
-        void TimerManager_Hydra2_Elapsed(object sender, ElapsedEventArgs e)
+        void TimerManager_Device_Elapsed(object sender, ElapsedEventArgs e)
         {
             if (TimerManager_DeviceHost == null)
                 return;
@@ -310,16 +379,7 @@ namespace Maba.VCT.Core
                                 }
                                 else
                                 {
-                                    if (pendinHydra2lenceTime >= CurrentServerSettings.PendingDevice_FirstAwakePacket_TimeSpan
-                                    && (!dev.LastAwakeConnectPacket.HasValue
-                                    || NowTime - dev.LastAwakeConnectPacket.Value >= CurrentServerSettings.PendingDevice_AwakePacketInterval_TimeSpan)
-                                    && (dev.TotalAwakeConnectPackets < CurrentServerSettings.PendingDevice_MaxAwakePacketTimes))
-                                    {
-                                        dev.LastAwakeConnectPacket = DateTime.UtcNow;
-                                        dev.TotalAwakeConnectPackets++;
-                                        var p = Common.HydraProtocolHelper.Build_ID_Packet();
-                                        dev.D.SendPacket(p);
-                                    }
+                                    dev.D.SendPacket(CurrentServerSettings.DeviceSettings.FirstOrDefault().IdentificationPacket);
                                 }
                             }
                             else
@@ -384,7 +444,7 @@ namespace Maba.VCT.Core
 
             try
             {
-                Device.DeviceHost _DeviceHost = null;
+                Device.HardwareDeviceHost _DeviceHost = null;
                 foreach (var newPending in _TempDeviceHost)
                 {
                     _DeviceHost = null;
@@ -396,13 +456,13 @@ namespace Maba.VCT.Core
                     //for exists device, update ComLayer
                     if (_DeviceHost != null)
                     {
-                        _DeviceHost.InitSessions(newPending.D);
+                        _DeviceHost.InitSessions(newPending.D as HardwareDeviceHost);
                         newPending.D.ReplaceComLayer(null);
                     }
 
                     else
                     {
-                        _DeviceHost = newPending.D;
+                        _DeviceHost = (HardwareDeviceHost)newPending.D;
                         DeviceHost_Slim.MyWriteLock(list =>
                         {
                             list.TryAdd(_DeviceHost.SN, _DeviceHost);
@@ -433,7 +493,13 @@ namespace Maba.VCT.Core
                         item.Value.Timer();
                     });
                 });
-
+                WSDeviceHost_Slim.MyReadLock(list =>
+                {
+                    Parallel.ForEach(list, item =>
+                    {
+                        item.Value.Timer();
+                    });
+                });
                 #endregion
             }
             catch
@@ -441,6 +507,7 @@ namespace Maba.VCT.Core
             }
 
             #endregion
+
 
             var t = TimerManager_DeviceHost;
 
