@@ -12,11 +12,8 @@ namespace Maba.VCT.ComLayer
         public int BacklogClients { get; set; } = 5000;
         public string Name { get; set; }
         public string Address { get; set; } = "";
-
         public int[] Ports { get; set; }
-
         public string SettingsName { get; set; } = "";
-
         #endregion
 
         #region Ctor
@@ -25,10 +22,6 @@ namespace Maba.VCT.ComLayer
 
         }
 
-        public Tunnel(string name)
-        {
-            Name = name;
-        }
         #endregion
     }
 }

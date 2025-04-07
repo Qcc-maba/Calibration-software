@@ -1,4 +1,6 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Maba.DAL.BaseDAL;
+using Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,10 +23,23 @@ namespace Maba.VCT.Core.Tests
         #endregion
         public ReadWriteCNF() : base(port)
         {
-
+            MSSqlServer connector = new MSSqlServer("KyulanSyncDB");
+            HydraCalculations hc = new HydraCalculations(connector);
+            //var x = hc.CalcCalibrationForTemperaturePolinomial("", 200);
+            //Console.WriteLine("the value is  :" + x.Item1);
         }
 
         #region Tests
+
+        [TestMethod]
+        public void LogTest()
+        {
+            MSSqlServer connector = new MSSqlServer("KyulanSyncDB");
+            HydraCalculations hc = new HydraCalculations(connector);
+            hc.ClacCalibrationLogarithmicalForVacum("", 1);
+        }
+
+
 
         [TestMethod]
         public void ReadWriteCNFTest()

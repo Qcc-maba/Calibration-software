@@ -10,7 +10,7 @@ namespace Maba.VCT.CommServer.Monitor
     {
         #region Properties
 
-        private VCT.Core.Device.DeviceHost Device = null;
+        private VCT.Core.Device.HardwareDeviceHost Device = null;
         private string FirmwareFilePath = "";
         #endregion
 
@@ -20,7 +20,7 @@ namespace Maba.VCT.CommServer.Monitor
             InitializeComponent();
         }
 
-        public Protocol7EMonitor(VCT.Core.Device.DeviceHost _dev)
+        public Protocol7EMonitor(VCT.Core.Device.HardwareDeviceHost _dev)
             : this()
         {
             Device = _dev;

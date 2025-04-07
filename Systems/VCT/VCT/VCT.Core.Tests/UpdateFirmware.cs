@@ -68,7 +68,7 @@ namespace Maba.VCT.Core.Tests
                 for (int i = 0; i < firmwareFiles.Count; i++)
                 {
                     var sn = i.ToString().PadLeft(16, '0');
-                    var device = Server.GetDevice(sn);
+                    //var device = Server.GetDevice(sn);
                     //var res = device.UpdateFirmware(code);
                     //res.Wait();
                     //_UpdateFlag.WaitOne();

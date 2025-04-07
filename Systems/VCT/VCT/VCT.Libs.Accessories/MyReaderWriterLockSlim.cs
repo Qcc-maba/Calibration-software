@@ -38,8 +38,9 @@ namespace Maba.VCT.Accessories
             {
                 MethodName(LockedItem);
             }
-            catch
+            catch (Exception ex) 
             {
+                Libs.Trace.Tracer.Error(ex.Message);
             }
 
             finally
@@ -56,8 +57,9 @@ namespace Maba.VCT.Accessories
             {
                 MethodName(LockedItem);
             }
-            catch
+            catch (Exception ex)
             {
+                Libs.Trace.Tracer.Error(ex.Message);
             }
 
             finally
@@ -74,8 +76,9 @@ namespace Maba.VCT.Accessories
             {
                 MethodName(LockedItem);
             }
-            catch
+            catch (Exception ex)
             {
+                Libs.Trace.Tracer.Error(ex.Message);
             }
 
             finally

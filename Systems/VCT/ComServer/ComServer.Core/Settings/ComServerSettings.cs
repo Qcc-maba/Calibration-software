@@ -16,6 +16,7 @@ namespace Maba.VCT.CommServer.Core.Settings
         public const string DEFAULT_SETTINGS_FOLDER_NAME = "Settings";
 
         public Module[] Modules { get; set; }
+        public Dictionary<string, string>[] IP2Scan { get; set; }
 
         #endregion
 
@@ -52,7 +53,27 @@ namespace Maba.VCT.CommServer.Core.Settings
 
         public static ComServerSettings CreateDefaultSettings()
         {
-            var defaultSettings = new Core.Settings.ComServerSettings();
+            var defaultSettings = new Core.Settings.ComServerSettings()
+            {
+                IP2Scan = new Dictionary<string, string>[]
+              {
+                      new Dictionary<string, string>()
+                        { 
+                           ["10.3.3.46"] = "21-431",
+                           ["10.3.3.47"] = "21-473",
+                           ["10.3.3.34"] = "21-474",
+                           ["10.3.3.37"] = "21-527",
+                           ["10.3.3.32"] = "21-534",
+                           ["10.3.3.38"] = "21-549",
+                           ["10.3.3.33"] = "21-596",
+                           ["10.3.3.35"] = "21-597",
+                           ["10.3.3.39"] = "21-649",
+                           ["10.3.3.48"] = "21-651",
+                           ["10.3.3.36"] = "31-65",
+                           ["10.3.3.40"] = "21-999"
+                        },
+              }
+            };
             return defaultSettings;
         }
 

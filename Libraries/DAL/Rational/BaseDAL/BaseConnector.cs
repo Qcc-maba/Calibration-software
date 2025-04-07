@@ -41,17 +41,17 @@ namespace Maba.DAL.BaseDAL
             ThrowExceptions = true;
         }
 
-        public BaseConnector(Connection connection)
-            : this()
-        {
-            Connector = BaseDALConnector.Create(connection.ProviderName, connection.ConnectionString);
-        }
+        //public BaseConnector(Connection connection)
+        //    : this()
+        //{
+        //    Connector = BaseDALConnector.Create(connection.ProviderName, connection.ConnectionString);
+        //}
 
-        public BaseConnector(string providerName, string stringConnection)
-            : this()
-        {
-            Connector = BaseDALConnector.Create(providerName, stringConnection);
-        }
+        //public BaseConnector(string providerName, string stringConnection)
+        //    : this()
+        //{
+        //    Connector = BaseDALConnector.Create(providerName, stringConnection);
+        //}
 
         public BaseConnector(string stringConnectionSectionName)
             : this()

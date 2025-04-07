@@ -7,7 +7,7 @@ namespace Maba.VCT.Core.Device.Sessions
 {
     internal class RateSession : BaseSession
     {
-        public RateSession(DeviceHost parent) : base(parent)
+        public RateSession(HardwareDeviceHost parent) : base(parent)
         {
         }
 
@@ -22,7 +22,7 @@ namespace Maba.VCT.Core.Device.Sessions
             }
         }
 
-        protected override void ProccessRequest(Common.API.DeviceBaseRequest r)
+        protected override void ProccessRequest(Common.API.BaseRequest r)
         {
             if (r.GetType() == typeof(Common.API.RemoteProtocolService.RateRequest))
             {
@@ -44,12 +44,12 @@ namespace Maba.VCT.Core.Device.Sessions
         {
             if (LastRequest != null && LastRequest.CallBackResponse != null)
             {
-                //response.SN = this.Parent.SN;
+                response.SN = this.Parent.SN;
                 LastRequest.CallBackResponse(this, response);
             }
             LastRequest = null;
         }
-        internal override bool HandlePacket(Common.Packet p)
+        internal override bool HandlePacket(Common.HardwarePacket p)
         {
             if (LastRequest != null && LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.RateRequest))
             {

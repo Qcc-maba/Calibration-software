@@ -18,18 +18,6 @@ namespace Maba.VCT.ComLayer
         public string Title { get; set; }
         public DateTime CreationTime { get; set; }
 
-
-        #region Test
-        TcpClient tcpClient;
-        private readonly string _host;
-        private readonly int _port;
-        private NetworkStream _networkStream;
-        private StreamWriter _streamWriter;
-        private StreamReader _streamReader;
-        #endregion
-
-        //public NetworkStream NetworkStream { get; private set; }
-        //private bool SendFlag = true;
         #endregion
 
         #region  Event
@@ -38,13 +26,12 @@ namespace Maba.VCT.ComLayer
 
         #region ctor
 
-        public SocketCom(Socket clientSocket, ComLayer.Tunnel parentTunnel)
+        public SocketCom(Socket clientSocket)
         {
             this.clientSocket = clientSocket;
             this.CreationTime = DateTime.UtcNow;
             this.Title = clientSocket.RemoteEndPoint.ToString();
 
-            this.ParentTunnel = parentTunnel;
         }
 
         public SocketCom(string address, int port, ComLayer.Tunnel parentTunnel)
@@ -54,9 +41,8 @@ namespace Maba.VCT.ComLayer
             this.clientSocket.ReceiveTimeout = 300;
             this.clientSocket.SendTimeout = 300;
             this.clientSocket.Connect(address, port);
-
-            this.Title = clientSocket.RemoteEndPoint.ToString();
             this.ParentTunnel = parentTunnel;
+            this.Title = clientSocket.RemoteEndPoint.ToString();
         }
 
 
@@ -95,10 +81,13 @@ namespace Maba.VCT.ComLayer
                 };
             }
         }
-
         public void SendBytes(byte[] b)
         {
             SendBytes(b, 0, b.Length);
+        }
+        public void SendString(string s)
+        {
+            SendBytes(ASCIIEncoding.Default.GetBytes(s + Environment.NewLine));
         }
 
         public void Open()
@@ -148,7 +137,7 @@ namespace Maba.VCT.ComLayer
                     LastRX_Time = DateTime.UtcNow;
 
                     index += lastRead;
-
+                    //Console.WriteLine("SocketCom Packet: " + ASCIIEncoding.ASCII.GetString(_Buffer, 0, lastRead));
                     if (DataReceived != null)
                     {
                         var e1 = new DataReceivedEventArgs(_Buffer, 0, lastRead);
@@ -180,20 +169,7 @@ namespace Maba.VCT.ComLayer
             LayerClosed = null;
             DataReceived = null;
         }
-        public void Connect()
-        {
-            if (tcpClient == null)
-            {
-                tcpClient = new TcpClient();
-            }
-            tcpClient.Connect(_host, _port);
-            tcpClient.ReceiveTimeout = 100;
 
-        }
-        public async void SendString(string s)
-        {
-            SendBytes(ASCIIEncoding.Default.GetBytes(s + Environment.NewLine));
-        }
 
         #endregion
     }

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Maba.VCT.Common.API.RemoteProtocolService
 {
-    public class RateResponse : DeviceBaseResponse
+    public class RateResponse : BaseResponse
     {
         #region Properties
 

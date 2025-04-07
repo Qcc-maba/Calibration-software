@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Maba.VCT.Common.API.RemoteProtocolService
 {
-    public  class InitSystemRequest : DeviceBaseRequest
+    public  class InitSystemRequest : BaseRequest
     {
     }
 }

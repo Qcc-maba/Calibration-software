@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Maba.VCT.Common.API.RemoteProtocolService
 {
-    public class GetSetDateResponse : DeviceBaseResponse
+    public class GetSetDateResponse : BaseResponse
     {
     
 
@@ -19,7 +19,7 @@ namespace Maba.VCT.Common.API.RemoteProtocolService
             Result = result;
         }
 
-        public Packet ResponsePacket { get; set; }
+        public HardwarePacket ResponsePacket { get; set; }
 
         #endregion
     }

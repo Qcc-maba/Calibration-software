@@ -26,6 +26,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -34,6 +35,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -60,6 +62,14 @@
     <Compile Include="UpdateFirmware.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\..\Libraries\DAL\Rational\BaseDAL\BaseDAL.csproj">
+      <Project>{8509A6E5-7D70-4F73-B6C0-8A8F70D88926}</Project>
+      <Name>BaseDAL</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\Hydra-Group\ComServer\ComServerBL\ComServer.BL.csproj">
+      <Project>{2F424179-46D9-4915-BC36-1DE2FE48E836}</Project>
+      <Name>ComServer.BL</Name>
+    </ProjectReference>
     <ProjectReference Include="..\VCT.ComLayer\VCT.ComLayer.csproj">
       <Project>{82fa8a75-ac3a-4ba3-b4f0-6cdfb131a2c2}</Project>
       <Name>VCT.ComLayer</Name>
@@ -72,6 +82,9 @@
       <Project>{9453683e-792d-4229-93f9-319caae7c814}</Project>
       <Name>VCT.Core</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">

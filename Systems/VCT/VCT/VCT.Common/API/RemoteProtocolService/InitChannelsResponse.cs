@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Maba.VCT.Common.API.RemoteProtocolService
 {
-    public class InitChannelsResponse : DeviceBaseResponse
+    public class InitChannelsResponse : BaseResponse
     {
 
         #region Ctor

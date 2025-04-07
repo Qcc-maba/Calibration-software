@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Maba.VCT.Common;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,14 +10,13 @@ namespace Maba.VCT.Core.Events
     public class DeviceEventArgs : EventArgs
     {
 
-        public Device.DeviceHost Device { get; private set; }
-        public byte Type { get; set; }
-        public byte SubType { get; set; }
-        public byte[] Data { get; set; }
+        public Device.IDeviceHost Device { get; private set; }
+        public IPacket Packet { get; private set; }
 
-        public DeviceEventArgs(Device.DeviceHost device)
+        public DeviceEventArgs(Device.IDeviceHost device, IPacket packet)
         {
             this.Device = device;
+            this.Packet = packet;
         }
     }
 }

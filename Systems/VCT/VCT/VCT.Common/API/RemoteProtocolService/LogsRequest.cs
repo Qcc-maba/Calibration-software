@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Maba.VCT.Common.API.RemoteProtocolService
 {
-    public class LogsRequest : DeviceBaseRequest
+    public class LogsRequest : BaseRequest
     {
         #region Enum
 
@@ -23,7 +23,6 @@ namespace Maba.VCT.Common.API.RemoteProtocolService
         #region Members
 
         public LogCommands LogCommand { get; private set; }
-        public int IntervalBetweenScans { get; private set; }
         #endregion
 
         #region ctors(s)
@@ -33,10 +32,7 @@ namespace Maba.VCT.Common.API.RemoteProtocolService
         {
             LogCommand = logCommands;
         }
-        public LogsRequest(LogCommands logCommands, int intervalBetweenScans) : this(logCommands)
-        {
-            this.IntervalBetweenScans = intervalBetweenScans;
-        }
+
         #endregion
 
     }

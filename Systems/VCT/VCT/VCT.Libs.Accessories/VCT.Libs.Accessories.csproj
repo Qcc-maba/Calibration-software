@@ -7,8 +7,8 @@
     <ProjectGuid>{31F7EF6C-874A-4CEA-9B6A-7DDFE92354A8}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.VCT.Accessories</RootNamespace>
-    <AssemblyName>Galcon.VCT.Accessories</AssemblyName>
+    <RootNamespace>Maba.VCT.Accessories</RootNamespace>
+    <AssemblyName>Maba.VCT.Accessories</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
@@ -21,6 +21,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -29,6 +30,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -43,6 +45,12 @@
   <ItemGroup>
     <Compile Include="MyReaderWriterLockSlim.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\Libraries\Connectors\Tracers\ProccessTracer\Maba.Libs.ProccessTracer.csproj">
+      <Project>{fd4c664f-2453-4584-9506-45de6bc13691}</Project>
+      <Name>Maba.Libs.ProccessTracer</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

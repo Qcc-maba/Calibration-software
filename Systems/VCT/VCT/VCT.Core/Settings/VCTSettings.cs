@@ -1,6 +1,8 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
@@ -17,11 +19,16 @@ namespace Maba.VCT.Core.Settings
         public const string DEFAULT_FILE_NAME = "VCT.json";
         #endregion
 
+        #region Members
+        public string GeneralDBName { get { return "KyulanSyncDB"; } }
+        public string PriorityDBName { get { return "Priority"; } }
+        #endregion
+
         #region Properties
 
         public ComLayer.Tunnel[] Tunnels { get; set; }
 
-        public VCTDeviceSettings[] DeviceSettings { get; set; }
+        public DeviceSettings[] DeviceSettings { get; set; }
 
         public TimeSpan PendingDevice_AwakePacketInterval_TimeSpan
         {
@@ -48,11 +55,12 @@ namespace Maba.VCT.Core.Settings
         }
 
         public long PendingDevice_MaxAwakePacketTimes { get; set; }
+
         public int ServerTimerInterval
         {
             get
             {
-                return 800;
+                return 2000;
             }
         }
 
@@ -129,6 +137,7 @@ namespace Maba.VCT.Core.Settings
         //    return this.OTA_LocalStorageFolder;
 
         //}
+
         #endregion
 
         #region static
@@ -191,16 +200,22 @@ namespace Maba.VCT.Core.Settings
                 Tunnels = new ComLayer.Tunnel[]
                  {
                     new ComLayer.Tunnel()
-                        { Name = "VCTTunnelSettings",
+                    {
+                        Name = "VCTTunnelSettings",
                         Address = "127.0.0.1",
                         BacklogClients = 5000,
                         Ports = new int[] { 50000, 50050 }
                     }
                 },
-                DeviceSettings = new VCTDeviceSettings[]
+                DeviceSettings = new DeviceSettings[]
                  {
-                      new VCTDeviceSettings() {SettingsName="" }
-                 }
+                      new DeviceSettings()
+                      {
+                          SettingsName="",
+                          IdentificationType= Core.DeviceSettings.IdentificationTypes.IDN
+                      }
+
+                 },
             };
 
             return defaultSettings;

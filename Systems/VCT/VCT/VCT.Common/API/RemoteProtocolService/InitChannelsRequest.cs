@@ -7,50 +7,13 @@ using System.Threading.Tasks;
 
 namespace Maba.VCT.Common.API.RemoteProtocolService
 {
-    public class InitChannelsRequest : DeviceBaseRequest
+    public class InitChannelsRequest : BaseRequest
     {
-        #region Enum
-        public enum ThermocoupleTypes
-        {
-            J = 0,
-            K = 1,
-            E = 2,
-            T = 3,
-            N = 4,
-            R = 5,
-            S = 6,
-            B = 7,
-            C = 8,
-            DC = 9
-        }
-
-
-        public enum MeasureTypes
-        {
-            VAC = 0,
-            VDC = 1,
-            OHMS = 2,
-            FREQ = 3,
-            TEMP = 4,
-            OFF = 5
-        }
-
-        #endregion
-
         #region Members
-        public static MeasureTypes MeasureType { get; private set; }
-        public ThermocoupleTypes ThermocoupleType { get; private set; }
-        public int MaxChannels
-        {
-            get
-            {
-                return 20;
-            }
-            private set { }
-        }
-        public int ChannleNumber { get; private set; }
-        #endregion
 
+        private int ChannelNumber;
+
+        #endregion
         #region Ctor(s)
         public InitChannelsRequest()
             : base()
@@ -58,13 +21,11 @@ namespace Maba.VCT.Common.API.RemoteProtocolService
 
         }
 
-        public InitChannelsRequest(int channleNumber, MeasureTypes measureType, ThermocoupleTypes thermocoupleType)
-           : base()
+        public InitChannelsRequest(int channelNum) : this()
         {
-            ChannleNumber = channleNumber;
-            MeasureType = measureType;
-            ThermocoupleType = thermocoupleType;
+            this.ChannelNumber = channelNum;
         }
+
         #endregion
     }
 }

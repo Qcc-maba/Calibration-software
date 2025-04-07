@@ -18,6 +18,7 @@ namespace Maba.VCT.Common.API
 
         public bool Expired { get; set; }
 
+        public string SN { get; set; }
         #endregion
 
         #region ctors(s)

@@ -16,7 +16,7 @@ namespace Maba.VCT.Core.Device.Sessions
 
         #region Ctor(s)
 
-        public InitSystemSession(DeviceHost parent)
+        public InitSystemSession(HardwareDeviceHost parent)
             : base(parent)
         {
         }
@@ -35,6 +35,8 @@ namespace Maba.VCT.Core.Device.Sessions
         }
         private void AnswerLastRequest(BaseResponse response)
         {
+            response.SN = this.Parent.SN;
+
             if (LastRequest != null && LastRequest.CallBackResponse != null)
             {
                 LastRequest.CallBackResponse(this, response);
@@ -42,7 +44,7 @@ namespace Maba.VCT.Core.Device.Sessions
             LastRequest = null;
         }
 
-        protected override void ProccessRequest(DeviceBaseRequest r)
+        protected override void ProccessRequest(BaseRequest r)
         {
             if (r != null & r.Packet != null)
             {
@@ -53,11 +55,11 @@ namespace Maba.VCT.Core.Device.Sessions
                 }
             }
         }
-        internal override bool HandlePacket(Common.Packet p)
+        internal override bool HandlePacket(Common.HardwarePacket p)
         {
             if (LastRequest != null && LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.InitSystemRequest))
             {
-                AnswerLastRequest(new InitSystemResponse(p.OK));
+                AnswerLastRequest(new InitSystemResponse(p));
                 return true;
             }
             return false;

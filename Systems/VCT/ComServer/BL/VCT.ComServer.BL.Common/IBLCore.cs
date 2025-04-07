@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Maba.VCT.Core.Device;
+using Maba.VCT.Core.Events;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,7 +12,8 @@ namespace Maba.VCT.CommServer.CommonBL
     {
         void Start(Core.ServerCore server);
         void Stop();
-        bool OnDeviceConnetion(Core.Device.DeviceHost dev);
-
+        bool OnDeviceConnetion(HardwareDeviceHost dev);
+        void OnEvent(DeviceEventArgs e);
+        void OnWebSocketDeviceConnetion(WebSocketDeviceHost device);
     }
 }

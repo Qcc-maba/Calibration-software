@@ -10,9 +10,9 @@ namespace Maba.VCT.Core.Device
     {
         public ComLayer.Tunnel Tunnel { get; private set; }
 
-        public VCTDeviceSettings DeviceSettings { get; private set; }
+        public DeviceSettings DeviceSettings { get; private set; }
 
-        public VCTTunnel0(ComLayer.Tunnel tunnel, VCTDeviceSettings settings)
+        public VCTTunnel0(ComLayer.Tunnel tunnel, DeviceSettings settings)
         {
             this.Tunnel = tunnel;
             this.DeviceSettings = settings;
