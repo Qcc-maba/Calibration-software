@@ -19,7 +19,8 @@ CREATE    PROCEDURE [dbo].[GetEquipmentManagementTableData]
 @NextCalibrationDate DATE = NULL,
 @CarLicenseNumber NVARCHAR(100)= NULL,
 @CalibratorFullName NVARCHAR(200) = NULL,
-@StatusDescription NVARCHAR(255) = NULL 
+@StatusDescription NVARCHAR(255) = NULL,
+@DepartmentName NVARCHAR(255) = NULL
 /*
 EXEC dbo.GetEquipmentManagementTableData
 @DepartmentId  = 1,
@@ -130,6 +131,7 @@ CONCAT(
   WHERE 1=1'
   ,CASE WHEN @EquipmentName IS NOT NULL THEN' AND ce.[EquipmentName] = '''+ @EquipmentName+''' 'ELSE ' ' END
   ,CASE WHEN @SerialNumber IS NOT NULL THEN' AND ce.[SerialNumber] LIKE ''%'+ @SerialNumber+'%'' 'ELSE ' ' END
+  ,CASE WHEN @DepartmentName IS NOT NULL THEN' AND d.[DepartmentName] LIKE ''%'+ @DepartmentName+'%'' 'ELSE ' ' END
   ,CASE WHEN @CarLicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] LIKE ''%'+ @CarLicenseNumber+'%'' 'ELSE ' ' END
   ,CASE WHEN @MainCategory IS NOT NULL THEN' AND ce.[MainCategory] LIKE ''%'+ @MainCategory+'%'' 'ELSE ' ' END
   ,CASE WHEN @StatusId > 0 THEN' AND ce.[StatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END

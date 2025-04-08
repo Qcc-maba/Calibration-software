@@ -4,14 +4,24 @@
 -- Description:	Get info about special care
 -- JiraLink: 
 -- =============================================
-CREATE   Procedure dbo.GetAssignedSpecialCaresForOrders
-@OrderNumber NVARCHAR(100)
+CREATE   Procedure [dbo].[GetAssignedSpecialCaresForOrders]
+@OrderNumber NVARCHAR(max)
 
 /*
-EXEC dbo.GetAssignedSpecialCaresForOrders @OrderNumber='LA25100677' 
+EXEC dbo.GetAssignedSpecialCaresForOrders @OrderNumber=N'LA25100677,LA25100036,LA25100039,LA25100040' 
 */
 
 AS
+
+DROP TABLE IF EXISTS #Orders
+CREATE TABLE #Orders
+(
+OrderWorkPlanId INT PRIMARY KEY
+)
+INSERT #Orders(OrderWorkPlanId)
+SELECT DISTINCT wp.OrderWorkPlanId FROM  dbo.ParseCSVToTable(@OrderNumber) as v
+JOIN [dbo].[OrderWorkPlans] as wp ON v.Value = wp.OrderNumber
+
 SELECT DISTINCT
 p.OrderWorkPlanId,
 p.OrderNumber,
@@ -20,5 +30,5 @@ s.StatusDescriptionENG,
 s.StatusDescriptionHEB
 FROM [dbo].[OrderWorkPlans] as p
 JOIN [dbo].[OrderDetails] as od ON p.OrderWorkPlanId = od.OrderWorkPlanId
-JOIN [dbo].[Statuses] as s ON od.SpecialCareTypeId = s.StatusId
-WHERE p.OrderNumber = @OrderNumber
+LEFT JOIN [dbo].[Statuses] as s ON od.SpecialCareTypeId = s.StatusId
+JOIN #Orders as o ON p.OrderWorkPlanId = o.OrderWorkPlanId

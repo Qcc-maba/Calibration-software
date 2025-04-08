@@ -4,7 +4,7 @@
 -- Description:	Get all calibration equipments
 -- JiraLink: 
 -- =============================================
-CREATE   PROCEDURE dbo.GetAllEquipment
+CREATE   PROCEDURE [dbo].[GetAllEquipment]
 AS
 
 SELECT c.[ID]
@@ -14,7 +14,9 @@ SELECT c.[ID]
 	  ,s.[StatusDescriptionENG]	
 	  ,s.[StatusDescriptionHEB]   
       -----------------------------
-	  ,'LA43342' as OrderNumber
-	  ,1 as OrderId
+	  ,op.OrderNumber as OrderNumber
+	  ,coh.OrderWorkPlanId as OrderId
 FROM [dbo].[CalibEquipments] as c
 JOIN [dbo].[Statuses] as s ON c.StatusId = s.StatusId
+LEFT JOIN [dbo].[CalibEquipmentsToOrderHeaders] as coh ON c.ID = coh.CalibEquipmentId
+LEFT JOIN [dbo].[OrderWorkPlans] as op ON op.OrderWorkPlanId = coh.OrderWorkPlanId

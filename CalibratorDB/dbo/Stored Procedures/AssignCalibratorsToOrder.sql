@@ -40,10 +40,11 @@ SELECT @WorkPlanId = wp.OrderWorkPlanId FROM [dbo].[OrderWorkPlans]  as wp
 WHERE wp.OrderNumber = @OrderNumber 
 
 
-BEGIN TRAN 
-
 UPDATE [dbo].[OrderWorkPlans]
 SET Notes = @Note
+WHERE OrderWorkPlanId = @WorkPlanId
+
+DELETE FROM dbo.CalibratorsToWorkPlan
 WHERE OrderWorkPlanId = @WorkPlanId
 
 INSERT dbo.CalibratorsToWorkPlan(OrderWorkPlanId,CalibratorId)
@@ -52,7 +53,5 @@ FROM #CalibratorIDs as c
 LEFT JOIN dbo.CalibratorsToWorkPlan as wp ON c.CalibratorID = wp.CalibratorId AND wp.OrderWorkPlanId = @WorkPlanId
 WHERE wp.CalibratorId IS NULL
 
-COMMIT
 
 END
-ROLLBACK

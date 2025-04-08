@@ -6,7 +6,7 @@
 -- =============================================
 CREATE PROCEDURE [dbo].[GetExternalWorkPlanData]
     @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
-    @RowsOfPage AS INT = 10,                 -- Result page size
+    @RowsOfPage AS INT = 1000,                 -- Result page size
     @OrderBy AS NVARCHAR(MAX) = 'Date',      -- OrderBy column
     @OrderByAsc AS BIT = 1,                  -- OrderBy direction (ASC/DESC)
     -- Filter parameters (all nullable)
@@ -58,7 +58,7 @@ BEGIN
 			OR CONCAT(u.FirstNameEng,' ',u.LastNameEng) LIKE '%'+@AssignedCalibrators+'%'
 			OR CONCAT(u.LastName,' ',u.FirstName) LIKE '%'+@AssignedCalibrators+'%'
 			OR CONCAT(u.LastNameEng,' ',u.FirstNameEng) LIKE '%'+@AssignedCalibrators+'%'
-	)
+	) and u.ID > 0
 
 	INSERT #FilteredDetails(OrderWorkPlanId)
    	SELECT DISTINCT cwp.[OrderWorkPlanId]
@@ -79,9 +79,13 @@ CONCAT(
         od.[CustomerName] as [ClientName],
         od.[CustomerCity] as [Location],
         wp.[WorkPlanOpenDate] as [WorkPlanOpenDate],
+		sp.StatusDescriptionENG AS SpecialCareENG,
+		sp.StatusDescriptionHEB AS SpecialCareHEB, 
         co.[Cars],
         coh.Equipments,
+		cwp.Calibrators,
         NULL as Notes,
+		mc.MainCategory,
 		wp.[IsCancelled]
 		,COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
@@ -94,6 +98,38 @@ CONCAT(
 		GROUP BY co.OrderWorkPlanId
 	 ) as co
 	ON wp.OrderWorkPlanId = co.OrderWorkPlanId
+	LEFT JOIN 
+	(
+		SELECT cwp.OrderWorkPlanId,STRING_AGG(CONCAT(u.FirstName,'' '',u.LastName),'','') as Calibrators
+		FROM [dbo].[CalibratorsToWorkPlan] as cwp
+		JOIN [dbo].[Users] as u ON cwp.CalibratorId = u.ID AND u.ID > 0
+		GROUP BY cwp.OrderWorkPlanId
+	 ) as cwp
+	ON wp.OrderWorkPlanId = cwp.OrderWorkPlanId
+	LEFT JOIN 
+	(
+	 SELECT OrderWorkPlanId, STRING_AGG(MainCategory,'','') AS MainCategory
+	 FROM (
+	 SELECT DISTINCT OrderWorkPlanId,MainCategory
+	 FROM [dbo].[OrderDetails]
+	 WHERE IsInHouse = 0
+	 ) ds
+	 GROUP BY OrderWorkPlanId
+	) as mc ON wp.OrderWorkPlanId = mc.OrderWorkPlanId
+	LEFT JOIN 
+	(
+	 SELECT OrderWorkPlanId, 
+	 STRING_AGG(StatusDescriptionENG,'','') AS StatusDescriptionENG,
+	 STRING_AGG(StatusDescriptionHEB,'','') AS StatusDescriptionHEB
+	 FROM (
+	 SELECT DISTINCT od.OrderWorkPlanId, s.StatusDescriptionENG,
+	 s.StatusDescriptionHEB
+	 FROM [dbo].[OrderDetails] as od
+	 JOIN [dbo].[Statuses] as s ON od.SpecialCareTypeId = s.StatusId
+	 WHERE IsInHouse = 0
+	 ) ds
+	 GROUP BY OrderWorkPlanId
+	) as sp ON wp.OrderWorkPlanId = sp.OrderWorkPlanId
 	LEFT JOIN 
 	( 
 	  SELECT coh.OrderWorkPlanId, STRING_AGG(coh.CalibEquipmentId,'','') as Equipments
@@ -123,7 +159,11 @@ CONCAT(
 	od.[CustomerCity],
 	wp.[WorkPlanOpenDate],
 	co.[Cars],
+	mc.MainCategory,
     coh.[Equipments],
+	cwp.Calibrators,
+	sp.StatusDescriptionENG,
+	sp.StatusDescriptionHEB, 
 	wp.[IsCancelled]'
   ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')

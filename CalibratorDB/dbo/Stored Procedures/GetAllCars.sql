@@ -4,7 +4,7 @@
 -- Description:	This SP should get the day range return a list of all cars with their schedule. The schedule should contain all days of the week with detailed information on car availability for each quarter of the day.
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-177
 -- =============================================
-CREATE   PROCEDURE dbo.GetAllCars
+CREATE   PROCEDURE [dbo].[GetAllCars]
 @StartWeekDate DATE,
 @EndWeekDate DATE 
 
@@ -50,7 +50,7 @@ SELECT dr.ID as CarId,
 	dr.LicenseNumber,
 	dr.Seats,
 	dr.DayDate,
-	cto.OrderNumber,
+	wp.OrderNumber,
 	cto.AssignDate,
 	cto.AssignQuater0,
 	cto.AssignQuater1,
@@ -58,6 +58,7 @@ SELECT dr.ID as CarId,
 	cto.AssignQuater3
 FROM #DateRange as dr
 LEFT JOIN [dbo].[CarsToOrder] as cto ON dr.ID = cto.CarId AND dr.DayDate = cto.AssignDate
+LEFT JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderWorkPlanId = cto.OrderWorkPlanId
 ORDER BY dr.Id ,dr.DayDate
 
 END

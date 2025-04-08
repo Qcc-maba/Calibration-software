@@ -113,7 +113,6 @@
     <Build Include="dbo\Tables\MeasurementDevicesModels.sql" />
     <Build Include="dbo\Tables\CalibratorsRanks.sql" />
     <Build Include="dbo\Tables\CalibratorsCertifications.sql" />
-    <Build Include="dbo\Tables\CertificationsToCalibrators.sql" />
     <Build Include="dbo\Tables\FreeDays.sql" />
     <Build Include="dbo\Tables\Users.sql" />
     <Build Include="dbo\Tables\StatusesCategories.sql" />
@@ -203,10 +202,17 @@
     <Build Include="dbo\Stored Procedures\AssignEquipmentToOrder.sql" />
     <Build Include="dbo\Stored Procedures\GetAssignedCalibratorsForOrders.sql" />
     <Build Include="dbo\Stored Procedures\GetAssignedSpecialCaresForOrders.sql" />
+    <Build Include="dbo\Tables\SpecialCareToWorkPlan.sql" />
+    <Build Include="dbo\Stored Procedures\DeleteEquipmentsRecord.sql" />
+    <Build Include="dbo\Stored Procedures\DeleteCarRecord.sql" />
+    <Build Include="dbo\Tables\CalibratorsToCertification.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllSecondaryCategories.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllCalibratorsCertifications.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />
     <None Include="AddETLUser.sql" />
+    <None Include="5_PopulateDepartments.sql" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="hebutils">

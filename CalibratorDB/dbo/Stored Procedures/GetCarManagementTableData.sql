@@ -34,6 +34,7 @@ EXEC dbo.GetCarManagementTableData
 AS
 BEGIN
 
+
 IF @OrderBy NOT IN (N'CarId',N'Model',N'LicenseNumber',N'Seats',N'TreatmentPeriod',N'NextTreatmentDate',N'NextYearlyTestDate',N'OwnerId',N'OwnerFullName',N'CarStatusId',N'StatusDescriptionENG',N'StatusDescriptionHEB',N'AssignedCalibratorId',N'CalibratorFullName',N'EquipmentId',N'EquipmentName')
 THROW 51000, 'Incorrect value for parameter @OrderBy.', 1;
 
@@ -139,7 +140,7 @@ CONCAT(
   ,CASE WHEN @OwnerId > 0 THEN ' AND c.[OwnerId] = '+CAST(@OwnerId as NVARCHAR(50))+' 'ELSE ' ' END
  -- ,CASE WHEN @AssignedCalibrator > 0 THEN ' AND c.[AssignedCalibratorId] = '+CAST(@AssignedCalibrator as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @TreatmentPeriod > 0 THEN ' AND c.[TreatmentPeriod] = '+CAST(@TreatmentPeriod as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @NextTreatmentDate IS NOT NULL AND @NextTestDate > '1900-01-01' THEN ' AND c.[NextTreatmentDate] = '''+ CAST(@NextTreatmentDate AS NVARCHAR(20))+''' ' ELSE ' ' END
+  ,CASE WHEN @NextTreatmentDate IS NOT NULL AND @NextTreatmentDate > '1900-01-01' THEN ' AND c.[NextTreatmentDate] = '''+ CAST(@NextTreatmentDate AS NVARCHAR(20))+''' ' ELSE ' ' END
   ,CASE WHEN @NextTestDate IS NOT NULL AND @NextTestDate > '1900-01-01' THEN' AND c.[NextYearlyTestDate] = '''+ CAST(@NextTestDate AS NVARCHAR(20))+''' 'ELSE ' ' END
   ,'  GROUP BY 
 	   c.[CarId]
@@ -160,7 +161,7 @@ CONCAT(
 	  ,CONCAT(u.FirstNameEng,'' '', u.LastNameEng) '
   ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
---PRINT @sql
+PRINT @sql
 EXEC sp_executesql @sql
 
 END

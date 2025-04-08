@@ -224,7 +224,3 @@ WHERE ISNULL(d.ClientRemarkId,0) <> c.ClientRemarkId
 TRUNCATE TABLE [stg].[stg_Orders]
 
 END
-
-
-ALTER TABLE [dbo].[OrderDetails]
-ALTER COLUMN DepartmentId NVARCHAR(100)

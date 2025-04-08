@@ -4,7 +4,7 @@
 -- Description:	Get data from source and populate department table and CalibEquipments
 -- JiraLink: 
 -- =============================================
-CREATE PROCEDURE stg.MergeCalibEquipmentData
+CREATE PROCEDURE [stg].[MergeCalibEquipmentData]
 AS
 
 SET NOCOUNT ON;
@@ -73,5 +73,5 @@ WHEN NOT MATCHED BY TARGET
 			,source.[SourceId]
 			,source.[UpdatedByUserId]
 			);
-
+TRUNCATE TABLE stg.stg_Equip
 END
