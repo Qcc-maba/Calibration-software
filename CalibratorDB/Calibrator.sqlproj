@@ -135,7 +135,9 @@
     <Build Include="dbo\Views\vwGerDevicesByOrder.sql" />
     <Build Include="dbo\Views\vwGetSerialNumbersByOrderNumber.sql" />
     <Build Include="dbo\Views\View_MeasurementDevicesCorrections.sql" />
-    <Build Include="dbo\Views\vwCustomersOrders_FromERP.sql" />
+    <None Include="dbo\Views\vwCustomersOrders_FromERP.sql">
+      <CopyToOutputDirectory>DoNotCopy</CopyToOutputDirectory>
+    </None>
     <Build Include="dbo\Functions\tttt.sql" />
     <Build Include="dbo\Functions\tabula_hebconvert.sql" />
     <Build Include="dbo\Functions\ParseCSVToTable.sql" />
