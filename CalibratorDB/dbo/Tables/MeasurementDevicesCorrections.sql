@@ -11,10 +11,15 @@
     [CorVersion]           INT              CONSTRAINT [DF_MeasurementDevicesCorrections_CorVersion] DEFAULT ((1)) NULL,
     [DepartmentId]         INT              NULL,
     [Equation]             NVARCHAR (300)   NULL,
+    [CreatedDate]          DATETIME2 (0)    DEFAULT (getdate()) NOT NULL,
+    [UpdatedDate]          DATETIME2 (0)    NULL,
+    [IsDeleted]            BIT              DEFAULT ((0)) NOT NULL,
+    [UpdateUserID]         INT              NULL,
     CONSTRAINT [PK_tblInstrCorrections] PRIMARY KEY CLUSTERED ([ID] ASC) WITH (FILLFACTOR = 90),
     CONSTRAINT [FK_MeasurementDevicesCorrections_Department] FOREIGN KEY ([DepartmentId]) REFERENCES [dbo].[Departments] ([ID]),
     CONSTRAINT [FK_MeasurementDevicesCorrections_MeasurementDevicesId] FOREIGN KEY ([MeasurementDevicesId]) REFERENCES [dbo].[MeasurementDevices] ([ID]),
     CONSTRAINT [FK_MeasurementDevicesCorrections_MeasurementId] FOREIGN KEY ([MeasurementId]) REFERENCES [dbo].[Measurements] ([ID]),
-    CONSTRAINT [FK_MeasurementDevicesCorrections_UnitID] FOREIGN KEY ([UnitID]) REFERENCES [dbo].[Units] ([ID])
+    CONSTRAINT [FK_MeasurementDevicesCorrections_UnitID] FOREIGN KEY ([UnitID]) REFERENCES [dbo].[Units] ([ID]),
+    CONSTRAINT [FK_MeasurementDevicesCorrections_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
 

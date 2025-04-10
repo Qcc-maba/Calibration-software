@@ -32,3 +32,4 @@ FROM [dbo].[OrderWorkPlans] as p
 JOIN [dbo].[OrderDetails] as od ON p.OrderWorkPlanId = od.OrderWorkPlanId
 LEFT JOIN [dbo].[Statuses] as s ON od.SpecialCareTypeId = s.StatusId
 JOIN #Orders as o ON p.OrderWorkPlanId = o.OrderWorkPlanId
+WHERE p.IsCancelled = 0 and od.IsCancelled = 0

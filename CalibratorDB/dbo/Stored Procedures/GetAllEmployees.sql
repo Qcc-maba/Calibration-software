@@ -13,4 +13,4 @@ SELECT u.ID,
 	   u.FirstName,
 	   u.LastName
 FROM [dbo].[Users] as u
-WHERE u.IsActive = 1 AND u.ID > 0
+WHERE u.IsActive = 1 AND u.ID > 0 AND u.IsActive = 1

@@ -9,3 +9,4 @@ CREATE  PROCEDURE [dbo].[GetAllSecondaryCategories]
 AS
 SELECT DISTINCT SecondCategory
 FROM OrderDetails
+WHERE IsCancelled = 0

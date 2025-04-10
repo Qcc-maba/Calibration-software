@@ -34,11 +34,13 @@ FROM dbo.CalibEquipments as ce
 JOIN #CarIDs c ON c.CarId = ce.CarId
 
 
-DELETE ce 
+UPDATE ce
+SET ce.UpdatedDate = GETDATE(), ce.IsDeleted = 1
 FROM dbo.CarsToEquipment as ce
 JOIN #CarIDs as d ON ce.CarId = d.CarId
 
-DELETE c
+UPDATE c
+SET c.UpdatedDate = GETDATE(), c.IsDeleted = 1
 FROM [dbo].[Cars] as c
 JOIN #CarIDs as d ON c.CarId = d.CarId
 

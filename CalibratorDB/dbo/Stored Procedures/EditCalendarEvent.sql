@@ -1,4 +1,4 @@
-﻿CREATE   PROCEDURE dbo.EditCalendarEvent
+﻿CREATE   PROCEDURE [dbo].[EditCalendarEvent]
 @ID INT,
 @Title NVARCHAR(300),
 @StartDate DATETIME2(0),
@@ -36,10 +36,12 @@ DECLARE @CalendarEventId INT
 BEGIN TRANSACTION
 
 UPDATE dbo.CalendarEvents 
-SET Title = @Title,StartDate = @StartDate,EndDate = @EndDate , Comments = @Comments
+SET Title = @Title,StartDate = @StartDate,EndDate = @EndDate , Comments = @Comments,
+    UpdatedDate = GETDATE()
 WHERE CalendarEventId = @ID
 
-DELETE dbo.CalendarEventsToParticipants 
+UPDATE dbo.CalendarEventsToParticipants 
+SET IsDeleted = 1
 WHERE CalendarEventId = @ID
 
 INSERT dbo.CalendarEventsToParticipants (CalendarEventId,UserId)

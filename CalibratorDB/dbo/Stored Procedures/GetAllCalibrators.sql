@@ -12,33 +12,37 @@ CREATE   PROCEDURE [dbo].[GetAllCalibrators]
 
 AS 	
 
---IF @SecondCategories IS NOT NULL
---BEGIN
---DROP TABLE IF EXISTS #SecondCategories
---CREATE TABLE #SecondCategories
---(
---CalibratorId INT
---)
---INSERT #SecondCategories(CalibratorId)
---SELECT u.ID FROM [dbo].[Users] as u 
---JOIN [dbo].[UsersToUserRoles] as r ON u.ID = r.UserId
---WHERE u.IsActive = 1 AND r.UserRoleId = 3 --Calibrator
---	AND (
---u.LastName LIKE '%'+@CalibratorFullName+'%' 
---		OR u.FirstName LIKE '%'+@CalibratorFullName+'%'
---		OR u.FirstNameEng LIKE '%'+@CalibratorFullName+'%'
---		OR u.LastNameEng LIKE '%'+@CalibratorFullName+'%'
---		OR CONCAT(u.FirstName,' ',u.LastName) LIKE '%'+@CalibratorFullName+'%'
---		OR CONCAT(u.FirstNameEng,' ',u.LastNameEng) LIKE '%'+@CalibratorFullName+'%'
---		OR CONCAT(u.LastName,' ',u.FirstName) LIKE '%'+@CalibratorFullName+'%'
---		OR CONCAT(u.LastNameEng,' ',u.FirstNameEng) LIKE '%'+@CalibratorFullName+'%'
---)
---END
+IF @SecondCategories IS NOT NULL
+BEGIN
+DROP TABLE IF EXISTS #SecondCategories
+CREATE TABLE #SecondCategories
+(
+OrderWorkPlanId INT
+)
+INSERT #SecondCategories(OrderWorkPlanId)
+SELECT DISTINCT od.OrderWorkPlanId FROM [dbo].[OrderDetails] as od
+JOIN dbo.ParseCSVToTable(@SecondCategories) as sc ON od.SecondCategory = sc.Value
+END
+
+IF @Certifications IS NOT NULL
+BEGIN
+DROP TABLE IF EXISTS #Certifications
+CREATE TABLE #Certifications
+(
+CalibratorId INT
+)
+INSERT #Certifications(CalibratorId)
+SELECT DISTINCT wp.CalibratorId
+FROM [dbo].[CalibratorsToWorkPlan] as wp 
+JOIN [dbo].[CalibratorsToCertification] as cts ON wp.CalibratorId = cts.CalibratorId
+JOIN [dbo].[CalibratorsCertifications] as s ON cts.CertificationId = s.ID
+JOIN dbo.ParseCSVToTable(@Certifications) as sc ON s.[Certificate] = sc.[Value]
+END
 
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 '
-SELECT 
+SELECT DISTINCT
     u.[ID],
 	u.[FirstName],
 	u.[LastName],
@@ -46,12 +50,12 @@ SELECT
 	wp.[OrderNumber] as [AssignedToOrderNumber]
   FROM [dbo].[Users] as u
   LEFT JOIN [dbo].[Calibrators] as c ON c.UserId = u.ID 
-  LEFT JOIN [dbo].[CalibratorsToWorkPlan] cp ON u.[ID] = cp.CalibratorId
-  LEFT JOIN [dbo].[OrderWorkPlans] as wp ON cp.OrderWorkPlanId = wp.OrderWorkPlanId
+  LEFT JOIN [dbo].[CalibratorsToWorkPlan] cp ON u.[ID] = cp.CalibratorId AND cp.IsDeleted = 0
+  LEFT JOIN [dbo].[OrderWorkPlans] as wp ON cp.OrderWorkPlanId = wp.OrderWorkPlanId AND wp.IsCancelled = 0
   LEFT JOIN [dbo].[CalibratorsAvailability] as ca ON c.Availability = ca.ID
-  LEFT JOIN [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId'
- -- ,CASE WHEN @MainCategory IS NOT NULL THEN ' JOIN #Calibrators as cf ON ce.[CalibratorId] = cf.[CalibratorId] ' ELSE ' ' END
-  --,CASE WHEN @StatusDescription IS NOT NULL THEN ' JOIN #StatusDescriptions as sdf ON ce.[StatusId] = sdf.[StatusId] ' ELSE ' ' END
+  LEFT JOIN [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId AND od.IsCancelled = 0'
+  ,CASE WHEN @SecondCategories IS NOT NULL THEN ' JOIN #SecondCategories as sc ON cp.OrderWorkPlanId = sc.OrderWorkPlanId ' ELSE ' ' END
+  ,CASE WHEN @Certifications IS NOT NULL THEN ' JOIN #Certifications as s ON u.ID = s.CalibratorId ' ELSE ' ' END
    ,' WHERE u.IsActive = 1 AND u.ID > 0'
   ,CASE WHEN @MainCategory IS NOT NULL THEN' AND od.[MainCategory] = '''+ @MainCategory+''' 'ELSE ' ' END
 )

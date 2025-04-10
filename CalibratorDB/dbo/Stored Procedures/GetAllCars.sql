@@ -42,7 +42,7 @@ SELECT
 	DATEADD(DAY,dt.d-1,@StartWeekDate) as Weekdaydt
 FROM cte as dt
 CROSS JOIN [dbo].[Cars] as c
-WHERE DATEADD(DAY,d-1,@StartWeekDate) <= @EndWeekDate
+WHERE DATEADD(DAY,d-1,@StartWeekDate) <= @EndWeekDate AND c.IsDeleted = 0
 
 SELECT dr.ID as CarId,
 	dr.MabaNumber,
@@ -57,8 +57,8 @@ SELECT dr.ID as CarId,
 	cto.AssignQuater2,
 	cto.AssignQuater3
 FROM #DateRange as dr
-LEFT JOIN [dbo].[CarsToOrder] as cto ON dr.ID = cto.CarId AND dr.DayDate = cto.AssignDate
-LEFT JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderWorkPlanId = cto.OrderWorkPlanId
+LEFT JOIN [dbo].[CarsToOrder] as cto ON dr.ID = cto.CarId AND dr.DayDate = cto.AssignDate AND cto.IsDeleted = 0
+LEFT JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderWorkPlanId = cto.OrderWorkPlanId  AND wp.IsCancelled = 0
 ORDER BY dr.Id ,dr.DayDate
 
 END

@@ -4,7 +4,7 @@
 -- Description:	This SP should delete a calendar event.
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-190
 -- =============================================
-CREATE   PROCEDURE dbo.DeleteCalendarEvent
+CREATE   PROCEDURE [dbo].[DeleteCalendarEvent]
 @CalendarEventId INT
 /*
 EXEC dbo.DeleteCalendarEvent  @CalendarEventId = 1
@@ -22,7 +22,8 @@ WHERE CalendarEventId = @CalendarEventId
 )
 THROW 51000, 'Calendar even don''t exist .', 1;
 
-DELETE FROM [dbo].[CalendarEvents]
+UPDATE [dbo].[CalendarEvents]
+SET IsDeleted = 1, UpdatedDate = GETDATE()
 WHERE CalendarEventId = @CalendarEventId
 
 END

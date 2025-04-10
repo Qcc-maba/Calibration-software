@@ -1,23 +1,49 @@
 ﻿
 
-/*CREATE VIEW [dbo].[vwCustomersOrders_FromERP]
+
+CREATE VIEW [dbo].[vwCustomersOrders_FromERP]
 AS
 SELECT DISTINCT 
                          TOP (100) PERCENT DOCUMENTS.DOCNO AS OrderNumber, DOCUMENTS.CUST AS CustomerId, dbo.tabula_hebconvert(CUSTOMERS.CUSTDES) AS CustomerName, 
                          AGENTS.AGENTNAME AS MabaContactName, DEPT.DEPTDES AS Department, DATEADD(n, DOCUMENTS.CURDATE, '01/01/1988') AS OpenDate
-FROM            [31.154.20.231].amaba.dbo.DEPT INNER JOIN
-                         [31.154.20.231].amaba.dbo.MBA_DOCUMENTS ON DEPT.DEPT = MBA_DOCUMENTS.DEPT INNER JOIN
-                         [31.154.20.231].amaba.dbo.DOCUMENTS INNER JOIN
-                         [31.154.20.231].amaba.dbo.DOCUMENTSA ON DOCUMENTS.DOC = DOCUMENTSA.DOC INNER JOIN
-                         [31.154.20.231].amaba.dbo.CUSTOMERS ON DOCUMENTS.CUST = CUSTOMERS.CUST INNER JOIN
-                         [31.154.20.231].amaba.dbo.AGENTS ON AGENTS.AGENT = CUSTOMERS.AGENT ON DOCUMENTS.DOC = MBA_DOCUMENTS.DOC_N
+FROM            [31.168.173.93].amaba.dbo.DEPT INNER JOIN
+                         [31.168.173.93].amaba.dbo.MBA_DOCUMENTS ON DEPT.DEPT = MBA_DOCUMENTS.DEPT INNER JOIN
+                         [31.168.173.93].amaba.dbo.DOCUMENTS INNER JOIN
+                         [31.168.173.93].amaba.dbo.DOCUMENTSA ON DOCUMENTS.DOC = DOCUMENTSA.DOC INNER JOIN
+                         [31.168.173.93].amaba.dbo.CUSTOMERS ON DOCUMENTS.CUST = CUSTOMERS.CUST INNER JOIN
+                         [31.168.173.93].amaba.dbo.AGENTS ON AGENTS.AGENT = CUSTOMERS.AGENT ON DOCUMENTS.DOC = MBA_DOCUMENTS.DOC_N
 WHERE        (DOCUMENTSA.ASSEMBLYSTATUS IN
                              (SELECT        DOCSTAT
-                               FROM            [31.154.20.231].amaba.dbo.DOCSTATS
+                               FROM            [31.168.173.93].amaba.dbo.DOCSTATS
                                WHERE        (DOCSTAT = 63) OR
                                                          (DOCSTAT = 91) OR
                                                          (DOCSTAT = 58) OR
                                                          (DOCSTAT = 62)))
+GO
+EXECUTE sp_addextendedproperty @name = N'MS_DiagramPaneCount', @value = 2, @level0type = N'SCHEMA', @level0name = N'dbo', @level1type = N'VIEW', @level1name = N'vwCustomersOrders_FromERP';
+
+
+GO
+EXECUTE sp_addextendedproperty @name = N'MS_DiagramPane2', @value = N'ane = 
+      Begin ColumnWidths = 11
+         Column = 1440
+         Alias = 900
+         Table = 1170
+         Output = 720
+         Append = 1400
+         NewValue = 1170
+         SortType = 1350
+         SortOrder = 1410
+         GroupBy = 1350
+         Filter = 1350
+         Or = 1350
+         Or = 1350
+         Or = 1350
+      End
+   End
+End
+', @level0type = N'SCHEMA', @level0name = N'dbo', @level1type = N'VIEW', @level1name = N'vwCustomersOrders_FromERP';
+
 
 GO
 EXECUTE sp_addextendedproperty @name = N'MS_DiagramPane1', @value = N'[0E232FF0-B466-11cf-A24F-00AA00A3EFFF, 1.00]
@@ -161,30 +187,3 @@ Begin DesignProperties =
    End
    Begin CriteriaP', @level0type = N'SCHEMA', @level0name = N'dbo', @level1type = N'VIEW', @level1name = N'vwCustomersOrders_FromERP';
 
-
-GO
-EXECUTE sp_addextendedproperty @name = N'MS_DiagramPane2', @value = N'ane = 
-      Begin ColumnWidths = 11
-         Column = 1440
-         Alias = 900
-         Table = 1170
-         Output = 720
-         Append = 1400
-         NewValue = 1170
-         SortType = 1350
-         SortOrder = 1410
-         GroupBy = 1350
-         Filter = 1350
-         Or = 1350
-         Or = 1350
-         Or = 1350
-      End
-   End
-End
-', @level0type = N'SCHEMA', @level0name = N'dbo', @level1type = N'VIEW', @level1name = N'vwCustomersOrders_FromERP';
-
-
-GO
-EXECUTE sp_addextendedproperty @name = N'MS_DiagramPaneCount', @value = 2, @level0type = N'SCHEMA', @level0name = N'dbo', @level1type = N'VIEW', @level1name = N'vwCustomersOrders_FromERP';
-
-*/

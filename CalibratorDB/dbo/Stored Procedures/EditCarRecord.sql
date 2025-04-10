@@ -93,7 +93,8 @@ UPDATE [dbo].[Cars]
       ,[AssignedCalibratorId] = @AssignedCalibrator
  WHERE CarId = @CarId
 
-DELETE FROM [dbo].[CarsToEquipment]
+UPDATE [dbo].[CarsToEquipment]
+SET IsDeleted = 1
 WHERE CarId = @CarId
 
 INSERT [dbo].[CarsToEquipment](CarId, EquipmentId)

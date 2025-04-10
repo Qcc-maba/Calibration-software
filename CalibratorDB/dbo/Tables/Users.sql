@@ -8,6 +8,10 @@
     [Password]     NVARCHAR (50) NULL,
     [Mobile]       NVARCHAR (20) NULL,
     [IsActive]     BIT           CONSTRAINT [DF_Users_IsActive] DEFAULT ((0)) NOT NULL,
-    CONSTRAINT [PK_Users] PRIMARY KEY CLUSTERED ([ID] ASC)
+    [CreatedDate]  DATETIME2 (0) DEFAULT (getdate()) NOT NULL,
+    [UpdatedDate]  DATETIME2 (0) NULL,
+    [UpdateUserID] INT           NULL,
+    CONSTRAINT [PK_Users] PRIMARY KEY CLUSTERED ([ID] ASC),
+    CONSTRAINT [FK_Users_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
 
