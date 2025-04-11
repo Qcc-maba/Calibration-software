@@ -6,7 +6,7 @@
     [UpdatedDate]      DATETIME2 (0) NULL,
     [IsDeleted]        BIT           DEFAULT ((0)) NOT NULL,
     [UpdateUserID]     INT           NULL,
-    CONSTRAINT [PK_CalibEquipmentsToOrderHeaders] PRIMARY KEY CLUSTERED ([OrderWorkPlanId] ASC, [CalibEquipmentId] ASC),
+    CONSTRAINT [PK_CalibEquipmentsToOrderHeaders] PRIMARY KEY CLUSTERED ([OrderWorkPlanId] ASC, [CalibEquipmentId] ASC, [CreateDate] ASC),
     CONSTRAINT [FK_CalibEquipmentsToOrderHeaders_CalibEquipmentId] FOREIGN KEY ([CalibEquipmentId]) REFERENCES [dbo].[CalibEquipments] ([ID]),
     CONSTRAINT [FK_CalibEquipmentsToOrderHeaders_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_CalibEquipmentsToOrderHeaders_OrderWorkPlanId] FOREIGN KEY ([OrderWorkPlanId]) REFERENCES [dbo].[OrderWorkPlans] ([OrderWorkPlanId]),

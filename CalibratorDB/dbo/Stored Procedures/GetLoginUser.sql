@@ -49,7 +49,7 @@ BEGIN
 		,u.FirstName
 		,u.LastName
 		,u.Email
-		,u.Mobile
+		,u.Phone as Mobile
 		,r.UserRoleId AS RoleId
 		,ur.UserRoleName as RoleName
 		,ur.UserRoleDescriptionENG	
