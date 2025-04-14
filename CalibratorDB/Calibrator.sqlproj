@@ -126,7 +126,6 @@
     <Build Include="dbo\Stored Procedures\DeleteCalendarEvent.sql" />
     <Build Include="dbo\Stored Procedures\CreateMeasurementDevicesCorrectionsRecord.sql" />
     <Build Include="dbo\Stored Procedures\GetWorkPlansByOrderNumberAndMbaNumber.sql" />
-    <Build Include="dbo\Stored Procedures\GetDepartmentFromERP.sql" />
     <Build Include="dbo\Stored Procedures\GetOrdersforCustomerSupport.sql" />
     <Build Include="dbo\Stored Procedures\GetMabaContactNames.sql" />
     <Build Include="dbo\Stored Procedures\ValidateUser.sql" />

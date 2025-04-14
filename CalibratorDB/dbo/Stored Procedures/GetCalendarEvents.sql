@@ -34,7 +34,8 @@ CONCAT(
     FROM dbo.CalendarEvents AS ce
 	JOIN dbo.CalendarEventsToParticipants as p ON ce.CalendarEventId = p.CalendarEventId
 	/*JOIN dbo.Users as u ON p.UserId = u.ID*/
-    WHERE ce.StartDate >= ''',@StartDate,''' AND ce.StartDate <= ''',@EndDate,'''
+    WHERE ce.IsDeleted = 0 AND
+	ce.StartDate >= ''',@StartDate,''' AND ce.StartDate <= ''',@EndDate,'''
 	GROUP BY ce.CalendarEventId,ce.Title, ce.StartDate, ce.EndDate, ce.Comments
     ORDER BY ' + QUOTENAME(@OrderBy) + CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END + '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY; ')

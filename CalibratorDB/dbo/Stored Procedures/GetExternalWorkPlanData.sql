@@ -82,7 +82,8 @@ CONCAT(
 		sp.StatusDescriptionENG AS SpecialCareENG,
 		sp.StatusDescriptionHEB AS SpecialCareHEB, 
         co.[Cars],
-        coh.Equipments,
+        coh.EquipmentIds,
+		coh.EquipmentNames,
 		cwp.Calibrators,
         NULL as Notes,
 		mc.MainCategory,
@@ -132,8 +133,10 @@ CONCAT(
 	) as sp ON wp.OrderWorkPlanId = sp.OrderWorkPlanId
 	LEFT JOIN 
 	( 
-	  SELECT coh.OrderWorkPlanId, STRING_AGG(coh.CalibEquipmentId,'','') as Equipments
+	  SELECT coh.OrderWorkPlanId, STRING_AGG(coh.CalibEquipmentId,'', '') as EquipmentIds, 
+			STRING_AGG(ce.EquipmentName,'', '') as EquipmentNames
 	  FROM [dbo].[CalibEquipmentsToOrderHeaders] as coh
+	  JOIN [dbo].[CalibEquipments] as ce ON coh.CalibEquipmentId = ce.ID
 	  GROUP BY coh.OrderWorkPlanId
 	)as coh ON wp.OrderWorkPlanId = coh.OrderWorkPlanId
 	LEFT JOIN 
@@ -160,7 +163,8 @@ CONCAT(
 	wp.[WorkPlanOpenDate],
 	co.[Cars],
 	mc.MainCategory,
-    coh.[Equipments],
+    coh.EquipmentIds,
+	coh.EquipmentNames,
 	cwp.Calibrators,
 	sp.StatusDescriptionENG,
 	sp.StatusDescriptionHEB, 

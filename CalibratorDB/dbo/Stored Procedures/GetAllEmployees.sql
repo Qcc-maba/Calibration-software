@@ -16,10 +16,10 @@ CREATE   PROCEDURE [dbo].[GetAllEmployees]
 	@Address NVARCHAR(200) = NULL,
     @LocationArea NVARCHAR(200) = NULL,
 	@Email NVARCHAR(50) = NULL,
-    @RoleId INT = NULL,
-	@StatusId INT = NULL,-- not ready
-	@Department INT = NULL,
-	@CertificationIds NVARCHAR(MAX) = NULL
+    @UserRole NVARCHAR(50)  = NULL,
+	@UserStatus NVARCHAR(50) = NULL,-- not ready
+	@Department NVARCHAR(50) = NULL,
+	@Certification NVARCHAR(MAX) = NULL
 AS
 BEGIN
 
@@ -51,18 +51,6 @@ BEGIN
 	) and u.ID > 0
 	END
 
-	IF @CertificationIds IS NOT NULL
-	BEGIN
-	DROP TABLE IF EXISTS #CertificationIds
-	CREATE TABLE #CertificationIds
-	(
-	CertificationId INT
-	)
-	INSERT #CertificationIds(CertificationId)
-	SELECT Value 
-	FROM dbo.ParseCSVToTable(@CertificationIds)
-	END
-
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 '
@@ -79,19 +67,20 @@ SELECT u.ID,
 	   ur.UserRoleHEB,
 	   d.DepartmentName,
 	   cc.Certification,
+	   NULL as UserStatus,
 	   COUNT(1) OVER(PARTITION BY 1 ORDER BY u.ID ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
 FROM [dbo].[Users] as u
 '
 ,IIF(@FirstName IS NOT NULL OR @LastName IS NOT NULL,' JOIN #UserFullName  as f ON u.ID =  f.UserId',' '),
 '
-',IIF(@RoleId IS NULL,' LEFT ',' '),' JOIN
+',IIF(@UserRole IS NULL,' LEFT ',' '),' JOIN
 (
 SELECT utr.UserId, 
-	   STRING_AGG(ur.UserRoleDescriptionENG,'', '') AS UserRoleENG,	
-	   STRING_AGG(ur.UserRoleDescriptionHEB,'', '') AS UserRoleHEB
+	   STRING_AGG(LTRIM(RTRIM(ur.UserRoleDescriptionENG)),'', '') AS UserRoleENG,	
+	   STRING_AGG(LTRIM(RTRIM(ur.UserRoleDescriptionHEB)),'', '') AS UserRoleHEB
 FROM [dbo].[UsersToUserRoles] as utr 
 JOIN [dbo].[UserRoles] as ur ON utr.UserRoleId = ur.UserRoleId
-WHERE utr.IsDeleted = 0 ',IIF(@RoleId IS NULL,' ',CONCAT(' AND utr.UserRoleId = ',@RoleId)),'
+WHERE utr.IsDeleted = 0 ',IIF(@UserRole IS NULL,' ',CONCAT(' AND ur.UserRoleDescriptionENG LIKE N''%', @UserRole ,'%'' ')),'
 GROUP BY utr.UserId
 ) AS ur ON u.ID = ur.UserId
 ',IIF(@Department IS NULL,' LEFT ',' '),' JOIN
@@ -99,18 +88,18 @@ GROUP BY utr.UserId
 SELECT ud.UserId,STRING_AGG(d.DepartmentName,'','') as DepartmentName
 FROM [dbo].[UsersToDepartments] as ud
 JOIN [dbo].[Departments] as d ON ud.DepartmentId = d.ID
-WHERE ud.IsDeleted = 0 ',IIF(@Department IS NULL,' ',CONCAT(' AND d.ID = ',@Department)),'
+WHERE ud.IsDeleted = 0 ',IIF(@Department IS NULL,' ',CONCAT(' AND d.DepartmentName LIKE N''%', @Department ,'%'' ')),'
 GROUP BY ud.UserId
 ) as d ON u.ID = d.UserId
-',IIF(@CertificationIds IS NULL,' LEFT ',' '),' JOIN
+',IIF(@Certification IS NULL,' LEFT ',' '),' JOIN
 (
 SELECT ctc.CalibratorId as UserId, STRING_AGG(cc.Certificate,'','') as Certification
 FROM [dbo].[CalibratorsToCertification] as ctc
 JOIN [dbo].[CalibratorsCertifications] as cc ON ctc.CertificationId = cc.ID AND cc.IsDeleted = 0
-'
-  ,IIF(@CertificationIds IS NULL,' ',' JOIN #CertificationIds as s ON ctc.CertificationId = s.CertificationId '),
-'
 WHERE ctc.IsDeleted = 0
+'
+,IIF(@Certification IS NULL,' ',CONCAT(' AND cc.Certificate LIKE N''%', @Certification ,'%'' ')),
+'
 GROUP BY ctc.CalibratorId
 ) as cc ON u.ID = cc.UserId
 WHERE u.IsActive = 1 AND u.ID > 0 
