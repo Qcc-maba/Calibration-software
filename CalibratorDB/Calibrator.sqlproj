@@ -186,6 +186,9 @@
     <Build Include="dbo\Tables\CalibratorsToCertification.sql" />
     <Build Include="dbo\Stored Procedures\GetAllSecondaryCategories.sql" />
     <Build Include="dbo\Stored Procedures\GetAllCalibratorsCertifications.sql" />
+    <Build Include="dbo\Stored Procedures\GetCarsByOrderNumber.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllUserRoles.sql" />
+    <Build Include="dbo\Stored Procedures\CreateUserRecord.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />

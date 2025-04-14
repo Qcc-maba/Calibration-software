@@ -11,9 +11,9 @@ INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescript
 GO
 INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (3, 3, NULL, N'Damaged', N'תקול')
 GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (8, 1, N'AA        ', NULL, N'נקלט')
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (8, 1, N'AA', NULL, N'נקלט')
 GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (9, 1, N'AC        ', NULL, N'פתיחת כיול חדש')
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (9, 1, N'AC', NULL, N'פתיחת כיול חדש')
 GO
 INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (10, 4, NULL, N'Waitting for calibration', N'מחכה לכיול')
 GO
