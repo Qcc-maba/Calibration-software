@@ -10,15 +10,12 @@ BEGIN
 
 	SET NOCOUNT ON;
 
-	SELECT DISTINCT sv.[agent name] AS AgentName
-		,sv.[Customer Number] AS CustomerNumber
-		,sv.[Customer Name] AS CustomerName
-		,sv.klita as Klita
-	FROM [31.168.173.93].amaba.dbo.servcalls_view as sv
-	INNER JOIN [31.168.173.93].amaba.dbo.DOCSTATS ON sv.[סטטוס תעודת קליטה] = DOCSTATS.STATDES
-	WHERE DOCSTATS.DOCSTAT IN( 62,63,91,58)
-	ORDER BY sv.[agent name]
-		,sv.klita
+	SELECT 
+	 [AgentName]
+	,[CustomerNumber]
+	,[CustomerName]
+	,[Klita]
+	FROM [dbo].[AgentsWaitingList]
 
 
 END

@@ -26,13 +26,15 @@
           <SSIS:Property SSIS:Name="CreatorComputerName">DESKTOP-50K623D</SSIS:Property>
           <SSIS:Property SSIS:Name="Description">
           </SSIS:Property>
-          <SSIS:Property SSIS:Name="PasswordVerifier" SSIS:Sensitive="1" SSIS:Salt="6wJrmROt8Fg=" SSIS:IV="O41E46XqKrok4N+w6yAffQ==" SSIS:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc">ReaqrYaItConR+HUyA1UL8CBoLGRLjqvj/P2kzvaFAfJtygCN4VKZoa9sE3F4TQ3QSWlDJiIYhdOnl3mLyQ/jOXbDjetOdLtG+6m0WeZFPXteKiAcv2dfQveTtl9+4KZB2z761rshAZxAfYJem1iz2jbsI5MbGlVr9zO441F71O42Be04m/QocgIZTiJ6tbv</SSIS:Property>
+          <SSIS:Property SSIS:Name="PasswordVerifier" SSIS:Sensitive="1" SSIS:Salt="129eMDxXOxg=" SSIS:IV="xIPi7Vk7340oSn4FnxayqQ==" SSIS:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc">FvGU+f3fn1CIhnVDYOcLvCVxIEvV1LjD7zWhCFmGRJJ/2gugFpHTbhUnRdF0KaRwHaN4ugczAmTPuHdc4XBuYq0CdNEM0rzOpLcgiltkQav5tTMODvhjEV/fsgT/WE3ru6NOw3EtjQFuBJqWCUsiZfLmzteUu/lKySNUF6idaE21PU0iPp1oTxiOvHyrEcMQ</SSIS:Property>
           <SSIS:Property SSIS:Name="FormatVersion">1</SSIS:Property>
         </SSIS:Properties>
         <SSIS:Packages>
-          <SSIS:Package SSIS:Name="EquipmentSync.dtsx" SSIS:EntryPoint="1" />
-          <SSIS:Package SSIS:Name="OrdersSync.dtsx" SSIS:EntryPoint="1" />
-          <SSIS:Package SSIS:Name="StartSyncMaster.dtsx" SSIS:EntryPoint="1" />
+          <SSIS:Package SSIS:Name="StartSyncMasterToAWS.dtsx" SSIS:EntryPoint="1" />
+          <SSIS:Package SSIS:Name="OrdersSyncToAWS.dtsx" SSIS:EntryPoint="1" />
+          <SSIS:Package SSIS:Name="EquipmentSyncToAWS.dtsx" SSIS:EntryPoint="1" />
+          <SSIS:Package SSIS:Name="AgentsWaitingListToAWS.dtsx" SSIS:EntryPoint="1" />
+          <SSIS:Package SSIS:Name="DepartmentDelaysToAWS.dtsx" SSIS:EntryPoint="1" />
         </SSIS:Packages>
         <SSIS:ConnectionManagers>
           <SSIS:ConnectionManager SSIS:Name="SourceDB.conmgr" />
@@ -265,7 +267,41 @@
             </SSIS:Parameter>
           </SSIS:ProjectConnectionParameters>
           <SSIS:PackageInfo>
-            <SSIS:PackageMetaData SSIS:Name="EquipmentSync.dtsx">
+            <SSIS:PackageMetaData SSIS:Name="StartSyncMasterToAWS.dtsx">
+              <SSIS:Properties>
+                <SSIS:Property SSIS:Name="ID">{35DB0E2B-E517-4D70-8263-BEBA76B4F902}</SSIS:Property>
+                <SSIS:Property SSIS:Name="Name">StartSyncMasterToAWS</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">6</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionComments">
+                </SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{E09F13FC-DF34-4D25-9379-1CC8305BC901}</SSIS:Property>
+                <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
+                <SSIS:Property SSIS:Name="Description">
+                </SSIS:Property>
+                <SSIS:Property SSIS:Name="ProtectionLevel">2</SSIS:Property>
+              </SSIS:Properties>
+              <SSIS:Parameters />
+            </SSIS:PackageMetaData>
+            <SSIS:PackageMetaData SSIS:Name="OrdersSyncToAWS.dtsx">
+              <SSIS:Properties>
+                <SSIS:Property SSIS:Name="ID">{96516A00-4547-497F-B2EA-7A2959419F75}</SSIS:Property>
+                <SSIS:Property SSIS:Name="Name">OrdersSync</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">18</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionComments">
+                </SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{CAEF46A4-A587-48CB-8CF0-C2CD8608102D}</SSIS:Property>
+                <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
+                <SSIS:Property SSIS:Name="Description">
+                </SSIS:Property>
+                <SSIS:Property SSIS:Name="ProtectionLevel">2</SSIS:Property>
+              </SSIS:Properties>
+              <SSIS:Parameters />
+            </SSIS:PackageMetaData>
+            <SSIS:PackageMetaData SSIS:Name="EquipmentSyncToAWS.dtsx">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">{D4C856D1-0206-465A-BC26-B1013D72BA5A}</SSIS:Property>
                 <SSIS:Property SSIS:Name="Name">EquipmentSync</SSIS:Property>
@@ -282,16 +318,16 @@
               </SSIS:Properties>
               <SSIS:Parameters />
             </SSIS:PackageMetaData>
-            <SSIS:PackageMetaData SSIS:Name="OrdersSync.dtsx">
+            <SSIS:PackageMetaData SSIS:Name="AgentsWaitingListToAWS.dtsx">
               <SSIS:Properties>
-                <SSIS:Property SSIS:Name="ID">{96516A00-4547-497F-B2EA-7A2959419F75}</SSIS:Property>
-                <SSIS:Property SSIS:Name="Name">OrdersSync</SSIS:Property>
+                <SSIS:Property SSIS:Name="ID">{0E368D7D-EBCC-4E89-9DBE-30C593028F8A}</SSIS:Property>
+                <SSIS:Property SSIS:Name="Name">AgentsWaitingListToAWS</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionBuild">16</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">21</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionComments">
                 </SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionGUID">{F271B950-00BF-4BD8-825C-22526BF95B0E}</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{0C7DEB09-A1BD-4A3A-B66A-D271E716BCD5}</SSIS:Property>
                 <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
                 <SSIS:Property SSIS:Name="Description">
                 </SSIS:Property>
@@ -299,16 +335,16 @@
               </SSIS:Properties>
               <SSIS:Parameters />
             </SSIS:PackageMetaData>
-            <SSIS:PackageMetaData SSIS:Name="StartSyncMaster.dtsx">
+            <SSIS:PackageMetaData SSIS:Name="DepartmentDelaysToAWS.dtsx">
               <SSIS:Properties>
-                <SSIS:Property SSIS:Name="ID">{BDA7441F-263E-4837-BD05-DEF5D569B342}</SSIS:Property>
-                <SSIS:Property SSIS:Name="Name">Package1</SSIS:Property>
+                <SSIS:Property SSIS:Name="ID">{2EC1D205-9478-4B35-A22C-C1CF045DC3F7}</SSIS:Property>
+                <SSIS:Property SSIS:Name="Name">OrdersSync</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionBuild">1</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">20</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionComments">
                 </SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionGUID">{D7F68681-B19A-4B46-A384-2B132F27AE01}</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{0C715C73-B1A5-49B3-AFD8-3FFD17899070}</SSIS:Property>
                 <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
                 <SSIS:Property SSIS:Name="Description">
                 </SSIS:Property>

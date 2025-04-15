@@ -27,7 +27,7 @@
     [UpdateUserID]     INT             NULL,
     [AllowMinOOR]      BIT             CONSTRAINT [DF_MeasurementDevices_AllowMinOOR] DEFAULT ((0)) NOT NULL,
     [AllowMaxOOR]      BIT             CONSTRAINT [DF_MeasurementDevices_AllowMaxOOR] DEFAULT ((0)) NOT NULL,
-    [CreateUserID]     INT             NULL,
+    [IsDeleted]        BIT             DEFAULT ((0)) NOT NULL,
     CONSTRAINT [PK_MeasurementDevices] PRIMARY KEY CLUSTERED ([ID] ASC) WITH (FILLFACTOR = 90),
     CONSTRAINT [FK_MeasurementDevices_MeasurementDevicesMainClasses] FOREIGN KEY ([MainClass]) REFERENCES [dbo].[MeasurementDevicesMainClasses] ([Id]),
     CONSTRAINT [FK_MeasurementDevices_MeasurementDevicesManufacturers] FOREIGN KEY ([ManufacturerId]) REFERENCES [dbo].[MeasurementDevicesManufacturers] ([ID]),

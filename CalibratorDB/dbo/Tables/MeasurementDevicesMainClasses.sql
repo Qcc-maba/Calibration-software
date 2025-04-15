@@ -4,8 +4,8 @@
     [NameEnglish]   NVARCHAR (255) NULL,
     [CreatedTime]   DATETIME       NULL,
     [UpdatedTime]   DATETIME       NULL,
-    [CreatedUserId] INT            NULL,
     [UpdatedUserId] INT            NULL,
+    [IsDeleted]     BIT            DEFAULT ((0)) NOT NULL,
     CONSTRAINT [PK_MeasurementDevicesMainClasses] PRIMARY KEY CLUSTERED ([Id] ASC)
 );
 

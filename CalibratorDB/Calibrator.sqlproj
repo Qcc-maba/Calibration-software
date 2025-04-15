@@ -139,7 +139,6 @@
     <Build Include="dbo\Stored Procedures\AssignCalibratorsToOrder.sql" />
     <Build Include="dbo\Stored Procedures\GetCalibrationDeviceConfigurationData.sql" />
     <Build Include="dbo\Stored Procedures\CreateCarRecord.sql" />
-    <Build Include="dbo\Synonyms\MyInstrCorrections.sql" />
     <Build Include="dbo\Stored Procedures\CreateEquipmentRecord.sql" />
     <Build Include="dbo\Stored Procedures\EditEquipmentRecord.sql" />
     <Build Include="dbo\Stored Procedures\GetEquipmentManagementTableData.sql" />
@@ -174,6 +173,8 @@
     <Build Include="dbo\Stored Procedures\GetCarsByOrderNumber.sql" />
     <Build Include="dbo\Stored Procedures\GetAllUserRoles.sql" />
     <Build Include="dbo\Stored Procedures\CreateUserRecord.sql" />
+    <Build Include="dbo\Tables\DepartmentDelays.sql" />
+    <Build Include="dbo\Tables\AgentsWaitingList.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />
