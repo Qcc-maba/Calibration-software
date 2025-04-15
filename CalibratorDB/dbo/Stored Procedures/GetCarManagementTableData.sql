@@ -126,13 +126,13 @@ CONCAT(
   JOIN [dbo].[Statuses] as s ON c.[CarStatusId] = s.[StatusId]
   LEFT JOIN [dbo].[Users] as u ON c.[AssignedCalibratorId] = u.[ID]
   LEFT JOIN [dbo].[Users] as u1 ON c.[OwnerId] = u1.[ID]
-  LEFT JOIN [dbo].[CarsToEquipment] as ce ON c.[CarId] = ce.[CarId] '
+  LEFT JOIN [dbo].[CarsToEquipment] as ce ON c.[CarId] = ce.[CarId] AND ce.IsDeleted = 0'
   ,CASE WHEN @AssociatedEquipmentId IS NOT NULL THEN ' JOIN #AssociatedEquipmentIDs as f ON ce.[EquipmentId] = f.[EquipmentId] ' ELSE ' ' END
   ,CASE WHEN @CalibratorFullName IS NOT NULL THEN ' JOIN #Calibrators as cf ON c.[AssignedCalibratorId] = cf.[CalibratorId] ' ELSE ' ' END
   ,CASE WHEN @EquipmentName IS NOT NULL THEN ' JOIN #EquipmentName as cen ON ce.EquipmentId = cen.[EquipmentId] ' ELSE ' ' END
   ,CASE WHEN @StatusDescription IS NOT NULL THEN ' JOIN #StatusDescriptions as sdf ON c.[CarStatusId] = sdf.[StatusId] ' ELSE ' ' END
-  ,'LEFT JOIN [dbo].[CalibEquipments] as e ON ce.[EquipmentId] = e.ID
-  WHERE  1=1 '
+  ,'LEFT JOIN [dbo].[CalibEquipments] as e ON ce.[EquipmentId] = e.ID AND e.IsDeleted = 0
+  WHERE c.IsDeleted = 0'
   ,CASE WHEN @LicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] = N'''+ @LicenseNumber+''' 'ELSE ' ' END
   ,CASE WHEN @Model IS NOT NULL THEN ' AND c.[Model] = N'''+ @Model+''' 'ELSE ' ' END
   ,CASE WHEN @NumberOfSeats > 0 THEN' AND c.[Seats] = '+CAST(@NumberOfSeats as NVARCHAR(50))+' 'ELSE ' ' END

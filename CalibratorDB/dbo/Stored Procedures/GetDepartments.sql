@@ -10,3 +10,4 @@ SELECT
 	ID,
 	DepartmentName
 FROM dbo.Departments
+WHERE IsDeleted = 0

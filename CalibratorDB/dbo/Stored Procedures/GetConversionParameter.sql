@@ -4,7 +4,7 @@
 -- Description:	
 -- JiraLink: 
 -- =============================================
-CREATE   PROCEDURE dbo.GetConversionParameter
+CREATE   PROCEDURE [dbo].[GetConversionParameter]
 
 /*
 EXEC dbo.GetConversionParameter
@@ -24,5 +24,5 @@ SELECT
 ,cp.[B7]
 ,cp.[C7]
 FROM [dbo].[ConversionParameters] as cp
-
+WHERE cp.IsDeleted = 0
 END

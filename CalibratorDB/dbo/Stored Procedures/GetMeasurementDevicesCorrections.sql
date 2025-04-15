@@ -4,7 +4,7 @@
 -- Description:	
 -- JiraLink: 
 -- =============================================
-CREATE   PROCEDURE dbo.GetMeasurementDevicesCorrections
+CREATE   PROCEDURE [dbo].[GetMeasurementDevicesCorrections]
 
 /*
 EXEC dbo.GetMeasurementDevicesCorrections
@@ -28,6 +28,7 @@ SELECT mdc.[ID]
       ,mdc.[DepartmentId]
       ,mdc.[Equation]
   FROM [dbo].[MeasurementDevicesCorrections] as mdc
+  WHERE mdc.IsDeleted = 0
 
 
 END

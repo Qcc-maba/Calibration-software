@@ -84,7 +84,6 @@
     <Build Include="dbo\Tables\UsersToDepartments.sql" />
     <Build Include="dbo\Tables\Calibrators.sql" />
     <Build Include="dbo\Tables\CalibEquipments.sql" />
-    <Build Include="dbo\Tables\Orders.sql" />
     <Build Include="dbo\Tables\Units.sql" />
     <Build Include="dbo\Tables\MeasurementDevicesManufacturers.sql" />
     <Build Include="dbo\Tables\Notes.sql" />
@@ -106,13 +105,10 @@
     <Build Include="dbo\Tables\Departments.sql" />
     <Build Include="dbo\Views\vwGetDepartmentOrdersByUserId.sql" />
     <Build Include="dbo\Views\vwGetCustomersRemarks.sql" />
-    <Build Include="dbo\Views\vwInstruments.sql" />
     <Build Include="dbo\Views\vwGetOrdersData.sql" />
     <Build Include="dbo\Views\vwGetOrderDevices.sql" />
     <Build Include="dbo\Views\vwGetOrderScreen_temp.sql" />
-    <Build Include="dbo\Views\vwGerDevicesByOrder.sql" />
     <Build Include="dbo\Views\vwGetSerialNumbersByOrderNumber.sql" />
-    <Build Include="dbo\Views\View_MeasurementDevicesCorrections.sql" />
     <None Include="dbo\Views\vwCustomersOrders_FromERP.sql">
       <CopyToOutputDirectory>DoNotCopy</CopyToOutputDirectory>
     </None>
@@ -125,18 +121,10 @@
     <Build Include="dbo\Stored Procedures\EditCarRecord.sql" />
     <Build Include="dbo\Stored Procedures\DeleteCalendarEvent.sql" />
     <Build Include="dbo\Stored Procedures\CreateMeasurementDevicesCorrectionsRecord.sql" />
-    <Build Include="dbo\Stored Procedures\GetWorkPlansByOrderNumberAndMbaNumber.sql" />
-    <Build Include="dbo\Stored Procedures\GetOrdersforCustomerSupport.sql" />
-    <Build Include="dbo\Stored Procedures\GetMabaContactNames.sql" />
-    <Build Include="dbo\Stored Procedures\ValidateUser.sql" />
     <Build Include="dbo\Stored Procedures\GetUserNames.sql" />
     <Build Include="dbo\Stored Procedures\GetLoginUser.sql" />
-    <Build Include="dbo\Stored Procedures\GetOrdersScreen_ShortList.sql" />
     <Build Include="dbo\Stored Procedures\GetLaboratoryViewDepartmentDelays.sql" />
     <Build Include="dbo\Stored Procedures\GetLaboratoryViewAgentsWaitingList.sql" />
-    <Build Include="dbo\Stored Procedures\GetOrdersScreen_Details.sql" />
-    <Build Include="dbo\Stored Procedures\GetMeasurementDevices.sql" />
-    <Build Include="dbo\Stored Procedures\GetCalibrators.sql" />
     <Build Include="dbo\Stored Procedures\GetExternalWorkPlanData.sql" />
     <Build Include="dbo\Stored Procedures\GetDevicesByOrder.sql" />
     <Build Include="dbo\Stored Procedures\CreateCalendarEvent.sql" />
@@ -150,10 +138,7 @@
     <Build Include="dbo\Stored Procedures\GetAllEmployees.sql" />
     <Build Include="dbo\Stored Procedures\AssignCalibratorsToOrder.sql" />
     <Build Include="dbo\Stored Procedures\GetCalibrationDeviceConfigurationData.sql" />
-    <Build Include="dbo\Stored Procedures\GetSensorByName.sql" />
-    <Build Include="dbo\Stored Procedures\GetOrdersByDepartment.sql" />
     <Build Include="dbo\Stored Procedures\CreateCarRecord.sql" />
-    <Build Include="dbo\Synonyms\MyInstr.sql" />
     <Build Include="dbo\Synonyms\MyInstrCorrections.sql" />
     <Build Include="dbo\Stored Procedures\CreateEquipmentRecord.sql" />
     <Build Include="dbo\Stored Procedures\EditEquipmentRecord.sql" />
@@ -194,6 +179,12 @@
     <None Include="Assemblies\hebutils.dll" />
     <None Include="AddETLUser.sql" />
     <None Include="5_PopulateDepartments.sql" />
+    <None Include="MeasurementDevicesSubClass.sql" />
+    <None Include="Units.sql" />
+    <None Include="MeasurementDevicesManufacturers.sql" />
+    <None Include="Measurements.sql" />
+    <None Include="MeasurementDevicesMainClasses.sql" />
+    <None Include="MeasurementDevices.sql" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="hebutils">

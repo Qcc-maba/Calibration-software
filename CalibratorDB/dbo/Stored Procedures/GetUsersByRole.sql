@@ -4,7 +4,7 @@
 -- Description:	Get all users that belongs for specific role
 -- JiraLink: 
 -- =============================================
-CREATE   PROCEDURE dbo.GetUsersByRole
+CREATE   PROCEDURE [dbo].[GetUsersByRole]
 @UserRoleName NVARCHAR(255)
 
 /*
@@ -25,5 +25,5 @@ SELECT
 FROM [dbo].[Users] as u
 JOIN [dbo].[UsersToUserRoles] as rel ON u.ID = rel.UserId
 JOIN [dbo].[UserRoles] as ur ON rel.UserRoleId = ur.UserRoleId
-WHERE ur.UserRoleName = @UserRoleName
+WHERE ur.UserRoleName = @UserRoleName AND u.IsActive = 1
 END

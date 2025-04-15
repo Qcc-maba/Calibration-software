@@ -96,6 +96,7 @@ CONCAT(
 	(
 		SELECT co.OrderWorkPlanId,STRING_AGG(co.CarId,'','') as [Cars]
 		FROM [dbo].[CarsToOrder] as co 
+		WHERE co.IsDeleted = 0
 		GROUP BY co.OrderWorkPlanId
 	 ) as co
 	ON wp.OrderWorkPlanId = co.OrderWorkPlanId
@@ -103,7 +104,8 @@ CONCAT(
 	(
 		SELECT cwp.OrderWorkPlanId,STRING_AGG(CONCAT(u.FirstName,'' '',u.LastName),'','') as Calibrators
 		FROM [dbo].[CalibratorsToWorkPlan] as cwp
-		JOIN [dbo].[Users] as u ON cwp.CalibratorId = u.ID AND u.ID > 0
+		JOIN [dbo].[Users] as u ON cwp.CalibratorId = u.ID
+		WHERE cwp.IsDeleted = 0
 		GROUP BY cwp.OrderWorkPlanId
 	 ) as cwp
 	ON wp.OrderWorkPlanId = cwp.OrderWorkPlanId
@@ -113,7 +115,7 @@ CONCAT(
 	 FROM (
 	 SELECT DISTINCT OrderWorkPlanId,MainCategory
 	 FROM [dbo].[OrderDetails]
-	 WHERE IsInHouse = 0
+	 WHERE IsInHouse = 0 and IsCancelled = 0
 	 ) ds
 	 GROUP BY OrderWorkPlanId
 	) as mc ON wp.OrderWorkPlanId = mc.OrderWorkPlanId
@@ -127,7 +129,7 @@ CONCAT(
 	 s.StatusDescriptionHEB
 	 FROM [dbo].[OrderDetails] as od
 	 JOIN [dbo].[Statuses] as s ON od.SpecialCareTypeId = s.StatusId
-	 WHERE IsInHouse = 0
+	 WHERE od.IsInHouse = 0 and od.IsCancelled = 0
 	 ) ds
 	 GROUP BY OrderWorkPlanId
 	) as sp ON wp.OrderWorkPlanId = sp.OrderWorkPlanId
@@ -136,17 +138,18 @@ CONCAT(
 	  SELECT coh.OrderWorkPlanId, STRING_AGG(coh.CalibEquipmentId,'', '') as EquipmentIds, 
 			STRING_AGG(ce.EquipmentName,'', '') as EquipmentNames
 	  FROM [dbo].[CalibEquipmentsToOrderHeaders] as coh
-	  JOIN [dbo].[CalibEquipments] as ce ON coh.CalibEquipmentId = ce.ID
+	  JOIN [dbo].[CalibEquipments] as ce ON coh.CalibEquipmentId = ce.ID AND ce.IsDeleted = 0
+	  WHERE coh.IsDeleted = 0
 	  GROUP BY coh.OrderWorkPlanId
 	)as coh ON wp.OrderWorkPlanId = coh.OrderWorkPlanId
 	LEFT JOIN 
 	(
 	 SELECT OrderWorkPlanId,STRING_AGG(SpecialCareTypeId,'','') as SpecialCares
 	 FROM [dbo].[OrderDetails]
-	 WHERE IsInHouse = 0
+	 WHERE IsInHouse = 0 and IsCancelled = 0
 	 GROUP BY OrderWorkPlanId 
 	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
-	WHERE od.IsInHouse = 0'
+	WHERE od.IsInHouse = 0 AND wp.IsCancelled = 0'
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND od.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
 	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND od.CalibDate = '''+CAST(@Date as NVARCHAR(20)) +''' 'ELSE ' ' END
 	,CASE WHEN @MainCategory IS NOT NULL THEN ' AND od.MainCategory LIKE N''%'+ @MainCategory+'%'' 'ELSE ' ' END
