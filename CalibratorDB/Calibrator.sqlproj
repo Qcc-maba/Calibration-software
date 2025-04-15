@@ -175,6 +175,7 @@
     <Build Include="dbo\Stored Procedures\CreateUserRecord.sql" />
     <Build Include="dbo\Tables\DepartmentDelays.sql" />
     <Build Include="dbo\Tables\AgentsWaitingList.sql" />
+    <Build Include="dbo\Stored Procedures\EditUserRecord.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />

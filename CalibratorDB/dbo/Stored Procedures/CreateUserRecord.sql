@@ -17,6 +17,7 @@ CREATE     PROCEDURE [dbo].[CreateUserRecord]
 ,@DepartmentId int 
 ,@CertificationIdsList nvarchar(max)
 ,@LoggedInUserEmail nvarchar(50)
+,@Stamp NVARCHAR(30)
 
 /*
 EXEC [dbo].[CreateUserRecord]
@@ -82,7 +83,8 @@ INSERT INTO [dbo].[Users]
            ,[UserAddress]
            ,[LocationArea]
            ,[DepartmentId]
-		   ,[UpdateUserID])
+		   ,[UpdateUserID]
+		   ,[Stamp])
      VALUES(
          @FirstName
 		,@LastName 
@@ -94,6 +96,7 @@ INSERT INTO [dbo].[Users]
 		,@LocationArea 
 		,@DepartmentId 
 		,@LoggedInUserId
+		,@Stamp
 		)
 
 DECLARE @Userid INT
