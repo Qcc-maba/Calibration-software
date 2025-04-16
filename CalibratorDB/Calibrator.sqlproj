@@ -177,6 +177,7 @@
     <Build Include="dbo\Stored Procedures\EditUserRecord.sql" />
     <Build Include="dbo\Stored Procedures\GetMabaContactInfoByOrder.sql" />
     <Build Include="dbo\Stored Procedures\DeleteUserRecord.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllCalibratorMainCategories.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assemblies\hebutils.dll" />
