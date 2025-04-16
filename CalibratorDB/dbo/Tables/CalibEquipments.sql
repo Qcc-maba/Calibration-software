@@ -12,14 +12,14 @@
     [CarId]               INT            NULL,
     [CreatedDate]         DATETIME2 (0)  DEFAULT (getdate()) NULL,
     [UpdatedDate]         DATETIME2 (0)  NULL,
-    [UpdatedByUserId]     INT            NULL,
+    [UpdateUserID]        INT            NULL,
     [SourceId]            INT            NULL,
     [IsDeleted]           BIT            DEFAULT ((0)) NOT NULL,
     CONSTRAINT [PK_Tools] PRIMARY KEY CLUSTERED ([ID] ASC),
     CONSTRAINT [FK_CalibEquipments_CalibratorId] FOREIGN KEY ([CalibratorId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_CalibEquipments_CarId] FOREIGN KEY ([CarId]) REFERENCES [dbo].[Cars] ([CarId]),
     CONSTRAINT [FK_CalibEquipments_StatusId] FOREIGN KEY ([StatusId]) REFERENCES [dbo].[Statuses] ([StatusId]),
-    CONSTRAINT [FK_CalibEquipments_UpdatedByUserId] FOREIGN KEY ([UpdatedByUserId]) REFERENCES [dbo].[Users] ([ID]),
+    CONSTRAINT [FK_CalibEquipments_UpdatedByUserId] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_Equipment_Departments] FOREIGN KEY ([DepartmentId]) REFERENCES [dbo].[Departments] ([ID])
 );
 

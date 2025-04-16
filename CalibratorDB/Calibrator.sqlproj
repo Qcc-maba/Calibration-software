@@ -188,6 +188,7 @@
     <None Include="Measurements.sql" />
     <None Include="MeasurementDevicesMainClasses.sql" />
     <None Include="MeasurementDevices.sql" />
+    <None Include="UnitGroups.sql" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="hebutils">

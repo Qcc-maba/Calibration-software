@@ -25,7 +25,7 @@ WHEN MATCHED
 		UPDATE
 		SET dest.[WorkPlanOpenDate] = source.[WorkPlanOpenDate]
 			,dest.[UpdatedDate] = @dt
-			,dest.[UpdatedByUserId] = 0
+			,dest.[UpdateUserID] = 0
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -117,7 +117,7 @@ WHEN MATCHED
 			,dest.[DeviceManufacturer] = source.[DeviceManufacturer]
 			,dest.[DeviceModel] = source.[DeviceModel]
 			,dest.[UpdatedDate] = @dt
-			,dest.[UpdatedByUserId] = 0
+			,dest.[UpdateUserID] = 0
 			,dest.CustomerContactPersonRole = source.CustomerContactPersonRole
 			,dest.CustomerContactAdditionalPhoneNumber = source.CustomerContactAdditionalPhoneNumber
 			,dest.CustomerContactEmail = source.CustomerContactEmail

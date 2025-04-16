@@ -33,7 +33,7 @@
     [CreatedDate]                          DATETIME2 (0)  DEFAULT (getdate()) NOT NULL,
     [UpdatedDate]                          DATETIME2 (0)  NULL,
     [CreatedByUserId]                      INT            NULL,
-    [UpdatedByUserId]                      INT            NULL,
+    [UpdateUserID]                         INT            NULL,
     [ClientRemarkId]                       INT            NULL,
     [SpecialCareTypeId]                    INT            NULL,
     [DepartmentId]                         NVARCHAR (100) NULL,
@@ -46,6 +46,6 @@
     CONSTRAINT [FK_OrderDetails_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_OrderDetails_OrderWorkPlanId] FOREIGN KEY ([OrderWorkPlanId]) REFERENCES [dbo].[OrderWorkPlans] ([OrderWorkPlanId]),
     CONSTRAINT [FK_OrderDetails_StatusId] FOREIGN KEY ([StatusId]) REFERENCES [dbo].[Statuses] ([StatusId]),
-    CONSTRAINT [FK_OrderDetails_UpdatedByUserId] FOREIGN KEY ([UpdatedByUserId]) REFERENCES [dbo].[Users] ([ID])
+    CONSTRAINT [FK_OrderDetails_UpdatedByUserId] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
 

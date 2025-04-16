@@ -52,7 +52,7 @@ WHEN MATCHED
 			,dest.[TotalQuantity] = source.[TotalQuantity]
 			,dest.[EquipmentName] = source.[EquipmentName]
 			,dest.[UpdatedDate] = @dt
-			,dest.[UpdatedByUserId] = 0
+			,dest.[UpdateUserID] = 0
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -62,7 +62,7 @@ WHEN NOT MATCHED BY TARGET
 			,[TotalQuantity]
 			,[EquipmentName]
 			,[SourceId]
-			,[UpdatedByUserId]
+			,[UpdateUserID]
 			)
 		VALUES (
 			 source.[DepartmentId]
