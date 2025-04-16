@@ -68,6 +68,13 @@ SELECT u.ID,
 	   d.DepartmentName,
 	   cc.Certification,
 	   NULL as UserStatus,
+	   NULL as UserStatusIds,
+	   u.DepartmentId,
+	   ur.UserRoleIds,
+	   cc.CertificationIds,
+	   u.Stamp,
+	   u.Password,
+	   u.IsActive,
 	   COUNT(1) OVER(PARTITION BY 1 ORDER BY u.ID ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
 FROM [dbo].[Users] as u
 '
@@ -76,6 +83,7 @@ FROM [dbo].[Users] as u
 ',IIF(@UserRole IS NULL,' LEFT ',' '),' JOIN
 (
 SELECT utr.UserId, 
+       STRING_AGG(ur.UserRoleId,'','') as UserRoleIds,
 	   STRING_AGG(LTRIM(RTRIM(ur.UserRoleDescriptionENG)),'', '') AS UserRoleENG,	
 	   STRING_AGG(LTRIM(RTRIM(ur.UserRoleDescriptionHEB)),'', '') AS UserRoleHEB
 FROM [dbo].[UsersToUserRoles] as utr 
@@ -83,17 +91,12 @@ JOIN [dbo].[UserRoles] as ur ON utr.UserRoleId = ur.UserRoleId
 WHERE utr.IsDeleted = 0 ',IIF(@UserRole IS NULL,' ',CONCAT(' AND ur.UserRoleDescriptionENG LIKE N''%', @UserRole ,'%'' ')),'
 GROUP BY utr.UserId
 ) AS ur ON u.ID = ur.UserId
-',IIF(@Department IS NULL,' LEFT ',' '),' JOIN
-(
-SELECT ud.UserId,STRING_AGG(d.DepartmentName,'','') as DepartmentName
-FROM [dbo].[UsersToDepartments] as ud
-JOIN [dbo].[Departments] as d ON ud.DepartmentId = d.ID
-WHERE ud.IsDeleted = 0 ',IIF(@Department IS NULL,' ',CONCAT(' AND d.DepartmentName LIKE N''%', @Department ,'%'' ')),'
-GROUP BY ud.UserId
-) as d ON u.ID = d.UserId
+LEFT JOIN [dbo].[Departments] as d ON u.DepartmentId = d.ID
 ',IIF(@Certification IS NULL,' LEFT ',' '),' JOIN
 (
-SELECT ctc.CalibratorId as UserId, STRING_AGG(cc.Certificate,'','') as Certification
+SELECT ctc.CalibratorId as UserId,
+	   STRING_AGG(cc.ID,'','') as CertificationIds,
+	   STRING_AGG(cc.Certificate,'','') as Certification
 FROM [dbo].[CalibratorsToCertification] as ctc
 JOIN [dbo].[CalibratorsCertifications] as cc ON ctc.CertificationId = cc.ID AND cc.IsDeleted = 0
 WHERE ctc.IsDeleted = 0
@@ -102,9 +105,10 @@ WHERE ctc.IsDeleted = 0
 '
 GROUP BY ctc.CalibratorId
 ) as cc ON u.ID = cc.UserId
-WHERE u.IsActive = 1 AND u.ID > 0 
+WHERE u.ID > 0 
 '
 ,CASE WHEN @Phone IS NOT NULL THEN ' AND u.Phone LIKE N''%'+ @Phone +'%'' 'ELSE ' ' END
+,CASE WHEN @Department IS NOT NULL THEN ' AND d.DepartmentName  LIKE N''%'+ @Department +'%'' 'ELSE ' ' END
 ,CASE WHEN @Address IS NOT NULL THEN ' AND u.UserAddress LIKE N''%'+ @Address +'%'' 'ELSE ' ' END
 ,CASE WHEN @LocationArea IS NOT NULL THEN ' AND u.LocationArea LIKE N''%'+ @LocationArea +'%'' 'ELSE ' ' END
 ,CASE WHEN @Email IS NOT NULL THEN ' AND u.Email LIKE N''%'+ @Email +'%'' 'ELSE ' ' END

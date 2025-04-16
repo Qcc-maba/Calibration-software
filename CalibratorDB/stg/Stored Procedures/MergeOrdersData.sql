@@ -73,6 +73,9 @@ USING (
 		,o.[Klita]
 		,0 AS [CreatedByUserId]
 		--add special care
+		,o.CustomerContactPersonRole
+		,o.CustomerContactAdditionalPhoneNumber
+		,o.CustomerContactEmail
 	FROM [stg].[stg_Orders] AS o
 	JOIN [dbo].[OrderWorkPlans] AS wp ON o.OrderNumber = wp.OrderNumber
 	LEFT JOIN [dbo].[Statuses] AS s ON o.CalibStatud = s.StatusDescriptionHEB
@@ -115,6 +118,9 @@ WHEN MATCHED
 			,dest.[DeviceModel] = source.[DeviceModel]
 			,dest.[UpdatedDate] = @dt
 			,dest.[UpdatedByUserId] = 0
+			,dest.CustomerContactPersonRole = source.CustomerContactPersonRole
+			,dest.CustomerContactAdditionalPhoneNumber = source.CustomerContactAdditionalPhoneNumber
+			,dest.CustomerContactEmail = source.CustomerContactEmail
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -149,6 +155,9 @@ WHEN NOT MATCHED BY TARGET
 			,[DeviceModel]
 			,[Klita]
 			,[CreatedByUserId]
+			,[CustomerContactPersonRole]
+			,[CustomerContactAdditionalPhoneNumber]
+			,[CustomerContactEmail]
 			)
 		VALUES (
 			source.[OrderWorkPlanId]
@@ -182,6 +191,9 @@ WHEN NOT MATCHED BY TARGET
 			,source.[DeviceModel]
 			,source.[Klita]
 			,0
+			,source.[CustomerContactPersonRole]
+			,source.[CustomerContactAdditionalPhoneNumber]
+			,source.[CustomerContactEmail]
 			);
 
 MERGE INTO [dbo].[ClientRemarks] AS dest

@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="18"
-  DTS:VersionGUID="{CAEF46A4-A587-48CB-8CF0-C2CD8608102D}">
+  DTS:VersionBuild="20"
+  DTS:VersionGUID="{50814B61-12D2-4037-8AF2-BE387B5A687C}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -77,6 +77,9 @@
       ,SUBSTRING([Device manufacturer],1,50) as [DeviceManufacturer]
       ,[PART]
       ,[Klita]
+      ,[CustomerContactPersonRole]
+      ,[CustomerContactAdditionalPhoneNumber]
+      ,[CustomerContactEmail]
   FROM [dbo].[vwGetOrders_WorkPlan_Full]
   WHERE [OpenDate] &gt; DATEADD(DAY,-7,GETDATE())</property>
                 <property
@@ -425,6 +428,36 @@
                       lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[Klita]"
                       name="Klita"
                       truncationRowDisposition="FailComponent" />
+                    <outputColumn
+                      refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[CustomerContactPersonRole]"
+                      dataType="wstr"
+                      errorOrTruncationOperation="Conversion"
+                      errorRowDisposition="FailComponent"
+                      externalMetadataColumnId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactPersonRole]"
+                      length="32"
+                      lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[CustomerContactPersonRole]"
+                      name="CustomerContactPersonRole"
+                      truncationRowDisposition="FailComponent" />
+                    <outputColumn
+                      refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[CustomerContactAdditionalPhoneNumber]"
+                      dataType="wstr"
+                      errorOrTruncationOperation="Conversion"
+                      errorRowDisposition="FailComponent"
+                      externalMetadataColumnId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactAdditionalPhoneNumber]"
+                      length="20"
+                      lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[CustomerContactAdditionalPhoneNumber]"
+                      name="CustomerContactAdditionalPhoneNumber"
+                      truncationRowDisposition="FailComponent" />
+                    <outputColumn
+                      refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[CustomerContactEmail]"
+                      dataType="wstr"
+                      errorOrTruncationOperation="Conversion"
+                      errorRowDisposition="FailComponent"
+                      externalMetadataColumnId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactEmail]"
+                      length="48"
+                      lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[CustomerContactEmail]"
+                      name="CustomerContactEmail"
+                      truncationRowDisposition="FailComponent" />
                   </outputColumns>
                   <externalMetadataColumns
                     isUsed="True">
@@ -578,6 +611,21 @@
                       dataType="wstr"
                       length="16"
                       name="Klita" />
+                    <externalMetadataColumn
+                      refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactPersonRole]"
+                      dataType="wstr"
+                      length="32"
+                      name="CustomerContactPersonRole" />
+                    <externalMetadataColumn
+                      refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactAdditionalPhoneNumber]"
+                      dataType="wstr"
+                      length="20"
+                      name="CustomerContactAdditionalPhoneNumber" />
+                    <externalMetadataColumn
+                      refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactEmail]"
+                      dataType="wstr"
+                      length="48"
+                      name="CustomerContactEmail" />
                   </externalMetadataColumns>
                 </output>
                 <output
@@ -767,6 +815,24 @@
                       length="16"
                       lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[Klita]"
                       name="Klita" />
+                    <outputColumn
+                      refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[CustomerContactPersonRole]"
+                      dataType="wstr"
+                      length="32"
+                      lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[CustomerContactPersonRole]"
+                      name="CustomerContactPersonRole" />
+                    <outputColumn
+                      refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[CustomerContactAdditionalPhoneNumber]"
+                      dataType="wstr"
+                      length="20"
+                      lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[CustomerContactAdditionalPhoneNumber]"
+                      name="CustomerContactAdditionalPhoneNumber" />
+                    <outputColumn
+                      refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[CustomerContactEmail]"
+                      dataType="wstr"
+                      length="48"
+                      lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[CustomerContactEmail]"
+                      name="CustomerContactEmail" />
                     <outputColumn
                       refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
                       dataType="i4"
@@ -1047,6 +1113,27 @@
                       cachedName="Klita"
                       externalMetadataColumnId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[Klita]"
                       lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[Klita]" />
+                    <inputColumn
+                      refId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerContactPersonRole]"
+                      cachedDataType="wstr"
+                      cachedLength="32"
+                      cachedName="CustomerContactPersonRole"
+                      externalMetadataColumnId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactPersonRole]"
+                      lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[CustomerContactPersonRole]" />
+                    <inputColumn
+                      refId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerContactAdditionalPhoneNumber]"
+                      cachedDataType="wstr"
+                      cachedLength="20"
+                      cachedName="CustomerContactAdditionalPhoneNumber"
+                      externalMetadataColumnId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactAdditionalPhoneNumber]"
+                      lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[CustomerContactAdditionalPhoneNumber]" />
+                    <inputColumn
+                      refId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerContactEmail]"
+                      cachedDataType="wstr"
+                      cachedLength="48"
+                      cachedName="CustomerContactEmail"
+                      externalMetadataColumnId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactEmail]"
+                      lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[CustomerContactEmail]" />
                   </inputColumns>
                   <externalMetadataColumns
                     isUsed="True">
@@ -1201,6 +1288,21 @@
                       dataType="wstr"
                       length="16"
                       name="Klita" />
+                    <externalMetadataColumn
+                      refId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactPersonRole]"
+                      dataType="wstr"
+                      length="60"
+                      name="CustomerContactPersonRole" />
+                    <externalMetadataColumn
+                      refId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactAdditionalPhoneNumber]"
+                      dataType="wstr"
+                      length="40"
+                      name="CustomerContactAdditionalPhoneNumber" />
+                    <externalMetadataColumn
+                      refId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactEmail]"
+                      dataType="wstr"
+                      length="100"
+                      name="CustomerContactEmail" />
                   </externalMetadataColumns>
                 </input>
               </inputs>

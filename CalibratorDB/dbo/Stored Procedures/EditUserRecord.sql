@@ -4,7 +4,7 @@
 -- Description:	This SP edit user data
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-148
 -- =============================================
-CREATE   PROCEDURE [dbo].[EditUserRecord]
+CREATE     PROCEDURE [dbo].[EditUserRecord]
  @FirstName nvarchar(50) = NULL
 ,@LastName nvarchar(50) = NULL
 ,@Phone nvarchar(20) = NULL
@@ -109,7 +109,7 @@ UPDATE ctc
 SET IsDeleted = 1,UpdateUserID = @LoggedInUserId
 FROM [dbo].[CalibratorsToCertification] as ctc
 LEFT JOIN #CertificationIds as ci ON ctc.CalibratorId = @UserId and ci.CertificationId = ctc.CertificationId 
-WHERE ci.CertificationId IS NULL
+WHERE ctc.CalibratorId = @UserId  AND ci.CertificationId IS NULL
 
 INSERT [dbo].[CalibratorsToCertification](CertificationId,CalibratorId,UpdateUserID)
 SELECT ci.CertificationId,@UserId,@LoggedInUserId

@@ -12,20 +12,20 @@
   DTS:ObjectName="StartSyncMasterToAWS"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="7"
-  DTS:VersionGUID="{E7BF75BD-4165-4DAF-A415-573037433DB1}">
+  DTS:VersionBuild="9"
+  DTS:VersionGUID="{54FE50B9-271A-41C1-A81D-F2F27D7E6F78}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
   <DTS:Executables>
     <DTS:Executable
-      DTS:refId="Package\AgentsWaitingListSync"
+      DTS:refId="Package\AgentsWaitingListSyncToAWS"
       DTS:CreationName="Microsoft.ExecutePackageTask"
       DTS:Description="Execute Package Task"
       DTS:DTSID="{F19A0DFD-021F-492F-B4D5-54B5B989CBFE}"
       DTS:ExecutableType="Microsoft.ExecutePackageTask"
       DTS:LocaleID="-1"
-      DTS:ObjectName="AgentsWaitingListSync"
+      DTS:ObjectName="AgentsWaitingListSyncToAWS"
       DTS:TaskContact="Microsoft Corporation; Microsoft SQL Server; Microsoft Corporation; All Rights Reserved;http://www.microsoft.com/sql/support/default.asp;1">
       <DTS:Variables />
       <DTS:ObjectData>
@@ -53,13 +53,13 @@
       </DTS:ObjectData>
     </DTS:Executable>
     <DTS:Executable
-      DTS:refId="Package\EquipmentSync"
+      DTS:refId="Package\EquipmentSyncToAWS"
       DTS:CreationName="Microsoft.ExecutePackageTask"
       DTS:Description="Execute Package Task"
       DTS:DTSID="{C6C92BF1-49CB-4B45-BC43-FC87242AA872}"
       DTS:ExecutableType="Microsoft.ExecutePackageTask"
       DTS:LocaleID="-1"
-      DTS:ObjectName="EquipmentSync"
+      DTS:ObjectName="EquipmentSyncToAWS"
       DTS:TaskContact="Microsoft Corporation; Microsoft SQL Server; Microsoft Corporation; All Rights Reserved;http://www.microsoft.com/sql/support/default.asp;1">
       <DTS:Variables />
       <DTS:ObjectData>
@@ -70,13 +70,13 @@
       </DTS:ObjectData>
     </DTS:Executable>
     <DTS:Executable
-      DTS:refId="Package\OrdersSync"
+      DTS:refId="Package\OrdersSyncToAWS"
       DTS:CreationName="Microsoft.ExecutePackageTask"
       DTS:Description="Execute Package Task"
       DTS:DTSID="{A0F21A70-411E-445A-AD63-958DF4A423E7}"
       DTS:ExecutableType="Microsoft.ExecutePackageTask"
       DTS:LocaleID="-1"
-      DTS:ObjectName="OrdersSync"
+      DTS:ObjectName="OrdersSyncToAWS"
       DTS:TaskContact="Microsoft Corporation; Microsoft SQL Server; Microsoft Corporation; All Rights Reserved;http://www.microsoft.com/sql/support/default.asp;1">
       <DTS:Variables />
       <DTS:ObjectData>
@@ -100,21 +100,21 @@
       <GraphLayout
         Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph">
         <NodeLayout
-          Size="151.2,41.6"
-          Id="Package\EquipmentSync"
-          TopLeft="50.8333305559222,122.199999150236" />
-        <NodeLayout
-          Size="133.6,41.6"
-          Id="Package\OrdersSync"
-          TopLeft="224.166654418741,121.333332489596" />
-        <NodeLayout
-          Size="184.8,41.6"
-          Id="Package\AgentsWaitingListSync"
-          TopLeft="383.333312388924,122.199999150237" />
+          Size="220.8,41.6"
+          Id="Package\AgentsWaitingListSyncToAWS"
+          TopLeft="499.166639393403,120.466665828957" />
         <NodeLayout
           Size="200.8,41.6"
           Id="Package\DepartmentDelaysToAWS"
           TopLeft="53.3333304193286,192.399998662074" />
+        <NodeLayout
+          Size="187.2,41.6"
+          Id="Package\EquipmentSyncToAWS"
+          TopLeft="50.8333305559222,122.199999150236" />
+        <NodeLayout
+          Size="168.8,41.6"
+          Id="Package\OrdersSyncToAWS"
+          TopLeft="288.333317579496,122.199999150236" />
       </GraphLayout>
     </LayoutInfo>
   </Package>
