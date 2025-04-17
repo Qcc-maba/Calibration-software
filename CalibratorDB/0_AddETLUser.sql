@@ -9,7 +9,7 @@ INSERT INTO [dbo].[Users]
            ,[LastNameEng]
            ,[Email]
            ,[Password]
-           ,[Mobile]
+           ,[Phone]
            ,[IsActive])
      VALUES
            (0
