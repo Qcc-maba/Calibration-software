@@ -111,8 +111,6 @@
     <None Include="dbo\Views\vwCustomersOrders_FromERP.sql">
       <CopyToOutputDirectory>DoNotCopy</CopyToOutputDirectory>
     </None>
-    <Build Include="dbo\Functions\tttt.sql" />
-    <Build Include="dbo\Functions\tabula_hebconvert.sql" />
     <Build Include="dbo\Functions\ParseCSVToTable.sql" />
     <Build Include="dbo\Functions\SplitExpression.sql" />
     <Build Include="dbo\Functions\SplitExpressionCols.sql" />
@@ -180,8 +178,7 @@
     <Build Include="dbo\Stored Procedures\GetAllCalibratorMainCategories.sql" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Assemblies\hebutils.dll" />
-    <None Include="AddETLUser.sql" />
+    <None Include="0_AddETLUser.sql" />
     <None Include="5_PopulateDepartments.sql" />
     <None Include="MeasurementDevicesSubClass.sql" />
     <None Include="Units.sql" />
@@ -202,7 +199,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <PostDeploy Include="1_PopulateDataForStatusesCategories.sql" />
+    <PostDeploy Include="1_PopulateDataForStatusesCategories.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </PostDeploy>
     <None Include="2_PopulateDataStatuses.sql" />
     <None Include="3_PopulateDataUserRoles.sql" />
   </ItemGroup>
