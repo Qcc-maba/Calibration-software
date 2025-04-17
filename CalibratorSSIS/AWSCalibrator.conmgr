@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0"?>
 <DTS:ConnectionManager xmlns:DTS="www.microsoft.com/SqlServer/Dts"
-  DTS:ObjectName="DestinationDB"
+  DTS:ObjectName="AWSCalibrator"
   DTS:DTSID="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
   DTS:CreationName="ADO.NET:System.Data.SqlClient.SqlConnection, System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
   <DTS:ObjectData>
@@ -9,9 +9,9 @@
       <DTS:Password
         DTS:Name="Password"
         Sensitive="1"
-        p4:Salt="4RpOQI4A09c="
-        p4:IV="GfmBIrUJf2VRL5ybS7ehIQ=="
-        p4:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" xmlns:p4="www.microsoft.com/SqlServer/SSIS">RjS4wNbfEufX6jW64wdQVuzjBAdVEXP3PrjI7t8ZOPbE+TSx8FfHMl+C4v26tiuCTx81VpnSeM9LO7DVJwv+1As9h2j++mfvhOdio+ZtN10+cU/M9HowBXII7rhHZqSWwZv8hfqA0aGB1+zmuYmcLtNWB+tcToYaumx1HEVhjPg=</DTS:Password>
+        p4:Salt="LGt1sb7T780="
+        p4:IV="FXnQmpytboANTqNcLj5Bmg=="
+        p4:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" xmlns:p4="www.microsoft.com/SqlServer/SSIS">SjWb19T7/b4iHMOXynmpNkUgdhGJ0HEWH3JX/CYJg5m866s0jSCcqqr33w1LwDGCgPPXeCown6dQc1AB5xwZ0k98hJeZTpNVw6h74NO0F/RxZy1cEZVVuDDir8babh2NdOpDPT7f6Fa3PpnQdTaZ1k7l2+O81QEJxpP9kKmjD58=</DTS:Password>
     </DTS:ConnectionManager>
   </DTS:ObjectData>
 </DTS:ConnectionManager>

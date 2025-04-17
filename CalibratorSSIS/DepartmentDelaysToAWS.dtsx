@@ -76,7 +76,7 @@ GROUP BY SKU</property>
                 <connection
                   refId="Package\Load data to DepartmentDelays\Get data from amaba.Connections[IDbConnection]"
                   connectionManagerID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}:external"
-                  connectionManagerRefId="Project.ConnectionManagers[SourceDB]"
+                  connectionManagerRefId="Project.ConnectionManagers[OnPremCalibrator]"
                   description="Managed connection manager"
                   name="IDbConnection" />
               </connections>
@@ -189,7 +189,7 @@ GROUP BY SKU</property>
                 <connection
                   refId="Package\Load data to DepartmentDelays\Insert data to DepartmentDelays.Connections[IDbConnection]"
                   connectionManagerID="{5D340525-F86F-4A09-8F4F-C17373323AB0}:external"
-                  connectionManagerRefId="Project.ConnectionManagers[DestinationDB]"
+                  connectionManagerRefId="Project.ConnectionManagers[AWSCalibrator]"
                   description="Managed connection manager"
                   name="IDbConnection" />
               </connections>
