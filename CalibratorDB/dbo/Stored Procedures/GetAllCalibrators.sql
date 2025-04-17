@@ -47,16 +47,27 @@ SELECT DISTINCT
 	u.[FirstName],
 	u.[LastName],
 	NULL as [Status],
-	wp.[OrderNumber] as [AssignedToOrderNumber]
+	wp.[OrderNumber] as [AssignedToOrderNumber],
+	STRING_AGG(cc.Certificate,'', '') as Certification 
   FROM [dbo].[Users] as u
   LEFT JOIN [dbo].[Calibrators] as c ON c.UserId = u.ID 
   LEFT JOIN [dbo].[CalibratorsToWorkPlan] cp ON u.[ID] = cp.CalibratorId AND cp.IsDeleted = 0
   LEFT JOIN [dbo].[OrderWorkPlans] as wp ON cp.OrderWorkPlanId = wp.OrderWorkPlanId AND wp.IsCancelled = 0
  -- LEFT JOIN [dbo].[CalibratorsAvailability] as ca ON c.Availability = ca.ID
-  LEFT JOIN [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId AND od.IsCancelled = 0'
+  LEFT JOIN [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId AND od.IsCancelled = 0
+  LEFT JOIN [dbo].[CalibratorsToCertification] as ctc ON u.ID = ctc.CalibratorId
+  LEFT JOIN [dbo].[CalibratorsCertifications] as cc ON ctc.CertificationId = cc.ID'
   ,CASE WHEN @SecondCategories IS NOT NULL THEN ' JOIN #SecondCategories as sc ON cp.OrderWorkPlanId = sc.OrderWorkPlanId ' ELSE ' ' END
   ,CASE WHEN @Certifications IS NOT NULL THEN ' JOIN #Certifications as s ON u.ID = s.CalibratorId ' ELSE ' ' END
    ,' WHERE u.IsActive = 1 AND u.ID > 0'
+   ,'
+     GROUP BY 
+    u.[ID],
+	u.[FirstName],
+	u.[LastName],
+	--NULL as [Status],
+	wp.[OrderNumber]
+   '
   ,CASE WHEN @MainCategory IS NOT NULL THEN' AND od.[MainCategory] = '''+ @MainCategory+''' 'ELSE ' ' END
 )
 PRINT @sql
