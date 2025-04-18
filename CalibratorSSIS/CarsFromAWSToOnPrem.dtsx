@@ -5,15 +5,15 @@
   DTS:CreationName="Microsoft.Package"
   DTS:CreatorComputerName="DESKTOP-50K623D"
   DTS:CreatorName="DESKTOP-50K623D\Eduard"
-  DTS:DTSID="{0E368D7D-EBCC-4E89-9DBE-30C593028F8A}"
+  DTS:DTSID="{A19A05CE-9A79-4B8D-A4FC-330F5FB98442}"
   DTS:ExecutableType="Microsoft.Package"
   DTS:LastModifiedProductVersion="16.0.5685.0"
   DTS:LocaleID="1033"
   DTS:ObjectName="AgentsWaitingListToAWS"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="21"
-  DTS:VersionGUID="{0C7DEB09-A1BD-4A3A-B66A-D271E716BCD5}">
+  DTS:VersionBuild="25"
+  DTS:VersionGUID="{99DEA5FE-FFA8-48B6-9EF3-DFF639B49D5D}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -22,7 +22,7 @@
       DTS:refId="Package\Load data to AgentsWaitingList"
       DTS:CreationName="Microsoft.Pipeline"
       DTS:Description="Data Flow Task"
-      DTS:DTSID="{A2B427F8-06E8-4719-9817-D065C2316DF4}"
+      DTS:DTSID="{E6A2FA1A-5074-49B1-BE20-D767C3C91C49}"
       DTS:ExecutableType="Microsoft.Pipeline"
       DTS:LocaleID="-1"
       DTS:ObjectName="Load data to AgentsWaitingList">
@@ -79,8 +79,8 @@
               <connections>
                 <connection
                   refId="Package\Load data to AgentsWaitingList\Get data from amaba.Connections[IDbConnection]"
-                  connectionManagerID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}:external"
-                  connectionManagerRefId="Project.ConnectionManagers[OnPremPrioty]"
+                  connectionManagerID="{76ED0EFD-E8C5-4864-8512-E3A776A40A48}:external"
+                  connectionManagerRefId="Project.ConnectionManagers[OnPremCalibrator]"
                   description="Managed connection manager"
                   name="IDbConnection" />
               </connections>
@@ -343,7 +343,7 @@
       DTS:refId="Package\Truncate stg_Orders"
       DTS:CreationName="Microsoft.ExecuteSQLTask"
       DTS:Description="Execute SQL Task"
-      DTS:DTSID="{A0398320-D2E5-4C95-B872-5C3BC5CEAF8B}"
+      DTS:DTSID="{44639340-947C-4859-B805-E9994C6EDE4A}"
       DTS:ExecutableType="Microsoft.ExecuteSQLTask"
       DTS:LocaleID="-1"
       DTS:ObjectName="Truncate stg_Orders"
@@ -360,7 +360,7 @@
     <DTS:PrecedenceConstraint
       DTS:refId="Package.PrecedenceConstraints[Constraint]"
       DTS:CreationName=""
-      DTS:DTSID="{D5EF7AF1-2A6E-4FF5-AFEB-8EE81CC22B75}"
+      DTS:DTSID="{A5AB939E-C43F-4850-8A8C-7B4121CA7859}"
       DTS:From="Package\Truncate stg_Orders"
       DTS:LogicalAnd="True"
       DTS:ObjectName="Constraint"
@@ -381,14 +381,14 @@
         <NodeLayout
           Size="222.4,41.6"
           Id="Package\Load data to AgentsWaitingList"
-          TopLeft="103.833327960637,106.033332634237" />
+          TopLeft="178.833323862818,150.233332326876" />
         <NodeLayout
           Size="173.6,41.6"
           Id="Package\Truncate stg_Orders"
-          TopLeft="128.333326321509,26.8666664798392" />
+          TopLeft="203.33332222369,71.0666661724779" />
         <EdgeLayout
           Id="Package.PrecedenceConstraints[Constraint]"
-          TopLeft="215.083327141073,68.4666664798392">
+          TopLeft="290.083323043254,112.666666172478">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"

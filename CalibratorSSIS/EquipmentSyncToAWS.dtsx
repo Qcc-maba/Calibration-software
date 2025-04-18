@@ -80,7 +80,7 @@ JOIN WorkPlan.dbo.LABORATORY_WS as l ON e.LAB_EQUIP = l.ID_LAB</property>
                 <connection
                   refId="Package\Load data to stg_Equip\Get data from WorkPlan.Connections[IDbConnection]"
                   connectionManagerID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}:external"
-                  connectionManagerRefId="Project.ConnectionManagers[OnPremCalibrator]"
+                  connectionManagerRefId="Project.ConnectionManagers[OnPremPrioty]"
                   description="Managed connection manager"
                   name="IDbConnection" />
               </connections>
