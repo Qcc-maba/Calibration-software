@@ -12,8 +12,8 @@
   DTS:ObjectName="CarsFromAWSToOnPrem"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="54"
-  DTS:VersionGUID="{A638CC5D-B3BA-49E0-94EB-96DE1FD8ECBD}">
+  DTS:VersionBuild="56"
+  DTS:VersionGUID="{434BBA32-FF25-4CCC-AD79-FA1B3A554384}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:PackageParameters>
@@ -89,7 +89,7 @@ JOIN #CarList AS cl ON c.CarId = cl.CarId</DTS:VariableValue>
       <DTS:Variables />
       <DTS:ObjectData>
         <SQLTask:SqlTaskData
-          SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
+          SQLTask:Connection="{76ED0EFD-E8C5-4864-8512-E3A776A40A48}"
           SQLTask:SqlStatementSource="IF NOT EXISTS (SELECT 1 FROM etl.ETLExecutionLog WHERE ETLPackageName = @PackageName)&#xA;INSERT etl.ETLExecutionLog(ETLPackageName,LastExecutionDate)&#xA;VALUES(@PackageName,'1900-01-01')&#xA;&#xA;SELECT @LoadToDate=LastExecutionDate&#xA;FROM etl.ETLExecutionLog&#xA;WHERE ETLPackageName = @PackageName" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask">
           <SQLTask:ParameterBinding
             SQLTask:ParameterName="@LoadToDate"

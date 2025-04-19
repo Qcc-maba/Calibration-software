@@ -12,8 +12,8 @@
   DTS:ObjectName="UsersFromAWSToOnPrem"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="70"
-  DTS:VersionGUID="{1428CAD0-2B17-478A-B20E-A2B9D7AB49DA}">
+  DTS:VersionBuild="71"
+  DTS:VersionGUID="{01D5EE3E-793D-4CF2-BC3C-5C3236E38391}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:PackageParameters>
@@ -934,6 +934,10 @@ SELECT u.[ID]
           Id="Package\Get last load date"
           TopLeft="39.9,5.49999999999995" />
         <NodeLayout
+          Size="204.8,41.6"
+          Id="Package\Load users data to on prem"
+          TopLeft="20.8333321950503,215.799998499354" />
+        <NodeLayout
           Size="235.2,41.6"
           Id="Package\Merge data for on prem user table"
           TopLeft="5.50000000000004,310.3" />
@@ -967,32 +971,6 @@ SELECT u.[ID]
             <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
-        <EdgeLayout
-          Id="Package.PrecedenceConstraints[Constraint 3]"
-          TopLeft="121.5,351.9">
-          <EdgeLayout.Curve>
-            <mssgle:Curve
-              StartConnector="{assembly:Null}"
-              EndConnector="0,59.9999999999999"
-              Start="0,0"
-              End="0,52.4999999999999">
-              <mssgle:Curve.Segments>
-                <mssgle:SegmentCollection
-                  Capacity="5">
-                  <mssgle:LineSegment
-                    End="0,52.4999999999999" />
-                </mssgle:SegmentCollection>
-              </mssgle:Curve.Segments>
-            </mssgle:Curve>
-          </EdgeLayout.Curve>
-          <EdgeLayout.Labels>
-            <EdgeLabelCollection />
-          </EdgeLayout.Labels>
-        </EdgeLayout>
-        <NodeLayout
-          Size="204.8,41.6"
-          Id="Package\Load users data to on prem"
-          TopLeft="20.8333321950503,215.799998499354" />
         <EdgeLayout
           Id="Package.PrecedenceConstraints[Constraint 1]"
           TopLeft="121.566666097525,148.7">
@@ -1037,6 +1015,28 @@ SELECT u.[ID]
             <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
+        <EdgeLayout
+          Id="Package.PrecedenceConstraints[Constraint 3]"
+          TopLeft="121.5,351.9">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,59.9999999999999"
+              Start="0,0"
+              End="0,52.4999999999999">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,52.4999999999999" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
       </GraphLayout>
     </LayoutInfo>
   </Package>
@@ -1044,15 +1044,15 @@ SELECT u.[ID]
     design-time-name="Package\Load users data to on prem">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
-        <NodeLayout
-          Size="195.2,41.6"
-          Id="Package\Load users data to on prem\Get users from AWS"
-          TopLeft="143.999997854233,117.999998241663" />
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
         <NodeLayout
           Size="190.4,41.6"
           Id="Package\Load users data to on prem\Load tato to staging"
           TopLeft="141.999997884035,231.999996542931" />
+        <NodeLayout
+          Size="195.2,41.6"
+          Id="Package\Load users data to on prem\Get users from AWS"
+          TopLeft="143.999997854233,117.999998241663" />
         <EdgeLayout
           Id="Package\Load users data to on prem.Paths[ADO NET Source Output]"
           TopLeft="239.399997869134,159.599998241663">
@@ -1072,7 +1072,9 @@ SELECT u.[ID]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
