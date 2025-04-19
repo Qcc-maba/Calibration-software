@@ -188,6 +188,8 @@
     <Build Include="etl\Stored Procedures\MergeUsersToOnPrem.sql" />
     <Build Include="etl\Tables\CalendarEvents.sql" />
     <Build Include="etl\Stored Procedures\MergeCalendarEventsToOnPrem.sql" />
+    <Build Include="etl\Tables\CalendarEventsToParticipants.sql" />
+    <Build Include="etl\Stored Procedures\MergeCalendarEventsToParticipantsToOnPrem.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />

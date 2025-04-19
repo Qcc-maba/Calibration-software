@@ -12,8 +12,8 @@
   DTS:ObjectName="CalendarEventsFromAWSToOnPrem"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="84"
-  DTS:VersionGUID="{67C33FEA-25DC-424A-9ADD-8099E28D624A}">
+  DTS:VersionBuild="85"
+  DTS:VersionGUID="{4A12D917-6DC3-42B0-B584-547E64174385}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:PackageParameters>

@@ -26,7 +26,7 @@
           <SSIS:Property SSIS:Name="CreatorComputerName">DESKTOP-50K623D</SSIS:Property>
           <SSIS:Property SSIS:Name="Description">
           </SSIS:Property>
-          <SSIS:Property SSIS:Name="PasswordVerifier" SSIS:Sensitive="1" SSIS:Salt="1g54pTiyCds=" SSIS:IV="60gqGiF/B+EpCJ1CRVSmBA==" SSIS:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc">YjbnsuTogkc7ljFYP0FMUC9eEqB9t19Qflme1xMjg71tdfx1OuzIDxKJ/RueMjvBnlJzTX0RhZCarzgVG2k7O90s+HMekS7SWx1ks20ZHk23FY7+9zGRNCJFZ177+jmDz3c3XlZixv/T9iAfOJK6/tF6+0TpWBt+6ECMLof1gGq3fucQkh/L6nFCMI0n/75j</SSIS:Property>
+          <SSIS:Property SSIS:Name="PasswordVerifier" SSIS:Sensitive="1" SSIS:Salt="N//ChsGqE/s=" SSIS:IV="o8H1TydGjBgoaRX4GC1tuA==" SSIS:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc">q0j5JR0m+UTlsBszN8JZOzyrm5ijVs9UU1NTbL1GxecXFI58UPPAJjJoRRY/lzzmoW4wv4OfVrM1wQI6qvTjevH2UgM2iRqpjgQNV7SXzR2Hp35nHp2+al1RB08Lnfwy1oxbv8qbP2lRVnlQj0cHp86671Oc+czVHG+/gFR6oQB0wix/6kf1w2nPCIws+5Hr</SSIS:Property>
           <SSIS:Property SSIS:Name="FormatVersion">1</SSIS:Property>
         </SSIS:Properties>
         <SSIS:Packages>
@@ -39,6 +39,7 @@
           <SSIS:Package SSIS:Name="StartSyncAWSToOnPrem.dtsx" SSIS:EntryPoint="1" />
           <SSIS:Package SSIS:Name="UsersFromAWSToOnPrem.dtsx" SSIS:EntryPoint="1" />
           <SSIS:Package SSIS:Name="CalendarEventsFromAWSToOnPrem.dtsx" SSIS:EntryPoint="1" />
+          <SSIS:Package SSIS:Name="CalendarEventsToParticipantsFromAWSToOnPrem.dtsx" SSIS:EntryPoint="1" />
         </SSIS:Packages>
         <SSIS:ConnectionManagers>
           <SSIS:ConnectionManager SSIS:Name="AWSCalibrator.conmgr" />
@@ -132,7 +133,7 @@
                 <SSIS:Property SSIS:Name="IncludeInDebugDump">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Required">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="Value">true</SSIS:Property>
+                <SSIS:Property SSIS:Name="Value">false</SSIS:Property>
                 <SSIS:Property SSIS:Name="DataType">3</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
@@ -467,10 +468,10 @@
                 <SSIS:Property SSIS:Name="Name">CarsFromAWSToOnPrem</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionBuild">56</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">58</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionComments">
                 </SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionGUID">{434BBA32-FF25-4CCC-AD79-FA1B3A554384}</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{700C35FB-DA90-4F30-93B1-021D26847DEB}</SSIS:Property>
                 <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
                 <SSIS:Property SSIS:Name="Description">
                 </SSIS:Property>
@@ -499,10 +500,10 @@
                 <SSIS:Property SSIS:Name="Name">StartSyncAWSToOnPrem</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionBuild">16</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">18</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionComments">
                 </SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionGUID">{B21CFBF7-C4C8-4651-98C3-DC9B0D21A7B0}</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{79E7F815-1F7E-444A-B5C6-7AA61B097A4F}</SSIS:Property>
                 <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
                 <SSIS:Property SSIS:Name="Description">
                 </SSIS:Property>
@@ -516,10 +517,10 @@
                 <SSIS:Property SSIS:Name="Name">UsersFromAWSToOnPrem</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionBuild">71</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">74</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionComments">
                 </SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionGUID">{01D5EE3E-793D-4CF2-BC3C-5C3236E38391}</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{88F83C0D-CE80-4C79-B9DC-5C906CFF9281}</SSIS:Property>
                 <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
                 <SSIS:Property SSIS:Name="Description">
                 </SSIS:Property>
@@ -548,10 +549,10 @@
                 <SSIS:Property SSIS:Name="Name">CalendarEventsFromAWSToOnPrem</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionBuild">74</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">85</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionComments">
                 </SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionGUID">{6E695A05-AA2E-4BEC-860E-617B629924B9}</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{4A12D917-6DC3-42B0-B584-547E64174385}</SSIS:Property>
                 <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
                 <SSIS:Property SSIS:Name="Description">
                 </SSIS:Property>
@@ -561,6 +562,38 @@
                 <SSIS:Parameter SSIS:Name="LoadToDate">
                   <SSIS:Properties>
                     <SSIS:Property SSIS:Name="ID">{31073FC1-4796-451D-B512-4DFF8C2911CC}</SSIS:Property>
+                    <SSIS:Property SSIS:Name="CreationName">
+                    </SSIS:Property>
+                    <SSIS:Property SSIS:Name="Description">
+                    </SSIS:Property>
+                    <SSIS:Property SSIS:Name="IncludeInDebugDump">0</SSIS:Property>
+                    <SSIS:Property SSIS:Name="Required">1</SSIS:Property>
+                    <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
+                    <SSIS:Property SSIS:Name="Value">2025-04-18T10:55:00</SSIS:Property>
+                    <SSIS:Property SSIS:Name="DataType">16</SSIS:Property>
+                  </SSIS:Properties>
+                </SSIS:Parameter>
+              </SSIS:Parameters>
+            </SSIS:PackageMetaData>
+            <SSIS:PackageMetaData SSIS:Name="CalendarEventsToParticipantsFromAWSToOnPrem.dtsx">
+              <SSIS:Properties>
+                <SSIS:Property SSIS:Name="ID">{D227B3B6-5182-4D1B-AE33-1484B68D175F}</SSIS:Property>
+                <SSIS:Property SSIS:Name="Name">CalendarEventsToParticipantsFromAWSToOnPrem</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">89</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionComments">
+                </SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{645A3180-2579-4FBF-AC2F-B76F11AFB3F9}</SSIS:Property>
+                <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
+                <SSIS:Property SSIS:Name="Description">
+                </SSIS:Property>
+                <SSIS:Property SSIS:Name="ProtectionLevel">2</SSIS:Property>
+              </SSIS:Properties>
+              <SSIS:Parameters>
+                <SSIS:Parameter SSIS:Name="LoadToDate">
+                  <SSIS:Properties>
+                    <SSIS:Property SSIS:Name="ID">{E68C2FF3-87F9-4F9F-B698-E401B932EC99}</SSIS:Property>
                     <SSIS:Property SSIS:Name="CreationName">
                     </SSIS:Property>
                     <SSIS:Property SSIS:Name="Description">
