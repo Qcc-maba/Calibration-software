@@ -26,7 +26,7 @@
           <SSIS:Property SSIS:Name="CreatorComputerName">DESKTOP-50K623D</SSIS:Property>
           <SSIS:Property SSIS:Name="Description">
           </SSIS:Property>
-          <SSIS:Property SSIS:Name="PasswordVerifier" SSIS:Sensitive="1" SSIS:Salt="HxsYnJUiTK8=" SSIS:IV="KvLQHJE4UUBFfVQ0oTV5uA==" SSIS:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc">dSKZDFNRZR45SQK7eWzV6wGLtmCuZfDaIiLxQmsQ8HMVe9tblY9w0EpPk5ZbwAw/nVmjTFuLGcle2WGpKeB779asLzS3lXn9lxbXgsGZM9rb67m6F+79d5zzQsj5hXgWw44qqQ0ZDB/Ab9Qo9fdsHVGZIEdCGjD58Zb/frr2gjJXCX2MUHAz4RKKPJmAMlDe</SSIS:Property>
+          <SSIS:Property SSIS:Name="PasswordVerifier" SSIS:Sensitive="1" SSIS:Salt="x4M4G0GONhI=" SSIS:IV="95NlThxC+53jKlhNLYhyRw==" SSIS:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc">YQ53DZxvAJ4WzIJd1+eScBBPdJQuAPpdHu0I/bqiNClr4ne49R7T3y+3edd1KVqeky5k3GVVOlrnEve38byBNU4Y8qBUI/cZdPhK21x4Z6nHc3qztCU579ulWkkECkbXVv4Y3DodXeilrrrESVsvqz8S/kLbhabCV10AKF5WMsLoGUq2O1zVIVykE86TNKQu</SSIS:Property>
           <SSIS:Property SSIS:Name="FormatVersion">1</SSIS:Property>
         </SSIS:Properties>
         <SSIS:Packages>
@@ -36,6 +36,8 @@
           <SSIS:Package SSIS:Name="AgentsWaitingListToAWS.dtsx" SSIS:EntryPoint="1" />
           <SSIS:Package SSIS:Name="DepartmentDelaysToAWS.dtsx" SSIS:EntryPoint="1" />
           <SSIS:Package SSIS:Name="CarsFromAWSToOnPrem.dtsx" SSIS:EntryPoint="1" />
+          <SSIS:Package SSIS:Name="StartSyncAWSToOnPrem.dtsx" SSIS:EntryPoint="1" />
+          <SSIS:Package SSIS:Name="UsersFromAWSToOnPrem.dtsx" SSIS:EntryPoint="1" />
         </SSIS:Packages>
         <SSIS:ConnectionManagers>
           <SSIS:ConnectionManager SSIS:Name="AWSCalibrator.conmgr" />
@@ -129,7 +131,7 @@
                 <SSIS:Property SSIS:Name="IncludeInDebugDump">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Required">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="Value">false</SSIS:Property>
+                <SSIS:Property SSIS:Name="Value">true</SSIS:Property>
                 <SSIS:Property SSIS:Name="DataType">3</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
@@ -204,7 +206,7 @@
                 <SSIS:Property SSIS:Name="IncludeInDebugDump">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Required">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="Value">amaba</SSIS:Property>
+                <SSIS:Property SSIS:Name="Value">Calibrator</SSIS:Property>
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
@@ -248,7 +250,7 @@
                 <SSIS:Property SSIS:Name="IncludeInDebugDump">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Required">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="Value">10.3.0.3</SSIS:Property>
+                <SSIS:Property SSIS:Name="Value">DESKTOP-50K623D</SSIS:Property>
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
@@ -263,7 +265,7 @@
                 <SSIS:Property SSIS:Name="IncludeInDebugDump">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Required">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="Value">kyulan</SSIS:Property>
+                <SSIS:Property SSIS:Name="Value">ed</SSIS:Property>
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
@@ -280,21 +282,6 @@
                 <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Value">false</SSIS:Property>
                 <SSIS:Property SSIS:Name="DataType">3</SSIS:Property>
-              </SSIS:Properties>
-            </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.OnPremCalibrator.ConnectionString">
-              <SSIS:Properties>
-                <SSIS:Property SSIS:Name="ID">
-                </SSIS:Property>
-                <SSIS:Property SSIS:Name="CreationName">
-                </SSIS:Property>
-                <SSIS:Property SSIS:Name="Description">
-                </SSIS:Property>
-                <SSIS:Property SSIS:Name="IncludeInDebugDump">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="Required">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="Value">Data Source=10.3.0.3;User ID=kyulan;Initial Catalog=Calibrator;TrustServerCertificate=True;Application Name=SSIS-AgentsWaitingListToAWS-{76ED0EFD-E8C5-4864-8512-E3A776A40A48}10.3.0.3.Calibrator.kyulan;</SSIS:Property>
-                <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
             <SSIS:Parameter SSIS:Name="CM.OnPremCalibrator.ConnectUsingManagedIdentity">
@@ -367,7 +354,7 @@
                 <SSIS:Property SSIS:Name="IncludeInDebugDump">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Required">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="Value">10.3.0.3</SSIS:Property>
+                <SSIS:Property SSIS:Name="Value">DESKTOP-50K623D</SSIS:Property>
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
@@ -382,7 +369,7 @@
                 <SSIS:Property SSIS:Name="IncludeInDebugDump">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Required">0</SSIS:Property>
                 <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="Value">kyulan</SSIS:Property>
+                <SSIS:Property SSIS:Name="Value">ed</SSIS:Property>
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
@@ -476,19 +463,83 @@
             <SSIS:PackageMetaData SSIS:Name="CarsFromAWSToOnPrem.dtsx">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">{A19A05CE-9A79-4B8D-A4FC-330F5FB98442}</SSIS:Property>
-                <SSIS:Property SSIS:Name="Name">AgentsWaitingListToAWS</SSIS:Property>
+                <SSIS:Property SSIS:Name="Name">CarsFromAWSToOnPrem</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionBuild">24</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">52</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionComments">
                 </SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionGUID">{72E76E5B-C99B-447C-B33C-3E4536F6118A}</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{1E0F6D28-088F-4992-B6A1-330753EDF720}</SSIS:Property>
+                <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
+                <SSIS:Property SSIS:Name="Description">
+                </SSIS:Property>
+                <SSIS:Property SSIS:Name="ProtectionLevel">2</SSIS:Property>
+              </SSIS:Properties>
+              <SSIS:Parameters>
+                <SSIS:Parameter SSIS:Name="LoadToDate">
+                  <SSIS:Properties>
+                    <SSIS:Property SSIS:Name="ID">{3B59D62B-3C88-4B94-B5CB-C5CA5F7CBBB7}</SSIS:Property>
+                    <SSIS:Property SSIS:Name="CreationName">
+                    </SSIS:Property>
+                    <SSIS:Property SSIS:Name="Description">
+                    </SSIS:Property>
+                    <SSIS:Property SSIS:Name="IncludeInDebugDump">0</SSIS:Property>
+                    <SSIS:Property SSIS:Name="Required">1</SSIS:Property>
+                    <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
+                    <SSIS:Property SSIS:Name="Value">2025-04-18T10:55:00</SSIS:Property>
+                    <SSIS:Property SSIS:Name="DataType">16</SSIS:Property>
+                  </SSIS:Properties>
+                </SSIS:Parameter>
+              </SSIS:Parameters>
+            </SSIS:PackageMetaData>
+            <SSIS:PackageMetaData SSIS:Name="StartSyncAWSToOnPrem.dtsx">
+              <SSIS:Properties>
+                <SSIS:Property SSIS:Name="ID">{54B68937-1BB7-4BC4-86F4-6DA0358337CA}</SSIS:Property>
+                <SSIS:Property SSIS:Name="Name">StartSyncAWSToOnPrem</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">14</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionComments">
+                </SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{828F2F28-F010-4126-BE40-CC1AF76EF9FD}</SSIS:Property>
                 <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
                 <SSIS:Property SSIS:Name="Description">
                 </SSIS:Property>
                 <SSIS:Property SSIS:Name="ProtectionLevel">2</SSIS:Property>
               </SSIS:Properties>
               <SSIS:Parameters />
+            </SSIS:PackageMetaData>
+            <SSIS:PackageMetaData SSIS:Name="UsersFromAWSToOnPrem.dtsx">
+              <SSIS:Properties>
+                <SSIS:Property SSIS:Name="ID">{4C9619B6-00EC-4F98-A5A3-B8833120A370}</SSIS:Property>
+                <SSIS:Property SSIS:Name="Name">UsersFromAWSToOnPrem</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">70</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionComments">
+                </SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{1428CAD0-2B17-478A-B20E-A2B9D7AB49DA}</SSIS:Property>
+                <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
+                <SSIS:Property SSIS:Name="Description">
+                </SSIS:Property>
+                <SSIS:Property SSIS:Name="ProtectionLevel">2</SSIS:Property>
+              </SSIS:Properties>
+              <SSIS:Parameters>
+                <SSIS:Parameter SSIS:Name="LoadToDate">
+                  <SSIS:Properties>
+                    <SSIS:Property SSIS:Name="ID">{6D41C8D0-BB14-4BED-8F8B-FE6758D4961A}</SSIS:Property>
+                    <SSIS:Property SSIS:Name="CreationName">
+                    </SSIS:Property>
+                    <SSIS:Property SSIS:Name="Description">
+                    </SSIS:Property>
+                    <SSIS:Property SSIS:Name="IncludeInDebugDump">0</SSIS:Property>
+                    <SSIS:Property SSIS:Name="Required">1</SSIS:Property>
+                    <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
+                    <SSIS:Property SSIS:Name="Value">2025-04-18T10:55:00</SSIS:Property>
+                    <SSIS:Property SSIS:Name="DataType">16</SSIS:Property>
+                  </SSIS:Properties>
+                </SSIS:Parameter>
+              </SSIS:Parameters>
             </SSIS:PackageMetaData>
           </SSIS:PackageInfo>
         </SSIS:DeploymentInfo>

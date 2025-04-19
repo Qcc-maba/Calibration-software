@@ -3,15 +3,17 @@
   DTS:ObjectName="OnPremCalibrator"
   DTS:DTSID="{76ED0EFD-E8C5-4864-8512-E3A776A40A48}"
   DTS:CreationName="ADO.NET:System.Data.SqlClient.SqlConnection, System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+  <DTS:PropertyExpression
+    DTS:Name="ConnectionString">@[$Project::OnPremCalibrator]</DTS:PropertyExpression>
   <DTS:ObjectData>
     <DTS:ConnectionManager
-      DTS:ConnectionString="Data Source=10.3.0.3;User ID=kyulan;Initial Catalog=Calibrator;TrustServerCertificate=True;Application Name=SSIS-AgentsWaitingListToAWS-{76ED0EFD-E8C5-4864-8512-E3A776A40A48}10.3.0.3.Calibrator.kyulan;">
+      DTS:ConnectionString="Data Source=DESKTOP-50K623D;User ID=ed;Initial Catalog=Calibrator;TrustServerCertificate=True;Application Name=SSIS-AgentsWaitingListToAWS-{76ED0EFD-E8C5-4864-8512-E3A776A40A48}10.3.0.3.Calibrator.kyulan;">
       <DTS:Password
         DTS:Name="Password"
         Sensitive="1"
-        p4:Salt="fKf75nTgX/Y="
-        p4:IV="mlJHrp0r0t1N+ojuJOshFA=="
-        p4:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" xmlns:p4="www.microsoft.com/SqlServer/SSIS">Ya6fkpkpJqcKE7/TslRAUV0R8sk/bEBge7d4TtO1gmnx/H9q76Z6AtcHL6Eh2EYa6RGA4Bx5MzYEtH7ZxLBC2mfr7N36+xS61+HojwdGUlvoWwUeWu4bEJpnn43xNHL5yF+VdZbPrKExY1jzSewoop2Fn4t2ZgKOCOC6uerdJCk=</DTS:Password>
+        p4:Salt="IaQIuNLPI8k="
+        p4:IV="/YBlumhjw2VcMkyT1FXLxw=="
+        p4:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" xmlns:p4="www.microsoft.com/SqlServer/SSIS">CluVVMfZ89Rp5sj8rl5vkv35664+OgI5M8ccOZgS3qGehfMTlOzvdIPKLDCnsSRQaWIy9CqPS95bpo/Zjt3MqTZHAsMjwf+QVAUzniV9DmZ4A0IlFBn5tCkSgOLRTmS/3xAFA0nUTy76I/6pgSAOb93GPD6KfbwDytRLNtA/mtk=</DTS:Password>
     </DTS:ConnectionManager>
   </DTS:ObjectData>
 </DTS:ConnectionManager>
