@@ -186,6 +186,8 @@
     <Build Include="etl\Stored Procedures\MergeCarsToOnPrem.sql" />
     <Build Include="etl\Tables\Users.sql" />
     <Build Include="etl\Stored Procedures\MergeUsersToOnPrem.sql" />
+    <Build Include="etl\Tables\CalendarEvents.sql" />
+    <Build Include="etl\Stored Procedures\MergeCalendarEventsToOnPrem.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />

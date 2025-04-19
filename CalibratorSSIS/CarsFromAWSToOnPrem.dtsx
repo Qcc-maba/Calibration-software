@@ -12,8 +12,8 @@
   DTS:ObjectName="CarsFromAWSToOnPrem"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="56"
-  DTS:VersionGUID="{434BBA32-FF25-4CCC-AD79-FA1B3A554384}">
+  DTS:VersionBuild="58"
+  DTS:VersionGUID="{700C35FB-DA90-4F30-93B1-021D26847DEB}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:PackageParameters>
@@ -42,21 +42,18 @@
       DTS:CreationName=""
       DTS:DTSID="{8F2489F4-0101-42E9-93F0-DB6CA3BD9EAC}"
       DTS:EvaluateAsExpression="True"
-      DTS:Expression="REPLACE(&#xA;    REPLACE(&#xA;        &quot;DROP TABLE IF EXISTS #CarList&#xA;CREATE TABLE #CarList&#xA;(&#xA;    [CarId] INT&#xA;)&#xA;INSERT #CarList([CarId])&#xA;SELECT [CarId] FROM [dbo].[Cars] WHERE [CreateDate] &gt;= '@LoadFromDate' AND [CreateDate] &lt;= '@LoadToDate'&#xA;UNION &#xA;SELECT [CarId] FROM [dbo].[Cars] WHERE [UpdatedDate] &gt;= '@LoadFromDate' AND [UpdatedDate] &lt;= '@LoadToDate'&#xA;&#xA;SELECT c.[CarId],&#xA;       c.[MabaNumber],&#xA;       c.[Model],&#xA;       c.[LicenseNumber],&#xA;       c.[Seats],&#xA;       c.[TreatmentPeriod],&#xA;       c.[NextTreatmentDate],&#xA;       c.[NextYearlyTestDate],&#xA;       c.[OwnerId],&#xA;       c.[CarStatusId],&#xA;       c.[CreateDate],&#xA;       c.[UpdatedDate],&#xA;       c.[AssignedCalibratorId],&#xA;       c.[UpdateUserID],&#xA;       c.[IsDeleted]&#xA;FROM [dbo].[Cars] AS c&#xA;JOIN #CarList AS cl ON c.CarId = cl.CarId&quot;,&#xA;        &quot;@LoadFromDate&quot;, (DT_WSTR, 30)@[User::LoadFromDate]),&#xA;    &quot;@LoadToDate&quot;, (DT_WSTR, 30)@[$Package::LoadToDate] &#xA;)"
+      DTS:Expression="REPLACE(&#xA;    REPLACE(&#xA;        &quot;WITH CarList&#xA;AS&#xA;(&#xA;SELECT [CarId] FROM [dbo].[Cars] --WHERE [CreateDate] &gt;= '@LoadFromDate' AND [CreateDate] &lt;= '@LoadToDate'&#xA;UNION &#xA;SELECT [CarId] FROM [dbo].[Cars] --WHERE [UpdatedDate] &gt;= '@LoadFromDate' AND [UpdatedDate] &lt;= '@LoadToDate'&#xA;)&#xA;SELECT c.[CarId],&#xA;       c.[MabaNumber],&#xA;       c.[Model],&#xA;       c.[LicenseNumber],&#xA;       c.[Seats],&#xA;       c.[TreatmentPeriod],&#xA;       c.[NextTreatmentDate],&#xA;       c.[NextYearlyTestDate],&#xA;       c.[OwnerId],&#xA;       c.[CarStatusId],&#xA;       c.[CreateDate],&#xA;       c.[UpdatedDate],&#xA;       c.[AssignedCalibratorId],&#xA;       c.[UpdateUserID],&#xA;       c.[IsDeleted]&#xA;FROM [dbo].[Cars] AS c&#xA;JOIN CarList AS cl ON c.CarId = cl.CarId&quot;,&#xA;        &quot;@LoadFromDate&quot;, (DT_WSTR, 30)@[User::LoadFromDate]),&#xA;    &quot;@LoadToDate&quot;, (DT_WSTR, 30)@[$Package::LoadToDate] &#xA;)"
       DTS:IncludeInDebugDump="2345"
       DTS:Namespace="User"
       DTS:ObjectName="SourceSQL">
       <DTS:VariableValue
-        DTS:DataType="8">DROP TABLE IF EXISTS #CarList
-CREATE TABLE #CarList
+        DTS:DataType="8">WITH CarList
+AS
 (
-    [CarId] INT
-)
-INSERT #CarList([CarId])
-SELECT [CarId] FROM [dbo].[Cars] WHERE [CreateDate] &gt;= '4/18/2025 3:33:13 PM' AND [CreateDate] &lt;= '4/18/2025 10:55:00 AM'
+SELECT [CarId] FROM [dbo].[Cars] --WHERE [CreateDate] &gt;= '4/18/2025 3:33:13 PM' AND [CreateDate] &lt;= '4/18/2025 10:55:00 AM'
 UNION 
-SELECT [CarId] FROM [dbo].[Cars] WHERE [UpdatedDate] &gt;= '4/18/2025 3:33:13 PM' AND [UpdatedDate] &lt;= '4/18/2025 10:55:00 AM'
-
+SELECT [CarId] FROM [dbo].[Cars] --WHERE [UpdatedDate] &gt;= '4/18/2025 3:33:13 PM' AND [UpdatedDate] &lt;= '4/18/2025 10:55:00 AM'
+)
 SELECT c.[CarId],
        c.[MabaNumber],
        c.[Model],
@@ -73,7 +70,7 @@ SELECT c.[CarId],
        c.[UpdateUserID],
        c.[IsDeleted]
 FROM [dbo].[Cars] AS c
-JOIN #CarList AS cl ON c.CarId = cl.CarId</DTS:VariableValue>
+JOIN CarList AS cl ON c.CarId = cl.CarId</DTS:VariableValue>
     </DTS:Variable>
   </DTS:Variables>
   <DTS:Executables>
@@ -117,19 +114,18 @@ JOIN #CarList AS cl ON c.CarId = cl.CarId</DTS:VariableValue>
       DTS:ObjectName="Load  cars data to stg">
       <DTS:Variables />
       <DTS:PropertyExpression
-        DTS:Name="[Get data from amaba].[SqlCommand]">@[User::SourceSQL]</DTS:PropertyExpression>
+        DTS:Name="[Get car data from AWS].[SqlCommand]">@[User::SourceSQL]</DTS:PropertyExpression>
       <DTS:ObjectData>
         <pipeline
           version="1">
           <components>
             <component
-              refId="Package\Load  cars data to stg\Get data from amaba"
+              refId="Package\Load  cars data to stg\Get car data from AWS"
               componentClassID="Microsoft.ManagedComponentHost"
               contactInfo="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server.;Microsoft Corporation; Microsoft SQL Server; © Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;4"
               description="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server."
-              name="Get data from amaba"
+              name="Get car data from AWS"
               usesDispositions="true"
-              validateExternalMetadata="False"
               version="4">
               <properties>
                 <property
@@ -137,16 +133,13 @@ JOIN #CarList AS cl ON c.CarId = cl.CarId</DTS:VariableValue>
                   description="Specifies the SQL statement used by the component to extract data."
                   expressionType="Notify"
                   name="SqlCommand"
-                  UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">DROP TABLE IF EXISTS #CarList
-CREATE TABLE #CarList
+                  UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">WITH CarList
+AS
 (
-    [CarId] INT
-)
-INSERT #CarList([CarId])
-SELECT [CarId] FROM [dbo].[Cars] WHERE [CreateDate] &gt;= '4/18/2025 3:33:13 PM' AND [CreateDate] &lt;= '4/18/2025 10:55:00 AM'
+SELECT [CarId] FROM [dbo].[Cars] --WHERE [CreateDate] &gt;= '4/18/2025 3:33:13 PM' AND [CreateDate] &lt;= '4/18/2025 10:55:00 AM'
 UNION 
-SELECT [CarId] FROM [dbo].[Cars] WHERE [UpdatedDate] &gt;= '4/18/2025 3:33:13 PM' AND [UpdatedDate] &lt;= '4/18/2025 10:55:00 AM'
-
+SELECT [CarId] FROM [dbo].[Cars] --WHERE [UpdatedDate] &gt;= '4/18/2025 3:33:13 PM' AND [UpdatedDate] &lt;= '4/18/2025 10:55:00 AM'
+)
 SELECT c.[CarId],
        c.[MabaNumber],
        c.[Model],
@@ -163,7 +156,7 @@ SELECT c.[CarId],
        c.[UpdateUserID],
        c.[IsDeleted]
 FROM [dbo].[Cars] AS c
-JOIN #CarList AS cl ON c.CarId = cl.CarId</property>
+JOIN CarList AS cl ON c.CarId = cl.CarId</property>
                 <property
                   dataType="System.Int32"
                   description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
@@ -189,7 +182,7 @@ JOIN #CarList AS cl ON c.CarId = cl.CarId</property>
               </properties>
               <connections>
                 <connection
-                  refId="Package\Load  cars data to stg\Get data from amaba.Connections[IDbConnection]"
+                  refId="Package\Load  cars data to stg\Get car data from AWS.Connections[IDbConnection]"
                   connectionManagerID="{5D340525-F86F-4A09-8F4F-C17373323AB0}:external"
                   connectionManagerRefId="Project.ConnectionManagers[AWSCalibrator]"
                   description="Managed connection manager"
@@ -197,305 +190,305 @@ JOIN #CarList AS cl ON c.CarId = cl.CarId</property>
               </connections>
               <outputs>
                 <output
-                  refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output]"
+                  refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output]"
                   name="ADO NET Source Output">
                   <outputColumns>
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[CarId]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[CarId]"
                       dataType="i4"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[CarId]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[CarId]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[CarId]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[CarId]"
                       name="CarId"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[MabaNumber]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[MabaNumber]"
                       dataType="i4"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[MabaNumber]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[MabaNumber]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[MabaNumber]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[MabaNumber]"
                       name="MabaNumber"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[Model]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[Model]"
                       dataType="wstr"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[Model]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[Model]"
                       length="50"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[Model]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[Model]"
                       name="Model"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[LicenseNumber]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[LicenseNumber]"
                       dataType="wstr"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[LicenseNumber]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[LicenseNumber]"
                       length="50"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[LicenseNumber]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[LicenseNumber]"
                       name="LicenseNumber"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[Seats]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[Seats]"
                       dataType="ui1"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[Seats]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[Seats]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[Seats]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[Seats]"
                       name="Seats"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[TreatmentPeriod]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[TreatmentPeriod]"
                       dataType="i4"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[TreatmentPeriod]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[TreatmentPeriod]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[TreatmentPeriod]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[TreatmentPeriod]"
                       name="TreatmentPeriod"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[NextTreatmentDate]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[NextTreatmentDate]"
                       dataType="dbDate"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[NextTreatmentDate]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[NextTreatmentDate]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[NextTreatmentDate]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[NextTreatmentDate]"
                       name="NextTreatmentDate"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[NextYearlyTestDate]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[NextYearlyTestDate]"
                       dataType="dbDate"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[NextYearlyTestDate]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[NextYearlyTestDate]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[NextYearlyTestDate]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[NextYearlyTestDate]"
                       name="NextYearlyTestDate"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[OwnerId]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[OwnerId]"
                       dataType="i4"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[OwnerId]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[OwnerId]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[OwnerId]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[OwnerId]"
                       name="OwnerId"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[CarStatusId]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[CarStatusId]"
                       dataType="i4"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[CarStatusId]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[CarStatusId]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[CarStatusId]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[CarStatusId]"
                       name="CarStatusId"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[CreateDate]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[CreateDate]"
                       dataType="dbTimeStamp2"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[CreateDate]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[CreateDate]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[CreateDate]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[CreateDate]"
                       name="CreateDate"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[UpdatedDate]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[UpdatedDate]"
                       dataType="dbTimeStamp2"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[UpdatedDate]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[UpdatedDate]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[UpdatedDate]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[UpdatedDate]"
                       name="UpdatedDate"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[AssignedCalibratorId]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[AssignedCalibratorId]"
                       dataType="i4"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[AssignedCalibratorId]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[AssignedCalibratorId]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[AssignedCalibratorId]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[AssignedCalibratorId]"
                       name="AssignedCalibratorId"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[UpdateUserID]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[UpdateUserID]"
                       dataType="i4"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[UpdateUserID]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[UpdateUserID]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[UpdateUserID]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[UpdateUserID]"
                       name="UpdateUserID"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[IsDeleted]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[IsDeleted]"
                       dataType="bool"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[IsDeleted]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[IsDeleted]"
+                      externalMetadataColumnId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[IsDeleted]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[IsDeleted]"
                       name="IsDeleted"
                       truncationRowDisposition="FailComponent" />
                   </outputColumns>
                   <externalMetadataColumns
                     isUsed="True">
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[CarId]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[CarId]"
                       dataType="i4"
                       name="CarId" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[MabaNumber]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[MabaNumber]"
                       dataType="i4"
                       name="MabaNumber" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[Model]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[Model]"
                       dataType="wstr"
                       length="50"
                       name="Model" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[LicenseNumber]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[LicenseNumber]"
                       dataType="wstr"
                       length="50"
                       name="LicenseNumber" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[Seats]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[Seats]"
                       dataType="ui1"
                       name="Seats" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[TreatmentPeriod]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[TreatmentPeriod]"
                       dataType="i4"
                       name="TreatmentPeriod" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[NextTreatmentDate]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[NextTreatmentDate]"
                       dataType="dbDate"
                       name="NextTreatmentDate" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[NextYearlyTestDate]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[NextYearlyTestDate]"
                       dataType="dbDate"
                       name="NextYearlyTestDate" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[OwnerId]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[OwnerId]"
                       dataType="i4"
                       name="OwnerId" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[CarStatusId]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[CarStatusId]"
                       dataType="i4"
                       name="CarStatusId" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[CreateDate]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[CreateDate]"
                       dataType="dbTimeStamp2"
                       name="CreateDate" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[UpdatedDate]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[UpdatedDate]"
                       dataType="dbTimeStamp2"
                       name="UpdatedDate" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[AssignedCalibratorId]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[AssignedCalibratorId]"
                       dataType="i4"
                       name="AssignedCalibratorId" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[UpdateUserID]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[UpdateUserID]"
                       dataType="i4"
                       name="UpdateUserID" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[IsDeleted]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].ExternalColumns[IsDeleted]"
                       dataType="bool"
                       name="IsDeleted" />
                   </externalMetadataColumns>
                 </output>
                 <output
-                  refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output]"
+                  refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output]"
                   isErrorOut="true"
                   name="ADO NET Source Error Output">
                   <outputColumns>
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[CarId]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[CarId]"
                       dataType="i4"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[CarId]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[CarId]"
                       name="CarId" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[MabaNumber]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[MabaNumber]"
                       dataType="i4"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[MabaNumber]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[MabaNumber]"
                       name="MabaNumber" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[Model]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[Model]"
                       dataType="wstr"
                       length="50"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[Model]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[Model]"
                       name="Model" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[LicenseNumber]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[LicenseNumber]"
                       dataType="wstr"
                       length="50"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[LicenseNumber]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[LicenseNumber]"
                       name="LicenseNumber" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[Seats]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[Seats]"
                       dataType="ui1"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[Seats]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[Seats]"
                       name="Seats" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[TreatmentPeriod]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[TreatmentPeriod]"
                       dataType="i4"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[TreatmentPeriod]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[TreatmentPeriod]"
                       name="TreatmentPeriod" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[NextTreatmentDate]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[NextTreatmentDate]"
                       dataType="dbDate"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[NextTreatmentDate]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[NextTreatmentDate]"
                       name="NextTreatmentDate" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[NextYearlyTestDate]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[NextYearlyTestDate]"
                       dataType="dbDate"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[NextYearlyTestDate]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[NextYearlyTestDate]"
                       name="NextYearlyTestDate" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[OwnerId]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[OwnerId]"
                       dataType="i4"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[OwnerId]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[OwnerId]"
                       name="OwnerId" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[CarStatusId]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[CarStatusId]"
                       dataType="i4"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[CarStatusId]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[CarStatusId]"
                       name="CarStatusId" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[CreateDate]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[CreateDate]"
                       dataType="dbTimeStamp2"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[CreateDate]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[CreateDate]"
                       name="CreateDate" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[UpdatedDate]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[UpdatedDate]"
                       dataType="dbTimeStamp2"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[UpdatedDate]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[UpdatedDate]"
                       name="UpdatedDate" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[AssignedCalibratorId]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[AssignedCalibratorId]"
                       dataType="i4"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[AssignedCalibratorId]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[AssignedCalibratorId]"
                       name="AssignedCalibratorId" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[UpdateUserID]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[UpdateUserID]"
                       dataType="i4"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[UpdateUserID]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[UpdateUserID]"
                       name="UpdateUserID" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[IsDeleted]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[IsDeleted]"
                       dataType="bool"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[IsDeleted]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[IsDeleted]"
                       name="IsDeleted" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
                       dataType="i4"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
                       name="ErrorCode"
                       specialFlags="1" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                      refId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
                       dataType="i4"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
                       name="ErrorColumn"
                       specialFlags="2" />
                   </outputColumns>
@@ -504,11 +497,11 @@ JOIN #CarList AS cl ON c.CarId = cl.CarId</property>
               </outputs>
             </component>
             <component
-              refId="Package\Load  cars data to stg\Insert data to AgentWaitingList"
+              refId="Package\Load  cars data to stg\Load data to stg"
               componentClassID="Microsoft.ManagedComponentHost"
               contactInfo="Loads data into an ADO.NET-compliant database that uses a database table or view. Load data into a new or existing table. For example, use an ADO.NET provider for ODBC to load data into an ODBC destination.;Microsoft Corporation; Microsoft SQL Server; © Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;2"
               description="Loads data into an ADO.NET-compliant database that uses a database table or view. Load data into a new or existing table. For example, use an ADO.NET provider for ODBC to load data into an ODBC destination."
-              name="Insert data to AgentWaitingList"
+              name="Load data to stg"
               usesDispositions="true"
               version="2">
               <properties>
@@ -527,7 +520,7 @@ JOIN #CarList AS cl ON c.CarId = cl.CarId</property>
                   dataType="System.Int32"
                   description="The number of seconds before a command times out. A value of 0 indicates infinite time-out. "
                   expressionType="Notify"
-                  name="CommandTimeout">300</property>
+                  name="CommandTimeout">30</property>
                 <property
                   dataType="System.Boolean"
                   description="Specifies whether to use the SqlBulkCopy interface to improve the performance of bulk insert operations. Only certain providers support this interface."
@@ -539,201 +532,197 @@ JOIN #CarList AS cl ON c.CarId = cl.CarId</property>
               </properties>
               <connections>
                 <connection
-                  refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Connections[IDbConnection]"
-                  connectionManagerID="{76ED0EFD-E8C5-4864-8512-E3A776A40A48}:external"
-                  connectionManagerRefId="Project.ConnectionManagers[OnPremCalibrator]"
+                  refId="Package\Load  cars data to stg\Load data to stg.Connections[IDbConnection]"
+                  connectionManagerID="{5D340525-F86F-4A09-8F4F-C17373323AB0}:external"
+                  connectionManagerRefId="Project.ConnectionManagers[AWSCalibrator]"
                   description="Managed connection manager"
                   name="IDbConnection" />
               </connections>
               <inputs>
                 <input
-                  refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input]"
+                  refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input]"
                   errorRowDisposition="FailComponent"
                   hasSideEffects="true"
                   name="ADO NET Destination Input">
                   <inputColumns>
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[CarId]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[CarId]"
                       cachedDataType="i4"
                       cachedName="CarId"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[CarId]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[CarId]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[CarId]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[CarId]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[MabaNumber]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[MabaNumber]"
                       cachedDataType="i4"
                       cachedName="MabaNumber"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[MabaNumber]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[MabaNumber]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[MabaNumber]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[MabaNumber]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[Model]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[Model]"
                       cachedDataType="wstr"
                       cachedLength="50"
                       cachedName="Model"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[Model]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[Model]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[Model]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[Model]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[LicenseNumber]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[LicenseNumber]"
                       cachedDataType="wstr"
                       cachedLength="50"
                       cachedName="LicenseNumber"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[LicenseNumber]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[LicenseNumber]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[LicenseNumber]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[LicenseNumber]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[Seats]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[Seats]"
                       cachedDataType="ui1"
                       cachedName="Seats"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[Seats]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[Seats]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[Seats]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[Seats]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[TreatmentPeriod]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[TreatmentPeriod]"
                       cachedDataType="i4"
                       cachedName="TreatmentPeriod"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[TreatmentPeriod]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[TreatmentPeriod]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[TreatmentPeriod]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[TreatmentPeriod]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[NextTreatmentDate]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[NextTreatmentDate]"
                       cachedDataType="dbDate"
                       cachedName="NextTreatmentDate"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[NextTreatmentDate]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[NextTreatmentDate]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[NextTreatmentDate]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[NextTreatmentDate]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[NextYearlyTestDate]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[NextYearlyTestDate]"
                       cachedDataType="dbDate"
                       cachedName="NextYearlyTestDate"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[NextYearlyTestDate]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[NextYearlyTestDate]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[NextYearlyTestDate]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[NextYearlyTestDate]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[OwnerId]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[OwnerId]"
                       cachedDataType="i4"
                       cachedName="OwnerId"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[OwnerId]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[OwnerId]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[OwnerId]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[OwnerId]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[CarStatusId]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[CarStatusId]"
                       cachedDataType="i4"
                       cachedName="CarStatusId"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[CarStatusId]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[CarStatusId]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[CarStatusId]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[CarStatusId]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[CreateDate]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[CreateDate]"
                       cachedDataType="dbTimeStamp2"
                       cachedName="CreateDate"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[CreateDate]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[CreateDate]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[CreateDate]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[CreateDate]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[UpdatedDate]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[UpdatedDate]"
                       cachedDataType="dbTimeStamp2"
                       cachedName="UpdatedDate"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[UpdatedDate]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[UpdatedDate]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[UpdatedDate]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[UpdatedDate]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[AssignedCalibratorId]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[AssignedCalibratorId]"
                       cachedDataType="i4"
                       cachedName="AssignedCalibratorId"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[AssignedCalibratorId]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[AssignedCalibratorId]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[AssignedCalibratorId]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[AssignedCalibratorId]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[UpdateUserID]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[UpdateUserID]"
                       cachedDataType="i4"
                       cachedName="UpdateUserID"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[UpdateUserID]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[UpdateUserID]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[UpdateUserID]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[UpdateUserID]" />
                     <inputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[IsDeleted]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].Columns[IsDeleted]"
                       cachedDataType="bool"
                       cachedName="IsDeleted"
-                      externalMetadataColumnId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[IsDeleted]"
-                      lineageId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output].Columns[IsDeleted]" />
+                      externalMetadataColumnId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[IsDeleted]"
+                      lineageId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output].Columns[IsDeleted]" />
                   </inputColumns>
                   <externalMetadataColumns
                     isUsed="True">
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[CarId]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[CarId]"
                       dataType="i4"
                       name="CarId" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[MabaNumber]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[MabaNumber]"
                       dataType="i4"
                       name="MabaNumber" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[Model]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[Model]"
                       dataType="wstr"
                       length="50"
                       name="Model" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[LicenseNumber]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[LicenseNumber]"
                       dataType="wstr"
                       length="50"
                       name="LicenseNumber" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[Seats]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[Seats]"
                       dataType="ui1"
                       name="Seats" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[TreatmentPeriod]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[TreatmentPeriod]"
                       dataType="i4"
                       name="TreatmentPeriod" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[NextTreatmentDate]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[NextTreatmentDate]"
                       dataType="dbTimeStamp"
                       name="NextTreatmentDate" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[NextYearlyTestDate]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[NextYearlyTestDate]"
                       dataType="dbTimeStamp"
                       name="NextYearlyTestDate" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[OwnerId]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[OwnerId]"
                       dataType="i4"
                       name="OwnerId" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[CarStatusId]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[CarStatusId]"
                       dataType="i4"
                       name="CarStatusId" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[CreateDate]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[CreateDate]"
                       dataType="dbTimeStamp"
                       name="CreateDate" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[UpdatedDate]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[UpdatedDate]"
                       dataType="dbTimeStamp"
                       name="UpdatedDate" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[AssignedCalibratorId]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[AssignedCalibratorId]"
                       dataType="i4"
                       name="AssignedCalibratorId" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[UpdateUserID]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[UpdateUserID]"
                       dataType="i4"
                       name="UpdateUserID" />
                     <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[IsDeleted]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input].ExternalColumns[IsDeleted]"
                       dataType="bool"
                       name="IsDeleted" />
-                    <externalMetadataColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[AWSCarId]"
-                      dataType="i4"
-                      name="AWSCarId" />
                   </externalMetadataColumns>
                 </input>
               </inputs>
               <outputs>
                 <output
-                  refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Outputs[ADO NET Destination Error Output]"
+                  refId="Package\Load  cars data to stg\Load data to stg.Outputs[ADO NET Destination Error Output]"
                   exclusionGroup="1"
                   isErrorOut="true"
                   name="ADO NET Destination Error Output"
-                  synchronousInputId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input]">
+                  synchronousInputId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input]">
                   <outputColumns>
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
                       dataType="i4"
-                      lineageId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
+                      lineageId="Package\Load  cars data to stg\Load data to stg.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
                       name="ErrorCode"
                       specialFlags="1" />
                     <outputColumn
-                      refId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
+                      refId="Package\Load  cars data to stg\Load data to stg.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
                       dataType="i4"
-                      lineageId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
+                      lineageId="Package\Load  cars data to stg\Load data to stg.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
                       name="ErrorColumn"
                       specialFlags="2" />
                   </outputColumns>
@@ -745,9 +734,9 @@ JOIN #CarList AS cl ON c.CarId = cl.CarId</property>
           <paths>
             <path
               refId="Package\Load  cars data to stg.Paths[ADO NET Source Output]"
-              endId="Package\Load  cars data to stg\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input]"
+              endId="Package\Load  cars data to stg\Load data to stg.Inputs[ADO NET Destination Input]"
               name="ADO NET Source Output"
-              startId="Package\Load  cars data to stg\Get data from amaba.Outputs[ADO NET Source Output]" />
+              startId="Package\Load  cars data to stg\Get car data from AWS.Outputs[ADO NET Source Output]" />
           </paths>
         </pipeline>
       </DTS:ObjectData>
@@ -975,44 +964,54 @@ JOIN #CarList AS cl ON c.CarId = cl.CarId</property>
     design-time-name="Package\Load  cars data to stg">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
-          Size="220,41.6"
-          Id="Package\Load  cars data to stg\Insert data to AgentWaitingList"
-          TopLeft="309.99999538064,213.999996811152" />
+          Size="210.4,41.6"
+          Id="Package\Load  cars data to stg\Get car data from AWS"
+          TopLeft="99.1250019036238,70.9999984526321" />
         <NodeLayout
-          Size="176,41.6"
-          Id="Package\Load  cars data to stg\Get data from amaba"
-          TopLeft="325.999995142222,96.9999985545874" />
+          Size="169.6,41.6"
+          Id="Package\Load  cars data to stg\Load data to stg"
+          TopLeft="107.49999679625,166.947369075713" />
         <EdgeLayout
           Id="Package\Load  cars data to stg.Paths[ADO NET Source Output]"
-          TopLeft="416.999995261431,138.599998554587">
+          TopLeft="204.325001903624,112.599998452632">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,75.3999982565646"
+              EndConnector="-12.0250051073735,54.347370623081"
               Start="0,0"
-              End="0,67.8999982565646">
+              End="-12.0250051073735,46.847370623081">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,67.8999982565646" />
+                    End="0,23.1736853115405" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,23.1736853115405"
+                    Point2="0,27.1736853115405"
+                    Point3="-4,27.1736853115405" />
+                  <mssgle:LineSegment
+                    End="-8.02500510737346,27.1736853115405" />
+                  <mssgle:CubicBezierSegment
+                    Point1="-8.02500510737346,27.1736853115405"
+                    Point2="-12.0250051073735,27.1736853115405"
+                    Point3="-12.0250051073735,31.1736853115405" />
+                  <mssgle:LineSegment
+                    End="-12.0250051073735,46.847370623081" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
     </LayoutInfo>
   </TaskHost>
   <PipelineComponentMetadata
-    design-time-name="Package\Load  cars data to stg\Get data from amaba">
+    design-time-name="Package\Load  cars data to stg\Get car data from AWS">
     <Properties>
       <Property>
         <Name>DataSourceViewID</Name>
@@ -1020,7 +1019,7 @@ JOIN #CarList AS cl ON c.CarId = cl.CarId</property>
     </Properties>
   </PipelineComponentMetadata>
   <PipelineComponentMetadata
-    design-time-name="Package\Load  cars data to stg\Insert data to AgentWaitingList">
+    design-time-name="Package\Load  cars data to stg\Load data to stg">
     <Properties>
       <Property>
         <Name>DataSourceViewID</Name>

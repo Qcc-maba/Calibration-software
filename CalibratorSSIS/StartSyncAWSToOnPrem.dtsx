@@ -12,8 +12,8 @@
   DTS:ObjectName="StartSyncAWSToOnPrem"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="16"
-  DTS:VersionGUID="{B21CFBF7-C4C8-4651-98C3-DC9B0D21A7B0}">
+  DTS:VersionBuild="17"
+  DTS:VersionGUID="{A7C49358-6ABC-436B-A537-7C9982245367}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -61,6 +61,27 @@
       DTS:ObjectName="Load main of entities">
       <DTS:Variables />
       <DTS:Executables>
+        <DTS:Executable
+          DTS:refId="Package\Load main of entities\Load calendar events to on prem"
+          DTS:CreationName="Microsoft.ExecutePackageTask"
+          DTS:Description="Execute Package Task"
+          DTS:DTSID="{04996C1A-E435-4D87-B73D-7133C144FD2B}"
+          DTS:ExecutableType="Microsoft.ExecutePackageTask"
+          DTS:LocaleID="-1"
+          DTS:ObjectName="Load calendar events to on prem"
+          DTS:TaskContact="Microsoft Corporation; Microsoft SQL Server; Microsoft Corporation; All Rights Reserved;http://www.microsoft.com/sql/support/default.asp;1">
+          <DTS:Variables />
+          <DTS:ObjectData>
+            <ExecutePackageTask>
+              <UseProjectReference>True</UseProjectReference>
+              <PackageName>CalendarEventsFromAWSToOnPrem.dtsx</PackageName>
+              <ParameterAssignment>
+                <ParameterName>LoadToDate</ParameterName>
+                <BindedVariableOrParameterName>System::StartTime</BindedVariableOrParameterName>
+              </ParameterAssignment>
+            </ExecutePackageTask>
+          </DTS:ObjectData>
+        </DTS:Executable>
         <DTS:Executable
           DTS:refId="Package\Load main of entities\Load users to on prem"
           DTS:CreationName="Microsoft.ExecutePackageTask"
@@ -117,32 +138,48 @@
           PanelSize="244,102.4"
           Size="244,145.6"
           Id="Package\Load dependent entities Level 1"
-          TopLeft="5.50000000000004,211.1" />
+          TopLeft="126.7,211.1" />
         <NodeLayout
           Size="205.6,41.6"
           Id="Package\Load main of entities\Load users to on prem"
-          TopLeft="5.5,5.50000000000007" />
+          TopLeft="5.50000000000001,5.50000000000007" />
+        <NodeLayout
+          Size="264.8,41.6"
+          Id="Package\Load main of entities\Load calendar events to on prem"
+          TopLeft="247.525000726432,5.50000000000006" />
         <ContainerLayout
           HeaderHeight="43"
           IsExpanded="True"
-          PanelSize="216.8,102.4"
-          Size="216.8,145.6"
+          PanelSize="541.6,102.4"
+          Size="541.6,145.6"
           Id="Package\Load main of entities"
-          TopLeft="19.1,5.49999999999996" />
+          TopLeft="5.50000000000006,5.50000000000007" />
         <EdgeLayout
           Id="Package.PrecedenceConstraints[Constraint]"
-          TopLeft="127.5,151.1">
+          TopLeft="276.3,151.1">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,59.9999999999999"
+              EndConnector="-27.6,60"
               Start="0,0"
-              End="0,52.4999999999999">
+              End="-27.6,52.5">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,52.4999999999999" />
+                    End="0,26" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,26"
+                    Point2="0,30"
+                    Point3="-4,30" />
+                  <mssgle:LineSegment
+                    End="-23.6,30" />
+                  <mssgle:CubicBezierSegment
+                    Point1="-23.6,30"
+                    Point2="-27.6,30"
+                    Point3="-27.6,34" />
+                  <mssgle:LineSegment
+                    End="-27.6,52.5" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>

@@ -5,14 +5,13 @@
   DTS:CreationName="ADO.NET:System.Data.SqlClient.SqlConnection, System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
   <DTS:ObjectData>
     <DTS:ConnectionManager
-      DTS:Retain="True"
       DTS:ConnectionString="Data Source=51.17.121.203\QCC,1433;User ID=ed;Initial Catalog=Calibrator;Persist Security Info=True;Encrypt=False;TrustServerCertificate=True;Application Name=SSIS-Package-{5D340525-F86F-4A09-8F4F-C17373323AB0}51.17.121.203\QCC,1433.Calibrator.ed;">
       <DTS:Password
         DTS:Name="Password"
         Sensitive="1"
-        p4:Salt="xq7A3mHyOiY="
-        p4:IV="3Le18sAjXWEMtiB4sVLx2A=="
-        p4:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" xmlns:p4="www.microsoft.com/SqlServer/SSIS">C4pulnP7+B8Eg17cnuNbtKudcqk7mLE2ymIHe88B0SZpiDJEA4qEFkYNyaFoAqE6vHDx8LskzmR0nEr14kcj5JlKL2Iocb2lb08HHC8uiH9gknNYjFEWMr+8w8DvGa5JRbSN0ChYHZeN4vGhNQXJc8E1HLz+9sReIgRo8xGSeh8=</DTS:Password>
+        p4:Salt="u+g4sylXH2s="
+        p4:IV="G6JDA5c8OZdR9wA340R+hw=="
+        p4:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" xmlns:p4="www.microsoft.com/SqlServer/SSIS">sUbdR5xR3G9TKuWl5SXq0KEfHUfQLhy2jbfxvqlE3McVfCp9G2F8PQPYMW3zw/z3ddFKe8sbVryy5SwX6UO4IH8PvtB72+L0sBgqMmsiEGz9ZZj3/STftfd92zY++RQip10b5MI0g8i+eQi5JvCwFNYUDnH9HOShMyNwvUHGjdk=</DTS:Password>
     </DTS:ConnectionManager>
   </DTS:ObjectData>
 </DTS:ConnectionManager>

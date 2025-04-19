@@ -12,8 +12,8 @@
   DTS:ObjectName="UsersFromAWSToOnPrem"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="71"
-  DTS:VersionGUID="{01D5EE3E-793D-4CF2-BC3C-5C3236E38391}">
+  DTS:VersionBuild="74"
+  DTS:VersionGUID="{88F83C0D-CE80-4C79-B9DC-5C906CFF9281}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:PackageParameters>
@@ -42,22 +42,18 @@
       DTS:CreationName=""
       DTS:DTSID="{5B86CD45-9472-4470-AABB-93E63FD02C74}"
       DTS:EvaluateAsExpression="True"
-      DTS:Expression="REPLACE(&#xA;    REPLACE(&#xA;        &quot;DROP TABLE IF EXISTS #UserList&#xA;CREATE TABLE #UserList&#xA;(&#xA;    [Id] INT&#xA;)&#xA;INSERT #UserList([Id])&#xA;SELECT [ID] FROM [dbo].[Users] WHERE [CreatedDate] &gt;= '@LoadFromDate' AND [CreatedDate] &lt;= '@LoadToDate'&#xA;UNION&#xA;SELECT [ID] FROM [dbo].[Users]WHERE [UpdatedDate] &gt;= '@LoadFromDate' AND [UpdatedDate] &lt;= '@LoadToDate'&#xA;&#xA;&#xA;SELECT u.[ID]&#xA;      ,u.[FirstName]&#xA;      ,u.[LastName]&#xA;      ,u.[FirstNameEng]&#xA;      ,u.[LastNameEng]&#xA;      ,u.[Email]&#xA;      ,u.[Password]&#xA;      ,u.[Phone]&#xA;      ,u.[IsActive]&#xA;      ,u.[CreatedDate]&#xA;      ,u.[UpdatedDate]&#xA;      ,u.[UpdateUserID]&#xA;      ,u.[UserAddress]&#xA;      ,u.[LocationArea]&#xA;      ,u.[DepartmentId]&#xA;      ,u.[Stamp]&#xA;  FROM [dbo].[Users] as u&#xA;  JOIN #UserList as ul ON u.ID = ul.Id &quot;,&#xA;        &quot;@LoadFromDate&quot;, (DT_WSTR, 30)@[User::LoadFromDate]),&#xA;    &quot;@LoadToDate&quot;, (DT_WSTR, 30)@[$Package::LoadToDate] &#xA;)"
+      DTS:Expression="REPLACE(&#xA;    REPLACE(&#xA;        &quot;WITH UserList&#xA;as&#xA;(&#xA;SELECT [ID] FROM [dbo].[Users] WHERE [CreatedDate] &gt;= '@LoadFromDate' AND [CreatedDate] &lt;= '@LoadToDate'&#xA;UNION&#xA;SELECT [ID] FROM [dbo].[Users]WHERE [UpdatedDate] &gt;= '@LoadFromDate' AND [UpdatedDate] &lt;= '@LoadToDate'&#xA;)&#xA;SELECT u.[ID]&#xA;      ,u.[FirstName]&#xA;      ,u.[LastName]&#xA;      ,u.[FirstNameEng]&#xA;      ,u.[LastNameEng]&#xA;      ,u.[Email]&#xA;      ,u.[Password]&#xA;      ,u.[Phone]&#xA;      ,u.[IsActive]&#xA;      ,u.[CreatedDate]&#xA;      ,u.[UpdatedDate]&#xA;      ,u.[UpdateUserID]&#xA;      ,u.[UserAddress]&#xA;      ,u.[LocationArea]&#xA;      ,u.[DepartmentId]&#xA;      ,u.[Stamp]&#xA;  FROM [dbo].[Users] as u&#xA;  JOIN UserList as ul ON u.ID = ul.ID &quot;,&#xA;        &quot;@LoadFromDate&quot;, (DT_WSTR, 30)@[User::LoadFromDate]),&#xA;    &quot;@LoadToDate&quot;, (DT_WSTR, 30)@[$Package::LoadToDate] &#xA;)"
       DTS:IncludeInDebugDump="2345"
       DTS:Namespace="User"
       DTS:ObjectName="SourceSQL">
       <DTS:VariableValue
-        DTS:DataType="8">DROP TABLE IF EXISTS #UserList
-CREATE TABLE #UserList
+        DTS:DataType="8">WITH UserList
+as
 (
-    [Id] INT
-)
-INSERT #UserList([Id])
 SELECT [ID] FROM [dbo].[Users] WHERE [CreatedDate] &gt;= '4/18/2025 3:33:13 PM' AND [CreatedDate] &lt;= '4/18/2025 10:55:00 AM'
 UNION
 SELECT [ID] FROM [dbo].[Users]WHERE [UpdatedDate] &gt;= '4/18/2025 3:33:13 PM' AND [UpdatedDate] &lt;= '4/18/2025 10:55:00 AM'
-
-
+)
 SELECT u.[ID]
       ,u.[FirstName]
       ,u.[LastName]
@@ -75,7 +71,7 @@ SELECT u.[ID]
       ,u.[DepartmentId]
       ,u.[Stamp]
   FROM [dbo].[Users] as u
-  JOIN #UserList as ul ON u.ID = ul.Id </DTS:VariableValue>
+  JOIN UserList as ul ON u.ID = ul.ID </DTS:VariableValue>
     </DTS:Variable>
   </DTS:Variables>
   <DTS:Executables>
@@ -132,7 +128,6 @@ SELECT u.[ID]
               description="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server."
               name="Get users from AWS"
               usesDispositions="true"
-              validateExternalMetadata="False"
               version="4">
               <properties>
                 <property
@@ -140,17 +135,13 @@ SELECT u.[ID]
                   description="Specifies the SQL statement used by the component to extract data."
                   expressionType="Notify"
                   name="SqlCommand"
-                  UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">DROP TABLE IF EXISTS #UserList
-CREATE TABLE #UserList
+                  UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">WITH UserList
+as
 (
-    [Id] INT
-)
-INSERT #UserList([Id])
 SELECT [ID] FROM [dbo].[Users] WHERE [CreatedDate] &gt;= '4/18/2025 3:33:13 PM' AND [CreatedDate] &lt;= '4/18/2025 10:55:00 AM'
 UNION
 SELECT [ID] FROM [dbo].[Users]WHERE [UpdatedDate] &gt;= '4/18/2025 3:33:13 PM' AND [UpdatedDate] &lt;= '4/18/2025 10:55:00 AM'
-
-
+)
 SELECT u.[ID]
       ,u.[FirstName]
       ,u.[LastName]
@@ -168,7 +159,7 @@ SELECT u.[ID]
       ,u.[DepartmentId]
       ,u.[Stamp]
   FROM [dbo].[Users] as u
-  JOIN #UserList as ul ON u.ID = ul.Id </property>
+  JOIN UserList as ul ON u.ID = ul.ID </property>
                 <property
                   dataType="System.Int32"
                   description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
@@ -1044,7 +1035,7 @@ SELECT u.[ID]
     design-time-name="Package\Load users data to on prem">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="190.4,41.6"
           Id="Package\Load users data to on prem\Load tato to staging"
@@ -1072,9 +1063,7 @@ SELECT u.[ID]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>

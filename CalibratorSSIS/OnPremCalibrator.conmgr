@@ -7,13 +7,13 @@
     DTS:Name="ConnectionString">@[$Project::OnPremCalibrator]</DTS:PropertyExpression>
   <DTS:ObjectData>
     <DTS:ConnectionManager
-      DTS:ConnectionString="Data Source=DESKTOP-50K623D;User ID=ed;Initial Catalog=Calibrator;TrustServerCertificate=True;Application Name=SSIS-AgentsWaitingListToAWS-{76ED0EFD-E8C5-4864-8512-E3A776A40A48}10.3.0.3.Calibrator.kyulan;">
+      DTS:ConnectionString="Data Source=DESKTOP-50K623D;User ID=ed;Initial Catalog=Calibrator;Persist Security Info=True;Encrypt=False;TrustServerCertificate=True;">
       <DTS:Password
         DTS:Name="Password"
         Sensitive="1"
-        p4:Salt="IaQIuNLPI8k="
-        p4:IV="/YBlumhjw2VcMkyT1FXLxw=="
-        p4:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" xmlns:p4="www.microsoft.com/SqlServer/SSIS">CluVVMfZ89Rp5sj8rl5vkv35664+OgI5M8ccOZgS3qGehfMTlOzvdIPKLDCnsSRQaWIy9CqPS95bpo/Zjt3MqTZHAsMjwf+QVAUzniV9DmZ4A0IlFBn5tCkSgOLRTmS/3xAFA0nUTy76I/6pgSAOb93GPD6KfbwDytRLNtA/mtk=</DTS:Password>
+        p4:Salt="xkeeJ5Rx9qY="
+        p4:IV="RumwTVwJyvI2w8RHTLNG+Q=="
+        p4:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" xmlns:p4="www.microsoft.com/SqlServer/SSIS">uQ+/NB0vbHN37Tt61gYpkr1k6W0XarwwXjYtqVkEsHWaXtLJq2ZjGnA4gZkkTs146LiQcE82zCwVfeHLI1t3SVkO3ZZauUgb2HT6zRIMltRvP3tnYlAFt70phoQ+LTFuc/jNG6Mxgs6KKAj1AAL7RwxhPo3+i7nq2B/mDzhBNL0=</DTS:Password>
     </DTS:ConnectionManager>
   </DTS:ObjectData>
 </DTS:ConnectionManager>
