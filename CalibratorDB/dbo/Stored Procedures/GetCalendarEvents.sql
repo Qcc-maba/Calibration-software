@@ -14,8 +14,8 @@ CREATE   PROCEDURE [dbo].[GetCalendarEvents]
 
 /*
 EXEC  dbo.GetCalendarEvents
-@StartDate ='2025-03-13 14:00:28.230',
-@EndDate ='2025-03-16 14:00:37.017',
+@StartDate ='2025-04-18 14:00:28.230',
+@EndDate ='2025-04-19 14:00:37.017',
 @RowsPerPage  = 100,
 @PageNumber = 1,
 @OrderBy  = N'Title',-- Only this list of valid values for parameter Title|StartDate|EndDate
@@ -32,7 +32,7 @@ CONCAT(
 ' SELECT ce.CalendarEventId, ce.Title, ce.StartDate, ce.EndDate, ce.Comments,
     STRING_AGG(p.UserId,'', '') as ParticipantsIds/*, STRING_AGG(CONCAT(u.FirstName,'' '',u.LastName),'', '') as ParticipantsFullNames */
     FROM dbo.CalendarEvents AS ce
-	JOIN dbo.CalendarEventsToParticipants as p ON ce.CalendarEventId = p.CalendarEventId
+	JOIN dbo.CalendarEventsToParticipants as p ON ce.CalendarEventId = p.CalendarEventId and ce.IsDeleted = 0
 	/*JOIN dbo.Users as u ON p.UserId = u.ID*/
     WHERE ce.IsDeleted = 0 AND
 	ce.StartDate >= ''',@StartDate,''' AND ce.StartDate <= ''',@EndDate,'''

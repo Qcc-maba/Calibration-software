@@ -14,6 +14,7 @@
     [AssignedCalibratorId] INT           NULL,
     [UpdateUserID]         INT           NULL,
     [IsDeleted]            BIT           DEFAULT ((0)) NOT NULL,
+    [AWSCarId]             INT           NULL,
     PRIMARY KEY CLUSTERED ([CarId] ASC),
     CONSTRAINT [FK_Cars_AssignedCalibratorId] FOREIGN KEY ([AssignedCalibratorId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_Cars_CarStatusId] FOREIGN KEY ([CarStatusId]) REFERENCES [dbo].[Statuses] ([StatusId]),

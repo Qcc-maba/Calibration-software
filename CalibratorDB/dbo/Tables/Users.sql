@@ -15,6 +15,7 @@
     [LocationArea] NVARCHAR (200) NULL,
     [DepartmentId] INT            NULL,
     [Stamp]        NVARCHAR (30)  NULL,
+    [AWSID]        INT            NULL,
     CONSTRAINT [PK_Users] PRIMARY KEY CLUSTERED ([ID] ASC),
     CONSTRAINT [FK_Users_DepartmentId] FOREIGN KEY ([DepartmentId]) REFERENCES [dbo].[Departments] ([ID]),
     CONSTRAINT [FK_Users_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])

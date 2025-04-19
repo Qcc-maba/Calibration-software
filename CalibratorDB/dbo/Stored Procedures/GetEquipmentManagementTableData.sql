@@ -123,7 +123,7 @@ CONCAT(
   FROM [dbo].[CalibEquipments] as ce
   JOIN [dbo].[Departments] as d ON ce.DepartmentId = d.ID AND d.IsDeleted = 0
   LEFT JOIN [dbo].[Statuses] as s ON s.StatusId = ce.[StatusId]
-  LEFT JOIN [dbo].[Users] as u ON ce.[CalibratorId] = u.ID AND u.IsActive = 0 
+  LEFT JOIN [dbo].[Users] as u ON ce.[CalibratorId] = u.ID AND u.IsActive = 1 
   LEFT JOIN [dbo].[Cars] as c ON ce.[CarId] = c.CarId AND c.IsDeleted = 0 '
   ,CASE WHEN @CalibratorFullName IS NOT NULL THEN ' JOIN #Calibrators as cf ON ce.[CalibratorId] = cf.[CalibratorId] ' ELSE ' ' END
   ,CASE WHEN @StatusDescription IS NOT NULL THEN ' JOIN #StatusDescriptions as sdf ON ce.[StatusId] = sdf.[StatusId] ' ELSE ' ' END

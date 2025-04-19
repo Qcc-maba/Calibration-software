@@ -69,6 +69,9 @@
     <Folder Include="stg\Tables\" />
     <Folder Include="stg\Stored Procedures\" />
     <Folder Include="Security\" />
+    <Folder Include="etl\" />
+    <Folder Include="etl\Tables\" />
+    <Folder Include="etl\Stored Procedures\" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="dbo\Tables\DeviceTypes.sql" />
@@ -176,6 +179,13 @@
     <Build Include="dbo\Stored Procedures\GetMabaContactInfoByOrder.sql" />
     <Build Include="dbo\Stored Procedures\DeleteUserRecord.sql" />
     <Build Include="dbo\Stored Procedures\GetAllCalibratorMainCategories.sql" />
+    <Build Include="etl\Tables\Cars.sql" />
+    <Build Include="etl\Tables\ETLExecutionLog.sql" />
+    <Build Include="stg\Stored Procedures\MergeCarsToOnPrem.sql" />
+    <Build Include="Security\etl.sql" />
+    <Build Include="etl\Stored Procedures\MergeCarsToOnPrem.sql" />
+    <Build Include="etl\Tables\Users.sql" />
+    <Build Include="etl\Stored Procedures\MergeUsersToOnPrem.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />

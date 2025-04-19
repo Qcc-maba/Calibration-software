@@ -11,11 +11,12 @@ BEGIN
 DROP TABLE IF EXISTS #ParticipantIDs
 CREATE TABLE #ParticipantIDs
 (
-ParticipantId INT
+ParticipantId INT,
+CalendarEventId INT
 )
 
-INSERT #ParticipantIDs(ParticipantId)
-SELECT Value FROM dbo.ParseCSVToTable(@ParticipantIDs)
+INSERT #ParticipantIDs(ParticipantId,CalendarEventId)
+SELECT Value, @ID FROM dbo.ParseCSVToTable(@ParticipantIDs)
 
 --- Check if all users are valid
 if EXISTS (
@@ -40,13 +41,19 @@ SET Title = @Title,StartDate = @StartDate,EndDate = @EndDate , Comments = @Comme
     UpdatedDate = GETDATE()
 WHERE CalendarEventId = @ID
 
-UPDATE dbo.CalendarEventsToParticipants 
+UPDATE ctp 
 SET IsDeleted = 1
-WHERE CalendarEventId = @ID
+FROM dbo.CalendarEventsToParticipants as ctp
+LEFT JOIN #ParticipantIDs as p ON ctp.UserId = p.ParticipantId
+WHERE ctp.CalendarEventId = 70 AND p.ParticipantId IS NULL and ctp.IsDeleted = 0
 
 INSERT dbo.CalendarEventsToParticipants (CalendarEventId,UserId)
-SELECT DISTINCT @ID, ParticipantId
-FROM #ParticipantIDs
+SELECT DISTINCT p.CalendarEventId, p.ParticipantId 
+FROM #ParticipantIDs as p 
+LEFT JOIN dbo.CalendarEventsToParticipants as ctp ON ctp.UserId = p.ParticipantId 
+												  AND p.CalendarEventId = ctp.CalendarEventId
+												  AND ctp.IsDeleted = 0
+WHERE ctp.UserId IS NULL
 
 COMMIT
 
