@@ -26,7 +26,7 @@
           <SSIS:Property SSIS:Name="CreatorComputerName">DESKTOP-50K623D</SSIS:Property>
           <SSIS:Property SSIS:Name="Description">
           </SSIS:Property>
-          <SSIS:Property SSIS:Name="PasswordVerifier" SSIS:Sensitive="1" SSIS:Salt="N//ChsGqE/s=" SSIS:IV="o8H1TydGjBgoaRX4GC1tuA==" SSIS:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc">q0j5JR0m+UTlsBszN8JZOzyrm5ijVs9UU1NTbL1GxecXFI58UPPAJjJoRRY/lzzmoW4wv4OfVrM1wQI6qvTjevH2UgM2iRqpjgQNV7SXzR2Hp35nHp2+al1RB08Lnfwy1oxbv8qbP2lRVnlQj0cHp86671Oc+czVHG+/gFR6oQB0wix/6kf1w2nPCIws+5Hr</SSIS:Property>
+          <SSIS:Property SSIS:Name="PasswordVerifier" SSIS:Sensitive="1" SSIS:Salt="wjK9FejmD2s=" SSIS:IV="9qdQPz+k/3lIFjwE3WhmUg==" SSIS:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc">AikBW9/i7g6Sg3brMhNrWxmMaK0vHFOWwwWAlK1XipQL2OgyTGghYGDxTFt2cQ39icuWORUoxUG9zXNVdn+meG+szxxruE7DPu5bQyOf/EddGNrfQAMJJPC/IiG1E+Wfc3nhnHCSWo0gtXonPm/3Gr1DI0vt9+AyemL/9syYg1GkxLvD+yxJo+S/xYlNlQY1</SSIS:Property>
           <SSIS:Property SSIS:Name="FormatVersion">1</SSIS:Property>
         </SSIS:Properties>
         <SSIS:Packages>
@@ -40,6 +40,7 @@
           <SSIS:Package SSIS:Name="UsersFromAWSToOnPrem.dtsx" SSIS:EntryPoint="1" />
           <SSIS:Package SSIS:Name="CalendarEventsFromAWSToOnPrem.dtsx" SSIS:EntryPoint="1" />
           <SSIS:Package SSIS:Name="CalendarEventsToParticipantsFromAWSToOnPrem.dtsx" SSIS:EntryPoint="1" />
+          <SSIS:Package SSIS:Name="ClientRemarksToAWS.dtsx" SSIS:EntryPoint="1" />
         </SSIS:Packages>
         <SSIS:ConnectionManagers>
           <SSIS:ConnectionManager SSIS:Name="AWSCalibrator.conmgr" />
@@ -603,6 +604,38 @@
                     <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
                     <SSIS:Property SSIS:Name="Value">2025-04-18T10:55:00</SSIS:Property>
                     <SSIS:Property SSIS:Name="DataType">16</SSIS:Property>
+                  </SSIS:Properties>
+                </SSIS:Parameter>
+              </SSIS:Parameters>
+            </SSIS:PackageMetaData>
+            <SSIS:PackageMetaData SSIS:Name="ClientRemarksToAWS.dtsx">
+              <SSIS:Properties>
+                <SSIS:Property SSIS:Name="ID">{2C8308FF-5E4E-47A1-83C0-7E5D99589458}</SSIS:Property>
+                <SSIS:Property SSIS:Name="Name">ClientRemarksToAWS</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">32</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionComments">
+                </SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{CD95C14D-66F7-4F05-94E6-1D401B21BAFD}</SSIS:Property>
+                <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
+                <SSIS:Property SSIS:Name="Description">
+                </SSIS:Property>
+                <SSIS:Property SSIS:Name="ProtectionLevel">2</SSIS:Property>
+              </SSIS:Properties>
+              <SSIS:Parameters>
+                <SSIS:Parameter SSIS:Name="FolderPath">
+                  <SSIS:Properties>
+                    <SSIS:Property SSIS:Name="ID">{AF5A9D3F-B97D-4B49-A98E-4135A923528F}</SSIS:Property>
+                    <SSIS:Property SSIS:Name="CreationName">
+                    </SSIS:Property>
+                    <SSIS:Property SSIS:Name="Description">
+                    </SSIS:Property>
+                    <SSIS:Property SSIS:Name="IncludeInDebugDump">0</SSIS:Property>
+                    <SSIS:Property SSIS:Name="Required">1</SSIS:Property>
+                    <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
+                    <SSIS:Property SSIS:Name="Value">D:\customer_comments</SSIS:Property>
+                    <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
                   </SSIS:Properties>
                 </SSIS:Parameter>
               </SSIS:Parameters>
