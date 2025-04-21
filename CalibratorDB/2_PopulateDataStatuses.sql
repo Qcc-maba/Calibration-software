@@ -11,9 +11,9 @@ INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescript
 GO
 INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (3, 3, NULL, N'Damaged', N'תקול')
 GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (8, 1, N'AA', NULL, N'נקלט')
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (8, 1, N'AA        ', NULL, N'נקלט')
 GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (9, 1, N'AC', NULL, N'פתיחת כיול חדש')
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (9, 1, N'AC        ', NULL, N'פתיחת כיול חדש')
 GO
 INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (10, 4, NULL, N'Waitting for calibration', N'מחכה לכיול')
 GO
@@ -53,8 +53,6 @@ INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescript
 GO
 INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (28, 7, NULL, N'Damage', N'פגום')
 GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (29, 7, NULL, N'In Calibration', N'בכיול')
-GO
 INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (30, 8, NULL, N'Available', N'זמין ')
 GO
 INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (31, 8, NULL, N'Treatment', N'טיפול')
@@ -87,4 +85,35 @@ INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescript
 GO
 INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (45, 11, NULL, N'Damaged', N'תקול')
 GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (46, 12, NULL, NULL, N'נקלט')
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (47, 12, NULL, NULL, N'נשלח')
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (48, 12, NULL, NULL, N'הופק דו"ח')
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (49, 12, NULL, NULL, N'QAF')
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (50, 12, NULL, NULL, N'נארז')
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (51, 13, NULL, NULL, N'אירוע חברה - חובה')
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (52, 13, NULL, NULL, N' אירוע חברה -רשות')
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (53, 13, NULL, NULL, N'חג')
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (54, 13, NULL, NULL, N'יום חופש')
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (55, 14, NULL, N'Availble', N'זמין')
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (56, 14, NULL, N'Sick', N'חולה')
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (57, 14, NULL, N'Vacation', N'חופשה')
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (58, 14, NULL, N'Maba', NULL)
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (59, 14, NULL, N'Unavailable', NULL)
+GO
+INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (60, 14, NULL, N'InActive', N'לא פעיל')
+GO
 SET IDENTITY_INSERT [dbo].[Statuses] OFF
+GO

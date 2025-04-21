@@ -25,4 +25,10 @@ INSERT [dbo].[StatusesCategories] ([StatusCategoryId], [StatusDescriptionENG], [
 GO
 INSERT [dbo].[StatusesCategories] ([StatusCategoryId], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (11, N'EquipmentStatus', NULL)
 GO
+INSERT [dbo].[StatusesCategories] ([StatusCategoryId], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (12, N'OrderStatus', NULL)
+GO
+INSERT [dbo].[StatusesCategories] ([StatusCategoryId], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (13, N'EventTypes', NULL)
+GO
+INSERT [dbo].[StatusesCategories] ([StatusCategoryId], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (14, N'UserStatus', NULL)
+GO
 SET IDENTITY_INSERT [dbo].[StatusesCategories] OFF

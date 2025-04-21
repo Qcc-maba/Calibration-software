@@ -4,7 +4,7 @@
 -- Description:	This SP should return a list of all company employees
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-168
 -- =============================================
-CREATE   PROCEDURE [dbo].[GetAllEmployees]
+CREATE    PROCEDURE [dbo].[GetAllEmployees]
     @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
     @RowsOfPage AS INT = 5000,                 -- Result page size
     @OrderBy AS NVARCHAR(MAX) = 'Email',      -- OrderBy column
@@ -67,8 +67,8 @@ SELECT u.ID,
 	   ur.UserRoleHEB,
 	   d.DepartmentName,
 	   cc.Certification,
-	   NULL as UserStatus,
-	   NULL as UserStatusIds,
+	   us.StatusDescriptionHEB as UserStatus,
+	   us.AvailabilityStatusId as UserStatusIds,
 	   u.DepartmentId,
 	   ur.UserRoleIds,
 	   cc.CertificationIds,
@@ -105,6 +105,18 @@ WHERE ctc.IsDeleted = 0
 '
 GROUP BY ctc.CalibratorId
 ) as cc ON u.ID = cc.UserId
+'
+,IIF(@UserStatus IS NULL,' LEFT ',' '),' JOIN
+(SELECT u.ID, COALESCE(ca.AvailabilityStatusId,55) as AvailabilityStatusId,
+             COALESCE(s.StatusDescriptionHEB,''זמין'') AS StatusDescriptionHEB
+FROM [dbo].[Users] as u
+LEFT JOIN [dbo].[CalibratorsAvailability] as ca ON u.ID = ca.UserId
+				AND ca.AvailbilityDateFrom >= CAST(GETDATE() AS DATE)	
+				AND ca.AvailbilityDateTo <= CAST(GETDATE() AS DATE)
+LEFT JOIN [dbo].[Statuses] as s ON ca.AvailabilityStatusId = s.StatusId
+WHERE u.ID > 0
+',IIF(@UserStatus IS NULL,' ',CONCAT(' AND COALESCE(s.StatusDescriptionHEB,''זמין'') LIKE N''%', @UserStatus ,'%'' ')),
+') as us ON u.ID = us.ID 
 WHERE u.ID > 0 
 '
 ,CASE WHEN @Phone IS NOT NULL THEN ' AND u.Phone LIKE N''%'+ @Phone +'%'' 'ELSE ' ' END

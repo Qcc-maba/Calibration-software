@@ -84,7 +84,6 @@
     <Build Include="dbo\Tables\Translate.sql" />
     <Build Include="dbo\Tables\UserMessages.sql" />
     <Build Include="dbo\Tables\CustomerSupportDepartmentParts.sql" />
-    <Build Include="dbo\Tables\Calibrators.sql" />
     <Build Include="dbo\Tables\CalibEquipments.sql" />
     <Build Include="dbo\Tables\Units.sql" />
     <Build Include="dbo\Tables\MeasurementDevicesManufacturers.sql" />
@@ -190,6 +189,8 @@
     <Build Include="etl\Stored Procedures\MergeCalendarEventsToOnPrem.sql" />
     <Build Include="etl\Tables\CalendarEventsToParticipants.sql" />
     <Build Include="etl\Stored Procedures\MergeCalendarEventsToParticipantsToOnPrem.sql" />
+    <Build Include="dbo\Tables\CalibratorsAvailability.sql" />
+    <Build Include="dbo\Stored Procedures\AssignCalibratorsAvailability.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />
