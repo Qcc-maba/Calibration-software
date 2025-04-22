@@ -24,13 +24,22 @@ ON dest.DepartmentName = source.EquipLab
  THEN INSERT ( [DepartmentName])
  VALUES (source.[EquipLab]);
 
+DECLARE @AvailableStatusId INT, @DamagedStatusId INT
+SELECT 
+    @AvailableStatusId = MAX(CASE WHEN s.StatusDescriptionENG = 'Available' THEN s.StatusId END),
+    @DamagedStatusId = MAX(CASE WHEN s.StatusDescriptionENG = 'Damage' THEN s.StatusId END)
+FROM [dbo].[Statuses] as s
+JOIN [dbo].[StatusesCategories] as sc 
+    ON s.StatusCategoryId = sc.StatusCategoryId
+WHERE sc.StatusDescriptionENG = 'CalibrationEquipmentStatus';
+
 MERGE INTO [dbo].[CalibEquipments] AS dest
 USING (
 	SELECT 
 	     e.[EquipId] AS [SourceId]
 		,d.ID AS [DepartmentId]
 		,e. EquipCount AS [Quantity]
-		,IIF(EquipIsActive = 1,30,32) as [StatusId]-- CalibrationEquipmentStatus 30,31,32 From [dbo].[Statuses] table
+		,IIF(EquipIsActive = 1,@AvailableStatusId,@DamagedStatusId) as [StatusId]-- CalibrationEquipmentStatus 30,31,32 From [dbo].[Statuses] table
 		,e.EquipCount AS [TotalQuantity]
 		,e.EquipName AS [EquipmentName]
 		,NULL AS [SerialNumber]

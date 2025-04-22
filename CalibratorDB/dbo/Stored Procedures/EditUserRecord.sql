@@ -12,12 +12,11 @@ CREATE     PROCEDURE [dbo].[EditUserRecord]
 ,@Password nvarchar(50) = NULL
 ,@LocationArea nvarchar(200) = NULL
 ,@UserRoleIdsList nvarchar(200) = NULL
---,@UserStatus INT will be defined
+,@UserStatusId INT
 ,@Email nvarchar(50) = NULL
 ,@DepartmentId int = NULL
 ,@CertificationIdsList nvarchar(max) = NULL
 ,@LoggedInUserEmail nvarchar(50)
-,@IsActive BIT = NULL
 ,@UserId INT
 ,@Stamp NVARCHAR(30) = NULL
 
@@ -30,10 +29,12 @@ EXEC [dbo].[EditUserRecord]
 ,@Password ='test123'
 ,@LocationArea ='test area'
 ,@UserRoleIdsList ='1,2,3'
-,@Email ='tes2t@test.com'
+,@Email ='tes2t@test.com1234'
+,@UserStatusId = 55
 ,@DepartmentId = 1
 ,@CertificationIdsList ='1,2,3'
 ,@LoggedInUserEmail = 'sinova_super_admin@gmail.com'
+,@UserId =178
 */
 
 AS
@@ -69,6 +70,11 @@ IF @UserRoleIdsList IS NOT NULL
 INSERT #UserRoles(UserRoleId)
 SELECT Value FROM dbo.ParseCSVToTable(@UserRoleIdsList)
 
+DECLARE @IsActive BIT 
+
+SELECT @IsActive = IIF(StatusDescriptionENG='Active',1,0)
+  FROM [Calibrator].[dbo].[Statuses] as s
+WHERE s.StatusId = @UserStatusId
 
 BEGIN TRAN
 

@@ -12,7 +12,7 @@ CREATE     PROCEDURE [dbo].[CreateUserRecord]
 ,@Password nvarchar(50) = NULL
 ,@LocationArea nvarchar(200) = NULL
 ,@UserRoleIdsList nvarchar(200) 
---,@UserStatus INT will be defined
+,@UserStatusId INT
 ,@Email nvarchar(50)
 ,@DepartmentId int 
 ,@CertificationIdsList nvarchar(max)
@@ -21,17 +21,19 @@ CREATE     PROCEDURE [dbo].[CreateUserRecord]
 
 /*
 EXEC [dbo].[CreateUserRecord]
- @FirstName = 'test1'
+ @FirstName = 'test111'
 ,@LastName = 'test1'
 ,@Phone ='911-911-911'
 ,@UserAddress ='test address'
 ,@Password ='test123'
 ,@LocationArea ='test area'
 ,@UserRoleIdsList ='1,2,3'
-,@Email ='tes2t@test.com'
+,@UserStatusId = 56
+,@Email ='tes2t@test.com12'
 ,@DepartmentId = 1
 ,@CertificationIdsList ='1,2,3'
 ,@LoggedInUserEmail = 'sinova_super_admin@gmail.com'
+,@Stamp =''
 */
 
 AS
@@ -71,6 +73,12 @@ INSERT #UserRoles(UserRoleId)
 SELECT Value FROM dbo.ParseCSVToTable(@UserRoleIdsList)
 END
 
+DECLARE @IsActive BIT 
+
+SELECT @IsActive = IIF(StatusDescriptionENG='Active',1,0)
+  FROM [Calibrator].[dbo].[Statuses] as s
+WHERE s.StatusId = @UserStatusId
+
 BEGIN TRAN
 
 INSERT INTO [dbo].[Users]
@@ -91,7 +99,7 @@ INSERT INTO [dbo].[Users]
 		,@Email 
 		,@Password
 		,@Phone		
-		,1
+		,@IsActive
 		,@UserAddress
 		,@LocationArea 
 		,@DepartmentId 
