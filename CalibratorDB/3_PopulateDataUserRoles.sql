@@ -1,24 +1,41 @@
-﻿USE [Calibrator]
-GO
-SET IDENTITY_INSERT [dbo].[UserRoles] ON 
-GO
-INSERT [dbo].[UserRoles] ([UserRoleId], [UserRoleDescriptionENG], [UserRoleDescriptionHEB], [UserRoleName]) VALUES (1, N'Super Admin', NULL, N'SuperAdmin')
-GO
-INSERT [dbo].[UserRoles] ([UserRoleId], [UserRoleDescriptionENG], [UserRoleDescriptionHEB], [UserRoleName]) VALUES (2, N'Team Leader', NULL, N'TeamLeader')
-GO
-INSERT [dbo].[UserRoles] ([UserRoleId], [UserRoleDescriptionENG], [UserRoleDescriptionHEB], [UserRoleName]) VALUES (3, N'Calibrator', NULL, N'Calibrator')
-GO
-INSERT [dbo].[UserRoles] ([UserRoleId], [UserRoleDescriptionENG], [UserRoleDescriptionHEB], [UserRoleName]) VALUES (4, N'Operation Manager', NULL, N'OperationManager')
-GO
-INSERT [dbo].[UserRoles] ([UserRoleId], [UserRoleDescriptionENG], [UserRoleDescriptionHEB], [UserRoleName]) VALUES (5, N'Coordinator', NULL, N'Coordinator')
-GO
-INSERT [dbo].[UserRoles] ([UserRoleId], [UserRoleDescriptionENG], [UserRoleDescriptionHEB], [UserRoleName]) VALUES (6, N'Validator', NULL, N'Validator')
-GO
-INSERT [dbo].[UserRoles] ([UserRoleId], [UserRoleDescriptionENG], [UserRoleDescriptionHEB], [UserRoleName]) VALUES (7, N'Client', NULL, N'Client')
-GO
-INSERT [dbo].[UserRoles] ([UserRoleId], [UserRoleDescriptionENG], [UserRoleDescriptionHEB], [UserRoleName]) VALUES (8, N'Customer support', NULL, N'CustomerSupport')
-GO
-INSERT [dbo].[UserRoles] ([UserRoleId], [UserRoleDescriptionENG], [UserRoleDescriptionHEB], [UserRoleName]) VALUES (9, N'Car owner', NULL, N'CarOwner')
-GO
-SET IDENTITY_INSERT [dbo].[UserRoles] OFF
-GO
+﻿MERGE INTO [dbo].[UserRoles] AS dest
+USING (
+		SELECT 
+		[UserRoleDescriptionENG]
+		,[UserRoleDescriptionHEB]
+		,[UserRoleName]
+		,[IsApplicationRole]
+		FROM (
+			VALUES
+			('Super Admin',N'משתמש על','SuperAdmin',1),
+			('Team Leader',N'מנהל מחלקה','TeamLeader',1),
+			('Calibrator',N'כייל','Calibrator',1),
+			('Operation Manager',N'מנהל תפעול','OperationManager',1),
+			('Coordinator',N'משבץ','Coordinator',1),
+			('Validator',N'ולידטור','Validator',1),
+			('Client',N'לקוח','Client',1),
+			('Customer support',N'שירות לקוחות','CustomerSupport',1),
+			('Car owner',N'בעל הרכב','CarOwner',0)
+		) ds ([UserRoleDescriptionENG],[UserRoleDescriptionHEB],[UserRoleName],[IsApplicationRole])
+	) AS source
+	ON dest.[UserRoleName] = source.[UserRoleName]
+WHEN MATCHED
+	THEN
+		UPDATE
+		SET  dest.[UserRoleDescriptionHEB] = source.[UserRoleDescriptionHEB]
+			,dest.[UserRoleDescriptionENG] = source.[UserRoleDescriptionENG]
+			,dest.[IsApplicationRole] = source.[IsApplicationRole]
+WHEN NOT MATCHED BY TARGET
+	THEN
+		INSERT (
+			 [UserRoleDescriptionENG]
+			,[UserRoleDescriptionHEB]
+			,[UserRoleName]
+			,[IsApplicationRole]
+			)
+		VALUES (
+			 source.[UserRoleDescriptionENG]
+			,source.[UserRoleDescriptionHEB]
+			,source.[UserRoleName]
+			,source.[IsApplicationRole]
+			);

@@ -1,119 +1,82 @@
-﻿/*				
---------------------------------------------------------------------------------------
- Should be executed after [dbo].[StatusesCategories]
---------------------------------------------------------------------------------------
-*/
-SET IDENTITY_INSERT [dbo].[Statuses] ON 
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (1, 3, NULL, N'Available', N'תקין')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (2, 3, NULL, N'Treatment', N'בטיפול')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (3, 3, NULL, N'Damaged', N'תקול')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (8, 1, N'AA        ', NULL, N'נקלט')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (9, 1, N'AC        ', NULL, N'פתיחת כיול חדש')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (10, 4, NULL, N'Waitting for calibration', N'מחכה לכיול')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (11, 4, NULL, N'In calibration', N'בכיול')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (12, 4, NULL, N'Calibration failed', N'כיול נכשל')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (13, 4, NULL, N'Packaged', N'אריזה')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (14, 4, NULL, N'Calibration success', N'כיול הצליח')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (15, 4, NULL, N'Delivered', N'נשלח')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (16, 5, NULL, NULL, N'תקין')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (17, 5, NULL, NULL, N'אטם דלת פגום')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (18, 5, NULL, NULL, N'ידית שבורה')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (19, 5, NULL, NULL, N'דלת לא תקינה')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (20, 5, NULL, NULL, N'מאוור לא תקין')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (21, 5, NULL, NULL, N'סדק בזכוכית')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (22, 6, NULL, N'Packing', N'אריזה')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (23, 6, NULL, N'Customer complaint', N'תלונת לקוח')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (24, 6, NULL, N'Shared', N'משותף')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (25, 6, NULL, N'Urgent', N'דחוף ')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (26, 7, NULL, N'Available', N'תקין')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (27, 7, NULL, N'Treatment', N'טיפול')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (28, 7, NULL, N'Damage', N'פגום')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (30, 8, NULL, N'Available', N'זמין ')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (31, 8, NULL, N'Treatment', N'טיפול')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (32, 8, NULL, N'Damage', N'תקול ')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (33, 9, NULL, N'Available', N'זמין ')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (34, 9, NULL, N'Sick', N'חולה')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (35, 9, NULL, N'Vacation', N'חופשה')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (36, 9, NULL, N'Maba', N'מ.ב.א')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (37, 9, NULL, N'InActive', N'לא פעיל')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (38, 10, NULL, N'Available', N'זמין ')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (39, 10, NULL, N'NotCalibrated', N'לא מכויל')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (40, 10, NULL, N'Damaged', N'תקול')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (41, 10, NULL, N'Lost', N'אבד')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (42, 10, NULL, N'Sent for calibration', N'נשלח לכיול')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (43, 11, NULL, N'Available', N'תקין')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (44, 11, NULL, N'Treatment', N'בטיפול')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (45, 11, NULL, N'Damaged', N'תקול')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (46, 12, NULL, NULL, N'נקלט')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (47, 12, NULL, NULL, N'נשלח')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (48, 12, NULL, NULL, N'הופק דו"ח')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (49, 12, NULL, NULL, N'QAF')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (50, 12, NULL, NULL, N'נארז')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (51, 13, NULL, NULL, N'אירוע חברה - חובה')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (52, 13, NULL, NULL, N' אירוע חברה -רשות')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (53, 13, NULL, NULL, N'חג')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (54, 13, NULL, NULL, N'יום חופש')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (55, 14, NULL, N'Availble', N'זמין')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (56, 14, NULL, N'Sick', N'חולה')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (57, 14, NULL, N'Vacation', N'חופשה')
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (58, 14, NULL, N'Maba', NULL)
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (59, 14, NULL, N'Unavailable', NULL)
-GO
-INSERT [dbo].[Statuses] ([StatusId], [StatusCategoryId], [Code], [StatusDescriptionENG], [StatusDescriptionHEB]) VALUES (60, 14, NULL, N'InActive', N'לא פעיל')
-GO
-SET IDENTITY_INSERT [dbo].[Statuses] OFF
-GO
+﻿MERGE INTO [dbo].[Statuses] AS dest
+USING (
+	SELECT 
+	  sc.StatusCategoryId
+	 ,ds.[Code]
+	 ,ds.[StatusDescriptionENG]
+	 ,ds.[StatusDescriptionHEB]
+	FROM (
+		VALUES
+		('EquipmentStatus','','Available',N'תקין'),
+		('EquipmentStatus','','Treatment',N'בטיפול'),
+		('EquipmentStatus','','Damaged',N'תקול'),
+		('ReportStatus','AA','Received',N'נקלט'),
+		('ReportStatus','AC','Opening a new calibration',N'פתיחת כיול חדש'),
+		('CalibratedUnitsWorkStatus','','Waiting for calibration',N'מחכה לכיול'),
+		('CalibratedUnitsWorkStatus','','In calibration',N'בכיול'),
+		('CalibratedUnitsWorkStatus','','Calibration failed',N'כיול נכשל'),
+		('CalibratedUnitsWorkStatus','','Packaged',N'אריזה'),
+		('CalibratedUnitsWorkStatus','','Calibration success',N'כיול הצליח'),
+		('CalibratedUnitsWorkStatus','','Delivered',N'נשלח'),
+		('CalibratedUnitsStatus','','Functional',N'תקין'),
+		('CalibratedUnitsStatus','','Damaged Door Seal',N'אטם דלת פגום'),
+		('CalibratedUnitsStatus','','Broken Handle',N'ידית שבורה'),
+		('CalibratedUnitsStatus','','Faulty Door',N'דלת לא תקינה'),
+		('CalibratedUnitsStatus','','Faulty Fan',N'מאוור לא תקין'),
+		('CalibratedUnitsStatus','','Crack in the Glass',N'סדק בזכוכית'),
+		('SpecialCare','','Packing',N'אריזה'),
+		('SpecialCare','','Customer complaint',N'תלונת לקוח'),
+		('SpecialCare','','Shared',N'משותף'),
+		('SpecialCare','','Urgent',N'דחוף '),
+		('CarStatus','','Available',N'תקין'),
+		('CarStatus','','Treatment',N'טיפול'),
+		('CarStatus','','Damage',N'פגום'),
+		('CalibrationEquipmentStatus','','Available',N'זמין '),
+		('CalibrationEquipmentStatus','','Treatment',N'טיפול'),
+		('CalibrationEquipmentStatus','','Damage',N'תקול '),
+		('CalibratorsAvailabilityStatus','','Available',N'זמין '),
+		('CalibratorsAvailabilityStatus','','Sick',N'חולה'),
+		('CalibratorsAvailabilityStatus','','Vacation',N'חופשה'),
+		('CalibratorsAvailabilityStatus','','Maba',N'מ.ב.א'),
+		('CalibratorsAvailabilityStatus','','InActive',N'לא פעיל'),
+		('MeasurementDeviceStatus','','Available',N'זמין '),
+		('MeasurementDeviceStatus','','NotCalibrated',N'לא מכויל'),
+		('MeasurementDeviceStatus','','Damaged',N'תקול'),
+		('MeasurementDeviceStatus','','Lost',N'אבד'),
+		('MeasurementDeviceStatus','','Sent for calibration',N'נשלח לכיול'),
+		('OrderStatus','','Received',N'נקלט'),
+		('OrderStatus','','Sent',N'נשלח'),
+		('OrderStatus','','Report Generated',N'הופק דו"ח'),
+		('OrderStatus','','QAF','QAF'),
+		('OrderStatus','','Packed',N'נארז'),
+		('EventTypes','','Company Event - Mandatory',N'אירוע חברה - חובה'),
+		('EventTypes','','Company Event - Optional',N' אירוע חברה -רשות'),
+		('EventTypes','','Holiday',N'חג'),
+		('EventTypes','','Day Off',N'יום חופש'),
+		('UserStatus','','Active',N'פעיל'),
+		('UserStatus','','NotActive',N'לא פעיל')
+		) ds ([StatusCategory],[Code],[StatusDescriptionENG],[StatusDescriptionHEB])
+		JOIN [dbo].[StatusesCategories] as sc ON ds.StatusCategory = sc.StatusDescriptionENG
+	) AS source
+	ON dest.[StatusDescriptionENG] = source.[StatusDescriptionENG]
+	   AND dest.[StatusCategoryId] = source.[StatusCategoryId]
+WHEN MATCHED
+	THEN
+		UPDATE
+		SET  dest.[Code] = source.[Code]
+			,dest.[StatusDescriptionENG] = source.[StatusDescriptionENG]
+			,dest.[StatusDescriptionHEB] = source.[StatusDescriptionHEB]
+WHEN NOT MATCHED BY TARGET
+	THEN
+		INSERT (
+             [StatusCategoryId]
+			,[Code]
+			,[StatusDescriptionENG]
+			,[StatusDescriptionHEB]
+			)
+		VALUES (
+			source.[StatusCategoryId]
+			,source.[Code]
+			,source.[StatusDescriptionENG]
+			,source.[StatusDescriptionHEB]
+			);
