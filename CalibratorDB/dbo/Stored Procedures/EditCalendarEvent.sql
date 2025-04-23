@@ -3,7 +3,7 @@
 @Title NVARCHAR(300),
 @StartDate DATETIME2(0),
 @EndDate DATETIME2(0),
-@ParticipantIDs NVARCHAR(300),
+@ParticipantIDs NVARCHAR(MAX),
 @Comments NVARCHAR(255)
 AS
 BEGIN
@@ -17,7 +17,7 @@ CalendarEventId INT
 
 INSERT #ParticipantIDs(ParticipantId,CalendarEventId)
 SELECT Value, @ID FROM dbo.ParseCSVToTable(@ParticipantIDs)
-
+WHERE LEN(Value) > 0
 --- Check if all users are valid
 if EXISTS (
 SELECT * FROM #ParticipantIDs as u
@@ -32,7 +32,6 @@ WHERE ce.CalendarEventId = @ID
 )
 THROW 51000, 'Event not exist.', 1;
 
-DECLARE @CalendarEventId INT
 
 BEGIN TRANSACTION
 
@@ -45,7 +44,7 @@ UPDATE ctp
 SET IsDeleted = 1
 FROM dbo.CalendarEventsToParticipants as ctp
 LEFT JOIN #ParticipantIDs as p ON ctp.UserId = p.ParticipantId
-WHERE ctp.CalendarEventId = 70 AND p.ParticipantId IS NULL and ctp.IsDeleted = 0
+WHERE ctp.CalendarEventId = @ID AND p.ParticipantId IS NULL and ctp.IsDeleted = 0
 
 INSERT dbo.CalendarEventsToParticipants (CalendarEventId,UserId)
 SELECT DISTINCT p.CalendarEventId, p.ParticipantId 

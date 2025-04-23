@@ -30,9 +30,9 @@ THROW 51000, 'Incorrect value for parameter @OrderBy.', 1;
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 ' SELECT ce.CalendarEventId, ce.Title, ce.StartDate, ce.EndDate, ce.Comments,
-    STRING_AGG(p.UserId,'', '') as ParticipantsIds/*, STRING_AGG(CONCAT(u.FirstName,'' '',u.LastName),'', '') as ParticipantsFullNames */
+    COALESCE(STRING_AGG(p.UserId,'', ''),'''') as ParticipantsIds/*, STRING_AGG(CONCAT(u.FirstName,'' '',u.LastName),'', '') as ParticipantsFullNames */
     FROM dbo.CalendarEvents AS ce
-	JOIN dbo.CalendarEventsToParticipants as p ON ce.CalendarEventId = p.CalendarEventId and ce.IsDeleted = 0
+	LEFT JOIN dbo.CalendarEventsToParticipants as p ON ce.CalendarEventId = p.CalendarEventId and p.IsDeleted = 0
 	/*JOIN dbo.Users as u ON p.UserId = u.ID*/
     WHERE ce.IsDeleted = 0 AND
 	ce.StartDate >= ''',@StartDate,''' AND ce.StartDate <= ''',@EndDate,'''
