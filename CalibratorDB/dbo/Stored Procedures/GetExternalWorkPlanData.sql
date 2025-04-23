@@ -89,8 +89,11 @@ CONCAT(
 		cwp.Calibrators,
         NULL as Notes,
 		mc.MainCategory,
-		wp.[IsCancelled]
-		,COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
+		wp.[IsCancelled],
+		STRING_AGG(od.SerialNumber,'','') AS DeviceNumber,
+		STRING_AGG(od.DeviceManufacturer,'','') AS DeviceManufacturer,
+		STRING_AGG(od.DeviceModel,'','') AS DeviceModel,
+		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
     ,IIF((SELECT COUNT(*) FROM #FilteredDetails) > 0,' JOIN #FilteredDetails as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId ',' '),
 	'JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId

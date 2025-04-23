@@ -39,6 +39,12 @@ JOIN [dbo].[CalibratorsCertifications] as s ON cts.CertificationId = s.ID
 JOIN dbo.ParseCSVToTable(@Certifications) as sc ON s.[Certificate] = sc.[Value]
 END
 
+DECLARE @AvailableStatus INT
+SELECT @AvailableStatus = s.StatusId
+  FROM [dbo].[Statuses] as s
+  JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
+WHERE sc.StatusDescriptionENG = 'CalibratorsAvailabilityStatus' AND s.StatusDescriptionENG = 'Available'
+
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 '
@@ -46,14 +52,24 @@ SELECT DISTINCT
     u.[ID],
 	u.[FirstName],
 	u.[LastName],
-	NULL as [Status],
+	MAX(st.AvailabilityStatusId) as AvailabilityStatusId,
+	MAX(st.StatusDescriptionENG)	as [StatusENG],
+	MAX(st.StatusDescriptionHEB) as [StatusHEB],
 	wp.[OrderNumber] as [AssignedToOrderNumber],
 	STRING_AGG(cc.Certificate,'', '') as Certification 
   FROM [dbo].[Users] as u
-  LEFT JOIN [dbo].[Calibrators] as c ON c.UserId = u.ID 
+  JOIN [dbo].[UsersToUserRoles] as utr ON utr.UserId = u.ID
+  JOIN [dbo].[UserRoles] as ur ON  utr.UserRoleId = ur.UserRoleId AND ur.UserRoleDescriptionENG = ''Calibrator''
   LEFT JOIN [dbo].[CalibratorsToWorkPlan] cp ON u.[ID] = cp.CalibratorId AND cp.IsDeleted = 0
   LEFT JOIN [dbo].[OrderWorkPlans] as wp ON cp.OrderWorkPlanId = wp.OrderWorkPlanId AND wp.IsCancelled = 0
- -- LEFT JOIN [dbo].[CalibratorsAvailability] as ca ON c.Availability = ca.ID
+  LEFT JOIN
+    (SELECT  u.ID as UserId, COALESCE(ca.AvailabilityStatusId,',@AvailableStatus,') as AvailabilityStatusId,st.StatusDescriptionENG,st.StatusDescriptionHEB, ROW_NUMBER() OVER( PARTITION BY u.ID ORDER BY ca.AvailbilityDateTo) AS rn   
+	FROM [dbo].[Users] as u
+	LEFT JOIN [dbo].[CalibratorsAvailability] as ca ON u.ID = ca.UserId 
+			  AND ca.AvailbilityDateFrom >= CAST(GETDATE() AS DATE) 
+			  AND ca.AvailbilityDateTo <= CAST(GETDATE() AS DATE) 
+	LEFT JOIN [dbo].[Statuses] as st ON COALESCE(ca.AvailabilityStatusId,',@AvailableStatus,')  = st.StatusId
+	) as st ON u.ID =  st.UserId AND st.rn = 1
   LEFT JOIN [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId AND od.IsCancelled = 0
   LEFT JOIN [dbo].[CalibratorsToCertification] as ctc ON u.ID = ctc.CalibratorId
   LEFT JOIN [dbo].[CalibratorsCertifications] as cc ON ctc.CertificationId = cc.ID'
@@ -61,11 +77,10 @@ SELECT DISTINCT
   ,CASE WHEN @Certifications IS NOT NULL THEN ' JOIN #Certifications as s ON u.ID = s.CalibratorId ' ELSE ' ' END
    ,' WHERE u.IsActive = 1 AND u.ID > 0'
    ,'
-     GROUP BY 
+    GROUP BY 
     u.[ID],
 	u.[FirstName],
 	u.[LastName],
-	--NULL as [Status],
 	wp.[OrderNumber]
    '
   ,CASE WHEN @MainCategory IS NOT NULL THEN' AND od.[MainCategory] = '''+ @MainCategory+''' 'ELSE ' ' END
