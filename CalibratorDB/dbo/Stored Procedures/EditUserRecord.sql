@@ -76,54 +76,59 @@ SELECT @IsActive = IIF(StatusDescriptionENG='Active',1,0)
   FROM [Calibrator].[dbo].[Statuses] as s
 WHERE s.StatusId = @UserStatusId
 
-BEGIN TRAN
+BEGIN TRY
 
-UPDATE u
-   SET u.[FirstName] = COALESCE(@FirstName,u.[FirstName])
-      ,u.[LastName] = COALESCE(@LastName,u.[LastName])
-      ,u.[Email] = COALESCE(@Email,u.[Email])
-      ,u.[Password] = COALESCE(@Password,u.[Password])
-      ,u.[Phone] = COALESCE(@Phone,u.[Phone])
-      ,u.[IsActive] = COALESCE(@IsActive,u.[IsActive])
-      ,u.[UpdatedDate] = GETDATE()
-      ,u.[UpdateUserID] = @LoggedInUserId
-      ,u.[UserAddress] = COALESCE(@UserAddress,u.[UserAddress])
-      ,u.[LocationArea] = COALESCE(@LocationArea,u.[LocationArea])
-      ,u.[DepartmentId] = COALESCE(@DepartmentId,u.[DepartmentId])
-	  ,u.[Stamp] = COALESCE(@Stamp,u.[Stamp])
-FROM [dbo].[Users] as u
-WHERE u.ID = @UserId
+	BEGIN TRAN
 
-IF @UserRoleIdsList IS NOT NULL
-BEGIN
-UPDATE ur 
-SET IsDeleted = 1,UpdateUserID = @LoggedInUserId
-FROM [dbo].[UsersToUserRoles] as ur
-LEFT JOIN #UserRoles as tur ON  ur.UserRoleId = tur.UserRoleId and ur.IsDeleted = 0
-WHERE ur.UserId = @UserId AND tur.UserRoleId IS NULL
+	UPDATE u
+	   SET u.[FirstName] = COALESCE(@FirstName,u.[FirstName])
+		  ,u.[LastName] = COALESCE(@LastName,u.[LastName])
+		  ,u.[Email] = COALESCE(@Email,u.[Email])
+		  ,u.[Password] = COALESCE(@Password,u.[Password])
+		  ,u.[Phone] = COALESCE(@Phone,u.[Phone])
+		  ,u.[IsActive] = COALESCE(@IsActive,u.[IsActive])
+		  ,u.[UpdatedDate] = GETDATE()
+		  ,u.[UpdateUserID] = @LoggedInUserId
+		  ,u.[UserAddress] = COALESCE(@UserAddress,u.[UserAddress])
+		  ,u.[LocationArea] = COALESCE(@LocationArea,u.[LocationArea])
+		  ,u.[Stamp] = COALESCE(@Stamp,u.[Stamp])
+	FROM [dbo].[Users] as u
+	WHERE u.ID = @UserId
 
-INSERT [dbo].[UsersToUserRoles](UserId,UserRoleId,UpdateUserID)
-SELECT @UserId, tur.UserRoleId,@LoggedInUserId
-FROM #UserRoles as tur
-LEFT JOIN [dbo].[UsersToUserRoles] as ur ON ur.UserId = @UserId AND ur.UserRoleId = tur.UserRoleId AND ur.IsDeleted = 0
-WHERE ur.UserRoleId IS NULL
-END
+	IF @UserRoleIdsList IS NOT NULL
+	BEGIN
+	UPDATE ur 
+	SET IsDeleted = 1,UpdateUserID = @LoggedInUserId
+	FROM [dbo].[UsersToUserRoles] as ur
+	LEFT JOIN #UserRoles as tur ON  ur.UserRoleId = tur.UserRoleId and ur.IsDeleted = 0
+	WHERE ur.UserId = @UserId AND tur.UserRoleId IS NULL
 
-IF @CertificationIdsList IS NOT NULL
-BEGIN
-UPDATE ctc
-SET IsDeleted = 1,UpdateUserID = @LoggedInUserId
-FROM [dbo].[CalibratorsToCertification] as ctc
-LEFT JOIN #CertificationIds as ci ON ctc.CalibratorId = @UserId and ci.CertificationId = ctc.CertificationId 
-WHERE ctc.CalibratorId = @UserId  AND ci.CertificationId IS NULL
+	INSERT [dbo].[UsersToUserRoles](UserId,UserRoleId,UpdateUserID)
+	SELECT @UserId, tur.UserRoleId,@LoggedInUserId
+	FROM #UserRoles as tur
+	LEFT JOIN [dbo].[UsersToUserRoles] as ur ON ur.UserId = @UserId AND ur.UserRoleId = tur.UserRoleId AND ur.IsDeleted = 0
+	WHERE ur.UserRoleId IS NULL
+	END
 
-INSERT [dbo].[CalibratorsToCertification](CertificationId,CalibratorId,UpdateUserID)
-SELECT ci.CertificationId,@UserId,@LoggedInUserId
-FROM #CertificationIds as ci
-LEFT JOIN [dbo].[CalibratorsToCertification] as ctc ON ctc.CalibratorId = @UserId and ci.CertificationId = ctc.CertificationId AND ctc.IsDeleted = 0
-WHERE ctc.CertificationId IS NULL
-END
-COMMIT
+	IF @CertificationIdsList IS NOT NULL
+	BEGIN
+	UPDATE ctc
+	SET IsDeleted = 1,UpdateUserID = @LoggedInUserId
+	FROM [dbo].[CalibratorsToCertification] as ctc
+	LEFT JOIN #CertificationIds as ci ON ctc.CalibratorId = @UserId and ci.CertificationId = ctc.CertificationId 
+	WHERE ctc.CalibratorId = @UserId  AND ci.CertificationId IS NULL
 
+	INSERT [dbo].[CalibratorsToCertification](CertificationId,CalibratorId,UpdateUserID)
+	SELECT ci.CertificationId,@UserId,@LoggedInUserId
+	FROM #CertificationIds as ci
+	LEFT JOIN [dbo].[CalibratorsToCertification] as ctc ON ctc.CalibratorId = @UserId and ci.CertificationId = ctc.CertificationId AND ctc.IsDeleted = 0
+	WHERE ctc.CertificationId IS NULL
+	END
+	COMMIT
+END TRY
+
+BEGIN CATCH
+ROLLBACK
+END CATCH
 
 END

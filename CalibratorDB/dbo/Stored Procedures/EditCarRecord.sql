@@ -77,29 +77,34 @@ WHERE (u.ID = @AssignedCalibrator)  AND u.IsActive = 1
 )
 THROW 51000, 'Incorrect or inactive user assigned as owner.', 1;
 
-BEGIN TRANSACTION
+BEGIN TRY
+	BEGIN TRANSACTION
 
-UPDATE [dbo].[Cars]
-   SET 
-       [Model] = @Model
-      ,[LicenseNumber] = @LicenseNumber
-      ,[Seats] = @NumberOfSeats
-      ,[TreatmentPeriod] = @TreatmentPeriod
-      ,[NextTreatmentDate] = @NextTreatmentDate
-      ,[NextYearlyTestDate] = @NextTestDate
-      ,[OwnerId] = @OwnerId
-      ,[CarStatusId] = @StatusId
-      ,[UpdatedDate] = GETDATE()
-      ,[AssignedCalibratorId] = @AssignedCalibrator
- WHERE CarId = @CarId
+	UPDATE [dbo].[Cars]
+	   SET 
+		   [Model] = @Model
+		  ,[LicenseNumber] = @LicenseNumber
+		  ,[Seats] = @NumberOfSeats
+		  ,[TreatmentPeriod] = @TreatmentPeriod
+		  ,[NextTreatmentDate] = @NextTreatmentDate
+		  ,[NextYearlyTestDate] = @NextTestDate
+		  ,[OwnerId] = @OwnerId
+		  ,[CarStatusId] = @StatusId
+		  ,[UpdatedDate] = GETDATE()
+		  ,[AssignedCalibratorId] = @AssignedCalibrator
+	 WHERE CarId = @CarId
 
-UPDATE [dbo].[CarsToEquipment]
-SET IsDeleted = 1
-WHERE CarId = @CarId
+	UPDATE [dbo].[CarsToEquipment]
+	SET IsDeleted = 1
+	WHERE CarId = @CarId
 
-INSERT [dbo].[CarsToEquipment](CarId, EquipmentId)
-SELECT DISTINCT @CarId, EquipmentId
-FROM #AssociatedEquipmentIDs
-COMMIT
+	INSERT [dbo].[CarsToEquipment](CarId, EquipmentId)
+	SELECT DISTINCT @CarId, EquipmentId
+	FROM #AssociatedEquipmentIDs
+	COMMIT
+END TRY
 
+BEGIN CATCH
+ROLLBACK
+END CATCH
 END

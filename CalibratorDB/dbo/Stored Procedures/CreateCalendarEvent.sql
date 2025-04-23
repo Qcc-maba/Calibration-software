@@ -5,7 +5,7 @@
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-167
 -- =============================================
 
-CREATE   PROCEDURE dbo.CreateCalendarEvent
+CREATE   PROCEDURE [dbo].[CreateCalendarEvent]
 @Title NVARCHAR(300),
 @StartDate DATETIME2(0),
 @EndDate DATETIME2(0),
@@ -43,20 +43,23 @@ THROW 51000, 'Event already exist.', 1;
 
 DECLARE @CalendarEventId INT
 
-BEGIN TRANSACTION
+BEGIN TRY
+	BEGIN TRANSACTION
 
-INSERT dbo.CalendarEvents (Title,StartDate,EndDate,Comments)
-VALUES (@Title,@StartDate,@EndDate,@Comments)
+	INSERT dbo.CalendarEvents (Title,StartDate,EndDate,Comments)
+	VALUES (@Title,@StartDate,@EndDate,@Comments)
 
-SELECT @CalendarEventId = SCOPE_IDENTITY()  
+	SELECT @CalendarEventId = SCOPE_IDENTITY()  
 
-INSERT dbo.CalendarEventsToParticipants (CalendarEventId,UserId)
-SELECT DISTINCT @CalendarEventId, ParticipantId
-FROM #ParticipantIDs
+	INSERT dbo.CalendarEventsToParticipants (CalendarEventId,UserId)
+	SELECT DISTINCT @CalendarEventId, ParticipantId
+	FROM #ParticipantIDs
 
 
-COMMIT
+	COMMIT
+END TRY
 
+BEGIN CATCH
+ROLLBACK
+END CATCH
 END
-
-

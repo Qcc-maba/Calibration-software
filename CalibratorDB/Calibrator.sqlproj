@@ -191,6 +191,7 @@
     <Build Include="etl\Stored Procedures\MergeCalendarEventsToParticipantsToOnPrem.sql" />
     <Build Include="dbo\Tables\CalibratorsAvailability.sql" />
     <Build Include="dbo\Stored Procedures\AssignCalibratorsAvailability.sql" />
+    <Build Include="dbo\Tables\UsersToDepartments.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />

@@ -32,28 +32,32 @@ WHERE ce.CalendarEventId = @ID
 )
 THROW 51000, 'Event not exist.', 1;
 
+BEGIN TRY
+	BEGIN TRANSACTION
 
-BEGIN TRANSACTION
+	UPDATE dbo.CalendarEvents 
+	SET Title = @Title,StartDate = @StartDate,EndDate = @EndDate , Comments = @Comments,
+		UpdatedDate = GETDATE()
+	WHERE CalendarEventId = @ID
 
-UPDATE dbo.CalendarEvents 
-SET Title = @Title,StartDate = @StartDate,EndDate = @EndDate , Comments = @Comments,
-    UpdatedDate = GETDATE()
-WHERE CalendarEventId = @ID
+	UPDATE ctp 
+	SET IsDeleted = 1
+	FROM dbo.CalendarEventsToParticipants as ctp
+	LEFT JOIN #ParticipantIDs as p ON ctp.UserId = p.ParticipantId
+	WHERE ctp.CalendarEventId = @ID AND p.ParticipantId IS NULL and ctp.IsDeleted = 0
 
-UPDATE ctp 
-SET IsDeleted = 1
-FROM dbo.CalendarEventsToParticipants as ctp
-LEFT JOIN #ParticipantIDs as p ON ctp.UserId = p.ParticipantId
-WHERE ctp.CalendarEventId = @ID AND p.ParticipantId IS NULL and ctp.IsDeleted = 0
+	INSERT dbo.CalendarEventsToParticipants (CalendarEventId,UserId)
+	SELECT DISTINCT p.CalendarEventId, p.ParticipantId 
+	FROM #ParticipantIDs as p 
+	LEFT JOIN dbo.CalendarEventsToParticipants as ctp ON ctp.UserId = p.ParticipantId 
+													  AND p.CalendarEventId = ctp.CalendarEventId
+													  AND ctp.IsDeleted = 0
+	WHERE ctp.UserId IS NULL
 
-INSERT dbo.CalendarEventsToParticipants (CalendarEventId,UserId)
-SELECT DISTINCT p.CalendarEventId, p.ParticipantId 
-FROM #ParticipantIDs as p 
-LEFT JOIN dbo.CalendarEventsToParticipants as ctp ON ctp.UserId = p.ParticipantId 
-												  AND p.CalendarEventId = ctp.CalendarEventId
-												  AND ctp.IsDeleted = 0
-WHERE ctp.UserId IS NULL
+	COMMIT
+END TRY
 
-COMMIT
-
+BEGIN CATCH
+ROLLBACK
+END CATCH
 END

@@ -25,25 +25,29 @@ EquipmentId INT PRIMARY KEY
 
 INSERT #EquipmentsIDs(EquipmentId)
 SELECT Value FROM dbo.ParseCSVToTable(@EquipmentsIDs)
+BEGIN TRY
+	BEGIN TRAN
 
-BEGIN TRAN
+	UPDATE ce 
+	SET ce.UpdatedDate = GETDATE(), ce.IsDeleted = 1
+	FROM dbo.CarsToEquipment as ce
+	JOIN #EquipmentsIDs as d ON ce.EquipmentId = d.EquipmentId
 
-UPDATE ce 
-SET ce.UpdatedDate = GETDATE(), ce.IsDeleted = 1
-FROM dbo.CarsToEquipment as ce
-JOIN #EquipmentsIDs as d ON ce.EquipmentId = d.EquipmentId
+	UPDATE c 
+	SET c.UpdatedDate = GETDATE(), c.IsDeleted = 1
+	FROM [dbo].[CalibEquipmentsToOrderHeaders] as c
+	JOIN #EquipmentsIDs as d ON c.CalibEquipmentId = d.EquipmentId
 
-UPDATE c 
-SET c.UpdatedDate = GETDATE(), c.IsDeleted = 1
-FROM [dbo].[CalibEquipmentsToOrderHeaders] as c
-JOIN #EquipmentsIDs as d ON c.CalibEquipmentId = d.EquipmentId
-
-UPDATE c 
-SET c.UpdatedDate = GETDATE(), c.IsDeleted = 1
-FROM [dbo].[CalibEquipments] as c
-JOIN #EquipmentsIDs as d ON c.ID = d.EquipmentId
+	UPDATE c 
+	SET c.UpdatedDate = GETDATE(), c.IsDeleted = 1
+	FROM [dbo].[CalibEquipments] as c
+	JOIN #EquipmentsIDs as d ON c.ID = d.EquipmentId
 
 
-COMMIT 
+	COMMIT 
+END TRY
 
+BEGIN CATCH
+ROLLBACK
+END CATCH
 END

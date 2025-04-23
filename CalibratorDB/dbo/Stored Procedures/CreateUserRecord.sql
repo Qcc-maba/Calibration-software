@@ -14,7 +14,7 @@ CREATE     PROCEDURE [dbo].[CreateUserRecord]
 ,@UserRoleIdsList nvarchar(200) 
 ,@UserStatusId INT
 ,@Email nvarchar(50)
-,@DepartmentId int 
+,@DepartmentIdsList nvarchar(max) 
 ,@CertificationIdsList nvarchar(max)
 ,@LoggedInUserEmail nvarchar(50)
 ,@Stamp NVARCHAR(30)
@@ -29,8 +29,8 @@ EXEC [dbo].[CreateUserRecord]
 ,@LocationArea ='test area'
 ,@UserRoleIdsList ='1,2,3'
 ,@UserStatusId = 56
-,@Email ='tes2t@test.com12'
-,@DepartmentId = 1
+,@Email ='tes2t@test.com1233'
+,@DepartmentIdsList = '1,2,3'
 ,@CertificationIdsList ='1,2,3'
 ,@LoggedInUserEmail = 'sinova_super_admin@gmail.com'
 ,@Stamp =''
@@ -79,47 +79,67 @@ SELECT @IsActive = IIF(StatusDescriptionENG='Active',1,0)
   FROM [Calibrator].[dbo].[Statuses] as s
 WHERE s.StatusId = @UserStatusId
 
-BEGIN TRAN
+IF @DepartmentIdsList IS NOT NULL
+BEGIN
+DROP TABLE IF EXISTS #DepartmentIdsList
+CREATE TABLE #DepartmentIdsList
+(
+DepartmentId INT
+)
 
-INSERT INTO [dbo].[Users]
-           ([FirstName]
-           ,[LastName]
-           ,[Email]
-           ,[Password]
-           ,[Phone]
-           ,[IsActive]
-           ,[UserAddress]
-           ,[LocationArea]
-           ,[DepartmentId]
-		   ,[UpdateUserID]
-		   ,[Stamp])
-     VALUES(
-         @FirstName
-		,@LastName 
-		,@Email 
-		,@Password
-		,@Phone		
-		,@IsActive
-		,@UserAddress
-		,@LocationArea 
-		,@DepartmentId 
-		,@LoggedInUserId
-		,@Stamp
-		)
+INSERT #DepartmentIdsList(DepartmentId)
+SELECT Value FROM dbo.ParseCSVToTable(@DepartmentIdsList)
+END
 
-DECLARE @Userid INT
+BEGIN TRY
 
-SELECT @Userid = SCOPE_IDENTITY()
+	BEGIN TRAN
 
-INSERT [dbo].[UsersToUserRoles](UserId,UserRoleId,UpdateUserID)
-SELECT @Userid, UserRoleId,@LoggedInUserId
-FROM #UserRoles
+	INSERT INTO [dbo].[Users]
+			   ([FirstName]
+			   ,[LastName]
+			   ,[Email]
+			   ,[Password]
+			   ,[Phone]
+			   ,[IsActive]
+			   ,[UserAddress]
+			   ,[LocationArea]
+			   ,[UpdateUserID]
+			   ,[Stamp])
+		 VALUES(
+			 @FirstName
+			,@LastName 
+			,@Email 
+			,@Password
+			,@Phone		
+			,@IsActive
+			,@UserAddress
+			,@LocationArea 
+			,@LoggedInUserId
+			,@Stamp
+			)
 
-INSERT [dbo].[CalibratorsToCertification](CertificationId,CalibratorId,UpdateUserID)
-SELECT CertificationId,@Userid,@LoggedInUserId
-FROM #CertificationIds
+	DECLARE @Userid INT
 
-COMMIT
+	SELECT @Userid = SCOPE_IDENTITY()
 
+	INSERT [dbo].[UsersToUserRoles](UserId,UserRoleId,UpdateUserID)
+	SELECT DISTINCT @Userid, UserRoleId,@LoggedInUserId
+	FROM #UserRoles
+
+	INSERT [dbo].[CalibratorsToCertification](CertificationId,CalibratorId,UpdateUserID)
+	SELECT DISTINCT CertificationId,@Userid,@LoggedInUserId
+	FROM #CertificationIds
+
+	INSERT [dbo].[UsersToDepartments](UserId,DepartmentId,UpdateUserID)
+	SELECT DISTINCT @Userid, DepartmentId,@LoggedInUserId
+	FROM #DepartmentIdsList
+
+	COMMIT
+END TRY
+
+BEGIN CATCH
+ROLLBACK
+END CATCH
 
 END

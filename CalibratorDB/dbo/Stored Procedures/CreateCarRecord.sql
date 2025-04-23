@@ -77,38 +77,43 @@ THROW 51000, 'Incorrect status was assigned.', 1;
 
 DECLARE @CarId INT
 
-BEGIN TRANSACTION
+BEGIN TRY
+	BEGIN TRANSACTION
 
-INSERT INTO [dbo].[Cars]
-           ([Model]
-           ,[LicenseNumber]
-           ,[Seats]
-           ,[TreatmentPeriod]
-           ,[NextTreatmentDate]
-           ,[NextYearlyTestDate]
-		   ,[AssignedCalibratorId]
-           ,[OwnerId]
-           ,[CarStatusId]
-           )
-     VALUES
-	   (
-	   @Model,
-	   @LicenseNumber,
-	   @NumberOfSeats,
-	   @TreatmentPeriod,
-	   @NextTreatment,
-	   @NextTestDate,
-	   @AssignedCalibrator,
-	   @Owner,
-	   @Status
-	   )
+	INSERT INTO [dbo].[Cars]
+			   ([Model]
+			   ,[LicenseNumber]
+			   ,[Seats]
+			   ,[TreatmentPeriod]
+			   ,[NextTreatmentDate]
+			   ,[NextYearlyTestDate]
+			   ,[AssignedCalibratorId]
+			   ,[OwnerId]
+			   ,[CarStatusId]
+			   )
+		 VALUES
+		   (
+		   @Model,
+		   @LicenseNumber,
+		   @NumberOfSeats,
+		   @TreatmentPeriod,
+		   @NextTreatment,
+		   @NextTestDate,
+		   @AssignedCalibrator,
+		   @Owner,
+		   @Status
+		   )
 
-SELECT @CarId = SCOPE_IDENTITY()
+	SELECT @CarId = SCOPE_IDENTITY()
 
-INSERT [dbo].[CarsToEquipment]([CarId],[EquipmentId])
-SELECT DISTINCT @CarId, [EquipmentId] FROM #AssociatedEquipmentIDs
+	INSERT [dbo].[CarsToEquipment]([CarId],[EquipmentId])
+	SELECT DISTINCT @CarId, [EquipmentId] FROM #AssociatedEquipmentIDs
 
-COMMIT
+	COMMIT
+END TRY
 
+BEGIN CATCH
+ROLLBACK
+END CATCH
 
 END
