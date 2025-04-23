@@ -14,7 +14,7 @@ CREATE     PROCEDURE [dbo].[EditUserRecord]
 ,@UserRoleIdsList nvarchar(200) = NULL
 ,@UserStatusId INT
 ,@Email nvarchar(50) = NULL
-,@DepartmentId int = NULL
+,@DepartmentIdsList nvarchar(max) = NULL
 ,@CertificationIdsList nvarchar(max) = NULL
 ,@LoggedInUserEmail nvarchar(50)
 ,@UserId INT
@@ -31,7 +31,7 @@ EXEC [dbo].[EditUserRecord]
 ,@UserRoleIdsList ='1,2,3'
 ,@Email ='tes2t@test.com1234'
 ,@UserStatusId = 55
-,@DepartmentId = 1
+,@DepartmentIdsList = '1'
 ,@CertificationIdsList ='1,2,3'
 ,@LoggedInUserEmail = 'sinova_super_admin@gmail.com'
 ,@UserId =178
@@ -76,6 +76,16 @@ SELECT @IsActive = IIF(StatusDescriptionENG='Active',1,0)
   FROM [Calibrator].[dbo].[Statuses] as s
 WHERE s.StatusId = @UserStatusId
 
+DROP TABLE IF EXISTS #DepartmentIdsList
+CREATE TABLE #DepartmentIdsList
+(
+DepartmentId INT
+)
+
+IF @DepartmentIdsList IS NOT NULL
+INSERT #DepartmentIdsList(DepartmentId)
+SELECT Value FROM dbo.ParseCSVToTable(@DepartmentIdsList)
+
 BEGIN TRY
 
 	BEGIN TRAN
@@ -110,6 +120,21 @@ BEGIN TRY
 	WHERE ur.UserRoleId IS NULL
 	END
 
+	IF @DepartmentIdsList IS NOT NULL
+	BEGIN
+	UPDATE ud
+	SET IsDeleted = 1,UpdateUserID = @LoggedInUserId
+	FROM [dbo].[UsersToDepartments] as ud
+	LEFT JOIN #DepartmentIdsList as di ON ud.UserId = @UserId and di.DepartmentId = ud.DepartmentId
+	WHERE ud.UserId = @UserId  AND di.DepartmentId IS NULL
+
+	INSERT [dbo].[UsersToDepartments](UserId,DepartmentId,UpdateUserID)
+	SELECT @UserId,di.DepartmentId, @LoggedInUserId
+	FROM #DepartmentIdsList as di
+	LEFT JOIN [dbo].[UsersToDepartments] as ud ON ud.UserId = @UserId and di.DepartmentId = ud.DepartmentId AND ud.IsDeleted = 0
+	WHERE ud.DepartmentId IS NULL
+	END
+
 	IF @CertificationIdsList IS NOT NULL
 	BEGIN
 	UPDATE ctc
@@ -124,6 +149,8 @@ BEGIN TRY
 	LEFT JOIN [dbo].[CalibratorsToCertification] as ctc ON ctc.CalibratorId = @UserId and ci.CertificationId = ctc.CertificationId AND ctc.IsDeleted = 0
 	WHERE ctc.CertificationId IS NULL
 	END
+
+
 	COMMIT
 END TRY
 
