@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE  [etl].[MergeUsersToOnPrem]
+﻿CREATE   PROCEDURE  [etl].[MergeUsersToOnPrem]
 AS
 MERGE INTO [dbo].[Users] AS dest
 USING (
@@ -16,7 +16,6 @@ USING (
 		,0 as [UpdateUserID]
 		,[UserAddress]
 		,[LocationArea]
-		,[DepartmentId]
 		,[Stamp]
 	FROM [etl].[Users]
 	) AS source
@@ -37,7 +36,6 @@ WHEN MATCHED
 			,dest.[UpdateUserID] = source.[UpdateUserID]
 			,dest.[UserAddress] = source.[UserAddress]
 			,dest.[LocationArea] = source.[LocationArea]
-			,dest.[DepartmentId] = source.[DepartmentId]
 			,dest.[Stamp] = source.[Stamp]
 WHEN NOT MATCHED BY TARGET
 	THEN
@@ -55,7 +53,6 @@ WHEN NOT MATCHED BY TARGET
 			,[UpdateUserID]
 			,[UserAddress]
 			,[LocationArea]
-			,[DepartmentId]
 			,[Stamp]
 			,[AWSID]
 			)
@@ -73,7 +70,6 @@ WHEN NOT MATCHED BY TARGET
 			,source.[UpdateUserID]
 			,source.[UserAddress]
 			,source.[LocationArea]
-			,source.[DepartmentId]
 			,source.[Stamp]
 			,source.[ID]
 			);

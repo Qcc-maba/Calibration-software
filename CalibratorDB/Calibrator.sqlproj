@@ -192,6 +192,7 @@
     <Build Include="dbo\Tables\CalibratorsAvailability.sql" />
     <Build Include="dbo\Stored Procedures\AssignCalibratorsAvailability.sql" />
     <Build Include="dbo\Tables\UsersToDepartments.sql" />
+    <Build Include="dbo\Stored Procedures\EditCarAssigmentToOrder.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />

@@ -13,7 +13,6 @@
     [UpdateUserID] INT            NULL,
     [UserAddress]  NVARCHAR (200) NULL,
     [LocationArea] NVARCHAR (200) NULL,
-    [DepartmentId] INT            NULL,
     [Stamp]        NVARCHAR (30)  NULL
 );
 

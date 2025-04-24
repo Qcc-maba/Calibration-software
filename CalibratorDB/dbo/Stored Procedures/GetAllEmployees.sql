@@ -24,8 +24,8 @@ AS
 BEGIN
 
 	IF @OrderBy NOT IN 
-	(N'FirstName', N'LastName', N'FirstNameEng', N'LastNameEng', N'Phone', N'Email', N'UserAddress', N'LocationArea', N'UserRoleENG', N'UserRoleHEB', N'DepartmentName', N'Certification')
-	THROW 51000, 'Incorrect value for parameter @OrderBy. Available values FirstName|LastName|FirstNameEng|LastNameEng|Phone|Email|UserAddress|LocationArea|UserRoleENG|UserRoleHEB|DepartmentName|Certification', 1;
+	(N'FirstName', N'LastName', N'FirstNameEng', N'LastNameEng', N'Phone', N'Email', N'UserAddress', N'LocationArea', N'UserRoleENG', N'UserRoleHEB', N'DepartmentNames', N'Certification',N'Stamp')
+	THROW 51000, 'Incorrect value for parameter @OrderBy. Available values FirstName|LastName|FirstNameEng|LastNameEng|Phone|Email|UserAddress|LocationArea|UserRoleENG|UserRoleHEB|DepartmentNames|Certification|Stamp', 1;
 
 
 	IF @FirstName IS NOT NULL OR @LastName IS NOT NULL 
@@ -171,8 +171,8 @@ GROUP BY ctc.CalibratorId
 LEFT JOIN
 (
 SELECT ud.UserId, 
-STRING_AGG(ud.DepartmentId,'', '') as DepartmentIds,
-STRING_AGG(d.DepartmentName,'', '') as DepartmentNames
+STRING_AGG(ud.DepartmentId,'','') as DepartmentIds,
+STRING_AGG(d.DepartmentName,'','') as DepartmentNames
 FROM [dbo].[UsersToDepartments] as ud
 LEFT JOIN [dbo].[Departments] as d ON ud.DepartmentId = d.ID
 GROUP BY ud.UserId
