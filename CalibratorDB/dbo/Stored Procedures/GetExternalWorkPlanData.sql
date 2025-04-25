@@ -21,8 +21,12 @@ CREATE PROCEDURE [dbo].[GetExternalWorkPlanData]
 	@DeviceModel NVARCHAR(100) = NULL,
 	@PrintedNumber NVARCHAR(100) = NULL,
 	@DateFrom DATETIME2(0) = NULL,
-	@DateTo DATETIME2(0) = NULL
-	
+	@DateTo DATETIME2(0) = NULL,
+	@DeviceNumber NVARCHAR(20) = NULL,
+	@DeviceManufacturer NVARCHAR(255) = NULL,
+	@AssignedCalibratorsIds NVARCHAR(MAX) = NULL,
+	@EquipmentIds NVARCHAR(MAX) = NULL,
+	@SpecialCareTypeIds NVARCHAR(255) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -71,6 +75,32 @@ BEGIN
 
 	END
 
+	DROP TABLE IF EXISTS #AssignedCalibrators
+	CREATE TABLE #AssignedCalibrators
+	(
+	[OrderWorkPlanId] INT
+	)
+	INSERT #AssignedCalibrators([OrderWorkPlanId])
+	SELECT DISTINCT wp.OrderWorkPlanId FROM dbo.ParseCSVToTable(@AssignedCalibratorsIds) as f
+	JOIN [dbo].[CalibratorsToWorkPlan] as wp ON wp.CalibratorId = f.Value
+
+	DROP TABLE IF EXISTS #EquipmentId
+	CREATE TABLE #EquipmentId
+	(
+	[OrderWorkPlanId] INT
+	)
+	INSERT #EquipmentId([OrderWorkPlanId])
+	SELECT DISTINCT ce.OrderWorkPlanId FROM dbo.ParseCSVToTable(@EquipmentIds) as f
+	JOIN [dbo].[CalibEquipmentsToOrderHeaders] as ce ON ce.CalibEquipmentId = f.Value
+
+	DROP TABLE IF EXISTS #SpecialCareTypes
+	CREATE TABLE #SpecialCareTypes
+	(
+	[SpecialCareTypeId] INT
+	)
+	INSERT #SpecialCareTypes([SpecialCareTypeId])
+	SELECT DISTINCT f.Value FROM dbo.ParseCSVToTable(@SpecialCareTypeIds) as f
+
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 '
@@ -95,9 +125,12 @@ CONCAT(
 		STRING_AGG(od.DeviceModel,'','') AS DeviceModel,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
-    ,IIF((SELECT COUNT(*) FROM #FilteredDetails) > 0,' JOIN #FilteredDetails as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId ',' '),
-	'JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
-	LEFT JOIN 
+    ,IIF((SELECT COUNT(*) FROM #FilteredDetails) > 0,' JOIN #FilteredDetails as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId ',' ')
+	,IIF((SELECT COUNT(*) FROM #AssignedCalibrators) > 0,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
+	,IIF((SELECT COUNT(*) FROM #EquipmentId) > 0,' JOIN #EquipmentId as eid ON wp.OrderWorkPlanId = eid.OrderWorkPlanId ',' ')
+	,'JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId'
+	,IIF((SELECT COUNT(*) FROM #SpecialCareTypes) > 0,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
+	,'LEFT JOIN 
 	(
 		SELECT co.OrderWorkPlanId,STRING_AGG(co.CarId,'','') as [Cars]
 		FROM [dbo].[CarsToOrder] as co 
@@ -164,6 +197,8 @@ CONCAT(
 	,CASE WHEN @ProducedIn IS NOT NULL THEN ' AND od.DeviceManufacturer LIKE N''%'+ @ProducedIn +'%'' 'ELSE ' ' END
 	,CASE WHEN @DeviceModel IS NOT NULL THEN ' AND od.DeviceModel LIKE N''%'+ @DeviceModel +'%'' 'ELSE ' ' END
 	,CASE WHEN @PrintedNumber IS NOT NULL THEN ' AND od.SerialNumber LIKE N''%'+ @PrintedNumber+'%'' 'ELSE ' ' END
+	,CASE WHEN @DeviceNumber IS NOT NULL THEN ' AND od.SerialNumber LIKE N''%'+ @DeviceNumber +'%'' 'ELSE ' ' END
+	,CASE WHEN @DeviceManufacturer IS NOT NULL THEN ' AND od.DeviceManufacturer LIKE N''%'+ @DeviceManufacturer +'%'''ELSE ' ' END
 	,'GROUP BY wp.[OrderNumber], 
 	spc.[SpecialCares],
 	od.[CustomerName], 
