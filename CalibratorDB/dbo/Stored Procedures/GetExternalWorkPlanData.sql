@@ -19,14 +19,14 @@ CREATE PROCEDURE [dbo].[GetExternalWorkPlanData]
 	@ProducedIn NVARCHAR(255) = NULL,
 	@AssignedCalibrators NVARCHAR(100) = NULL,
 	@DeviceModel NVARCHAR(100) = NULL,
-	@PrintedNumber NVARCHAR(100) = NULL,
 	@DateFrom DATETIME2(0) = NULL,
 	@DateTo DATETIME2(0) = NULL,
 	@DeviceNumber NVARCHAR(20) = NULL,
 	@DeviceManufacturer NVARCHAR(255) = NULL,
 	@AssignedCalibratorsIds NVARCHAR(MAX) = NULL,
 	@EquipmentIds NVARCHAR(MAX) = NULL,
-	@SpecialCareTypeIds NVARCHAR(255) = NULL
+	@SpecialCareTypeIds NVARCHAR(255) = NULL,
+	@OrderNumber NCHAR(12) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -46,32 +46,32 @@ BEGIN
 
 	IF @AssignedCalibrators IS NOT NULL
 	BEGIN
-	DROP TABLE IF EXISTS #Calibrators
-	CREATE TABLE #Calibrators
-	(
-	CalibratorId INT
-	)
-	INSERT #Calibrators(CalibratorId)
-	SELECT u.ID FROM [dbo].[Users] as u 
-	JOIN [dbo].[UsersToUserRoles] as r ON u.ID = r.UserId
-	WHERE u.IsActive = 1 AND r.UserRoleId = 3 --Calibrator
-		  AND (
-			u.LastName LIKE '%'+@AssignedCalibrators+'%' 
-			OR u.FirstName LIKE '%'+@AssignedCalibrators+'%'
-			OR u.FirstNameEng LIKE '%'+@AssignedCalibrators+'%'
-			OR u.LastNameEng LIKE '%'+@AssignedCalibrators+'%'
-			OR CONCAT(u.FirstName,' ',u.LastName) LIKE '%'+@AssignedCalibrators+'%'
-			OR CONCAT(u.FirstNameEng,' ',u.LastNameEng) LIKE '%'+@AssignedCalibrators+'%'
-			OR CONCAT(u.LastName,' ',u.FirstName) LIKE '%'+@AssignedCalibrators+'%'
-			OR CONCAT(u.LastNameEng,' ',u.FirstNameEng) LIKE '%'+@AssignedCalibrators+'%'
-	) and u.ID > 0
+		DROP TABLE IF EXISTS #Calibrators
+		CREATE TABLE #Calibrators
+		(
+		CalibratorId INT
+		)
+		INSERT #Calibrators(CalibratorId)
+		SELECT u.ID FROM [dbo].[Users] as u 
+		JOIN [dbo].[UsersToUserRoles] as r ON u.ID = r.UserId
+		WHERE u.IsActive = 1 AND r.UserRoleId = (SELECT TOP 1 UserRoleId FROM [dbo].[UserRoles] WHERE UserRoleDescriptionENG='Calibrator')
+			  AND (
+				u.LastName LIKE '%'+@AssignedCalibrators+'%' 
+				OR u.FirstName LIKE '%'+@AssignedCalibrators+'%'
+				OR u.FirstNameEng LIKE '%'+@AssignedCalibrators+'%'
+				OR u.LastNameEng LIKE '%'+@AssignedCalibrators+'%'
+				OR CONCAT(u.FirstName,' ',u.LastName) LIKE '%'+@AssignedCalibrators+'%'
+				OR CONCAT(u.FirstNameEng,' ',u.LastNameEng) LIKE '%'+@AssignedCalibrators+'%'
+				OR CONCAT(u.LastName,' ',u.FirstName) LIKE '%'+@AssignedCalibrators+'%'
+				OR CONCAT(u.LastNameEng,' ',u.FirstNameEng) LIKE '%'+@AssignedCalibrators+'%'
+		) and u.ID > 0
 
-	INSERT #FilteredDetails(OrderWorkPlanId)
-   	SELECT DISTINCT cwp.[OrderWorkPlanId]
-	FROM [dbo].[CalibratorsToWorkPlan] as cwp
-	JOIN #Calibrators AS c ON c.CalibratorId = cwp.CalibratorId
-	LEFT JOIN #FilteredDetails as fd ON cwp.OrderWorkPlanId = fd.OrderWorkPlanId
-	WHERE fd.OrderWorkPlanId IS NULL
+		INSERT #FilteredDetails(OrderWorkPlanId)
+   		SELECT DISTINCT cwp.[OrderWorkPlanId]
+		FROM [dbo].[CalibratorsToWorkPlan] as cwp
+		JOIN #Calibrators AS c ON c.CalibratorId = cwp.CalibratorId
+		LEFT JOIN #FilteredDetails as fd ON cwp.OrderWorkPlanId = fd.OrderWorkPlanId
+		WHERE fd.OrderWorkPlanId IS NULL
 
 	END
 
@@ -126,10 +126,10 @@ CONCAT(
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
     ,IIF((SELECT COUNT(*) FROM #FilteredDetails) > 0,' JOIN #FilteredDetails as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId ',' ')
-	,IIF((SELECT COUNT(*) FROM #AssignedCalibrators) > 0,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
-	,IIF((SELECT COUNT(*) FROM #EquipmentId) > 0,' JOIN #EquipmentId as eid ON wp.OrderWorkPlanId = eid.OrderWorkPlanId ',' ')
+	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
+	,IIF(@EquipmentIds IS NOT NULL,' JOIN #EquipmentId as eid ON wp.OrderWorkPlanId = eid.OrderWorkPlanId ',' ')
 	,'JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId'
-	,IIF((SELECT COUNT(*) FROM #SpecialCareTypes) > 0,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
+	,IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
 	,'LEFT JOIN 
 	(
 		SELECT co.OrderWorkPlanId,STRING_AGG(co.CarId,'','') as [Cars]
@@ -196,9 +196,9 @@ CONCAT(
 	,CASE WHEN @ProductType IS NOT NULL THEN ' AND od.PartName LIKE N''%'+ @ProductType +'%'' 'ELSE ' ' END
 	,CASE WHEN @ProducedIn IS NOT NULL THEN ' AND od.DeviceManufacturer LIKE N''%'+ @ProducedIn +'%'' 'ELSE ' ' END
 	,CASE WHEN @DeviceModel IS NOT NULL THEN ' AND od.DeviceModel LIKE N''%'+ @DeviceModel +'%'' 'ELSE ' ' END
-	,CASE WHEN @PrintedNumber IS NOT NULL THEN ' AND od.SerialNumber LIKE N''%'+ @PrintedNumber+'%'' 'ELSE ' ' END
 	,CASE WHEN @DeviceNumber IS NOT NULL THEN ' AND od.SerialNumber LIKE N''%'+ @DeviceNumber +'%'' 'ELSE ' ' END
 	,CASE WHEN @DeviceManufacturer IS NOT NULL THEN ' AND od.DeviceManufacturer LIKE N''%'+ @DeviceManufacturer +'%'''ELSE ' ' END
+    ,CASE WHEN @OrderNumber IS NOT NULL THEN ' AND wp.OrderNumber LIKE N''%'+ @OrderNumber +'%'''ELSE ' ' END
 	,'GROUP BY wp.[OrderNumber], 
 	spc.[SpecialCares],
 	od.[CustomerName], 
