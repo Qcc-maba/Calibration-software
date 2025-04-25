@@ -175,6 +175,7 @@ STRING_AGG(ud.DepartmentId,'','') as DepartmentIds,
 STRING_AGG(d.DepartmentName,'','') as DepartmentNames
 FROM [dbo].[UsersToDepartments] as ud
 LEFT JOIN [dbo].[Departments] as d ON ud.DepartmentId = d.ID
+WHERE ud.IsDeleted = 0
 GROUP BY ud.UserId
 ) as dep ON u.ID = dep.UserId
 WHERE u.ID > 0 
