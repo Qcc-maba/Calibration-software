@@ -4,7 +4,7 @@
 -- Description:	Get all statuses for specified categoty
 -- JiraLink: 
 -- =============================================
-CREATE   PROCEDURE dbo.GetStatusByCategory
+CREATE   PROCEDURE [dbo].[GetStatusByCategory]
 @StatusDescriptionENG NVARCHAR(255)
 
 /*
@@ -21,6 +21,7 @@ THROW 51000, 'Incorrect category provided.', 1;
 SELECT s.StatusId
 	   ,s.StatusDescriptionENG
 	   ,s.StatusDescriptionHEB
+	   ,s.Code
 FROM [dbo].[StatusesCategories] as c
 JOIN [dbo].[Statuses] as s ON c.StatusCategoryId = s.StatusCategoryId
 WHERE c.StatusDescriptionENG = @StatusDescriptionENG
