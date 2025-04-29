@@ -10,7 +10,7 @@ CREATE   PROCEDURE [dbo].[GetCarManagementTableData]
 @NumberOfSeats INT = NULL,
 @StatusId INT = -1,
 @OwnerId INT = -1,
-@AssignedCalibrator INT = -1,
+@AssignedCalibratorId INT = -1,
 @TreatmentPeriod INT = -1,
 @NextTreatmentDate DATE = NULL,
 @NextTestDate DATE = NULL,
@@ -138,7 +138,7 @@ CONCAT(
   ,CASE WHEN @NumberOfSeats > 0 THEN' AND c.[Seats] = '+CAST(@NumberOfSeats as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @StatusId > 0 THEN' AND c.[CarStatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @OwnerId > 0 THEN ' AND c.[OwnerId] = '+CAST(@OwnerId as NVARCHAR(50))+' 'ELSE ' ' END
- -- ,CASE WHEN @AssignedCalibrator > 0 THEN ' AND c.[AssignedCalibratorId] = '+CAST(@AssignedCalibrator as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @AssignedCalibratorId > 0 THEN ' AND c.[AssignedCalibratorId] = '+CAST(@AssignedCalibratorId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @TreatmentPeriod > 0 THEN ' AND c.[TreatmentPeriod] = '+CAST(@TreatmentPeriod as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @NextTreatmentDate IS NOT NULL AND @NextTreatmentDate > '1900-01-01' THEN ' AND c.[NextTreatmentDate] = '''+ CAST(@NextTreatmentDate AS NVARCHAR(20))+''' ' ELSE ' ' END
   ,CASE WHEN @NextTestDate IS NOT NULL AND @NextTestDate > '1900-01-01' THEN' AND c.[NextYearlyTestDate] = '''+ CAST(@NextTestDate AS NVARCHAR(20))+''' 'ELSE ' ' END

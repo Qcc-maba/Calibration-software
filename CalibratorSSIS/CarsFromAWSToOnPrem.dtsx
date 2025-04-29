@@ -12,8 +12,8 @@
   DTS:ObjectName="CarsFromAWSToOnPrem"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="58"
-  DTS:VersionGUID="{700C35FB-DA90-4F30-93B1-021D26847DEB}">
+  DTS:VersionBuild="62"
+  DTS:VersionGUID="{28BBC0C3-9959-454D-A28F-2C5A2C393620}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:PackageParameters>
@@ -42,7 +42,7 @@
       DTS:CreationName=""
       DTS:DTSID="{8F2489F4-0101-42E9-93F0-DB6CA3BD9EAC}"
       DTS:EvaluateAsExpression="True"
-      DTS:Expression="REPLACE(&#xA;    REPLACE(&#xA;        &quot;WITH CarList&#xA;AS&#xA;(&#xA;SELECT [CarId] FROM [dbo].[Cars] --WHERE [CreateDate] &gt;= '@LoadFromDate' AND [CreateDate] &lt;= '@LoadToDate'&#xA;UNION &#xA;SELECT [CarId] FROM [dbo].[Cars] --WHERE [UpdatedDate] &gt;= '@LoadFromDate' AND [UpdatedDate] &lt;= '@LoadToDate'&#xA;)&#xA;SELECT c.[CarId],&#xA;       c.[MabaNumber],&#xA;       c.[Model],&#xA;       c.[LicenseNumber],&#xA;       c.[Seats],&#xA;       c.[TreatmentPeriod],&#xA;       c.[NextTreatmentDate],&#xA;       c.[NextYearlyTestDate],&#xA;       c.[OwnerId],&#xA;       c.[CarStatusId],&#xA;       c.[CreateDate],&#xA;       c.[UpdatedDate],&#xA;       c.[AssignedCalibratorId],&#xA;       c.[UpdateUserID],&#xA;       c.[IsDeleted]&#xA;FROM [dbo].[Cars] AS c&#xA;JOIN CarList AS cl ON c.CarId = cl.CarId&quot;,&#xA;        &quot;@LoadFromDate&quot;, (DT_WSTR, 30)@[User::LoadFromDate]),&#xA;    &quot;@LoadToDate&quot;, (DT_WSTR, 30)@[$Package::LoadToDate] &#xA;)"
+      DTS:Expression="REPLACE(&#xA;    REPLACE(&#xA;        &quot;WITH CarList&#xA;AS&#xA;(&#xA;SELECT [CarId] FROM [dbo].[Cars] WHERE [CreateDate] &gt;= '@LoadFromDate' AND [CreateDate] &lt;= '@LoadToDate'&#xA;UNION &#xA;SELECT [CarId] FROM [dbo].[Cars] WHERE [UpdatedDate] &gt;= '@LoadFromDate' AND [UpdatedDate] &lt;= '@LoadToDate'&#xA;)&#xA;SELECT c.[CarId],&#xA;       c.[MabaNumber],&#xA;       c.[Model],&#xA;       c.[LicenseNumber],&#xA;       c.[Seats],&#xA;       c.[TreatmentPeriod],&#xA;       c.[NextTreatmentDate],&#xA;       c.[NextYearlyTestDate],&#xA;       c.[OwnerId],&#xA;       c.[CarStatusId],&#xA;       c.[CreateDate],&#xA;       c.[UpdatedDate],&#xA;       c.[AssignedCalibratorId],&#xA;       c.[UpdateUserID],&#xA;       c.[IsDeleted]&#xA;FROM [dbo].[Cars] AS c&#xA;JOIN CarList AS cl ON c.CarId = cl.CarId&quot;,&#xA;        &quot;@LoadFromDate&quot;, (DT_WSTR, 30)@[User::LoadFromDate]),&#xA;    &quot;@LoadToDate&quot;, (DT_WSTR, 30)@[$Package::LoadToDate] &#xA;)"
       DTS:IncludeInDebugDump="2345"
       DTS:Namespace="User"
       DTS:ObjectName="SourceSQL">
@@ -50,9 +50,9 @@
         DTS:DataType="8">WITH CarList
 AS
 (
-SELECT [CarId] FROM [dbo].[Cars] --WHERE [CreateDate] &gt;= '4/18/2025 3:33:13 PM' AND [CreateDate] &lt;= '4/18/2025 10:55:00 AM'
+SELECT [CarId] FROM [dbo].[Cars] WHERE [CreateDate] &gt;= '4/18/2025 3:33:13 PM' AND [CreateDate] &lt;= '4/18/2025 10:55:00 AM'
 UNION 
-SELECT [CarId] FROM [dbo].[Cars] --WHERE [UpdatedDate] &gt;= '4/18/2025 3:33:13 PM' AND [UpdatedDate] &lt;= '4/18/2025 10:55:00 AM'
+SELECT [CarId] FROM [dbo].[Cars] WHERE [UpdatedDate] &gt;= '4/18/2025 3:33:13 PM' AND [UpdatedDate] &lt;= '4/18/2025 10:55:00 AM'
 )
 SELECT c.[CarId],
        c.[MabaNumber],
@@ -136,9 +136,9 @@ JOIN CarList AS cl ON c.CarId = cl.CarId</DTS:VariableValue>
                   UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">WITH CarList
 AS
 (
-SELECT [CarId] FROM [dbo].[Cars] --WHERE [CreateDate] &gt;= '4/18/2025 3:33:13 PM' AND [CreateDate] &lt;= '4/18/2025 10:55:00 AM'
+SELECT [CarId] FROM [dbo].[Cars] WHERE [CreateDate] &gt;= '4/18/2025 3:33:13 PM' AND [CreateDate] &lt;= '4/18/2025 10:55:00 AM'
 UNION 
-SELECT [CarId] FROM [dbo].[Cars] --WHERE [UpdatedDate] &gt;= '4/18/2025 3:33:13 PM' AND [UpdatedDate] &lt;= '4/18/2025 10:55:00 AM'
+SELECT [CarId] FROM [dbo].[Cars] WHERE [UpdatedDate] &gt;= '4/18/2025 3:33:13 PM' AND [UpdatedDate] &lt;= '4/18/2025 10:55:00 AM'
 )
 SELECT c.[CarId],
        c.[MabaNumber],
@@ -533,8 +533,8 @@ JOIN CarList AS cl ON c.CarId = cl.CarId</property>
               <connections>
                 <connection
                   refId="Package\Load  cars data to stg\Load data to stg.Connections[IDbConnection]"
-                  connectionManagerID="{5D340525-F86F-4A09-8F4F-C17373323AB0}:external"
-                  connectionManagerRefId="Project.ConnectionManagers[AWSCalibrator]"
+                  connectionManagerID="{76ED0EFD-E8C5-4864-8512-E3A776A40A48}:external"
+                  connectionManagerRefId="Project.ConnectionManagers[OnPremCalibrator]"
                   description="Managed connection manager"
                   name="IDbConnection" />
               </connections>
@@ -966,22 +966,22 @@ JOIN CarList AS cl ON c.CarId = cl.CarId</property>
       <GraphLayout
         Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
+          Size="152.8,41.6"
+          Id="Package\Load  cars data to stg\Load data to stg"
+          TopLeft="107.49999679625,166.947369075713" />
+        <NodeLayout
           Size="210.4,41.6"
           Id="Package\Load  cars data to stg\Get car data from AWS"
           TopLeft="99.1250019036238,70.9999984526321" />
-        <NodeLayout
-          Size="169.6,41.6"
-          Id="Package\Load  cars data to stg\Load data to stg"
-          TopLeft="107.49999679625,166.947369075713" />
         <EdgeLayout
           Id="Package\Load  cars data to stg.Paths[ADO NET Source Output]"
           TopLeft="204.325001903624,112.599998452632">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="-12.0250051073735,54.347370623081"
+              EndConnector="-20.4250051073738,54.3473706230809"
               Start="0,0"
-              End="-12.0250051073735,46.847370623081">
+              End="-20.4250051073738,46.8473706230809">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
@@ -992,13 +992,13 @@ JOIN CarList AS cl ON c.CarId = cl.CarId</property>
                     Point2="0,27.1736853115405"
                     Point3="-4,27.1736853115405" />
                   <mssgle:LineSegment
-                    End="-8.02500510737346,27.1736853115405" />
+                    End="-16.4250051073738,27.1736853115405" />
                   <mssgle:CubicBezierSegment
-                    Point1="-8.02500510737346,27.1736853115405"
-                    Point2="-12.0250051073735,27.1736853115405"
-                    Point3="-12.0250051073735,31.1736853115405" />
+                    Point1="-16.4250051073738,27.1736853115405"
+                    Point2="-20.4250051073738,27.1736853115405"
+                    Point3="-20.4250051073738,31.1736853115405" />
                   <mssgle:LineSegment
-                    End="-12.0250051073735,46.847370623081" />
+                    End="-20.4250051073738,46.8473706230809" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>

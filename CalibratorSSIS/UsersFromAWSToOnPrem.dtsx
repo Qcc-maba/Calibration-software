@@ -12,8 +12,8 @@
   DTS:ObjectName="UsersFromAWSToOnPrem"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="74"
-  DTS:VersionGUID="{88F83C0D-CE80-4C79-B9DC-5C906CFF9281}">
+  DTS:VersionBuild="76"
+  DTS:VersionGUID="{295F08A1-562B-4564-B74A-39576B2765FB}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:PackageParameters>
@@ -42,7 +42,7 @@
       DTS:CreationName=""
       DTS:DTSID="{5B86CD45-9472-4470-AABB-93E63FD02C74}"
       DTS:EvaluateAsExpression="True"
-      DTS:Expression="REPLACE(&#xA;    REPLACE(&#xA;        &quot;WITH UserList&#xA;as&#xA;(&#xA;SELECT [ID] FROM [dbo].[Users] WHERE [CreatedDate] &gt;= '@LoadFromDate' AND [CreatedDate] &lt;= '@LoadToDate'&#xA;UNION&#xA;SELECT [ID] FROM [dbo].[Users]WHERE [UpdatedDate] &gt;= '@LoadFromDate' AND [UpdatedDate] &lt;= '@LoadToDate'&#xA;)&#xA;SELECT u.[ID]&#xA;      ,u.[FirstName]&#xA;      ,u.[LastName]&#xA;      ,u.[FirstNameEng]&#xA;      ,u.[LastNameEng]&#xA;      ,u.[Email]&#xA;      ,u.[Password]&#xA;      ,u.[Phone]&#xA;      ,u.[IsActive]&#xA;      ,u.[CreatedDate]&#xA;      ,u.[UpdatedDate]&#xA;      ,u.[UpdateUserID]&#xA;      ,u.[UserAddress]&#xA;      ,u.[LocationArea]&#xA;      ,u.[DepartmentId]&#xA;      ,u.[Stamp]&#xA;  FROM [dbo].[Users] as u&#xA;  JOIN UserList as ul ON u.ID = ul.ID &quot;,&#xA;        &quot;@LoadFromDate&quot;, (DT_WSTR, 30)@[User::LoadFromDate]),&#xA;    &quot;@LoadToDate&quot;, (DT_WSTR, 30)@[$Package::LoadToDate] &#xA;)"
+      DTS:Expression="REPLACE(&#xA;    REPLACE(&#xA;        &quot;WITH UserList&#xA;as&#xA;(&#xA;SELECT [ID] FROM [dbo].[Users] WHERE [CreatedDate] &gt;= '@LoadFromDate' AND [CreatedDate] &lt;= '@LoadToDate'&#xA;UNION&#xA;SELECT [ID] FROM [dbo].[Users]WHERE [UpdatedDate] &gt;= '@LoadFromDate' AND [UpdatedDate] &lt;= '@LoadToDate'&#xA;)&#xA;SELECT u.[ID]&#xA;      ,u.[FirstName]&#xA;      ,u.[LastName]&#xA;      ,u.[FirstNameEng]&#xA;      ,u.[LastNameEng]&#xA;      ,u.[Email]&#xA;      ,u.[Password]&#xA;      ,u.[Phone]&#xA;      ,u.[IsActive]&#xA;      ,u.[CreatedDate]&#xA;      ,u.[UpdatedDate]&#xA;      ,u.[UpdateUserID]&#xA;      ,u.[UserAddress]&#xA;      ,u.[LocationArea]&#xA;      ,u.[Stamp]&#xA;  FROM [dbo].[Users] as u&#xA;  JOIN UserList as ul ON u.ID = ul.ID &quot;,&#xA;        &quot;@LoadFromDate&quot;, (DT_WSTR, 30)@[User::LoadFromDate]),&#xA;    &quot;@LoadToDate&quot;, (DT_WSTR, 30)@[$Package::LoadToDate] &#xA;)"
       DTS:IncludeInDebugDump="2345"
       DTS:Namespace="User"
       DTS:ObjectName="SourceSQL">
@@ -68,7 +68,6 @@ SELECT u.[ID]
       ,u.[UpdateUserID]
       ,u.[UserAddress]
       ,u.[LocationArea]
-      ,u.[DepartmentId]
       ,u.[Stamp]
   FROM [dbo].[Users] as u
   JOIN UserList as ul ON u.ID = ul.ID </DTS:VariableValue>
@@ -156,7 +155,6 @@ SELECT u.[ID]
       ,u.[UpdateUserID]
       ,u.[UserAddress]
       ,u.[LocationArea]
-      ,u.[DepartmentId]
       ,u.[Stamp]
   FROM [dbo].[Users] as u
   JOIN UserList as ul ON u.ID = ul.ID </property>
@@ -332,15 +330,6 @@ SELECT u.[ID]
                       name="LocationArea"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
-                      refId="Package\Load users data to on prem\Get users from AWS.Outputs[ADO NET Source Output].Columns[DepartmentId]"
-                      dataType="i4"
-                      errorOrTruncationOperation="Conversion"
-                      errorRowDisposition="FailComponent"
-                      externalMetadataColumnId="Package\Load users data to on prem\Get users from AWS.Outputs[ADO NET Source Output].ExternalColumns[DepartmentId]"
-                      lineageId="Package\Load users data to on prem\Get users from AWS.Outputs[ADO NET Source Output].Columns[DepartmentId]"
-                      name="DepartmentId"
-                      truncationRowDisposition="FailComponent" />
-                    <outputColumn
                       refId="Package\Load users data to on prem\Get users from AWS.Outputs[ADO NET Source Output].Columns[Stamp]"
                       dataType="wstr"
                       errorOrTruncationOperation="Conversion"
@@ -418,10 +407,6 @@ SELECT u.[ID]
                       dataType="wstr"
                       length="200"
                       name="LocationArea" />
-                    <externalMetadataColumn
-                      refId="Package\Load users data to on prem\Get users from AWS.Outputs[ADO NET Source Output].ExternalColumns[DepartmentId]"
-                      dataType="i4"
-                      name="DepartmentId" />
                     <externalMetadataColumn
                       refId="Package\Load users data to on prem\Get users from AWS.Outputs[ADO NET Source Output].ExternalColumns[Stamp]"
                       dataType="wstr"
@@ -513,11 +498,6 @@ SELECT u.[ID]
                       length="200"
                       lineageId="Package\Load users data to on prem\Get users from AWS.Outputs[ADO NET Source Error Output].Columns[LocationArea]"
                       name="LocationArea" />
-                    <outputColumn
-                      refId="Package\Load users data to on prem\Get users from AWS.Outputs[ADO NET Source Error Output].Columns[DepartmentId]"
-                      dataType="i4"
-                      lineageId="Package\Load users data to on prem\Get users from AWS.Outputs[ADO NET Source Error Output].Columns[DepartmentId]"
-                      name="DepartmentId" />
                     <outputColumn
                       refId="Package\Load users data to on prem\Get users from AWS.Outputs[ADO NET Source Error Output].Columns[Stamp]"
                       dataType="wstr"
@@ -684,12 +664,6 @@ SELECT u.[ID]
                       externalMetadataColumnId="Package\Load users data to on prem\Load tato to staging.Inputs[ADO NET Destination Input].ExternalColumns[LocationArea]"
                       lineageId="Package\Load users data to on prem\Get users from AWS.Outputs[ADO NET Source Output].Columns[LocationArea]" />
                     <inputColumn
-                      refId="Package\Load users data to on prem\Load tato to staging.Inputs[ADO NET Destination Input].Columns[DepartmentId]"
-                      cachedDataType="i4"
-                      cachedName="DepartmentId"
-                      externalMetadataColumnId="Package\Load users data to on prem\Load tato to staging.Inputs[ADO NET Destination Input].ExternalColumns[DepartmentId]"
-                      lineageId="Package\Load users data to on prem\Get users from AWS.Outputs[ADO NET Source Output].Columns[DepartmentId]" />
-                    <inputColumn
                       refId="Package\Load users data to on prem\Load tato to staging.Inputs[ADO NET Destination Input].Columns[Stamp]"
                       cachedDataType="wstr"
                       cachedLength="30"
@@ -764,10 +738,6 @@ SELECT u.[ID]
                       dataType="wstr"
                       length="200"
                       name="LocationArea" />
-                    <externalMetadataColumn
-                      refId="Package\Load users data to on prem\Load tato to staging.Inputs[ADO NET Destination Input].ExternalColumns[DepartmentId]"
-                      dataType="i4"
-                      name="DepartmentId" />
                     <externalMetadataColumn
                       refId="Package\Load users data to on prem\Load tato to staging.Inputs[ADO NET Destination Input].ExternalColumns[Stamp]"
                       dataType="wstr"
