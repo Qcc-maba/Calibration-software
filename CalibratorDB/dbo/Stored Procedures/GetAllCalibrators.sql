@@ -34,8 +34,8 @@ CalibratorId INT
 INSERT #Certifications(CalibratorId)
 SELECT DISTINCT wp.CalibratorId
 FROM [dbo].[CalibratorsToWorkPlan] as wp 
-JOIN [dbo].[CalibratorsToCertification] as cts ON wp.CalibratorId = cts.CalibratorId
-JOIN [dbo].[CalibratorsCertifications] as s ON cts.CertificationId = s.ID
+JOIN [dbo].[CalibratorsToCertification] as cts ON wp.CalibratorId = cts.CalibratorId and cts.IsDeleted = 0
+JOIN [dbo].[CalibratorsCertifications] as s ON cts.CertificationId = s.ID and s.IsDeleted = 0
 JOIN dbo.ParseCSVToTable(@Certifications) as sc ON s.[Certificate] = sc.[Value]
 END
 

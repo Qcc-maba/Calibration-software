@@ -12,8 +12,8 @@
   DTS:ObjectName="StartSyncAWSToOnPrem"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="19"
-  DTS:VersionGUID="{D0FBCEAF-ACDF-436D-A068-98867A160794}">
+  DTS:VersionBuild="20"
+  DTS:VersionGUID="{AD63AA86-B7B2-4BC8-8018-FFEB458448D3}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -152,7 +152,7 @@
         <NodeLayout
           Size="281.6,41.6"
           Id="Package\Load dependent entities Level 1\Load CalendarEvents to participant on prem"
-          TopLeft="299.1,5.50000000000007" />
+          TopLeft="289.933333834178,7.23333332127993" />
         <NodeLayout
           Size="232.8,41.6"
           Id="Package\Load dependent entities Level 1\Load cars to on prem"
@@ -181,18 +181,18 @@
           TopLeft="19.5,5.50000000000007" />
         <EdgeLayout
           Id="Package.PrecedenceConstraints[Constraint]"
-          TopLeft="290.7,151.1">
+          TopLeft="294.5,151.1">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,60.0000000000001"
+              EndConnector="0,59.9999999999999"
               Start="0,0"
-              End="0,52.5000000000001">
+              End="0,52.4999999999999">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,52.5000000000001" />
+                    End="0,52.4999999999999" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>

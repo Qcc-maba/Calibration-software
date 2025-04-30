@@ -23,7 +23,7 @@ CREATE PROCEDURE [dbo].[GetExternalWorkPlanData]
 	@DateTo DATETIME2(0) = NULL,
 	@DeviceNumber NVARCHAR(20) = NULL,
 	@DeviceManufacturer NVARCHAR(255) = NULL,
-	@AssignedCalibratorsIds NVARCHAR(MAX) = NULL,
+	@AssignedCalibratorsIds NVARCHAR(MAX) = NULL,-- -1 means that we should include orders with empty calibrator
 	@EquipmentIds NVARCHAR(MAX) = NULL,
 	@SpecialCareTypeIds NVARCHAR(255) = NULL,
 	@OrderNumber NCHAR(12) = NULL
@@ -53,7 +53,7 @@ BEGIN
 		)
 		INSERT #Calibrators(CalibratorId)
 		SELECT u.ID FROM [dbo].[Users] as u 
-		JOIN [dbo].[UsersToUserRoles] as r ON u.ID = r.UserId
+		JOIN [dbo].[UsersToUserRoles] as r ON u.ID = r.UserId and r.IsDeleted = 0
 		WHERE u.IsActive = 1 AND r.UserRoleId = (SELECT TOP 1 UserRoleId FROM [dbo].[UserRoles] WHERE UserRoleDescriptionENG='Calibrator')
 			  AND (
 				u.LastName LIKE '%'+@AssignedCalibrators+'%' 
@@ -71,7 +71,7 @@ BEGIN
 		FROM [dbo].[CalibratorsToWorkPlan] as cwp
 		JOIN #Calibrators AS c ON c.CalibratorId = cwp.CalibratorId
 		LEFT JOIN #FilteredDetails as fd ON cwp.OrderWorkPlanId = fd.OrderWorkPlanId
-		WHERE fd.OrderWorkPlanId IS NULL
+		WHERE fd.OrderWorkPlanId IS NULL and cwp.IsDeleted = 0
 
 	END
 
@@ -82,7 +82,16 @@ BEGIN
 	)
 	INSERT #AssignedCalibrators([OrderWorkPlanId])
 	SELECT DISTINCT wp.OrderWorkPlanId FROM dbo.ParseCSVToTable(@AssignedCalibratorsIds) as f
-	JOIN [dbo].[CalibratorsToWorkPlan] as wp ON wp.CalibratorId = f.Value
+	JOIN [dbo].[CalibratorsToWorkPlan] as wp ON wp.CalibratorId = f.Value and wp.IsDeleted = 0
+	
+	IF EXISTS (SELECT 1 FROM dbo.ParseCSVToTable(@AssignedCalibratorsIds) WHERE [Value] = -1)
+	INSERT #AssignedCalibrators([OrderWorkPlanId])
+	SELECT DISTINCT wp.[OrderWorkPlanId]
+	FROM [dbo].[OrderWorkPlans] as wp
+	LEFT JOIN [dbo].[CalibratorsToWorkPlan] as cwp ON wp.OrderWorkPlanId = cwp.OrderWorkPlanId and cwp.IsDeleted = 0
+	WHERE wp.IsCancelled = 0 AND cwp.OrderWorkPlanId IS NULL
+
+
 
 	DROP TABLE IF EXISTS #EquipmentId
 	CREATE TABLE #EquipmentId
@@ -91,7 +100,7 @@ BEGIN
 	)
 	INSERT #EquipmentId([OrderWorkPlanId])
 	SELECT DISTINCT ce.OrderWorkPlanId FROM dbo.ParseCSVToTable(@EquipmentIds) as f
-	JOIN [dbo].[CalibEquipmentsToOrderHeaders] as ce ON ce.CalibEquipmentId = f.Value
+	JOIN [dbo].[CalibEquipmentsToOrderHeaders] as ce ON ce.CalibEquipmentId = f.Value and ce.IsDeleted = 0
 
 	DROP TABLE IF EXISTS #SpecialCareTypes
 	CREATE TABLE #SpecialCareTypes

@@ -76,6 +76,7 @@ INSERT #UserRoleIds(UserId)
 SELECT DISTINCT ur.UserId 
 FROM dbo.ParseCSVToTable(@UserRoleIds) as v
 JOIN [dbo].[UsersToUserRoles] as ur ON v.Value = ur.UserRoleId
+WHERE ur.IsDeleted = 0
 
 DROP TABLE IF EXISTS #UserStatusesIds
 CREATE TABLE #UserStatusesIds
@@ -101,6 +102,7 @@ INSERT #DepartmentUserIds(UserId)
 SELECT DISTINCT ud.UserId 
 FROM dbo.ParseCSVToTable(@DepartmentIdsList) as v
 JOIN dbo.UsersToDepartments as ud ON v.Value = ud.DepartmentId
+WHERE ud.IsDeleted = 0
 --Insert users filtered by provided @CertificationIds
 
 DROP TABLE IF EXISTS #CertificationUserIds
@@ -113,6 +115,7 @@ INSERT #CertificationUserIds(UserId)
 SELECT DISTINCT c.CalibratorId as UserId 
 FROM dbo.ParseCSVToTable(@CertificationIds) as v
 JOIN dbo.CalibratorsToCertification as c ON v.Value = c.CertificationId
+WHERE c.IsDeleted = 0
 
 
 DECLARE @sql NVARCHAR(MAX) =
@@ -142,11 +145,11 @@ SELECT u.ID,
 FROM [dbo].[Users] as u
 JOIN #Status as ss ON u.IsActive = ss.IsActive
 '
-,IIF(@UserRoleIds IS NOT NULL,' JOIN #UserRoleIds as uf1 ON u.ID =  uf1.UserId',' ')
-,IIF(@UserStatusIds IS NOT NULL,' JOIN #UserStatusesIds as uf2 ON u.ID =  uf2.UserId',' ')
-,IIF(@DepartmentIdsList IS NOT NULL,' JOIN #DepartmentUserIds as uf3 ON u.ID =  uf3.UserId',' ')
-,IIF(@CertificationIds IS NOT NULL,' JOIN #CertificationUserIds as uf4 ON u.ID =  uf4.UserId',' ')
-,IIF(@FirstName IS NOT NULL OR @LastName IS NOT NULL,' JOIN #UserFullName  as f ON u.ID =  f.UserId',' '),
+,IIF(@UserRoleIds IS NOT NULL,' JOIN #UserRoleIds as uf1 ON u.ID =  uf1.UserId ',' ')
+,IIF(@UserStatusIds IS NOT NULL,' JOIN #UserStatusesIds as uf2 ON u.ID =  uf2.UserId ',' ')
+,IIF(@DepartmentIdsList IS NOT NULL,' JOIN #DepartmentUserIds as uf3 ON u.ID =  uf3.UserId ',' ')
+,IIF(@CertificationIds IS NOT NULL,' JOIN #CertificationUserIds as uf4 ON u.ID =  uf4.UserId ',' ')
+,IIF(@FirstName IS NOT NULL OR @LastName IS NOT NULL,' JOIN #UserFullName  as f ON u.ID =  f.UserId ',' '),
 'LEFT JOIN
 (
 SELECT utr.UserId, 

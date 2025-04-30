@@ -1,4 +1,5 @@
 ﻿
+
 CREATE PROCEDURE [dbo].[GetLoginUser]
     @email NVARCHAR(100),
     @password NVARCHAR(100)
@@ -50,14 +51,24 @@ BEGIN
 		,u.LastName
 		,u.Email
 		,u.Phone as Mobile
-		,r.UserRoleId AS RoleId
-		,ur.UserRoleName as RoleName
-		,ur.UserRoleDescriptionENG	
-		,ur.UserRoleDescriptionHEB
+		,r.RoleId
+		,ud.DepartmentId
 	FROM dbo.Users as u
-	JOIN dbo.UsersToUserRoles as r ON r.UserId = u.ID
-	JOIN dbo.UserRoles as ur ON r.UserRoleId = ur.UserRoleId
-	WHERE u.Email = @email AND u.Password = @password AND ur.IsApplicationRole = 1
+	JOIN 
+	(
+		SELECT r.UserId, STRING_AGG(r.UserRoleId,',')  as RoleId
+		FROM dbo.UsersToUserRoles as r
+		WHERE r.IsDeleted = 0
+		GROUP BY r.UserId
+	) as r ON r.UserId = u.ID
+	LEFT JOIN 
+	(
+		SELECT ud.UserId, STRING_AGG(ud.DepartmentId,',') as DepartmentId
+		FROM [dbo].[UsersToDepartments] as ud 
+		WHERE ud.IsDeleted = 0
+		GROUP BY ud.UserId
+	)as ud ON u.ID = ud.UserId
+	WHERE u.Email = @email AND u.Password = @password
 	AND u.ID > 0 and u.IsActive = 1
 
 

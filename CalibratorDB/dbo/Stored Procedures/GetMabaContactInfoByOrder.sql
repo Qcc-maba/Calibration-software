@@ -4,7 +4,7 @@
 -- Description:	This SP return customer contact for order
 -- JiraLink: 
 -- =============================================
-CREATE   PROCEDURE dbo.GetMabaContactInfoByOrder
+CREATE   PROCEDURE [dbo].[GetMabaContactInfoByOrder]
 @OrderID NVARCHAR(100)
 
 /*
@@ -26,7 +26,7 @@ wp.OrderNumber
 ,od.CustomerContactEmail as Email
 FROM [dbo].[OrderWorkPlans] as wp
 JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
-WHERE wp.OrderNumber = @OrderID
+WHERE wp.OrderNumber = @OrderID and wp.IsCancelled = 0
 
 
 END

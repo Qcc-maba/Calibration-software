@@ -58,7 +58,7 @@ WHERE (u.ID = @CalibratorId)  AND u.IsActive = 1
 THROW 51000, 'Incorrect or inactive user assigned as calibrator.', 1;
 
 if @CarId > 0 AND NOT EXISTS (
-SELECT 1 FROM Cars WHERE CarId = @CarId
+SELECT 1 FROM Cars WHERE CarId = @CarId and IsDeleted = 0
 )
 THROW 51000, 'Incorrect car was assigned.', 1;
 
@@ -73,6 +73,7 @@ INSERT #Calibrators(CalibratorId)
 SELECT u.ID FROM [dbo].[Users] as u 
 JOIN [dbo].[UsersToUserRoles] as r ON u.ID = r.UserId
 WHERE u.IsActive = 1 AND r.UserRoleId = 3 --Calibrator
+    AND r.IsDeleted = 0
 	AND (
 u.LastName LIKE '%'+@CalibratorFullName+'%' 
 		OR u.FirstName LIKE '%'+@CalibratorFullName+'%'

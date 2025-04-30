@@ -81,7 +81,7 @@ EquipmentId INT
 )
 INSERT #EquipmentName(EquipmentId)
 SELECT u.ID FROM [dbo].[CalibEquipments] as u 
-WHERE u.EquipmentName LIKE '%'+@EquipmentName+'%'
+WHERE u.EquipmentName LIKE '%'+@EquipmentName+'%' and u.IsDeleted = 0
 END
 
 IF @StatusDescription IS NOT NULL
