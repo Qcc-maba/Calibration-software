@@ -48,7 +48,7 @@ THROW 51000, 'Incorrect @DepartmentId', 1;
 IF @StatusId > 0 AND @StatusId NOT IN (SELECT StatusId
 				FROM [dbo].[Statuses] as s
 				JOIN [dbo].[StatusesCategories] as c On s.[StatusCategoryId] = c.[StatusCategoryId]
-				WHERE c.StatusDescriptionENG = 'EquipmentStatus' )
+				WHERE c.StatusDescriptionENG = 'CalibrationEquipmentStatus' )
 THROW 51000, 'Incorrect status was assigned.', 1;
 
 if @CalibratorId > 0 AND NOT EXISTS (
