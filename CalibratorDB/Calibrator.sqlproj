@@ -101,7 +101,6 @@
     <Build Include="dbo\Tables\Cars.sql" />
     <Build Include="dbo\Tables\MeasurementDevicesCorrections.sql" />
     <Build Include="dbo\Tables\UnitGroups.sql" />
-    <Build Include="dbo\Tables\CarsToWorkplan.sql" />
     <Build Include="dbo\Tables\CarsToEquipment.sql" />
     <Build Include="dbo\Tables\Departments.sql" />
     <Build Include="dbo\Views\vwGetDepartmentOrdersByUserId.sql" />
