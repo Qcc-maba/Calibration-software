@@ -5,16 +5,16 @@
   DTS:DTSID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}"
   DTS:CreationName="ADO.NET:System.Data.SqlClient.SqlConnection, System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
   <DTS:PropertyExpression
-    DTS:Name="ConnectionString">@[$Project::OnPremCalibrator]</DTS:PropertyExpression>
+    DTS:Name="ConnectionString">@[$Project::OnPremPriority]</DTS:PropertyExpression>
   <DTS:ObjectData>
     <DTS:ConnectionManager
       DTS:ConnectionString="Data Source=10.3.0.3;User ID=kyulan;Initial Catalog=amaba;Persist Security Info=True;Encrypt=False;TrustServerCertificate=True;">
       <DTS:Password
         DTS:Name="Password"
         Sensitive="1"
-        p4:Salt="ST4rA34k6Js="
-        p4:IV="XBpbpazcEJ7ev0LPeQ3ltw=="
-        p4:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" xmlns:p4="www.microsoft.com/SqlServer/SSIS">1HS0hloCFzAZsHPzAEnq/EYw3ExOe2uvtMGPjHY6rp2bThJ8I14Sx3XyBzpvUhnTkYpVLd9TzwT7l3SrqFK53AeKjx8ESoE7GbHwhWC8PrpRNaNQ9L5og28eRNfMkGQKyd8EvefYhLifsZFYJ/Bo15f9G/svnlYJvEKfTZIc4Sk=</DTS:Password>
+        p4:Salt="PctWkmLuR0M="
+        p4:IV="D38S0jcd8GDvl/sOgiK2LQ=="
+        p4:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" xmlns:p4="www.microsoft.com/SqlServer/SSIS">jG8PPcsXS1+BYIHBCBKeiOzDv5Ztg/bWrDRyi/n/1AxO1QQS38zYNSTAy+TE8LGfzwv9LyPlc1/PUdkuzYm6WJLJ68+ujo+IEXeOX0A1aR9F4DEuEM0I7Pi6hqWjEF882NTmtB6lL22WWekJ3OuQRYEkINqFyLS7GKVjlKkV8q4=</DTS:Password>
     </DTS:ConnectionManager>
   </DTS:ObjectData>
 </DTS:ConnectionManager>

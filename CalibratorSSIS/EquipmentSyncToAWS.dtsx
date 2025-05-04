@@ -12,8 +12,8 @@
   DTS:ObjectName="EquipmentSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="12"
-  DTS:VersionGUID="{CA2B1355-A4C8-466A-B1E2-B501F60634F8}">
+  DTS:VersionBuild="15"
+  DTS:VersionGUID="{DF12CDBB-A1AB-4C8B-8D0D-912B700E31A8}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -21,6 +21,7 @@
     <DTS:Executable
       DTS:refId="Package\Load data to stg_Equip"
       DTS:CreationName="Microsoft.Pipeline"
+      DTS:DelayValidation="True"
       DTS:Description="Data Flow Task"
       DTS:DTSID="{E75778A4-0D85-4679-B6BA-278D82D976CA}"
       DTS:ExecutableType="Microsoft.Pipeline"
@@ -80,7 +81,7 @@ JOIN WorkPlan.dbo.LABORATORY_WS as l ON e.LAB_EQUIP = l.ID_LAB</property>
                 <connection
                   refId="Package\Load data to stg_Equip\Get data from WorkPlan.Connections[IDbConnection]"
                   connectionManagerID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}:external"
-                  connectionManagerRefId="Project.ConnectionManagers[OnPremPrioty]"
+                  connectionManagerRefId="Project.ConnectionManagers[OnPremPriority]"
                   description="Managed connection manager"
                   name="IDbConnection" />
               </connections>
@@ -438,14 +439,14 @@ JOIN WorkPlan.dbo.LABORATORY_WS as l ON e.LAB_EQUIP = l.ID_LAB</property>
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,37.5666661543974"
+              EndConnector="0,37.5666661543978"
               Start="0,0"
-              End="0,30.0666661543974">
+              End="0,30.0666661543978">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,30.0666661543974" />
+                    End="0,30.0666661543978" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
@@ -460,14 +461,14 @@ JOIN WorkPlan.dbo.LABORATORY_WS as l ON e.LAB_EQUIP = l.ID_LAB</property>
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,53.0666667148803"
+              EndConnector="0,53.06666671488"
               Start="0,0"
-              End="0,45.5666667148803">
+              End="0,45.56666671488">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,45.5666667148803" />
+                    End="0,45.56666671488" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
@@ -485,13 +486,13 @@ JOIN WorkPlan.dbo.LABORATORY_WS as l ON e.LAB_EQUIP = l.ID_LAB</property>
       <GraphLayout
         Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
-          Size="223.2,41.6"
-          Id="Package\Load data to stg_Equip\Insert data to Calibrator staging"
-          TopLeft="309.99999538064,213.999996811152" />
-        <NodeLayout
           Size="189.6,41.6"
           Id="Package\Load data to stg_Equip\Get data from WorkPlan"
           TopLeft="325.999995142222,96.9999985545874" />
+        <NodeLayout
+          Size="223.2,41.6"
+          Id="Package\Load data to stg_Equip\Insert data to Calibrator staging"
+          TopLeft="309.99999538064,213.999996811152" />
         <EdgeLayout
           Id="Package\Load data to stg_Equip.Paths[ADO NET Source Output]"
           TopLeft="421.199995261431,138.599998554587">
