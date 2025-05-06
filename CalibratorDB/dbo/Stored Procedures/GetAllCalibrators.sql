@@ -56,7 +56,8 @@ SELECT DISTINCT
 	MAX(st.StatusDescriptionENG)	as [StatusENG],
 	MAX(st.StatusDescriptionHEB) as [StatusHEB],
 	wp.[OrderNumber] as [AssignedToOrderNumber],
-	STRING_AGG(cc.Certificate,'', '') as Certification 
+	STRING_AGG(cc.Certificate,'', '') as Certification,
+	u.LocationArea
   FROM [dbo].[Users] as u
   JOIN [dbo].[UsersToUserRoles] as utr ON utr.UserId = u.ID
   JOIN [dbo].[UserRoles] as ur ON  utr.UserRoleId = ur.UserRoleId AND ur.UserRoleDescriptionENG = ''Calibrator''
@@ -81,7 +82,8 @@ SELECT DISTINCT
     u.[ID],
 	u.[FirstName],
 	u.[LastName],
-	wp.[OrderNumber]
+	wp.[OrderNumber],
+	u.LocationArea
    '
   ,CASE WHEN @MainCategory IS NOT NULL THEN' AND od.[MainCategory] = '''+ @MainCategory+''' 'ELSE ' ' END
 )

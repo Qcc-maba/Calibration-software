@@ -37,10 +37,11 @@ DECLARE @OrderWorkPlanId INT
 SELECT @OrderWorkPlanId = OrderWorkPlanId FROM [dbo].[OrderWorkPlans] WHERE OrderNumber= @OrderID
 
 
-DELETE FROM [dbo].[CalibEquipmentsToOrderHeaders]
+UPDATE [dbo].[CalibEquipmentsToOrderHeaders]
+SET IsDeleted = 1
 WHERE OrderWorkPlanId = @OrderWorkPlanId
 
-IF (SELECT COUNT(*) FROM #AssociatedEquipmentIDs) > 1
+IF (SELECT COUNT(*) FROM #AssociatedEquipmentIDs) >= 1
 
 INSERT [dbo].[CalibEquipmentsToOrderHeaders]
 (

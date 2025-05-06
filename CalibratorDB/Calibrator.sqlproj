@@ -176,7 +176,6 @@
     <Build Include="dbo\Stored Procedures\EditUserRecord.sql" />
     <Build Include="dbo\Stored Procedures\GetMabaContactInfoByOrder.sql" />
     <Build Include="dbo\Stored Procedures\DeleteUserRecord.sql" />
-    <Build Include="dbo\Stored Procedures\GetAllCalibratorMainCategories.sql" />
     <Build Include="etl\Tables\Cars.sql" />
     <Build Include="etl\Tables\ETLExecutionLog.sql" />
     <Build Include="stg\Stored Procedures\MergeCarsToOnPrem.sql" />
@@ -197,6 +196,7 @@
     <Build Include="etl\Tables\CalibGetDataLog.sql" />
     <Build Include="etl\Stored Procedures\CalibGetDataLogGetSet.sql" />
     <Build Include="dbo\Stored Procedures\GetCalibratorsSchedule.sql" />
+    <Build Include="dbo\Stored Procedures\GetLocations.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />
