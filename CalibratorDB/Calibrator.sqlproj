@@ -197,6 +197,9 @@
     <Build Include="etl\Stored Procedures\CalibGetDataLogGetSet.sql" />
     <Build Include="dbo\Stored Procedures\GetCalibratorsSchedule.sql" />
     <Build Include="dbo\Stored Procedures\GetLocations.sql" />
+    <Build Include="dbo\Tables\CalibEquipmentSubClass.sql" />
+    <Build Include="dbo\Tables\CalibEquipmentMainClass.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllMainCategories.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />

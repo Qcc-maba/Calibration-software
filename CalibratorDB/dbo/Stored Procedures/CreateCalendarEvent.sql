@@ -6,7 +6,7 @@
 -- =============================================
 
 CREATE   PROCEDURE [dbo].[CreateCalendarEvent]
-@Title NVARCHAR(300),
+@EventTypeId INT,
 @StartDate DATETIME2(0),
 @EndDate DATETIME2(0),
 @ParticipantIDs NVARCHAR(300),
@@ -37,7 +37,7 @@ THROW 51000, 'Incorrect or inactive user were found in list.', 1;
 
 if EXISTS (
 SELECT 1 FROM dbo.CalendarEvents as ce
-WHERE ce.Title	= @Title AND ce.StartDate = @StartDate AND ce.EndDate = @EndDate
+WHERE ce.EventTypeId = @EventTypeId AND ce.StartDate = @StartDate AND ce.EndDate = @EndDate
 )
 THROW 51000, 'Event already exist.', 1;
 
@@ -46,8 +46,8 @@ DECLARE @CalendarEventId INT
 BEGIN TRY
 	BEGIN TRANSACTION
 
-	INSERT dbo.CalendarEvents (Title,StartDate,EndDate,Comments)
-	VALUES (@Title,@StartDate,@EndDate,@Comments)
+	INSERT dbo.CalendarEvents (EventTypeId,StartDate,EndDate,Comments)
+	VALUES (@EventTypeId,@StartDate,@EndDate,@Comments)
 
 	SELECT @CalendarEventId = SCOPE_IDENTITY()  
 

@@ -19,7 +19,9 @@ CREATE    PROCEDURE [dbo].[GetAllEmployees]
     @UserRoleIds NVARCHAR(500)  = NULL,
 	@UserStatusIds NVARCHAR(50) = NULL,
 	@DepartmentIdsList nvarchar(max) = NULL,
-	@CertificationIds NVARCHAR(MAX) = NULL
+	@CertificationIds NVARCHAR(MAX) = NULL,
+	@EventStartDate DATETIME2(0) = NULL,
+    @EventEndDate DATETIME2(0) = NULL
 AS
 BEGIN
 
@@ -117,6 +119,40 @@ FROM dbo.ParseCSVToTable(@CertificationIds) as v
 JOIN dbo.CalibratorsToCertification as c ON v.Value = c.CertificationId
 WHERE c.IsDeleted = 0
 
+DECLARE @EventTypeId INT,
+	    @StatusDescriptionHEB NVARCHAR(255),
+	    @StatusDescriptionENG NVARCHAR(255)
+IF @EventStartDate IS NOT NULL AND @EventEndDate IS NOT NULL
+BEGIN
+	DROP TABLE IF EXISTS #AssociatedCalendarEvents
+	CREATE TABLE #AssociatedCalendarEvents
+	(
+	UserId INT,
+	EventTypeId INT,
+	StatusDescriptionHEB NVARCHAR(255),
+	StatusDescriptionENG NVARCHAR(255)
+	)
+	
+	;WITH LastEvent
+	AS
+	(
+	SELECT cetp.UserId, 
+	       s.StatusId as EventTypeId,
+		   s.StatusDescriptionHEB, 
+		   s.StatusDescriptionENG,
+		   ROW_NUMBER() OVER (PARTITION BY cetp.UserId ORDER BY ce.StartDate DESC ) AS rn
+	FROM [dbo].[CalendarEvents] as ce
+	JOIN [dbo].[CalendarEventsToParticipants] as cetp ON ce.CalendarEventId = cetp.CalendarEventId
+	JOIN [dbo].[Statuses] as s ON ce.EventTypeId = s.StatusId
+	WHERE ce.StartDate >= @EventStartDate AND ce.EndDate <= @EventEndDate
+	AND ce.IsDeleted = 0
+	)
+	INSERT #AssociatedCalendarEvents(UserId,EventTypeId,StatusDescriptionHEB,StatusDescriptionENG)
+	SELECT le.UserId,le.EventTypeId,le.StatusDescriptionHEB,le.StatusDescriptionENG
+	FROM LastEvent as le
+	WHERE le.rn = 1
+END
+
 
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
@@ -141,6 +177,9 @@ SELECT u.ID,
 	   u.Password,
 	   u.IsActive,
 	   ss.StatusId,
+	   '
+	   ,IIF(@EventStartDate IS NOT NULL AND @EventEndDate IS NOT NULL,'ace.EventTypeId, ace.StatusDescriptionHEB , ace.StatusDescriptionENG,  ',' '),
+	   '
 	   COUNT(1) OVER(PARTITION BY 1 ORDER BY u.ID ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
 FROM [dbo].[Users] as u
 JOIN #Status as ss ON u.IsActive = ss.IsActive
@@ -149,7 +188,8 @@ JOIN #Status as ss ON u.IsActive = ss.IsActive
 ,IIF(@UserStatusIds IS NOT NULL,' JOIN #UserStatusesIds as uf2 ON u.ID =  uf2.UserId ',' ')
 ,IIF(@DepartmentIdsList IS NOT NULL,' JOIN #DepartmentUserIds as uf3 ON u.ID =  uf3.UserId ',' ')
 ,IIF(@CertificationIds IS NOT NULL,' JOIN #CertificationUserIds as uf4 ON u.ID =  uf4.UserId ',' ')
-,IIF(@FirstName IS NOT NULL OR @LastName IS NOT NULL,' JOIN #UserFullName  as f ON u.ID =  f.UserId ',' '),
+,IIF(@FirstName IS NOT NULL OR @LastName IS NOT NULL,' JOIN #UserFullName  as f ON u.ID =  f.UserId ',' ')
+,IIF(@EventStartDate IS NOT NULL AND @EventEndDate IS NOT NULL,' LEFT JOIN #AssociatedCalendarEvents as ace ON u.ID =  ace.UserId ',' '),
 'LEFT JOIN
 (
 SELECT utr.UserId, 

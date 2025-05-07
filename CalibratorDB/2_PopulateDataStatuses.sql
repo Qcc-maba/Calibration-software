@@ -4,7 +4,7 @@ USING (
 	  sc.StatusCategoryId
 	 ,ds.[Code]
 	 ,ds.[StatusDescriptionENG]
-	 ,ds.[StatusDescriptionHEB]
+	 ,LTRIM(RTRIM(ds.[StatusDescriptionHEB])) AS [StatusDescriptionHEB]
 	FROM (
 		VALUES
 		('EquipmentStatus','','Available',N'תקין'),
@@ -50,11 +50,11 @@ USING (
 		('CalibrationEquipmentStatus','','Available',N'זמין '),
 		('CalibrationEquipmentStatus','','Treatment',N'טיפול'),
 		('CalibrationEquipmentStatus','','Damage',N'תקול '),
-		('CalibratorsAvailabilityStatus','','Available',N'זמין '),
-		('CalibratorsAvailabilityStatus','','Sick',N'חולה'),
-		('CalibratorsAvailabilityStatus','','Vacation',N'חופשה'),
-		('CalibratorsAvailabilityStatus','','Maba',N'מ.ב.א'),
-		('CalibratorsAvailabilityStatus','','InActive',N'לא פעיל'),
+		('UserAvailabilityStatus','','Available',N'זמין '),
+		('UserAvailabilityStatus','','Sick',N'חולה'),
+		('UserAvailabilityStatus','','Vacation',N'חופשה'),
+		('UserAvailabilityStatus','','Maba',N'מ.ב.א'),
+		('UserAvailabilityStatus','','InActive',N'לא פעיל'),
 		('MeasurementDeviceStatus','','Available',N'זמין '),
 		('MeasurementDeviceStatus','','NotCalibrated',N'לא מכויל'),
 		('MeasurementDeviceStatus','','Damaged',N'תקול'),

@@ -1,6 +1,6 @@
 ﻿CREATE   PROCEDURE [dbo].[EditCalendarEvent]
 @ID INT,
-@Title NVARCHAR(300),
+@EventTypeId INT,
 @StartDate DATETIME2(0),
 @EndDate DATETIME2(0),
 @ParticipantIDs NVARCHAR(MAX),
@@ -36,7 +36,7 @@ BEGIN TRY
 	BEGIN TRANSACTION
 
 	UPDATE dbo.CalendarEvents 
-	SET Title = @Title,StartDate = @StartDate,EndDate = @EndDate , Comments = @Comments,
+	SET EventTypeId = @EventTypeId ,StartDate = @StartDate,EndDate = @EndDate , Comments = @Comments,
 		UpdatedDate = GETDATE()
 	WHERE CalendarEventId = @ID
 

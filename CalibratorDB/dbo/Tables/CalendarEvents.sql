@@ -1,6 +1,5 @@
 ﻿CREATE TABLE [dbo].[CalendarEvents] (
     [CalendarEventId]    INT            IDENTITY (1, 1) NOT NULL,
-    [Title]              NVARCHAR (300) NOT NULL,
     [StartDate]          DATETIME2 (0)  NOT NULL,
     [EndDate]            DATETIME2 (0)  NOT NULL,
     [Comments]           NVARCHAR (255) NULL,
@@ -9,7 +8,9 @@
     [IsDeleted]          BIT            DEFAULT ((0)) NOT NULL,
     [UpdateUserID]       INT            NULL,
     [AWSCalendarEventId] INT            NULL,
+    [EventTypeId]        INT            NOT NULL,
     PRIMARY KEY CLUSTERED ([CalendarEventId] ASC),
+    CONSTRAINT [FK_CalendarEvents_EventTypeId] FOREIGN KEY ([EventTypeId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_CalendarEvents_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
 

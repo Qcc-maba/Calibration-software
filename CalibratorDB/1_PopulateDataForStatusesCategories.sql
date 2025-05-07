@@ -11,7 +11,7 @@ FROM (
 	('SpecialCare',''),
 	('CarStatus',''),
 	('CalibrationEquipmentStatus',''),
-	('CalibratorsAvailabilityStatus',''),
+	('UserAvailabilityStatus',''),
 	('MeasurementDeviceStatus',''),
 	('OrderStatus',''),
 	('EventTypes',''),

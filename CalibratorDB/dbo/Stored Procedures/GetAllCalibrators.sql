@@ -43,7 +43,7 @@ DECLARE @AvailableStatus INT
 SELECT @AvailableStatus = s.StatusId
   FROM [dbo].[Statuses] as s
   JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
-WHERE sc.StatusDescriptionENG = 'CalibratorsAvailabilityStatus' AND s.StatusDescriptionENG = 'Available'
+WHERE sc.StatusDescriptionENG = 'UserAvailabilityStatus' AND s.StatusDescriptionENG = 'Available'
 
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
@@ -57,10 +57,13 @@ SELECT DISTINCT
 	MAX(st.StatusDescriptionHEB) as [StatusHEB],
 	wp.[OrderNumber] as [AssignedToOrderNumber],
 	STRING_AGG(cc.Certificate,'', '') as Certification,
-	u.LocationArea
+	u.LocationArea,
+	ud.DepartmentName
   FROM [dbo].[Users] as u
   JOIN [dbo].[UsersToUserRoles] as utr ON utr.UserId = u.ID
   JOIN [dbo].[UserRoles] as ur ON  utr.UserRoleId = ur.UserRoleId AND ur.UserRoleDescriptionENG = ''Calibrator''
+  LEFT JOIN [dbo].[UsersToDepartments] as utd ON u.ID = utd.UserId
+  LEFT JOIN [dbo].[Departments] as ud ON ud.ID = utd.DepartmentId
   LEFT JOIN [dbo].[CalibratorsToWorkPlan] cp ON u.[ID] = cp.CalibratorId AND cp.IsDeleted = 0
   LEFT JOIN [dbo].[OrderWorkPlans] as wp ON cp.OrderWorkPlanId = wp.OrderWorkPlanId AND wp.IsCancelled = 0
   LEFT JOIN
@@ -83,7 +86,8 @@ SELECT DISTINCT
 	u.[FirstName],
 	u.[LastName],
 	wp.[OrderNumber],
-	u.LocationArea
+	u.LocationArea,
+	ud.DepartmentName
    '
   ,CASE WHEN @MainCategory IS NOT NULL THEN' AND od.[MainCategory] = '''+ @MainCategory+''' 'ELSE ' ' END
 )

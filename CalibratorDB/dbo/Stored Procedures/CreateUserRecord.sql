@@ -17,7 +17,7 @@ CREATE     PROCEDURE [dbo].[CreateUserRecord]
 ,@DepartmentIdsList nvarchar(max) 
 ,@CertificationIdsList nvarchar(max)
 ,@LoggedInUserEmail nvarchar(50)
-,@Stamp NVARCHAR(30)
+,@Stamp VARBINARY(MAX) = NULL
 
 /*
 EXEC [dbo].[CreateUserRecord]
