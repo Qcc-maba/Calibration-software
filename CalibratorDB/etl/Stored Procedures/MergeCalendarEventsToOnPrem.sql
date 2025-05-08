@@ -3,7 +3,7 @@ AS
 MERGE INTO [dbo].[CalendarEvents] AS dest
 USING (
 	SELECT [CalendarEventId]
-		,[Title]
+		,[EventTypeId]
 		,[StartDate]
 		,[EndDate]
 		,[Comments]
@@ -18,7 +18,7 @@ USING (
 WHEN MATCHED
 	THEN
 		UPDATE
-		SET  dest.[Title] = source.[Title]
+		SET  dest.[EventTypeId] = source.[EventTypeId]
 			,dest.[StartDate] = source.[StartDate]
 			,dest.[EndDate] = source.[EndDate]
 			,dest.[Comments] = source.[Comments]
@@ -29,7 +29,7 @@ WHEN MATCHED
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
-             [Title]
+             [EventTypeId]
 			,[StartDate]
 			,[EndDate]
 			,[Comments]
@@ -40,7 +40,7 @@ WHEN NOT MATCHED BY TARGET
 			,[AWSCalendarEventId]
 			)
 		VALUES (
-			 source.[Title]
+			 source.[EventTypeId]
 			,source.[StartDate]
 			,source.[EndDate]
 			,source.[Comments]

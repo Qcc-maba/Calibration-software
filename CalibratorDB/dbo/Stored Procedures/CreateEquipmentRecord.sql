@@ -10,18 +10,20 @@ CREATE   PROCEDURE [dbo].[CreateEquipmentRecord]
 ,@EquipmentName NVARCHAR(255)
 ,@SerialNumber NVARCHAR(100) = NULL
 ,@CalibratorId INT = NULL
-,@MainCategory NVARCHAR(100) = NULL
+,@MainCategoryId INT
+,@SecondaryCategoryId INT = NULL
 ,@NextCalibrationDate DATE = NULL
 ,@CarId INT = NULL
+,@LoggedInUserEmail NVARCHAR(50) = NULL
 
 /*
 EXEC dbo.CreateEquipmentRecord
  @DepartmentId = 1
-,@StatusId = 43
+,@StatusId = 30
 ,@EquipmentName = 'Test'
 ,@SerialNumber = '00-00-11'
 ,@CalibratorId = 107
-,@MainCategory = 'Test category'
+,@MainCategoryId = 1
 ,@NextCalibrationDate = '2025-03-24'
 ,@CarId = 1
 */
@@ -30,6 +32,10 @@ AS
 BEGIN
 
 SET NOCOUNT ON;
+
+DECLARE @Userid INT = 0
+IF @LoggedInUserEmail IS NOT NULL
+SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
 
 if NOT EXISTS (
 SELECT 1 FROM dbo.Departments
@@ -60,25 +66,51 @@ SELECT 1 FROM Cars WHERE CarId = @CarId
 )
 THROW 51000, 'Incorrect car was assigned.', 1;
 
-INSERT INTO [dbo].[CalibEquipments]
-           ([DepartmentId]
-           ,[StatusId]
-           ,[EquipmentName]
-           ,[SerialNumber]
-           ,[CalibratorId]
-           ,[MainCategory]
-           ,[NextCalibrationDate]
-           ,[CarId]
-		   )
-VALUES 
-(
- @DepartmentId
-,@StatusId
-,@EquipmentName
-,@SerialNumber
-,@CalibratorId
-,@MainCategory
-,NULLIF(@NextCalibrationDate,'1900-01-01')
-,@CarId
-)
+BEGIN TRY
+
+	BEGIN TRAN
+
+		INSERT INTO [dbo].[CalibEquipments]
+				   ([DepartmentId]
+				   ,[StatusId]
+				   ,[EquipmentName]
+				   ,[SerialNumber]
+				   ,[CalibratorId]
+				   ,[MainClassId]	
+				   ,[SubClassId]
+				   ,[NextCalibrationDate]
+				   ,[UpdateUserID]
+				   )
+		VALUES 
+		(
+		 @DepartmentId
+		,@StatusId
+		,@EquipmentName
+		,@SerialNumber
+		,@CalibratorId
+		,@MainCategoryId
+		,@SecondaryCategoryId
+		,NULLIF(@NextCalibrationDate,'1900-01-01')
+		,@Userid
+		)
+		DECLARE @EquipmentId INT
+		SELECT @EquipmentId = SCOPE_IDENTITY()
+		
+		IF @CarId IS NOT NULL
+			INSERT INTO [dbo].[CarsToEquipment]
+					   ([CarId]
+					   ,[EquipmentId]
+					   ,[UpdateUserID])
+
+			SELECT 
+				@CarId ,
+				@EquipmentId,
+				@Userid
+	COMMIT
+END TRY
+
+BEGIN CATCH
+	ROLLBACK
+END CATCH
+
 END

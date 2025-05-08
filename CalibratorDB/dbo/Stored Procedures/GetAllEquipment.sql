@@ -9,7 +9,9 @@ AS
 
 SELECT c.[ID]
       ,c.[EquipmentName] AS Title
-	  ,c.MainCategory
+	  ,c.[MainClassId]
+	  ,c.[SubClassId]
+	  ,c.[DepartmentId]
       ,s.[StatusId]
 	  ,s.[StatusDescriptionENG]	
 	  ,s.[StatusDescriptionHEB]   

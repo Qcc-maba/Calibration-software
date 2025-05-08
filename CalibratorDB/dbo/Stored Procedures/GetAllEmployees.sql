@@ -144,7 +144,7 @@ BEGIN
 	FROM [dbo].[CalendarEvents] as ce
 	JOIN [dbo].[CalendarEventsToParticipants] as cetp ON ce.CalendarEventId = cetp.CalendarEventId
 	JOIN [dbo].[Statuses] as s ON ce.EventTypeId = s.StatusId
-	WHERE ce.StartDate >= @EventStartDate AND ce.EndDate <= @EventEndDate
+	WHERE ce.StartDate <= @EventEndDate AND  ce.EndDate >= @EventStartDate 
 	AND ce.IsDeleted = 0
 	)
 	INSERT #AssociatedCalendarEvents(UserId,EventTypeId,StatusDescriptionHEB,StatusDescriptionENG)

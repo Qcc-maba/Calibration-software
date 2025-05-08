@@ -30,12 +30,6 @@ BEGIN TRY
 	BEGIN TRAN
 
 	UPDATE ce
-	SET CarId = NULL 
-	FROM dbo.CalibEquipments as ce
-	JOIN #CarIDs c ON c.CarId = ce.CarId
-
-
-	UPDATE ce
 	SET ce.UpdatedDate = GETDATE(), ce.IsDeleted = 1
 	FROM dbo.CarsToEquipment as ce
 	JOIN #CarIDs as d ON ce.CarId = d.CarId

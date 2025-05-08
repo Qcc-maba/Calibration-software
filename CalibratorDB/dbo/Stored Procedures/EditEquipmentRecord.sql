@@ -11,20 +11,22 @@ CREATE   PROCEDURE [dbo].[EditEquipmentRecord]
 ,@EquipmentName NVARCHAR(255)
 ,@SerialNumber NVARCHAR(100) = NULL
 ,@CalibratorId INT = NULL
-,@MainCategory NVARCHAR(100) = NULL
+,@MainCategoryId INT
+,@SecondaryCategoryId INT = NULL
 ,@NextCalibrationDate DATE = NULL
 ,@CarId INT = NULL
+,@LoggedInUserEmail NVARCHAR(50) = NULL
 
 /*
 EXEC dbo.EditEquipmentRecord
-@ID = 1
+@ID = 2626
 ,@DepartmentId = 1
-,@StatusId = 43
+,@StatusId = 30
 ,@EquipmentName = 'Test'
 ,@SerialNumber = '00-00-11'
 ,@CalibratorId = 107
-,@MainCategory = 'Test category'
-,@NextCalibrationDate = '2025-03-24'
+,@MainCategoryId = 2
+,@NextCalibrationDate = '2026-03-24'
 ,@CarId = ''
 */
 
@@ -32,6 +34,10 @@ AS
 BEGIN
 
 SET NOCOUNT ON;
+
+DECLARE @Userid INT = 0
+IF @LoggedInUserEmail IS NOT NULL
+SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
 
 if NOT EXISTS (
 SELECT 1 FROM dbo.CalibEquipments
@@ -68,17 +74,36 @@ SELECT 1 FROM Cars WHERE CarId = @CarId
 )
 THROW 51000, 'Incorrect car was assigned.', 1;
 
+BEGIN TRY
 
-UPDATE [dbo].[CalibEquipments]
-   SET [DepartmentId] = @DepartmentId
-      ,[StatusId] = @StatusId
-      ,[EquipmentName] = @EquipmentName
-      ,[SerialNumber] = @SerialNumber
-      ,[CalibratorId] = @CalibratorId
-      ,[MainCategory] = @MainCategory
-      ,[NextCalibrationDate] = NULLIF(@NextCalibrationDate,'1900-01-01')
-      ,[CarId] = @CarId
-      ,[UpdatedDate] = GETDATE()
- WHERE ID = @ID
+	BEGIN TRAN
+		
+		DECLARE @PrevCarId INT = (SELECT TOP 1 CarId FROM [dbo].[CarsToEquipment] WHERE IsDeleted = 0 AND [EquipmentId] = @ID ORDER BY CreatedDate DESC)
 
+		UPDATE [dbo].[CalibEquipments]
+		   SET [DepartmentId] = @DepartmentId
+			  ,[StatusId] = @StatusId
+			  ,[EquipmentName] = @EquipmentName
+			  ,[SerialNumber] = @SerialNumber
+			  ,[CalibratorId] = @CalibratorId
+			  ,[MainClassId] = @MainCategoryId
+			  ,[SubClassId] = @SecondaryCategoryId
+			  ,[NextCalibrationDate] = NULLIF(@NextCalibrationDate,'1900-01-01')
+			  ,[UpdatedDate] = GETDATE()
+			  ,[UpdateUserID] = @Userid
+		 WHERE ID = @ID
+
+		IF @CarId <> @PrevCarId
+			UPDATE [dbo].[CarsToEquipment]
+				SET [CarId] = @CarId
+				   ,[UpdateUserID] = @Userid
+				   ,[UpdatedDate] = GETDATE()
+			WHERE [CarId] = @PrevCarId AND [EquipmentId] = @ID
+
+	COMMIT
+END TRY
+
+BEGIN CATCH
+	ROLLBACK
+END CATCH
 END

@@ -1,6 +1,6 @@
 ﻿CREATE TABLE [etl].[CalendarEvents] (
     [CalendarEventId]    INT            NOT NULL,
-    [Title]              NVARCHAR (300) NOT NULL,
+    [EventTypeId]        INT            NOT NULL,
     [StartDate]          DATETIME2 (0)  NOT NULL,
     [EndDate]            DATETIME2 (0)  NOT NULL,
     [Comments]           NVARCHAR (255) NULL,
