@@ -140,7 +140,7 @@ USING (
 			,N'Operation Manager  '
 			,N'Sinova'
 			,N'Operation Manager  '
-			,N'sinova_operation_manager  @gmail.com'
+			,N'sinova_operation_manager@gmail.com'
 			,'123'
 			,''
 			,1
