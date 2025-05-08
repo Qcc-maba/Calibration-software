@@ -37,7 +37,7 @@ THROW 51000, 'Incorrect or inactive user were found in list.', 1;
 
 if EXISTS (
 SELECT 1 FROM dbo.CalendarEvents as ce
-WHERE ce.EventTypeId = @EventTypeId AND ce.StartDate = @StartDate AND ce.EndDate = @EndDate
+WHERE ce.EventTypeId = @EventTypeId AND ce.StartDate = @StartDate AND ce.EndDate = @EndDate AND ce.IsDeleted = 0
 )
 THROW 51000, 'Event already exist.', 1;
 
