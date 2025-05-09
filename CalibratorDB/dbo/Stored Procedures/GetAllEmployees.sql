@@ -142,7 +142,7 @@ BEGIN
 		   s.StatusDescriptionENG,
 		   ROW_NUMBER() OVER (PARTITION BY cetp.UserId ORDER BY ce.StartDate DESC ) AS rn
 	FROM [dbo].[CalendarEvents] as ce
-	JOIN [dbo].[CalendarEventsToParticipants] as cetp ON ce.CalendarEventId = cetp.CalendarEventId
+	JOIN [dbo].[CalendarEventsToParticipants] as cetp ON ce.CalendarEventId = cetp.CalendarEventId and cetp.IsDeleted = 0
 	JOIN [dbo].[Statuses] as s ON ce.EventTypeId = s.StatusId
 	WHERE ce.StartDate <= @EventEndDate AND  ce.EndDate >= @EventStartDate 
 	AND ce.IsDeleted = 0
