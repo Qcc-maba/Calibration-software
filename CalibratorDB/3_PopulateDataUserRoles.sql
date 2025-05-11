@@ -14,8 +14,7 @@ USING (
 			('Coordinator',N'משבץ','Coordinator',1),
 			('Validator',N'ולידטור','Validator',1),
 			('Client',N'לקוח','Client',1),
-			('Customer support',N'שירות לקוחות','CustomerSupport',1),
-			('Car owner',N'בעל הרכב','CarOwner',0)
+			('Customer support',N'שירות לקוחות','CustomerSupport',1)
 		) ds ([UserRoleDescriptionENG],[UserRoleDescriptionHEB],[UserRoleName],[IsApplicationRole])
 	) AS source
 	ON dest.[UserRoleName] = source.[UserRoleName]

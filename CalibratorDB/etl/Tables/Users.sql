@@ -13,6 +13,6 @@
     [UpdateUserID] INT            NULL,
     [UserAddress]  NVARCHAR (200) NULL,
     [LocationArea] NVARCHAR (200) NULL,
-    [Stamp]        NVARCHAR (30)  NULL
+    [Stamp]        VARBINARY(MAX)  NULL
 );
 

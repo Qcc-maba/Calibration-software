@@ -12,11 +12,21 @@
   DTS:ObjectName="PostDeployDataMigration"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="44"
-  DTS:VersionGUID="{028106CF-57C5-4C72-90AA-EDE25EE64CCD}">
+  DTS:VersionBuild="55"
+  DTS:VersionGUID="{F100464D-7B88-4787-8186-FD0A5567137A}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
-  <DTS:Variables />
+  <DTS:Variables>
+    <DTS:Variable
+      DTS:CreationName=""
+      DTS:DTSID="{11F4138A-2B94-4D3F-B39E-806E69B78FEE}"
+      DTS:IncludeInDebugDump="6789"
+      DTS:Namespace="User"
+      DTS:ObjectName="CarStatus">
+      <DTS:VariableValue
+        DTS:DataType="3">0</DTS:VariableValue>
+    </DTS:Variable>
+  </DTS:Variables>
   <DTS:Executables>
     <DTS:Executable
       DTS:refId="Package\Sequence Container"
@@ -42,6 +52,989 @@
             <SQLTask:SqlTaskData
               SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
               SQLTask:SqlStatementSource="  INSERT [dbo].[UsersToUserRoles]([UserId],[UserRoleId],[UpdateUserID])&#xA;  SELECT ID , (SELECT TOP 1 UserRoleId FROM [dbo].[UserRoles] WHERE UserRoleDescriptionENG = 'Calibrator'),0&#xA;  FROM [dbo].[Users]&#xA;  WHERE Stamp IS NOT NULL" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
+          </DTS:ObjectData>
+        </DTS:Executable>
+        <DTS:Executable
+          DTS:refId="Package\Sequence Container\Get car status"
+          DTS:CreationName="Microsoft.ExecuteSQLTask"
+          DTS:Description="Execute SQL Task"
+          DTS:DTSID="{557DC7E3-1BEE-4038-86D1-9156E9DE081D}"
+          DTS:ExecutableType="Microsoft.ExecuteSQLTask"
+          DTS:LocaleID="-1"
+          DTS:ObjectName="Get car status"
+          DTS:ThreadHint="0">
+          <DTS:Variables />
+          <DTS:ObjectData>
+            <SQLTask:SqlTaskData
+              SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
+              SQLTask:SqlStatementSource="&#xA;SELECT TOP 1 @CarStatusId = s.StatusId &#xA;  FROM [Calibrator].[dbo].[Statuses] as s&#xA;  JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId&#xA;  WHERE s.StatusDescriptionENG = 'Available' AND sc.StatusDescriptionENG = 'CarStatus'" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask">
+              <SQLTask:ParameterBinding
+                SQLTask:ParameterName="@CarStatusId "
+                SQLTask:DtsVariableName="User::CarStatus"
+                SQLTask:ParameterDirection="Output"
+                SQLTask:DataType="11"
+                SQLTask:ParameterSize="-1" />
+            </SQLTask:SqlTaskData>
+          </DTS:ObjectData>
+        </DTS:Executable>
+        <DTS:Executable
+          DTS:refId="Package\Sequence Container\Migrate car data"
+          DTS:CreationName="Microsoft.Pipeline"
+          DTS:Description="Data Flow Task"
+          DTS:DTSID="{48726FFD-669E-4C07-AEF6-636E75E161D0}"
+          DTS:ExecutableType="Microsoft.Pipeline"
+          DTS:LocaleID="-1"
+          DTS:ObjectName="Migrate car data"
+          DTS:TaskContact="Performs high-performance data extraction, transformation and loading;Microsoft Corporation; Microsoft SQL Server; (C) Microsoft Corporation; All Rights Reserved;http://www.microsoft.com/sql/support/default.asp;1">
+          <DTS:Variables />
+          <DTS:ObjectData>
+            <pipeline
+              version="1">
+              <components>
+                <component
+                  refId="Package\Sequence Container\Migrate car data\Add car status"
+                  componentClassID="Microsoft.DerivedColumn"
+                  contactInfo="Derived Column;Microsoft Corporation; Microsoft SQL Server; (C) Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;0"
+                  description="Creates new column values by applying expressions to transformation input columns. Create new columns or overwrite existing ones. For example, concatenate the values from the 'first name' and 'last name' column to make a 'full name' column."
+                  name="Add car status"
+                  usesDispositions="true">
+                  <inputs>
+                    <input
+                      refId="Package\Sequence Container\Migrate car data\Add car status.Inputs[Derived Column Input]"
+                      description="Input to the Derived Column Transformation"
+                      name="Derived Column Input">
+                      <externalMetadataColumns />
+                    </input>
+                  </inputs>
+                  <outputs>
+                    <output
+                      refId="Package\Sequence Container\Migrate car data\Add car status.Outputs[Derived Column Output]"
+                      description="Default Output of the Derived Column Transformation"
+                      exclusionGroup="1"
+                      name="Derived Column Output"
+                      synchronousInputId="Package\Sequence Container\Migrate car data\Add car status.Inputs[Derived Column Input]">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Add car status.Outputs[Derived Column Output].Columns[CarStatusId]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Computation"
+                          errorRowDisposition="FailComponent"
+                          lineageId="Package\Sequence Container\Migrate car data\Add car status.Outputs[Derived Column Output].Columns[CarStatusId]"
+                          name="CarStatusId"
+                          truncationRowDisposition="FailComponent">
+                          <properties>
+                            <property
+                              containsID="true"
+                              dataType="System.String"
+                              description="Derived Column Expression"
+                              name="Expression">@[User::CarStatus]</property>
+                            <property
+                              containsID="true"
+                              dataType="System.String"
+                              description="Derived Column Friendly Expression"
+                              expressionType="Notify"
+                              name="FriendlyExpression">@[User::CarStatus]</property>
+                          </properties>
+                        </outputColumn>
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                    <output
+                      refId="Package\Sequence Container\Migrate car data\Add car status.Outputs[Derived Column Error Output]"
+                      description="Error Output of the Derived Column Transformation"
+                      exclusionGroup="1"
+                      isErrorOut="true"
+                      name="Derived Column Error Output"
+                      synchronousInputId="Package\Sequence Container\Migrate car data\Add car status.Inputs[Derived Column Input]">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Add car status.Outputs[Derived Column Error Output].Columns[ErrorCode]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Add car status.Outputs[Derived Column Error Output].Columns[ErrorCode]"
+                          name="ErrorCode"
+                          specialFlags="1" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Add car status.Outputs[Derived Column Error Output].Columns[ErrorColumn]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Add car status.Outputs[Derived Column Error Output].Columns[ErrorColumn]"
+                          name="ErrorColumn"
+                          specialFlags="2" />
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                  </outputs>
+                </component>
+                <component
+                  refId="Package\Sequence Container\Migrate car data\ADO NET Destination"
+                  componentClassID="Microsoft.ManagedComponentHost"
+                  contactInfo="Loads data into an ADO.NET-compliant database that uses a database table or view. Load data into a new or existing table. For example, use an ADO.NET provider for ODBC to load data into an ODBC destination.;Microsoft Corporation; Microsoft SQL Server; © Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;2"
+                  description="Loads data into an ADO.NET-compliant database that uses a database table or view. Load data into a new or existing table. For example, use an ADO.NET provider for ODBC to load data into an ODBC destination."
+                  name="ADO NET Destination"
+                  usesDispositions="true"
+                  version="2">
+                  <properties>
+                    <property
+                      dataType="System.String"
+                      description="The Destination database table name."
+                      expressionType="Notify"
+                      name="TableOrViewName"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">"dbo"."Cars"</property>
+                    <property
+                      dataType="System.Int32"
+                      description="Specify the number of rows per batch. The default is 0 which uses the same size as SSIS internal buffer. "
+                      expressionType="Notify"
+                      name="BatchSize">0</property>
+                    <property
+                      dataType="System.Int32"
+                      description="The number of seconds before a command times out. A value of 0 indicates infinite time-out. "
+                      expressionType="Notify"
+                      name="CommandTimeout">30</property>
+                    <property
+                      dataType="System.Boolean"
+                      description="Specifies whether to use the SqlBulkCopy interface to improve the performance of bulk insert operations. Only certain providers support this interface."
+                      expressionType="Notify"
+                      name="UseBulkInsertWhenPossible">true</property>
+                    <property
+                      dataType="System.String"
+                      name="UserComponentTypeName">Microsoft.ADONETDestination</property>
+                  </properties>
+                  <connections>
+                    <connection
+                      refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Connections[IDbConnection]"
+                      connectionManagerID="{5D340525-F86F-4A09-8F4F-C17373323AB0}:external"
+                      connectionManagerRefId="Project.ConnectionManagers[AWSCalibrator]"
+                      description="Managed connection manager"
+                      name="IDbConnection" />
+                  </connections>
+                  <inputs>
+                    <input
+                      refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input]"
+                      errorRowDisposition="FailComponent"
+                      hasSideEffects="true"
+                      name="ADO NET Destination Input">
+                      <inputColumns>
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[MabaNumber]"
+                          cachedDataType="i4"
+                          cachedName="MabaNumber"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[MabaNumber]"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[MabaNumber]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[Model]"
+                          cachedDataType="wstr"
+                          cachedLength="20"
+                          cachedName="Model"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[Model]"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[Model]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[LicenseNumber]"
+                          cachedDataType="wstr"
+                          cachedLength="11"
+                          cachedName="LicenseNumber"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[LicenseNumber]"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[LicenseNumber]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[Seats]"
+                          cachedDataType="i4"
+                          cachedName="Seats"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[Seats]"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[Seats]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[TreatmentPeriod]"
+                          cachedDataType="i4"
+                          cachedName="TreatmentPeriod"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[TreatmentPeriod]"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[TreatmentPeriod]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[NextTreatmentDate]"
+                          cachedDataType="wstr"
+                          cachedLength="10"
+                          cachedName="NextTreatmentDate"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[NextTreatmentDate]"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[NextTreatmentDate]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[NextYearlyTestDate]"
+                          cachedDataType="wstr"
+                          cachedLength="10"
+                          cachedName="NextYearlyTestDate"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[NextYearlyTestDate]"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[NextYearlyTestDate]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[UpdateUserID]"
+                          cachedDataType="i4"
+                          cachedName="UpdateUserID"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[UpdateUserID]"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[UpdateUserID]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[OwnerId]"
+                          cachedDataType="i4"
+                          cachedName="OwnerId"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[OwnerId]"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[OwnerId]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[CarStatusId]"
+                          cachedDataType="i4"
+                          cachedName="CarStatusId"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[CarStatusId]"
+                          lineageId="Package\Sequence Container\Migrate car data\Add car status.Outputs[Derived Column Output].Columns[CarStatusId]" />
+                      </inputColumns>
+                      <externalMetadataColumns
+                        isUsed="True">
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[CarId]"
+                          dataType="i4"
+                          name="CarId" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[MabaNumber]"
+                          dataType="i4"
+                          name="MabaNumber" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[Model]"
+                          dataType="wstr"
+                          length="50"
+                          name="Model" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[LicenseNumber]"
+                          dataType="wstr"
+                          length="50"
+                          name="LicenseNumber" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[Seats]"
+                          dataType="ui1"
+                          name="Seats" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[TreatmentPeriod]"
+                          dataType="i4"
+                          name="TreatmentPeriod" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[NextTreatmentDate]"
+                          dataType="dbTimeStamp"
+                          name="NextTreatmentDate" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[NextYearlyTestDate]"
+                          dataType="dbTimeStamp"
+                          name="NextYearlyTestDate" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[OwnerId]"
+                          dataType="i4"
+                          name="OwnerId" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[CarStatusId]"
+                          dataType="i4"
+                          name="CarStatusId" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[CreateDate]"
+                          dataType="dbTimeStamp"
+                          name="CreateDate" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[UpdatedDate]"
+                          dataType="dbTimeStamp"
+                          name="UpdatedDate" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[AssignedCalibratorId]"
+                          dataType="i4"
+                          name="AssignedCalibratorId" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[UpdateUserID]"
+                          dataType="i4"
+                          name="UpdateUserID" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[IsDeleted]"
+                          dataType="bool"
+                          name="IsDeleted" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[AWSCarId]"
+                          dataType="i4"
+                          name="AWSCarId" />
+                      </externalMetadataColumns>
+                    </input>
+                  </inputs>
+                  <outputs>
+                    <output
+                      refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Outputs[ADO NET Destination Error Output]"
+                      exclusionGroup="1"
+                      isErrorOut="true"
+                      name="ADO NET Destination Error Output"
+                      synchronousInputId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input]">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\ADO NET Destination.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
+                          name="ErrorCode"
+                          specialFlags="1" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\ADO NET Destination.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\ADO NET Destination.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
+                          name="ErrorColumn"
+                          specialFlags="2" />
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                  </outputs>
+                </component>
+                <component
+                  refId="Package\Sequence Container\Migrate car data\Get cars data from source"
+                  componentClassID="Microsoft.ManagedComponentHost"
+                  contactInfo="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server.;Microsoft Corporation; Microsoft SQL Server; © Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;4"
+                  description="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server."
+                  name="Get cars data from source"
+                  usesDispositions="true"
+                  version="4">
+                  <properties>
+                    <property
+                      dataType="System.String"
+                      description="Specifies the SQL statement used by the component to extract data."
+                      expressionType="Notify"
+                      name="SqlCommand"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT 
+       c.[MABA_NUMBER_CAR] as [MabaNumber]
+      ,c.[TYPE_CAR]AS [Model]
+	  ,CASE 
+			WHEN (SELECT LEN(c.NUMBER_CAR) - LEN(REPLACE(c.NUMBER_CAR, '-', ''))) &gt;= 3 
+			THEN LEFT(c.NUMBER_CAR, CHARINDEX('-', c.NUMBER_CAR, CHARINDEX('-', c.NUMBER_CAR, CHARINDEX('-', c.NUMBER_CAR) + 1) + 1) - 1) 
+			ELSE c.NUMBER_CAR 
+		END AS [LicenseNumber]
+        ,c.[SEATS_CAR] as [Seats]
+        ,0 AS [TreatmentPeriod]
+        ,'1900-01-01' AS [NextTreatmentDate]
+        ,'1900-01-01' AS [NextYearlyTestDate]
+		,c.[EMAIL_CAR]
+      --,[OwnerId]
+      --,[CarStatusId]
+        ,0 AS [UpdateUserID]
+  FROM [WorkPlan].[dbo].[CAR_WS] as c
+  WHERE c.NUMBER_CAR LIKE '%-%-%'
+  AND END_OF_OPERATION_CAR IS NULL
+  ORDER BY c.[EMAIL_CAR]</property>
+                    <property
+                      dataType="System.Int32"
+                      description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
+                      name="CommandTimeout">30</property>
+                    <property
+                      dataType="System.Boolean"
+                      description="Indicates whether to allow non-string external columns to be implicitly converted to strings at the output columns."
+                      name="AllowImplicitStringConversion">true</property>
+                    <property
+                      dataType="System.String"
+                      description="The Source database table name."
+                      expressionType="Notify"
+                      name="TableOrViewName"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor"></property>
+                    <property
+                      dataType="System.Int32"
+                      description="Specify the mode to retrieve external column information"
+                      name="AccessMode"
+                      typeConverter="Microsoft.SqlServer.Dts.Pipeline.DataReaderSourceAdapter+EnumToStringConverter">2</property>
+                    <property
+                      dataType="System.String"
+                      name="UserComponentTypeName">Microsoft.DataReaderSourceAdapter</property>
+                  </properties>
+                  <connections>
+                    <connection
+                      refId="Package\Sequence Container\Migrate car data\Get cars data from source.Connections[IDbConnection]"
+                      connectionManagerID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}:external"
+                      connectionManagerRefId="Project.ConnectionManagers[OnPremPriority]"
+                      description="Managed connection manager"
+                      name="IDbConnection" />
+                  </connections>
+                  <outputs>
+                    <output
+                      refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output]"
+                      isSorted="true"
+                      name="ADO NET Source Output">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[MabaNumber]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[MabaNumber]"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[MabaNumber]"
+                          name="MabaNumber"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[Model]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[Model]"
+                          length="20"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[Model]"
+                          name="Model"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[LicenseNumber]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[LicenseNumber]"
+                          length="11"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[LicenseNumber]"
+                          name="LicenseNumber"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[Seats]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[Seats]"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[Seats]"
+                          name="Seats"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[TreatmentPeriod]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[TreatmentPeriod]"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[TreatmentPeriod]"
+                          name="TreatmentPeriod"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[NextTreatmentDate]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[NextTreatmentDate]"
+                          length="10"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[NextTreatmentDate]"
+                          name="NextTreatmentDate"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[NextYearlyTestDate]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[NextYearlyTestDate]"
+                          length="10"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[NextYearlyTestDate]"
+                          name="NextYearlyTestDate"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[EMAIL_CAR]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[EMAIL_CAR]"
+                          length="48"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[EMAIL_CAR]"
+                          name="EMAIL_CAR"
+                          sortKeyPosition="1"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[UpdateUserID]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[UpdateUserID]"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[UpdateUserID]"
+                          name="UpdateUserID"
+                          truncationRowDisposition="FailComponent" />
+                      </outputColumns>
+                      <externalMetadataColumns
+                        isUsed="True">
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[MabaNumber]"
+                          dataType="i4"
+                          name="MabaNumber" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[Model]"
+                          dataType="wstr"
+                          length="20"
+                          name="Model" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[LicenseNumber]"
+                          dataType="wstr"
+                          length="11"
+                          name="LicenseNumber" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[Seats]"
+                          dataType="i4"
+                          name="Seats" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[TreatmentPeriod]"
+                          dataType="i4"
+                          name="TreatmentPeriod" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[NextTreatmentDate]"
+                          dataType="wstr"
+                          length="10"
+                          name="NextTreatmentDate" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[NextYearlyTestDate]"
+                          dataType="wstr"
+                          length="10"
+                          name="NextYearlyTestDate" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[EMAIL_CAR]"
+                          dataType="wstr"
+                          length="48"
+                          name="EMAIL_CAR" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].ExternalColumns[UpdateUserID]"
+                          dataType="i4"
+                          name="UpdateUserID" />
+                      </externalMetadataColumns>
+                    </output>
+                    <output
+                      refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output]"
+                      isErrorOut="true"
+                      name="ADO NET Source Error Output">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[MabaNumber]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[MabaNumber]"
+                          name="MabaNumber" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[Model]"
+                          dataType="wstr"
+                          length="20"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[Model]"
+                          name="Model" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[LicenseNumber]"
+                          dataType="wstr"
+                          length="11"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[LicenseNumber]"
+                          name="LicenseNumber" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[Seats]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[Seats]"
+                          name="Seats" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[TreatmentPeriod]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[TreatmentPeriod]"
+                          name="TreatmentPeriod" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[NextTreatmentDate]"
+                          dataType="wstr"
+                          length="10"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[NextTreatmentDate]"
+                          name="NextTreatmentDate" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[NextYearlyTestDate]"
+                          dataType="wstr"
+                          length="10"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[NextYearlyTestDate]"
+                          name="NextYearlyTestDate" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[EMAIL_CAR]"
+                          dataType="wstr"
+                          length="48"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[EMAIL_CAR]"
+                          name="EMAIL_CAR" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[UpdateUserID]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[UpdateUserID]"
+                          name="UpdateUserID" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                          name="ErrorCode"
+                          specialFlags="1" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                          name="ErrorColumn"
+                          specialFlags="2" />
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                  </outputs>
+                </component>
+                <component
+                  refId="Package\Sequence Container\Migrate car data\Get list of users"
+                  componentClassID="Microsoft.ManagedComponentHost"
+                  contactInfo="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server.;Microsoft Corporation; Microsoft SQL Server; © Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;4"
+                  description="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server."
+                  name="Get list of users"
+                  usesDispositions="true"
+                  version="4">
+                  <properties>
+                    <property
+                      dataType="System.String"
+                      description="Specifies the SQL statement used by the component to extract data."
+                      expressionType="Notify"
+                      name="SqlCommand"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT [ID] AS OwnerId
+      ,LTRIM(RTRIM([Email])) as [Email]
+  FROM [Calibrator].[dbo].[Users]
+  WHERE LEN(LTRIM(RTRIM([Email]))) &gt; 0 AND IsActive = 1
+ORDER BY LTRIM(RTRIM([Email]))</property>
+                    <property
+                      dataType="System.Int32"
+                      description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
+                      name="CommandTimeout">30</property>
+                    <property
+                      dataType="System.Boolean"
+                      description="Indicates whether to allow non-string external columns to be implicitly converted to strings at the output columns."
+                      name="AllowImplicitStringConversion">true</property>
+                    <property
+                      dataType="System.String"
+                      description="The Source database table name."
+                      expressionType="Notify"
+                      name="TableOrViewName"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor"></property>
+                    <property
+                      dataType="System.Int32"
+                      description="Specify the mode to retrieve external column information"
+                      name="AccessMode"
+                      typeConverter="Microsoft.SqlServer.Dts.Pipeline.DataReaderSourceAdapter+EnumToStringConverter">2</property>
+                    <property
+                      dataType="System.String"
+                      name="UserComponentTypeName">Microsoft.DataReaderSourceAdapter</property>
+                  </properties>
+                  <connections>
+                    <connection
+                      refId="Package\Sequence Container\Migrate car data\Get list of users.Connections[IDbConnection]"
+                      connectionManagerID="{5D340525-F86F-4A09-8F4F-C17373323AB0}:external"
+                      connectionManagerRefId="Project.ConnectionManagers[AWSCalibrator]"
+                      description="Managed connection manager"
+                      name="IDbConnection" />
+                  </connections>
+                  <outputs>
+                    <output
+                      refId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Output]"
+                      isSorted="true"
+                      name="ADO NET Source Output">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Output].Columns[OwnerId]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Output].ExternalColumns[OwnerId]"
+                          lineageId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Output].Columns[OwnerId]"
+                          name="OwnerId"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Output].Columns[Email]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Output].ExternalColumns[Email]"
+                          length="50"
+                          lineageId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Output].Columns[Email]"
+                          name="Email"
+                          sortKeyPosition="1"
+                          truncationRowDisposition="FailComponent" />
+                      </outputColumns>
+                      <externalMetadataColumns
+                        isUsed="True">
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Output].ExternalColumns[OwnerId]"
+                          dataType="i4"
+                          name="OwnerId" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Output].ExternalColumns[Email]"
+                          dataType="wstr"
+                          length="50"
+                          name="Email" />
+                      </externalMetadataColumns>
+                    </output>
+                    <output
+                      refId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Error Output]"
+                      isErrorOut="true"
+                      name="ADO NET Source Error Output">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Error Output].Columns[OwnerId]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Error Output].Columns[OwnerId]"
+                          name="OwnerId" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Error Output].Columns[Email]"
+                          dataType="wstr"
+                          length="50"
+                          lineageId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Error Output].Columns[Email]"
+                          name="Email" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                          name="ErrorCode"
+                          specialFlags="1" />
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                          name="ErrorColumn"
+                          specialFlags="2" />
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                  </outputs>
+                </component>
+                <component
+                  refId="Package\Sequence Container\Migrate car data\Merge Join"
+                  componentClassID="Microsoft.MergeJoin"
+                  contactInfo="Merge Join;Microsoft Corporation; Microsoft SQL Server; (C) Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;1"
+                  description="Combine two sorted data flows into one using the FULL, LEFT, or INNER join. We recommend this transformation when data flows can be sorted at their sources."
+                  name="Merge Join"
+                  version="1">
+                  <properties>
+                    <property
+                      dataType="System.Int32"
+                      description="Specifies the type of join to perform."
+                      name="JoinType"
+                      typeConverter="JoinType">1</property>
+                    <property
+                      dataType="System.Int32"
+                      description="Specifies the number of columns in the ordering key."
+                      name="NumKeyColumns">1</property>
+                    <property
+                      dataType="System.Boolean"
+                      description="Indicates whether the null values are treated as equal values."
+                      name="TreatNullsAsEqual">true</property>
+                    <property
+                      dataType="System.Int32"
+                      description="Indicates the requested maximum buffers per input before blocking."
+                      name="MaxBuffersPerInput">5</property>
+                  </properties>
+                  <inputs>
+                    <input
+                      refId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input]"
+                      hasSideEffects="true"
+                      name="Merge Join Left Input">
+                      <inputColumns>
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[EMAIL_CAR]"
+                          cachedDataType="wstr"
+                          cachedLength="48"
+                          cachedName="EMAIL_CAR"
+                          cachedSortKeyPosition="1"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[EMAIL_CAR]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[MabaNumber]"
+                          cachedDataType="i4"
+                          cachedName="MabaNumber"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[MabaNumber]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[Model]"
+                          cachedDataType="wstr"
+                          cachedLength="20"
+                          cachedName="Model"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[Model]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[LicenseNumber]"
+                          cachedDataType="wstr"
+                          cachedLength="11"
+                          cachedName="LicenseNumber"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[LicenseNumber]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[Seats]"
+                          cachedDataType="i4"
+                          cachedName="Seats"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[Seats]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[TreatmentPeriod]"
+                          cachedDataType="i4"
+                          cachedName="TreatmentPeriod"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[TreatmentPeriod]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[NextTreatmentDate]"
+                          cachedDataType="wstr"
+                          cachedLength="10"
+                          cachedName="NextTreatmentDate"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[NextTreatmentDate]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[NextYearlyTestDate]"
+                          cachedDataType="wstr"
+                          cachedLength="10"
+                          cachedName="NextYearlyTestDate"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[NextYearlyTestDate]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[UpdateUserID]"
+                          cachedDataType="i4"
+                          cachedName="UpdateUserID"
+                          lineageId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output].Columns[UpdateUserID]" />
+                      </inputColumns>
+                      <externalMetadataColumns />
+                    </input>
+                    <input
+                      refId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Right Input]"
+                      hasSideEffects="true"
+                      name="Merge Join Right Input">
+                      <inputColumns>
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Right Input].Columns[Email]"
+                          cachedDataType="wstr"
+                          cachedLength="50"
+                          cachedName="Email"
+                          cachedSortKeyPosition="1"
+                          lineageId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Output].Columns[Email]" />
+                        <inputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Right Input].Columns[OwnerId]"
+                          cachedDataType="i4"
+                          cachedName="OwnerId"
+                          lineageId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Output].Columns[OwnerId]" />
+                      </inputColumns>
+                      <externalMetadataColumns />
+                    </input>
+                  </inputs>
+                  <outputs>
+                    <output
+                      refId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output]"
+                      name="Merge Join Output">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[MabaNumber]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[MabaNumber]"
+                          name="MabaNumber">
+                          <properties>
+                            <property
+                              containsID="true"
+                              dataType="System.Int32"
+                              description="The input column associated with this output column"
+                              name="InputColumnID">#{Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[MabaNumber]}</property>
+                          </properties>
+                        </outputColumn>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[Model]"
+                          dataType="wstr"
+                          length="20"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[Model]"
+                          name="Model">
+                          <properties>
+                            <property
+                              containsID="true"
+                              dataType="System.Int32"
+                              description="The input column associated with this output column"
+                              name="InputColumnID">#{Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[Model]}</property>
+                          </properties>
+                        </outputColumn>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[LicenseNumber]"
+                          dataType="wstr"
+                          length="11"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[LicenseNumber]"
+                          name="LicenseNumber">
+                          <properties>
+                            <property
+                              containsID="true"
+                              dataType="System.Int32"
+                              description="The input column associated with this output column"
+                              name="InputColumnID">#{Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[LicenseNumber]}</property>
+                          </properties>
+                        </outputColumn>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[Seats]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[Seats]"
+                          name="Seats">
+                          <properties>
+                            <property
+                              containsID="true"
+                              dataType="System.Int32"
+                              description="The input column associated with this output column"
+                              name="InputColumnID">#{Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[Seats]}</property>
+                          </properties>
+                        </outputColumn>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[TreatmentPeriod]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[TreatmentPeriod]"
+                          name="TreatmentPeriod">
+                          <properties>
+                            <property
+                              containsID="true"
+                              dataType="System.Int32"
+                              description="The input column associated with this output column"
+                              name="InputColumnID">#{Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[TreatmentPeriod]}</property>
+                          </properties>
+                        </outputColumn>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[NextTreatmentDate]"
+                          dataType="wstr"
+                          length="10"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[NextTreatmentDate]"
+                          name="NextTreatmentDate">
+                          <properties>
+                            <property
+                              containsID="true"
+                              dataType="System.Int32"
+                              description="The input column associated with this output column"
+                              name="InputColumnID">#{Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[NextTreatmentDate]}</property>
+                          </properties>
+                        </outputColumn>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[NextYearlyTestDate]"
+                          dataType="wstr"
+                          length="10"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[NextYearlyTestDate]"
+                          name="NextYearlyTestDate">
+                          <properties>
+                            <property
+                              containsID="true"
+                              dataType="System.Int32"
+                              description="The input column associated with this output column"
+                              name="InputColumnID">#{Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[NextYearlyTestDate]}</property>
+                          </properties>
+                        </outputColumn>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[UpdateUserID]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[UpdateUserID]"
+                          name="UpdateUserID">
+                          <properties>
+                            <property
+                              containsID="true"
+                              dataType="System.Int32"
+                              description="The input column associated with this output column"
+                              name="InputColumnID">#{Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input].Columns[UpdateUserID]}</property>
+                          </properties>
+                        </outputColumn>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[OwnerId]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output].Columns[OwnerId]"
+                          name="OwnerId">
+                          <properties>
+                            <property
+                              containsID="true"
+                              dataType="System.Int32"
+                              description="The input column associated with this output column"
+                              name="InputColumnID">#{Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Right Input].Columns[OwnerId]}</property>
+                          </properties>
+                        </outputColumn>
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                  </outputs>
+                </component>
+              </components>
+              <paths>
+                <path
+                  refId="Package\Sequence Container\Migrate car data.Paths[ADO NET Source Output]"
+                  endId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Left Input]"
+                  name="ADO NET Source Output"
+                  startId="Package\Sequence Container\Migrate car data\Get cars data from source.Outputs[ADO NET Source Output]" />
+                <path
+                  refId="Package\Sequence Container\Migrate car data.Paths[ADO NET Source Output1]"
+                  endId="Package\Sequence Container\Migrate car data\Merge Join.Inputs[Merge Join Right Input]"
+                  name="ADO NET Source Output"
+                  startId="Package\Sequence Container\Migrate car data\Get list of users.Outputs[ADO NET Source Output]" />
+                <path
+                  refId="Package\Sequence Container\Migrate car data.Paths[Derived Column Output]"
+                  endId="Package\Sequence Container\Migrate car data\ADO NET Destination.Inputs[ADO NET Destination Input]"
+                  name="Derived Column Output"
+                  startId="Package\Sequence Container\Migrate car data\Add car status.Outputs[Derived Column Output]" />
+                <path
+                  refId="Package\Sequence Container\Migrate car data.Paths[Merge Join Output]"
+                  endId="Package\Sequence Container\Migrate car data\Add car status.Inputs[Derived Column Input]"
+                  name="Merge Join Output"
+                  startId="Package\Sequence Container\Migrate car data\Merge Join.Outputs[Merge Join Output]" />
+              </paths>
+            </pipeline>
           </DTS:ObjectData>
         </DTS:Executable>
         <DTS:Executable
@@ -5814,6 +6807,30 @@ WHERE rn=1</property>
           DTS:LogicalAnd="True"
           DTS:ObjectName="Constraint 2"
           DTS:To="Package\Sequence Container\Migrate Equipment data" />
+        <DTS:PrecedenceConstraint
+          DTS:refId="Package\Sequence Container.PrecedenceConstraints[Constraint 3]"
+          DTS:CreationName=""
+          DTS:DTSID="{7974C834-FAB6-47B0-AE43-5059116E788F}"
+          DTS:From="Package\Sequence Container\Add users to roles"
+          DTS:LogicalAnd="True"
+          DTS:ObjectName="Constraint 3"
+          DTS:To="Package\Sequence Container\Get car status" />
+        <DTS:PrecedenceConstraint
+          DTS:refId="Package\Sequence Container.PrecedenceConstraints[Constraint 4]"
+          DTS:CreationName=""
+          DTS:DTSID="{6C76BBAC-2ED3-4833-8040-214FE607B87B}"
+          DTS:From="Package\Sequence Container\Migrate Equipment data"
+          DTS:LogicalAnd="True"
+          DTS:ObjectName="Constraint 4"
+          DTS:To="Package\Sequence Container\Get car status" />
+        <DTS:PrecedenceConstraint
+          DTS:refId="Package\Sequence Container.PrecedenceConstraints[Constraint 5]"
+          DTS:CreationName=""
+          DTS:DTSID="{B3AD2D72-5EB6-4B6F-A749-EE976CFA3E48}"
+          DTS:From="Package\Sequence Container\Get car status"
+          DTS:LogicalAnd="True"
+          DTS:ObjectName="Constraint 5"
+          DTS:To="Package\Sequence Container\Migrate car data" />
       </DTS:PrecedenceConstraints>
     </DTS:Executable>
   </DTS:Executables>
@@ -5829,6 +6846,30 @@ WHERE rn=1</property>
     <LayoutInfo>
       <GraphLayout
         Capacity="16" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        <NodeLayout
+          Size="161.6,41.6"
+          Id="Package\Sequence Container\Add users to roles"
+          TopLeft="28.366647589042,98.4666651419137" />
+        <NodeLayout
+          Size="143.2,41.6"
+          Id="Package\Sequence Container\Get car status"
+          TopLeft="172.399987433355,202.999998282393" />
+        <NodeLayout
+          Size="153.6,41.6"
+          Id="Package\Sequence Container\Migrate car data"
+          TopLeft="171.566654145553,270.666664111349" />
+        <NodeLayout
+          Size="188.8,41.6"
+          Id="Package\Sequence Container\Migrate Equipment data"
+          TopLeft="367.399976779025,93.8666654131148" />
+        <NodeLayout
+          Size="214.4,41.6"
+          Id="Package\Sequence Container\Migrate EquipmentMainClass"
+          TopLeft="222.399984701475,12.3999993129571" />
+        <NodeLayout
+          Size="210.4,41.6"
+          Id="Package\Sequence Container\Migrate EquipmentSubClass"
+          TopLeft="489.89997008592,9.79999933103721" />
         <NodeLayout
           Size="156.8,41.6"
           Id="Package\Sequence Container\Migrate users list"
@@ -5855,22 +6896,6 @@ WHERE rn=1</property>
             <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
-        <NodeLayout
-          Size="161.6,41.6"
-          Id="Package\Sequence Container\Add users to roles"
-          TopLeft="28.366647589042,98.4666651419137" />
-        <NodeLayout
-          Size="214.4,41.6"
-          Id="Package\Sequence Container\Migrate EquipmentMainClass"
-          TopLeft="222.399984701475,12.3999993129571" />
-        <NodeLayout
-          Size="210.4,41.6"
-          Id="Package\Sequence Container\Migrate EquipmentSubClass"
-          TopLeft="489.89997008592,9.79999933103721" />
-        <NodeLayout
-          Size="188.8,41.6"
-          Id="Package\Sequence Container\Migrate Equipment data"
-          TopLeft="367.399976779025,93.8666654131148" />
         <EdgeLayout
           Id="Package\Sequence Container.PrecedenceConstraints[Constraint 1]"
           TopLeft="329.599984701475,53.9999993129571">
@@ -5939,43 +6964,235 @@ WHERE rn=1</property>
             <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
+        <EdgeLayout
+          Id="Package\Sequence Container.PrecedenceConstraints[Constraint 3]"
+          TopLeft="109.166647589042,140.066665141914">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="112.300006510979,62.9333331404792"
+              Start="0,0"
+              End="112.300006510979,55.4333331404792">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,33.3427623165054" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,33.3427623165054"
+                    Point2="0,37.3427623165054"
+                    Point3="4,37.3427623165054" />
+                  <mssgle:LineSegment
+                    End="108.300006510979,37.3427623165054" />
+                  <mssgle:CubicBezierSegment
+                    Point1="108.300006510979,37.3427623165054"
+                    Point2="112.300006510979,37.3427623165054"
+                    Point3="112.300006510979,41.3427623165054" />
+                  <mssgle:LineSegment
+                    End="112.300006510979,55.4333331404792" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
+          Id="Package\Sequence Container.PrecedenceConstraints[Constraint 4]"
+          TopLeft="461.799976779025,135.466665413115">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="-195.266656012337,67.5333328692781"
+              Start="0,0"
+              End="-195.266656012337,60.0333328692781">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,36.0722649180137" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,36.0722649180137"
+                    Point2="0,40.0722649180137"
+                    Point3="-4,40.0722649180137" />
+                  <mssgle:LineSegment
+                    End="-191.266656012337,40.0722649180137" />
+                  <mssgle:CubicBezierSegment
+                    Point1="-191.266656012337,40.0722649180137"
+                    Point2="-195.266656012337,40.0722649180137"
+                    Point3="-195.266656012337,44.0722649180137" />
+                  <mssgle:LineSegment
+                    End="-195.266656012337,60.0333328692781" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
+          Id="Package\Sequence Container.PrecedenceConstraints[Constraint 5]"
+          TopLeft="246.183320789454,244.599998282393">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,26.0666658289564"
+              Start="0,0"
+              End="0,18.5666658289564">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,18.5666658289564" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
         <ContainerLayout
           HeaderHeight="43"
           IsExpanded="True"
-          PanelSize="756,228"
-          Size="756,271.2"
+          PanelSize="756,364.8"
+          Size="756,408"
           Id="Package\Sequence Container"
           TopLeft="57.4999968583386,53.7333329596784" />
       </GraphLayout>
     </LayoutInfo>
   </Package>
   <TaskHost
-    design-time-name="Package\Sequence Container\Migrate users list">
+    design-time-name="Package\Sequence Container\Migrate car data">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        Capacity="16" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
-          Size="143.2,41.6"
-          Id="Package\Sequence Container\Migrate users list\Get User data"
-          TopLeft="111.666660565469,46.7999996745586" />
+          Size="198.4,41.6"
+          Id="Package\Sequence Container\Migrate car data\Get cars data from source"
+          TopLeft="99.9999945362411,38.1333330681589" />
+        <NodeLayout
+          Size="150.4,41.6"
+          Id="Package\Sequence Container\Migrate car data\Get list of users"
+          TopLeft="344.16664786223,40.2666677996847" />
+        <NodeLayout
+          Size="129.6,41.6"
+          Id="Package\Sequence Container\Migrate car data\Merge Join"
+          TopLeft="224.166654418741,136.933332381116" />
+        <EdgeLayout
+          Id="Package\Sequence Container\Migrate car data.Paths[ADO NET Source Output]"
+          TopLeft="199.199994536241,79.7333330681589">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="89.7666598824995,57.1999993129571"
+              Start="0,0"
+              End="89.7666598824995,49.6999993129571">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,24.5999996564786" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,24.5999996564786"
+                    Point2="0,28.5999996564786"
+                    Point3="4,28.5999996564786" />
+                  <mssgle:LineSegment
+                    End="85.7666598824995,28.5999996564786" />
+                  <mssgle:CubicBezierSegment
+                    Point1="85.7666598824995,28.5999996564786"
+                    Point2="89.7666598824995,28.5999996564786"
+                    Point3="89.7666598824995,32.5999996564786" />
+                  <mssgle:LineSegment
+                    End="89.7666598824995,49.6999993129571" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
+          Id="Package\Sequence Container\Migrate car data.Paths[ADO NET Source Output1]"
+          TopLeft="419.36664786223,81.8666677996847">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="-110.133326776823,55.0666645814313"
+              Start="0,0"
+              End="-110.133326776823,47.5666645814313">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,28.6370719348483" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,28.6370719348483"
+                    Point2="0,32.6370719348483"
+                    Point3="-4,32.6370719348483" />
+                  <mssgle:LineSegment
+                    End="-106.133326776823,32.6370719348483" />
+                  <mssgle:CubicBezierSegment
+                    Point1="-106.133326776823,32.6370719348483"
+                    Point2="-110.133326776823,32.6370719348483"
+                    Point3="-110.133326776823,36.6370719348483" />
+                  <mssgle:LineSegment
+                    End="-110.133326776823,47.5666645814313" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <NodeLayout
+          Size="144.8,41.6"
+          Id="Package\Sequence Container\Migrate car data\Add car status"
+          TopLeft="209.999988526107,220.999998463194" />
+        <EdgeLayout
+          Id="Package\Sequence Container\Migrate car data.Paths[Merge Join Output]"
+          TopLeft="285.683321472424,178.533332381116">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,42.4666660820776"
+              Start="0,0"
+              End="0,34.9666660820776">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,34.9666660820776" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
         <NodeLayout
           Size="179.2,41.6"
-          Id="Package\Sequence Container\Migrate users list\ADO NET Destination"
-          TopLeft="99.1666612484391,156.866665575835" />
+          Id="Package\Sequence Container\Migrate car data\ADO NET Destination"
+          TopLeft="198.333322496878,299.866664581431" />
         <EdgeLayout
-          Id="Package\Sequence Container\Migrate users list.Paths[ADO NET Source Output]"
-          TopLeft="186.016660906954,88.3999996745586">
+          Id="Package\Sequence Container\Migrate car data.Paths[Derived Column Output]"
+          TopLeft="285.166655511492,262.599998463194">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,68.4666659012768"
+              EndConnector="0,37.2666661182377"
               Start="0,0"
-              End="0,60.9666659012768">
+              End="0,29.7666661182377">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,60.9666659012768" />
+                    End="0,29.7666661182377" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
@@ -5988,7 +7205,7 @@ WHERE rn=1</property>
     </LayoutInfo>
   </TaskHost>
   <PipelineComponentMetadata
-    design-time-name="Package\Sequence Container\Migrate users list\Get User data">
+    design-time-name="Package\Sequence Container\Migrate car data\Get cars data from source">
     <Properties>
       <Property>
         <Name>DataSourceViewID</Name>
@@ -5996,91 +7213,7 @@ WHERE rn=1</property>
     </Properties>
   </PipelineComponentMetadata>
   <PipelineComponentMetadata
-    design-time-name="Package\Sequence Container\Migrate users list\ADO NET Destination">
-    <Properties>
-      <Property>
-        <Name>DataSourceViewID</Name>
-      </Property>
-    </Properties>
-  </PipelineComponentMetadata>
-  <TaskHost
-    design-time-name="Package\Sequence Container\Migrate EquipmentMainClass">
-    <LayoutInfo>
-      <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
-        <NodeLayout
-          Size="216.8,41.6"
-          Id="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass"
-          TopLeft="136.999997958541,169.999997466803" />
-        <NodeLayout
-          Size="224.8,41.6"
-          Id="Package\Sequence Container\Migrate EquipmentMainClass\Get data from tblInstrMainClass"
-          TopLeft="130.999998047948,59.9999991059303" />
-        <EdgeLayout
-          Id="Package\Sequence Container\Migrate EquipmentMainClass.Paths[ADO NET Source Output]"
-          TopLeft="244.399998003244,101.59999910593">
-          <EdgeLayout.Curve>
-            <mssgle:Curve
-              StartConnector="{assembly:Null}"
-              EndConnector="0,68.3999983608723"
-              Start="0,0"
-              End="0,60.8999983608723">
-              <mssgle:Curve.Segments>
-                <mssgle:SegmentCollection
-                  Capacity="5">
-                  <mssgle:LineSegment
-                    End="0,60.8999983608723" />
-                </mssgle:SegmentCollection>
-              </mssgle:Curve.Segments>
-            </mssgle:Curve>
-          </EdgeLayout.Curve>
-          <EdgeLayout.Labels>
-            <EdgeLabelCollection />
-          </EdgeLayout.Labels>
-        </EdgeLayout>
-      </GraphLayout>
-    </LayoutInfo>
-  </TaskHost>
-  <TaskHost
-    design-time-name="Package\Sequence Container\Migrate EquipmentSubClass">
-    <LayoutInfo>
-      <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
-        <NodeLayout
-          Size="220,41.6"
-          Id="Package\Sequence Container\Migrate EquipmentSubClass\Get data from tblInstrSubClass"
-          TopLeft="233.999996513128,94.9999985843897" />
-        <NodeLayout
-          Size="212.8,41.6"
-          Id="Package\Sequence Container\Migrate EquipmentSubClass\Insert to EquipmentSubClass"
-          TopLeft="243.999996364117,200.999997004867" />
-        <EdgeLayout
-          Id="Package\Sequence Container\Migrate EquipmentSubClass.Paths[ADO NET Source Output]"
-          TopLeft="347.199996438623,136.59999858439">
-          <EdgeLayout.Curve>
-            <mssgle:Curve
-              StartConnector="{assembly:Null}"
-              EndConnector="0,64.3999984204769"
-              Start="0,0"
-              End="0,56.8999984204769">
-              <mssgle:Curve.Segments>
-                <mssgle:SegmentCollection
-                  Capacity="5">
-                  <mssgle:LineSegment
-                    End="0,56.8999984204769" />
-                </mssgle:SegmentCollection>
-              </mssgle:Curve.Segments>
-            </mssgle:Curve>
-          </EdgeLayout.Curve>
-          <EdgeLayout.Labels>
-            <EdgeLabelCollection />
-          </EdgeLayout.Labels>
-        </EdgeLayout>
-      </GraphLayout>
-    </LayoutInfo>
-  </TaskHost>
-  <PipelineComponentMetadata
-    design-time-name="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass">
+    design-time-name="Package\Sequence Container\Migrate car data\ADO NET Destination">
     <Properties>
       <Property>
         <Name>DataSourceViewID</Name>
@@ -6088,23 +7221,7 @@ WHERE rn=1</property>
     </Properties>
   </PipelineComponentMetadata>
   <PipelineComponentMetadata
-    design-time-name="Package\Sequence Container\Migrate EquipmentMainClass\Get data from tblInstrMainClass">
-    <Properties>
-      <Property>
-        <Name>DataSourceViewID</Name>
-      </Property>
-    </Properties>
-  </PipelineComponentMetadata>
-  <PipelineComponentMetadata
-    design-time-name="Package\Sequence Container\Migrate EquipmentSubClass\Get data from tblInstrSubClass">
-    <Properties>
-      <Property>
-        <Name>DataSourceViewID</Name>
-      </Property>
-    </Properties>
-  </PipelineComponentMetadata>
-  <PipelineComponentMetadata
-    design-time-name="Package\Sequence Container\Migrate EquipmentSubClass\Insert to EquipmentSubClass">
+    design-time-name="Package\Sequence Container\Migrate car data\Get list of users">
     <Properties>
       <Property>
         <Name>DataSourceViewID</Name>
@@ -6115,23 +7232,7 @@ WHERE rn=1</property>
     design-time-name="Package\Sequence Container\Migrate Equipment data">
     <LayoutInfo>
       <GraphLayout
-        Capacity="32" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
-        <NodeLayout
-          Size="152,41.6"
-          Id="Package\Sequence Container\Migrate Equipment data\Get source data"
-          TopLeft="5.5,5.49999999999995" />
-        <NodeLayout
-          Size="178.4,41.6"
-          Id="Package\Sequence Container\Migrate Equipment data\Get departments data"
-          TopLeft="218.3,5.49999999999995" />
-        <NodeLayout
-          Size="147.2,41.6"
-          Id="Package\Sequence Container\Migrate Equipment data\Get main class"
-          TopLeft="416.9,208.7" />
-        <NodeLayout
-          Size="172.8,41.6"
-          Id="Package\Sequence Container\Migrate Equipment data\Get secondary class"
-          TopLeft="604.1,411.9" />
+        Capacity="32" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
         <NodeLayout
           Size="125.6,41.6"
           Id="Package\Sequence Container\Migrate Equipment data\Get status"
@@ -6140,200 +7241,132 @@ WHERE rn=1</property>
           Size="129.6,41.6"
           Id="Package\Sequence Container\Migrate Equipment data\Merge Join"
           TopLeft="242.7,107.1" />
-        <EdgeLayout
-          Id="Package\Sequence Container\Migrate Equipment data.Paths[ADO NET Source Output]"
-          TopLeft="81.5,47.1">
-          <EdgeLayout.Curve>
-            <mssgle:Curve
-              StartConnector="{assembly:Null}"
-              EndConnector="205.733333333333,59.9999999999999"
-              Start="0,0"
-              End="205.733333333333,52.4999999999999">
-              <mssgle:Curve.Segments>
-                <mssgle:SegmentCollection
-                  Capacity="5">
-                  <mssgle:LineSegment
-                    End="0,31.560975609756" />
-                  <mssgle:CubicBezierSegment
-                    Point1="0,31.560975609756"
-                    Point2="0,35.560975609756"
-                    Point3="4,35.560975609756" />
-                  <mssgle:LineSegment
-                    End="201.733333333333,35.560975609756" />
-                  <mssgle:CubicBezierSegment
-                    Point1="201.733333333333,35.560975609756"
-                    Point2="205.733333333333,35.560975609756"
-                    Point3="205.733333333333,39.560975609756" />
-                  <mssgle:LineSegment
-                    End="205.733333333333,52.4999999999999" />
-                </mssgle:SegmentCollection>
-              </mssgle:Curve.Segments>
-            </mssgle:Curve>
-          </EdgeLayout.Curve>
-          <EdgeLayout.Labels>
-            <EdgeLabelCollection />
-          </EdgeLayout.Labels>
-        </EdgeLayout>
-        <EdgeLayout
-          Id="Package\Sequence Container\Migrate Equipment data.Paths[ADO NET Source Output1]"
-          TopLeft="307.5,47.1">
-          <EdgeLayout.Curve>
-            <mssgle:Curve
-              StartConnector="{assembly:Null}"
-              EndConnector="20.2666666666667,59.9999999999999"
-              Start="0,0"
-              End="20.2666666666667,52.4999999999999">
-              <mssgle:Curve.Segments>
-                <mssgle:SegmentCollection
-                  Capacity="5">
-                  <mssgle:LineSegment
-                    End="0,31.560975609756" />
-                  <mssgle:CubicBezierSegment
-                    Point1="0,31.560975609756"
-                    Point2="0,35.560975609756"
-                    Point3="4,35.560975609756" />
-                  <mssgle:LineSegment
-                    End="16.2666666666667,35.560975609756" />
-                  <mssgle:CubicBezierSegment
-                    Point1="16.2666666666667,35.560975609756"
-                    Point2="20.2666666666667,35.560975609756"
-                    Point3="20.2666666666667,39.560975609756" />
-                  <mssgle:LineSegment
-                    End="20.2666666666667,52.4999999999999" />
-                </mssgle:SegmentCollection>
-              </mssgle:Curve.Segments>
-            </mssgle:Curve>
-          </EdgeLayout.Curve>
-          <EdgeLayout.Labels>
-            <EdgeLabelCollection />
-          </EdgeLayout.Labels>
-        </EdgeLayout>
-        <NodeLayout
-          Size="97.6,41.6"
-          Id="Package\Sequence Container\Migrate Equipment data\Sort"
-          TopLeft="258.7,208.7" />
-        <EdgeLayout
-          Id="Package\Sequence Container\Migrate Equipment data.Paths[Merge Join Output]"
-          TopLeft="307.5,148.7">
-          <EdgeLayout.Curve>
-            <mssgle:Curve
-              StartConnector="{assembly:Null}"
-              EndConnector="0,59.9999999999999"
-              Start="0,0"
-              End="0,52.4999999999999">
-              <mssgle:Curve.Segments>
-                <mssgle:SegmentCollection
-                  Capacity="5">
-                  <mssgle:LineSegment
-                    End="0,52.4999999999999" />
-                </mssgle:SegmentCollection>
-              </mssgle:Curve.Segments>
-            </mssgle:Curve>
-          </EdgeLayout.Curve>
-          <EdgeLayout.Labels>
-            <EdgeLabelCollection />
-          </EdgeLayout.Labels>
-        </EdgeLayout>
         <NodeLayout
           Size="138.4,41.6"
-          Id="Package\Sequence Container\Migrate Equipment data\Merge Join 1"
-          TopLeft="421.3,310.3" />
-        <EdgeLayout
-          Id="Package\Sequence Container\Migrate Equipment data.Paths[Sort Output]"
-          TopLeft="307.5,250.3">
-          <EdgeLayout.Curve>
-            <mssgle:Curve
-              StartConnector="{assembly:Null}"
-              EndConnector="161.266666666667,59.9999999999999"
-              Start="0,0"
-              End="161.266666666667,52.4999999999999">
-              <mssgle:Curve.Segments>
-                <mssgle:SegmentCollection
-                  Capacity="5">
-                  <mssgle:LineSegment
-                    End="0,31.5885714285714" />
-                  <mssgle:CubicBezierSegment
-                    Point1="0,31.5885714285714"
-                    Point2="0,35.5885714285714"
-                    Point3="4,35.5885714285714" />
-                  <mssgle:LineSegment
-                    End="157.266666666667,35.5885714285714" />
-                  <mssgle:CubicBezierSegment
-                    Point1="157.266666666667,35.5885714285714"
-                    Point2="161.266666666667,35.5885714285714"
-                    Point3="161.266666666667,39.5885714285714" />
-                  <mssgle:LineSegment
-                    End="161.266666666667,52.4999999999999" />
-                </mssgle:SegmentCollection>
-              </mssgle:Curve.Segments>
-            </mssgle:Curve>
-          </EdgeLayout.Curve>
-          <EdgeLayout.Labels>
-            <EdgeLabelCollection />
-          </EdgeLayout.Labels>
-        </EdgeLayout>
-        <EdgeLayout
-          Id="Package\Sequence Container\Migrate Equipment data.Paths[ADO NET Source Output2]"
-          TopLeft="490.5,250.3">
-          <EdgeLayout.Curve>
-            <mssgle:Curve
-              StartConnector="{assembly:Null}"
-              EndConnector="21.7333333333333,59.9999999999999"
-              Start="0,0"
-              End="21.7333333333333,52.4999999999999">
-              <mssgle:Curve.Segments>
-                <mssgle:SegmentCollection
-                  Capacity="5">
-                  <mssgle:LineSegment
-                    End="0,31.5885714285714" />
-                  <mssgle:CubicBezierSegment
-                    Point1="0,31.5885714285714"
-                    Point2="0,35.5885714285714"
-                    Point3="4,35.5885714285714" />
-                  <mssgle:LineSegment
-                    End="17.7333333333333,35.5885714285714" />
-                  <mssgle:CubicBezierSegment
-                    Point1="17.7333333333333,35.5885714285714"
-                    Point2="21.7333333333333,35.5885714285714"
-                    Point3="21.7333333333333,39.5885714285714" />
-                  <mssgle:LineSegment
-                    End="21.7333333333333,52.4999999999999" />
-                </mssgle:SegmentCollection>
-              </mssgle:Curve.Segments>
-            </mssgle:Curve>
-          </EdgeLayout.Curve>
-          <EdgeLayout.Labels>
-            <EdgeLabelCollection />
-          </EdgeLayout.Labels>
-        </EdgeLayout>
+          Id="Package\Sequence Container\Migrate Equipment data\Merge Join 3"
+          TopLeft="798.3,716.699999999999" />
         <NodeLayout
           Size="138.4,41.6"
           Id="Package\Sequence Container\Migrate Equipment data\Merge Join 2"
           TopLeft="621.3,513.5" />
         <NodeLayout
+          Size="147.2,41.6"
+          Id="Package\Sequence Container\Migrate Equipment data\Get main class"
+          TopLeft="416.9,208.7" />
+        <NodeLayout
+          Size="152,41.6"
+          Id="Package\Sequence Container\Migrate Equipment data\Get source data"
+          TopLeft="5.5,5.49999999999995" />
+        <NodeLayout
+          Size="200.8,41.6"
+          Id="Package\Sequence Container\Migrate Equipment data\Populate CalibEquipments"
+          TopLeft="526.999992147088,987.599993592501" />
+        <NodeLayout
+          Size="97.6,41.6"
+          Id="Package\Sequence Container\Migrate Equipment data\Sort"
+          TopLeft="258.7,208.7" />
+        <NodeLayout
           Size="106.4,41.6"
           Id="Package\Sequence Container\Migrate Equipment data\Sort 1"
           TopLeft="437.3,411.9" />
+        <NodeLayout
+          Size="123.2,41.6"
+          Id="Package\Sequence Container\Migrate Equipment data\Get users"
+          TopLeft="467.999993026257,806.799993532896" />
+        <NodeLayout
+          Size="106.4,41.6"
+          Id="Package\Sequence Container\Migrate Equipment data\Sort 2"
+          TopLeft="637.3,615.099999999999" />
+        <NodeLayout
+          Size="106.4,41.6"
+          Id="Package\Sequence Container\Migrate Equipment data\Sort 3"
+          TopLeft="729.999989122152,801.399993935227" />
+        <NodeLayout
+          Size="138.4,41.6"
+          Id="Package\Sequence Container\Migrate Equipment data\Merge Join 1"
+          TopLeft="421.3,310.3" />
+        <NodeLayout
+          Size="138.4,41.6"
+          Id="Package\Sequence Container\Migrate Equipment data\Merge Join 4"
+          TopLeft="583.999991297722,901.799993428588" />
+        <NodeLayout
+          Size="178.4,41.6"
+          Id="Package\Sequence Container\Migrate Equipment data\Get departments data"
+          TopLeft="218.3,5.49999999999995" />
+        <NodeLayout
+          Size="172.8,41.6"
+          Id="Package\Sequence Container\Migrate Equipment data\Get secondary class"
+          TopLeft="604.1,411.9" />
         <EdgeLayout
-          Id="Package\Sequence Container\Migrate Equipment data.Paths[Merge Join Output1]"
-          TopLeft="490.5,351.9">
+          Id="Package\Sequence Container\Migrate Equipment data.Paths[Sort Output3]"
+          TopLeft="783.199989122152,842.999993935228">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,59.9999999999999"
+              EndConnector="-129.99999782443,58.7999994933606"
               Start="0,0"
-              End="0,52.4999999999999">
+              End="-129.99999782443,51.2999994933606">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,52.4999999999999" />
+                    End="0,25.3999997466803" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,25.3999997466803"
+                    Point2="0,29.3999997466803"
+                    Point3="-4,29.3999997466803" />
+                  <mssgle:LineSegment
+                    End="-125.99999782443,29.3999997466803" />
+                  <mssgle:CubicBezierSegment
+                    Point1="-125.99999782443,29.3999997466803"
+                    Point2="-129.99999782443,29.3999997466803"
+                    Point3="-129.99999782443,33.3999997466803" />
+                  <mssgle:LineSegment
+                    End="-129.99999782443,51.2999994933606" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
+          Id="Package\Sequence Container\Migrate Equipment data.Paths[Sort Output2]"
+          TopLeft="690.5,656.699999999999">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="155.266666666667,59.9999999999999"
+              Start="0,0"
+              End="155.266666666667,52.4999999999999">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,31.5885714285714" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,31.5885714285714"
+                    Point2="0,35.5885714285714"
+                    Point3="4,35.5885714285714" />
+                  <mssgle:LineSegment
+                    End="151.266666666667,35.5885714285714" />
+                  <mssgle:CubicBezierSegment
+                    Point1="151.266666666667,35.5885714285714"
+                    Point2="155.266666666667,35.5885714285714"
+                    Point3="155.266666666667,39.5885714285714" />
+                  <mssgle:LineSegment
+                    End="155.266666666667,52.4999999999999" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
         <EdgeLayout
@@ -6367,18 +7400,20 @@ WHERE rn=1</property>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
         <EdgeLayout
-          Id="Package\Sequence Container\Migrate Equipment data.Paths[ADO NET Source Output3]"
-          TopLeft="690.5,453.5">
+          Id="Package\Sequence Container\Migrate Equipment data.Paths[Sort Output]"
+          TopLeft="307.5,250.3">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="21.7333333333333,59.9999999999999"
+              EndConnector="161.266666666667,59.9999999999999"
               Start="0,0"
-              End="21.7333333333333,52.4999999999999">
+              End="161.266666666667,52.4999999999999">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
@@ -6389,127 +7424,59 @@ WHERE rn=1</property>
                     Point2="0,35.5885714285714"
                     Point3="4,35.5885714285714" />
                   <mssgle:LineSegment
-                    End="17.7333333333333,35.5885714285714" />
+                    End="157.266666666667,35.5885714285714" />
                   <mssgle:CubicBezierSegment
-                    Point1="17.7333333333333,35.5885714285714"
-                    Point2="21.7333333333333,35.5885714285714"
-                    Point3="21.7333333333333,39.5885714285714" />
+                    Point1="157.266666666667,35.5885714285714"
+                    Point2="161.266666666667,35.5885714285714"
+                    Point3="161.266666666667,39.5885714285714" />
                   <mssgle:LineSegment
-                    End="21.7333333333333,52.4999999999999" />
+                    End="161.266666666667,52.4999999999999" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
-        <NodeLayout
-          Size="106.4,41.6"
-          Id="Package\Sequence Container\Migrate Equipment data\Sort 2"
-          TopLeft="637.3,615.099999999999" />
         <EdgeLayout
-          Id="Package\Sequence Container\Migrate Equipment data.Paths[Merge Join Output2]"
-          TopLeft="690.5,555.1">
+          Id="Package\Sequence Container\Migrate Equipment data.Paths[Merge Join Output4]"
+          TopLeft="653.199991297722,943.399993428588">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,59.9999999999999"
+              EndConnector="-25.799999150634,44.2000001639127"
               Start="0,0"
-              End="0,52.4999999999999">
+              End="-25.799999150634,36.7000001639127">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,52.4999999999999" />
+                    End="0,18.1000000819564" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,18.1000000819564"
+                    Point2="0,22.1000000819564"
+                    Point3="-4,22.1000000819564" />
+                  <mssgle:LineSegment
+                    End="-21.799999150634,22.1000000819564" />
+                  <mssgle:CubicBezierSegment
+                    Point1="-21.799999150634,22.1000000819564"
+                    Point2="-25.799999150634,22.1000000819564"
+                    Point3="-25.799999150634,26.1000000819564" />
+                  <mssgle:LineSegment
+                    End="-25.799999150634,36.7000001639127" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
-        <NodeLayout
-          Size="138.4,41.6"
-          Id="Package\Sequence Container\Migrate Equipment data\Merge Join 3"
-          TopLeft="798.3,716.699999999999" />
-        <EdgeLayout
-          Id="Package\Sequence Container\Migrate Equipment data.Paths[Sort Output2]"
-          TopLeft="690.5,656.699999999999">
-          <EdgeLayout.Curve>
-            <mssgle:Curve
-              StartConnector="{assembly:Null}"
-              EndConnector="155.266666666667,59.9999999999999"
-              Start="0,0"
-              End="155.266666666667,52.4999999999999">
-              <mssgle:Curve.Segments>
-                <mssgle:SegmentCollection
-                  Capacity="5">
-                  <mssgle:LineSegment
-                    End="0,31.5885714285714" />
-                  <mssgle:CubicBezierSegment
-                    Point1="0,31.5885714285714"
-                    Point2="0,35.5885714285714"
-                    Point3="4,35.5885714285714" />
-                  <mssgle:LineSegment
-                    End="151.266666666667,35.5885714285714" />
-                  <mssgle:CubicBezierSegment
-                    Point1="151.266666666667,35.5885714285714"
-                    Point2="155.266666666667,35.5885714285714"
-                    Point3="155.266666666667,39.5885714285714" />
-                  <mssgle:LineSegment
-                    End="155.266666666667,52.4999999999999" />
-                </mssgle:SegmentCollection>
-              </mssgle:Curve.Segments>
-            </mssgle:Curve>
-          </EdgeLayout.Curve>
-          <EdgeLayout.Labels>
-            <EdgeLabelCollection />
-          </EdgeLayout.Labels>
-        </EdgeLayout>
-        <EdgeLayout
-          Id="Package\Sequence Container\Migrate Equipment data.Paths[ADO NET Source Output4]"
-          TopLeft="867.5,656.699999999999">
-          <EdgeLayout.Curve>
-            <mssgle:Curve
-              StartConnector="{assembly:Null}"
-              EndConnector="21.7333333333333,59.9999999999999"
-              Start="0,0"
-              End="21.7333333333333,52.4999999999999">
-              <mssgle:Curve.Segments>
-                <mssgle:SegmentCollection
-                  Capacity="5">
-                  <mssgle:LineSegment
-                    End="0,31.5885714285714" />
-                  <mssgle:CubicBezierSegment
-                    Point1="0,31.5885714285714"
-                    Point2="0,35.5885714285714"
-                    Point3="4,35.5885714285714" />
-                  <mssgle:LineSegment
-                    End="17.7333333333333,35.5885714285714" />
-                  <mssgle:CubicBezierSegment
-                    Point1="17.7333333333333,35.5885714285714"
-                    Point2="21.7333333333333,35.5885714285714"
-                    Point3="21.7333333333333,39.5885714285714" />
-                  <mssgle:LineSegment
-                    End="21.7333333333333,52.4999999999999" />
-                </mssgle:SegmentCollection>
-              </mssgle:Curve.Segments>
-            </mssgle:Curve>
-          </EdgeLayout.Curve>
-          <EdgeLayout.Labels>
-            <EdgeLabelCollection />
-          </EdgeLayout.Labels>
-        </EdgeLayout>
-        <NodeLayout
-          Size="123.2,41.6"
-          Id="Package\Sequence Container\Migrate Equipment data\Get users"
-          TopLeft="467.999993026257,806.799993532896" />
-        <NodeLayout
-          Size="106.4,41.6"
-          Id="Package\Sequence Container\Migrate Equipment data\Sort 3"
-          TopLeft="729.999989122152,801.399993935227" />
         <EdgeLayout
           Id="Package\Sequence Container\Migrate Equipment data.Paths[Merge Join Output3]"
           TopLeft="867.5,758.299999999999">
@@ -6541,45 +7508,81 @@ WHERE rn=1</property>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
-        <NodeLayout
-          Size="138.4,41.6"
-          Id="Package\Sequence Container\Migrate Equipment data\Merge Join 4"
-          TopLeft="583.999991297722,901.799993428588" />
         <EdgeLayout
-          Id="Package\Sequence Container\Migrate Equipment data.Paths[Sort Output3]"
-          TopLeft="783.199989122152,842.999993935228">
+          Id="Package\Sequence Container\Migrate Equipment data.Paths[Merge Join Output2]"
+          TopLeft="690.5,555.1">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="-129.99999782443,58.7999994933606"
+              EndConnector="0,59.9999999999999"
               Start="0,0"
-              End="-129.99999782443,51.2999994933606">
+              End="0,52.4999999999999">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,25.3999997466803" />
-                  <mssgle:CubicBezierSegment
-                    Point1="0,25.3999997466803"
-                    Point2="0,29.3999997466803"
-                    Point3="-4,29.3999997466803" />
-                  <mssgle:LineSegment
-                    End="-125.99999782443,29.3999997466803" />
-                  <mssgle:CubicBezierSegment
-                    Point1="-125.99999782443,29.3999997466803"
-                    Point2="-129.99999782443,29.3999997466803"
-                    Point3="-129.99999782443,33.3999997466803" />
-                  <mssgle:LineSegment
-                    End="-129.99999782443,51.2999994933606" />
+                    End="0,52.4999999999999" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
+          Id="Package\Sequence Container\Migrate Equipment data.Paths[Merge Join Output1]"
+          TopLeft="490.5,351.9">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,59.9999999999999"
+              Start="0,0"
+              End="0,52.4999999999999">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,52.4999999999999" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
+          Id="Package\Sequence Container\Migrate Equipment data.Paths[Merge Join Output]"
+          TopLeft="307.5,148.7">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,59.9999999999999"
+              Start="0,0"
+              End="0,52.4999999999999">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,52.4999999999999" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
         <EdgeLayout
@@ -6613,60 +7616,196 @@ WHERE rn=1</property>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
-        <NodeLayout
-          Size="200.8,41.6"
-          Id="Package\Sequence Container\Migrate Equipment data\Populate CalibEquipments"
-          TopLeft="526.999992147088,987.599993592501" />
         <EdgeLayout
-          Id="Package\Sequence Container\Migrate Equipment data.Paths[Merge Join Output4]"
-          TopLeft="653.199991297722,943.399993428588">
+          Id="Package\Sequence Container\Migrate Equipment data.Paths[ADO NET Source Output4]"
+          TopLeft="867.5,656.699999999999">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="-25.799999150634,44.2000001639127"
+              EndConnector="21.7333333333333,59.9999999999999"
               Start="0,0"
-              End="-25.799999150634,36.7000001639127">
+              End="21.7333333333333,52.4999999999999">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,18.1000000819564" />
+                    End="0,31.5885714285714" />
                   <mssgle:CubicBezierSegment
-                    Point1="0,18.1000000819564"
-                    Point2="0,22.1000000819564"
-                    Point3="-4,22.1000000819564" />
+                    Point1="0,31.5885714285714"
+                    Point2="0,35.5885714285714"
+                    Point3="4,35.5885714285714" />
                   <mssgle:LineSegment
-                    End="-21.799999150634,22.1000000819564" />
+                    End="17.7333333333333,35.5885714285714" />
                   <mssgle:CubicBezierSegment
-                    Point1="-21.799999150634,22.1000000819564"
-                    Point2="-25.799999150634,22.1000000819564"
-                    Point3="-25.799999150634,26.1000000819564" />
+                    Point1="17.7333333333333,35.5885714285714"
+                    Point2="21.7333333333333,35.5885714285714"
+                    Point3="21.7333333333333,39.5885714285714" />
                   <mssgle:LineSegment
-                    End="-25.799999150634,36.7000001639127" />
+                    End="21.7333333333333,52.4999999999999" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
+          Id="Package\Sequence Container\Migrate Equipment data.Paths[ADO NET Source Output3]"
+          TopLeft="690.5,453.5">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="21.7333333333333,59.9999999999999"
+              Start="0,0"
+              End="21.7333333333333,52.4999999999999">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,31.5885714285714" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,31.5885714285714"
+                    Point2="0,35.5885714285714"
+                    Point3="4,35.5885714285714" />
+                  <mssgle:LineSegment
+                    End="17.7333333333333,35.5885714285714" />
+                  <mssgle:CubicBezierSegment
+                    Point1="17.7333333333333,35.5885714285714"
+                    Point2="21.7333333333333,35.5885714285714"
+                    Point3="21.7333333333333,39.5885714285714" />
+                  <mssgle:LineSegment
+                    End="21.7333333333333,52.4999999999999" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
+          Id="Package\Sequence Container\Migrate Equipment data.Paths[ADO NET Source Output2]"
+          TopLeft="490.5,250.3">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="21.7333333333333,59.9999999999999"
+              Start="0,0"
+              End="21.7333333333333,52.4999999999999">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,31.5885714285714" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,31.5885714285714"
+                    Point2="0,35.5885714285714"
+                    Point3="4,35.5885714285714" />
+                  <mssgle:LineSegment
+                    End="17.7333333333333,35.5885714285714" />
+                  <mssgle:CubicBezierSegment
+                    Point1="17.7333333333333,35.5885714285714"
+                    Point2="21.7333333333333,35.5885714285714"
+                    Point3="21.7333333333333,39.5885714285714" />
+                  <mssgle:LineSegment
+                    End="21.7333333333333,52.4999999999999" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
+          Id="Package\Sequence Container\Migrate Equipment data.Paths[ADO NET Source Output1]"
+          TopLeft="307.5,47.1">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="20.2666666666667,59.9999999999999"
+              Start="0,0"
+              End="20.2666666666667,52.4999999999999">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,31.560975609756" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,31.560975609756"
+                    Point2="0,35.560975609756"
+                    Point3="4,35.560975609756" />
+                  <mssgle:LineSegment
+                    End="16.2666666666667,35.560975609756" />
+                  <mssgle:CubicBezierSegment
+                    Point1="16.2666666666667,35.560975609756"
+                    Point2="20.2666666666667,35.560975609756"
+                    Point3="20.2666666666667,39.560975609756" />
+                  <mssgle:LineSegment
+                    End="20.2666666666667,52.4999999999999" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
+          Id="Package\Sequence Container\Migrate Equipment data.Paths[ADO NET Source Output]"
+          TopLeft="81.5,47.1">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="205.733333333333,59.9999999999999"
+              Start="0,0"
+              End="205.733333333333,52.4999999999999">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,31.560975609756" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,31.560975609756"
+                    Point2="0,35.560975609756"
+                    Point3="4,35.560975609756" />
+                  <mssgle:LineSegment
+                    End="201.733333333333,35.560975609756" />
+                  <mssgle:CubicBezierSegment
+                    Point1="201.733333333333,35.560975609756"
+                    Point2="205.733333333333,35.560975609756"
+                    Point3="205.733333333333,39.560975609756" />
+                  <mssgle:LineSegment
+                    End="205.733333333333,52.4999999999999" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
     </LayoutInfo>
   </TaskHost>
   <PipelineComponentMetadata
-    design-time-name="Package\Sequence Container\Migrate Equipment data\Get source data">
-    <Properties>
-      <Property>
-        <Name>DataSourceViewID</Name>
-      </Property>
-    </Properties>
-  </PipelineComponentMetadata>
-  <PipelineComponentMetadata
-    design-time-name="Package\Sequence Container\Migrate Equipment data\Get departments data">
+    design-time-name="Package\Sequence Container\Migrate Equipment data\Get status">
     <Properties>
       <Property>
         <Name>DataSourceViewID</Name>
@@ -6682,7 +7821,7 @@ WHERE rn=1</property>
     </Properties>
   </PipelineComponentMetadata>
   <PipelineComponentMetadata
-    design-time-name="Package\Sequence Container\Migrate Equipment data\Get secondary class">
+    design-time-name="Package\Sequence Container\Migrate Equipment data\Get source data">
     <Properties>
       <Property>
         <Name>DataSourceViewID</Name>
@@ -6690,7 +7829,7 @@ WHERE rn=1</property>
     </Properties>
   </PipelineComponentMetadata>
   <PipelineComponentMetadata
-    design-time-name="Package\Sequence Container\Migrate Equipment data\Get status">
+    design-time-name="Package\Sequence Container\Migrate Equipment data\Populate CalibEquipments">
     <Properties>
       <Property>
         <Name>DataSourceViewID</Name>
@@ -6706,7 +7845,183 @@ WHERE rn=1</property>
     </Properties>
   </PipelineComponentMetadata>
   <PipelineComponentMetadata
-    design-time-name="Package\Sequence Container\Migrate Equipment data\Populate CalibEquipments">
+    design-time-name="Package\Sequence Container\Migrate Equipment data\Get departments data">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <PipelineComponentMetadata
+    design-time-name="Package\Sequence Container\Migrate Equipment data\Get secondary class">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <TaskHost
+    design-time-name="Package\Sequence Container\Migrate EquipmentMainClass">
+    <LayoutInfo>
+      <GraphLayout
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        <NodeLayout
+          Size="216.8,41.6"
+          Id="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass"
+          TopLeft="136.999997958541,169.999997466803" />
+        <NodeLayout
+          Size="224.8,41.6"
+          Id="Package\Sequence Container\Migrate EquipmentMainClass\Get data from tblInstrMainClass"
+          TopLeft="130.999998047948,59.9999991059303" />
+        <EdgeLayout
+          Id="Package\Sequence Container\Migrate EquipmentMainClass.Paths[ADO NET Source Output]"
+          TopLeft="244.399998003244,101.59999910593">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,68.3999983608723"
+              Start="0,0"
+              End="0,60.8999983608723">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,60.8999983608723" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+      </GraphLayout>
+    </LayoutInfo>
+  </TaskHost>
+  <PipelineComponentMetadata
+    design-time-name="Package\Sequence Container\Migrate EquipmentMainClass\Get data from tblInstrMainClass">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <PipelineComponentMetadata
+    design-time-name="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <TaskHost
+    design-time-name="Package\Sequence Container\Migrate EquipmentSubClass">
+    <LayoutInfo>
+      <GraphLayout
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        <NodeLayout
+          Size="212.8,41.6"
+          Id="Package\Sequence Container\Migrate EquipmentSubClass\Insert to EquipmentSubClass"
+          TopLeft="243.999996364117,200.999997004867" />
+        <NodeLayout
+          Size="220,41.6"
+          Id="Package\Sequence Container\Migrate EquipmentSubClass\Get data from tblInstrSubClass"
+          TopLeft="233.999996513128,94.9999985843897" />
+        <EdgeLayout
+          Id="Package\Sequence Container\Migrate EquipmentSubClass.Paths[ADO NET Source Output]"
+          TopLeft="347.199996438623,136.59999858439">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,64.3999984204769"
+              Start="0,0"
+              End="0,56.8999984204769">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,56.8999984204769" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+      </GraphLayout>
+    </LayoutInfo>
+  </TaskHost>
+  <PipelineComponentMetadata
+    design-time-name="Package\Sequence Container\Migrate EquipmentSubClass\Get data from tblInstrSubClass">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <PipelineComponentMetadata
+    design-time-name="Package\Sequence Container\Migrate EquipmentSubClass\Insert to EquipmentSubClass">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <TaskHost
+    design-time-name="Package\Sequence Container\Migrate users list">
+    <LayoutInfo>
+      <GraphLayout
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        <NodeLayout
+          Size="143.2,41.6"
+          Id="Package\Sequence Container\Migrate users list\Get User data"
+          TopLeft="111.666660565469,46.7999996745586" />
+        <NodeLayout
+          Size="179.2,41.6"
+          Id="Package\Sequence Container\Migrate users list\ADO NET Destination"
+          TopLeft="99.1666612484391,156.866665575835" />
+        <EdgeLayout
+          Id="Package\Sequence Container\Migrate users list.Paths[ADO NET Source Output]"
+          TopLeft="186.016660906954,88.3999996745586">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,68.4666659012768"
+              Start="0,0"
+              End="0,60.9666659012768">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,60.9666659012768" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+      </GraphLayout>
+    </LayoutInfo>
+  </TaskHost>
+  <PipelineComponentMetadata
+    design-time-name="Package\Sequence Container\Migrate users list\ADO NET Destination">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <PipelineComponentMetadata
+    design-time-name="Package\Sequence Container\Migrate users list\Get User data">
     <Properties>
       <Property>
         <Name>DataSourceViewID</Name>

@@ -12,8 +12,8 @@
   DTS:ObjectName="AgentsWaitingListToAWS"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="21"
-  DTS:VersionGUID="{0C7DEB09-A1BD-4A3A-B66A-D271E716BCD5}">
+  DTS:VersionBuild="22"
+  DTS:VersionGUID="{FBCE6ADE-A004-4B11-8FCC-21D40165BD9E}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -80,7 +80,7 @@
                 <connection
                   refId="Package\Load data to AgentsWaitingList\Get data from amaba.Connections[IDbConnection]"
                   connectionManagerID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}:external"
-                  connectionManagerRefId="Project.ConnectionManagers[OnPremPrioty]"
+                  connectionManagerRefId="Project.ConnectionManagers[OnPremPriority]"
                   description="Managed connection manager"
                   name="IDbConnection" />
               </connections>
@@ -340,13 +340,13 @@
       </DTS:ObjectData>
     </DTS:Executable>
     <DTS:Executable
-      DTS:refId="Package\Truncate stg_Orders"
+      DTS:refId="Package\Truncate AgentsWaitingList"
       DTS:CreationName="Microsoft.ExecuteSQLTask"
       DTS:Description="Execute SQL Task"
       DTS:DTSID="{A0398320-D2E5-4C95-B872-5C3BC5CEAF8B}"
       DTS:ExecutableType="Microsoft.ExecuteSQLTask"
       DTS:LocaleID="-1"
-      DTS:ObjectName="Truncate stg_Orders"
+      DTS:ObjectName="Truncate AgentsWaitingList"
       DTS:ThreadHint="0">
       <DTS:Variables />
       <DTS:ObjectData>
@@ -361,7 +361,7 @@
       DTS:refId="Package.PrecedenceConstraints[Constraint]"
       DTS:CreationName=""
       DTS:DTSID="{D5EF7AF1-2A6E-4FF5-AFEB-8EE81CC22B75}"
-      DTS:From="Package\Truncate stg_Orders"
+      DTS:From="Package\Truncate AgentsWaitingList"
       DTS:LogicalAnd="True"
       DTS:ObjectName="Constraint"
       DTS:To="Package\Load data to AgentsWaitingList" />
@@ -383,23 +383,23 @@
           Id="Package\Load data to AgentsWaitingList"
           TopLeft="103.833327960637,106.033332634237" />
         <NodeLayout
-          Size="173.6,41.6"
-          Id="Package\Truncate stg_Orders"
-          TopLeft="128.333326321509,26.8666664798392" />
+          Size="205.6,41.6"
+          Id="Package\Truncate AgentsWaitingList"
+          TopLeft="111.666660565469,23.3999998372793" />
         <EdgeLayout
           Id="Package.PrecedenceConstraints[Constraint]"
-          TopLeft="215.083327141073,68.4666664798392">
+          TopLeft="214.749994263053,64.9999998372793">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,37.5666661543978"
+              EndConnector="0,41.0333327969577"
               Start="0,0"
-              End="0,30.0666661543978">
+              End="0,33.5333327969577">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,30.0666661543978" />
+                    End="0,33.5333327969577" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>

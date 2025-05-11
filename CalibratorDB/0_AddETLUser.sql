@@ -217,7 +217,6 @@ WHEN MATCHED
 			,dest.[UpdateUserID] = source.[UpdateUserID]
 			,dest.[UserAddress] = source.[UserAddress]
 			,dest.[LocationArea] = source.[LocationArea]
-			,dest.[Stamp] = source.[Stamp]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -234,7 +233,6 @@ WHEN NOT MATCHED BY TARGET
 			,[UpdateUserID]
 			,[UserAddress]
 			,[LocationArea]
-			,[Stamp]
 			)
 		VALUES (
 			source.[FirstName]
@@ -250,5 +248,4 @@ WHEN NOT MATCHED BY TARGET
 			,source.[UpdateUserID]
 			,source.[UserAddress]
 			,source.[LocationArea]
-			,source.[Stamp]
 			);
