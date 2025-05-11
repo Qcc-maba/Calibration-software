@@ -12,8 +12,8 @@
   DTS:ObjectName="AgentsWaitingListToAWS"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="22"
-  DTS:VersionGUID="{FBCE6ADE-A004-4B11-8FCC-21D40165BD9E}">
+  DTS:VersionBuild="24"
+  DTS:VersionGUID="{91DB5DB6-6506-4A3F-83CB-8EB754960A06}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -50,8 +50,19 @@
 		,SUBSTRING(sv.[Customer Number],1,50) AS CustomerNumber
 		,SUBSTRING(sv.[Customer Name],1,300) AS CustomerName
 		,SUBSTRING(sv.klita,1,16) as Klita
+		,'amaba' as src
 	FROM amaba.dbo.servcalls_view as sv
 	INNER JOIN amaba.dbo.DOCSTATS ON sv.[סטטוס תעודת קליטה] = DOCSTATS.STATDES
+	WHERE DOCSTATS.DOCSTAT IN( 62,63,91,58)
+UNION ALL
+SELECT DISTINCT 
+	     SUBSTRING(sv.[agent name],1,100) AS AgentName
+		,SUBSTRING(sv.[Customer Number],1,50) AS CustomerNumber
+		,SUBSTRING(sv.[Customer Name],1,300) AS CustomerName
+		,SUBSTRING(sv.klita,1,16) as Klita
+		,'sepharm' as src
+	FROM sepharm.dbo.servcalls_view as sv
+	INNER JOIN sepharm.dbo.DOCSTATS ON sv.[סטטוס תעודת קליטה] = DOCSTATS.STATDES
 	WHERE DOCSTATS.DOCSTAT IN( 62,63,91,58)</property>
                 <property
                   dataType="System.Int32"
@@ -129,6 +140,16 @@
                       lineageId="Package\Load data to AgentsWaitingList\Get data from amaba.Outputs[ADO NET Source Output].Columns[Klita]"
                       name="Klita"
                       truncationRowDisposition="FailComponent" />
+                    <outputColumn
+                      refId="Package\Load data to AgentsWaitingList\Get data from amaba.Outputs[ADO NET Source Output].Columns[src]"
+                      dataType="wstr"
+                      errorOrTruncationOperation="Conversion"
+                      errorRowDisposition="FailComponent"
+                      externalMetadataColumnId="Package\Load data to AgentsWaitingList\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[src]"
+                      length="7"
+                      lineageId="Package\Load data to AgentsWaitingList\Get data from amaba.Outputs[ADO NET Source Output].Columns[src]"
+                      name="src"
+                      truncationRowDisposition="FailComponent" />
                   </outputColumns>
                   <externalMetadataColumns
                     isUsed="True">
@@ -152,6 +173,11 @@
                       dataType="wstr"
                       length="16"
                       name="Klita" />
+                    <externalMetadataColumn
+                      refId="Package\Load data to AgentsWaitingList\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[src]"
+                      dataType="wstr"
+                      length="7"
+                      name="src" />
                   </externalMetadataColumns>
                 </output>
                 <output
@@ -183,6 +209,12 @@
                       length="16"
                       lineageId="Package\Load data to AgentsWaitingList\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[Klita]"
                       name="Klita" />
+                    <outputColumn
+                      refId="Package\Load data to AgentsWaitingList\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[src]"
+                      dataType="wstr"
+                      length="7"
+                      lineageId="Package\Load data to AgentsWaitingList\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[src]"
+                      name="src" />
                     <outputColumn
                       refId="Package\Load data to AgentsWaitingList\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
                       dataType="i4"
@@ -277,6 +309,13 @@
                       cachedName="Klita"
                       externalMetadataColumnId="Package\Load data to AgentsWaitingList\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[Klita]"
                       lineageId="Package\Load data to AgentsWaitingList\Get data from amaba.Outputs[ADO NET Source Output].Columns[Klita]" />
+                    <inputColumn
+                      refId="Package\Load data to AgentsWaitingList\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].Columns[src]"
+                      cachedDataType="wstr"
+                      cachedLength="7"
+                      cachedName="src"
+                      externalMetadataColumnId="Package\Load data to AgentsWaitingList\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[src]"
+                      lineageId="Package\Load data to AgentsWaitingList\Get data from amaba.Outputs[ADO NET Source Output].Columns[src]" />
                   </inputColumns>
                   <externalMetadataColumns
                     isUsed="True">
@@ -300,6 +339,11 @@
                       dataType="wstr"
                       length="16"
                       name="Klita" />
+                    <externalMetadataColumn
+                      refId="Package\Load data to AgentsWaitingList\Insert data to AgentWaitingList.Inputs[ADO NET Destination Input].ExternalColumns[src]"
+                      dataType="wstr"
+                      length="50"
+                      name="src" />
                   </externalMetadataColumns>
                 </input>
               </inputs>

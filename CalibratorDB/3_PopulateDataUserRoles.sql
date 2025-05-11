@@ -38,3 +38,8 @@ WHEN NOT MATCHED BY TARGET
 			,source.[UserRoleName]
 			,source.[IsApplicationRole]
 			);
+	INSERT [dbo].[UsersToUserRoles](UserId,UserRoleId,UpdateUserID)
+	SELECT u.ID, COALESCE(ur.UserRoleId,1),0
+	FROM dbo.Users as u
+	LEFT JOIN dbo.UserRoles as ur ON UPPER(ur.UserRoleDescriptionENG) = UPPER(u.LastNameEng)
+	WHERE NULLIF(ID,0) < 11

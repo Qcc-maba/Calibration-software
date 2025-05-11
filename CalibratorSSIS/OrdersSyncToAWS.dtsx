@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="20"
-  DTS:VersionGUID="{50814B61-12D2-4037-8AF2-BE387B5A687C}">
+  DTS:VersionBuild="23"
+  DTS:VersionGUID="{A7E2BBC5-7D2B-4F03-8DE1-3A6E4DE1CE16}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -57,7 +57,7 @@
       ,[MBAContactName]
       ,[MBAContactPhone]
       ,[MBAContactMobile]
-      ,[ClientRemarks]
+      ,NULL AS [ClientRemarks]
       ,[MbaReportNumber]
       ,[Serial Number] as [SerialNumber]
       ,[Manufacturer Number] as [ManufacturerNumber]
@@ -80,7 +80,47 @@
       ,[CustomerContactPersonRole]
       ,[CustomerContactAdditionalPhoneNumber]
       ,[CustomerContactEmail]
+	  ,'amaba' as src
   FROM [dbo].[vwGetOrders_WorkPlan_Full]
+  WHERE [OpenDate] &gt; DATEADD(DAY,-7,GETDATE())
+UNION ALL
+SELECT [OrderNumber]
+      ,[OpenDate]
+      ,[CustomerID]
+      ,SUBSTRING([CustomerName],1,100) AS [CustomerName]
+      ,[CustomerPhone]
+      ,[CustomerContactName]
+      ,SUBSTRING([CustomerCity],1,100) AS [CustomerCity]
+      ,SUBSTRING([CustomerAddress],1,100) AS [CustomerAddress]
+      ,[CustomerContactPhone]
+      ,[MBAContactName]
+      ,[MBAContactPhone]
+      ,[MBAContactMobile]
+      ,NULL AS [ClientRemarks]
+      ,[MbaReportNumber]
+      ,[Serial Number] as [SerialNumber]
+      ,[Manufacturer Number] as [ManufacturerNumber]
+      ,[Device Description] as [DeviceDescription]
+      ,[Device model] as [Devicemodel]
+      ,[CalibDate]
+      ,[NextCalibDate]
+      ,[CALIBMONTH]
+      ,[ReturnDate]
+      ,[Part Name] as [PartName]
+      ,[Part Description] as [PartDescription]
+      ,[InHouse]
+      ,[DepartmentCode]
+      ,[DepartmentName]
+      ,[StatusCode]
+      ,[CalibStatud]
+      ,SUBSTRING([Device manufacturer],1,50) as [DeviceManufacturer]
+      ,[PART]
+      ,[Klita]
+      ,[CustomerContactPersonRole]
+      ,[CustomerContactAdditionalPhoneNumber]
+      ,[CustomerContactEmail]
+	  ,'sepharm' as src
+  FROM [sepharm].[dbo].[vwGetOrders_WorkPlan_Full]
   WHERE [OpenDate] &gt; DATEADD(DAY,-7,GETDATE())</property>
                 <property
                   dataType="System.Int32"
@@ -109,7 +149,7 @@
                 <connection
                   refId="Package\Load data to stg_Orders\Get data from amaba.Connections[IDbConnection]"
                   connectionManagerID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}:external"
-                  connectionManagerRefId="Project.ConnectionManagers[OnPremPrioty]"
+                  connectionManagerRefId="Project.ConnectionManagers[OnPremPriority]"
                   description="Managed connection manager"
                   name="IDbConnection" />
               </connections>
@@ -239,7 +279,7 @@
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
                       refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[ClientRemarks]"
-                      dataType="nText"
+                      dataType="i4"
                       errorOrTruncationOperation="Conversion"
                       errorRowDisposition="FailComponent"
                       externalMetadataColumnId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[ClientRemarks]"
@@ -458,6 +498,16 @@
                       lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[CustomerContactEmail]"
                       name="CustomerContactEmail"
                       truncationRowDisposition="FailComponent" />
+                    <outputColumn
+                      refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[src]"
+                      dataType="wstr"
+                      errorOrTruncationOperation="Conversion"
+                      errorRowDisposition="FailComponent"
+                      externalMetadataColumnId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[src]"
+                      length="7"
+                      lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[src]"
+                      name="src"
+                      truncationRowDisposition="FailComponent" />
                   </outputColumns>
                   <externalMetadataColumns
                     isUsed="True">
@@ -522,7 +572,7 @@
                       name="MBAContactMobile" />
                     <externalMetadataColumn
                       refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[ClientRemarks]"
-                      dataType="nText"
+                      dataType="i4"
                       name="ClientRemarks" />
                     <externalMetadataColumn
                       refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[MbaReportNumber]"
@@ -626,6 +676,11 @@
                       dataType="wstr"
                       length="48"
                       name="CustomerContactEmail" />
+                    <externalMetadataColumn
+                      refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[src]"
+                      dataType="wstr"
+                      length="7"
+                      name="src" />
                   </externalMetadataColumns>
                 </output>
                 <output
@@ -706,7 +761,7 @@
                       name="MBAContactMobile" />
                     <outputColumn
                       refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[ClientRemarks]"
-                      dataType="nText"
+                      dataType="i4"
                       lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[ClientRemarks]"
                       name="ClientRemarks" />
                     <outputColumn
@@ -833,6 +888,12 @@
                       length="48"
                       lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[CustomerContactEmail]"
                       name="CustomerContactEmail" />
+                    <outputColumn
+                      refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[src]"
+                      dataType="wstr"
+                      length="7"
+                      lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[src]"
+                      name="src" />
                     <outputColumn
                       refId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
                       dataType="i4"
@@ -984,7 +1045,7 @@
                       lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[MBAContactMobile]" />
                     <inputColumn
                       refId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[ClientRemarks]"
-                      cachedDataType="nText"
+                      cachedDataType="i4"
                       cachedName="ClientRemarks"
                       externalMetadataColumnId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ClientRemarks]"
                       lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[ClientRemarks]" />
@@ -1134,6 +1195,13 @@
                       cachedName="CustomerContactEmail"
                       externalMetadataColumnId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactEmail]"
                       lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[CustomerContactEmail]" />
+                    <inputColumn
+                      refId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[src]"
+                      cachedDataType="wstr"
+                      cachedLength="7"
+                      cachedName="src"
+                      externalMetadataColumnId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[src]"
+                      lineageId="Package\Load data to stg_Orders\Get data from amaba.Outputs[ADO NET Source Output].Columns[src]" />
                   </inputColumns>
                   <externalMetadataColumns
                     isUsed="True">
@@ -1303,6 +1371,11 @@
                       dataType="wstr"
                       length="100"
                       name="CustomerContactEmail" />
+                    <externalMetadataColumn
+                      refId="Package\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[src]"
+                      dataType="wstr"
+                      length="50"
+                      name="src" />
                   </externalMetadataColumns>
                 </input>
               </inputs>
@@ -1470,27 +1543,39 @@
       <GraphLayout
         Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
+          Size="176,41.6"
+          Id="Package\Load data to stg_Orders\Get data from amaba"
+          TopLeft="325.16666185442,97.8666652152274" />
+        <NodeLayout
           Size="223.2,41.6"
           Id="Package\Load data to stg_Orders\Insert data to Calibrator staging"
           TopLeft="309.99999538064,213.999996811152" />
-        <NodeLayout
-          Size="176,41.6"
-          Id="Package\Load data to stg_Orders\Get data from amaba"
-          TopLeft="325.999995142222,96.9999985545874" />
         <EdgeLayout
           Id="Package\Load data to stg_Orders.Paths[ADO NET Source Output]"
-          TopLeft="417.799995261431,138.599998554587">
+          TopLeft="413.16666185442,139.466665215227">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,75.3999982565646"
+              EndConnector="8.43333352621994,74.5333315959246"
               Start="0,0"
-              End="0,67.8999982565646">
+              End="8.43333352621994,67.0333315959246">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,67.8999982565646" />
+                    End="0,33.2666657979623" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,33.2666657979623"
+                    Point2="0,37.2666657979623"
+                    Point3="4,37.2666657979623" />
+                  <mssgle:LineSegment
+                    End="4.43333352621994,37.2666657979623" />
+                  <mssgle:CubicBezierSegment
+                    Point1="4.43333352621994,37.2666657979623"
+                    Point2="8.43333352621994,37.2666657979623"
+                    Point3="8.43333352621994,41.2666657979623" />
+                  <mssgle:LineSegment
+                    End="8.43333352621994,67.0333315959246" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>

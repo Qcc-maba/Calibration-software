@@ -7,9 +7,6 @@ USING (
 	 ,LTRIM(RTRIM(ds.[StatusDescriptionHEB])) AS [StatusDescriptionHEB]
 	FROM (
 		VALUES
-		('EquipmentStatus','','Available',N'תקין'),
-		('EquipmentStatus','','Treatment',N'בטיפול'),
-		('EquipmentStatus','','Damaged',N'תקול'),
 		('ReportStatus','AA','Received',N'נקלט'),
 		('ReportStatus','AC','OpeningNewCalibration',N'פתיחת כיול חדש'),
 		('ReportStatus','DC','StandbyModeCustomerReason',N'מצב המתנה (סיבת לקוח)'),

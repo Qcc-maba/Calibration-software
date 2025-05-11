@@ -33,6 +33,7 @@
     [Klita]                                NVARCHAR (16)  NULL,
     [CustomerContactPersonRole]            NVARCHAR (60)  NULL,
     [CustomerContactAdditionalPhoneNumber] NVARCHAR (40)  NULL,
-    [CustomerContactEmail]                 NVARCHAR (100) NULL
+    [CustomerContactEmail]                 NVARCHAR (100) NULL,
+    [src]                                  NVARCHAR (50)  NOT NULL
 );
 

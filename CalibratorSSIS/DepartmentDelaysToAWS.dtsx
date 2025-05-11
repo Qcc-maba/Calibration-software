@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="21"
-  DTS:VersionGUID="{76FBB935-E0B1-4EA0-8770-D77D936A185C}">
+  DTS:VersionBuild="22"
+  DTS:VersionGUID="{32F98DDB-E114-49F7-9679-8FD1D92D7F34}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -45,8 +45,13 @@
                   description="Specifies the SQL statement used by the component to extract data."
                   expressionType="Notify"
                   name="SqlCommand"
-                  UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT SUBSTRING(SKU,1,100) as SKU, COUNT(*) as cnt
+                  UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT SUBSTRING(SKU,1,100) as SKU,'amaba' as src, COUNT(*) as cnt
 FROM dbo.servcalls_view
+WHERE [Service status] = 'נקלט'
+GROUP BY SKU
+UNION ALL
+SELECT SUBSTRING(SKU,1,100) as SKU,'sepharm' as scr, COUNT(*) as cnt
+FROM sepharm.dbo.servcalls_view
 WHERE [Service status] = 'נקלט'
 GROUP BY SKU</property>
                 <property
@@ -76,7 +81,7 @@ GROUP BY SKU</property>
                 <connection
                   refId="Package\Load data to DepartmentDelays\Get data from amaba.Connections[IDbConnection]"
                   connectionManagerID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}:external"
-                  connectionManagerRefId="Project.ConnectionManagers[OnPremPrioty]"
+                  connectionManagerRefId="Project.ConnectionManagers[OnPremPriority]"
                   description="Managed connection manager"
                   name="IDbConnection" />
               </connections>
@@ -96,6 +101,16 @@ GROUP BY SKU</property>
                       name="SKU"
                       truncationRowDisposition="FailComponent" />
                     <outputColumn
+                      refId="Package\Load data to DepartmentDelays\Get data from amaba.Outputs[ADO NET Source Output].Columns[src]"
+                      dataType="wstr"
+                      errorOrTruncationOperation="Conversion"
+                      errorRowDisposition="FailComponent"
+                      externalMetadataColumnId="Package\Load data to DepartmentDelays\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[src]"
+                      length="7"
+                      lineageId="Package\Load data to DepartmentDelays\Get data from amaba.Outputs[ADO NET Source Output].Columns[src]"
+                      name="src"
+                      truncationRowDisposition="FailComponent" />
+                    <outputColumn
                       refId="Package\Load data to DepartmentDelays\Get data from amaba.Outputs[ADO NET Source Output].Columns[cnt]"
                       dataType="i4"
                       errorOrTruncationOperation="Conversion"
@@ -113,6 +128,11 @@ GROUP BY SKU</property>
                       length="22"
                       name="SKU" />
                     <externalMetadataColumn
+                      refId="Package\Load data to DepartmentDelays\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[src]"
+                      dataType="wstr"
+                      length="7"
+                      name="src" />
+                    <externalMetadataColumn
                       refId="Package\Load data to DepartmentDelays\Get data from amaba.Outputs[ADO NET Source Output].ExternalColumns[cnt]"
                       dataType="i4"
                       name="cnt" />
@@ -129,6 +149,12 @@ GROUP BY SKU</property>
                       length="22"
                       lineageId="Package\Load data to DepartmentDelays\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[SKU]"
                       name="SKU" />
+                    <outputColumn
+                      refId="Package\Load data to DepartmentDelays\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[src]"
+                      dataType="wstr"
+                      length="7"
+                      lineageId="Package\Load data to DepartmentDelays\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[src]"
+                      name="src" />
                     <outputColumn
                       refId="Package\Load data to DepartmentDelays\Get data from amaba.Outputs[ADO NET Source Error Output].Columns[cnt]"
                       dataType="i4"
@@ -208,6 +234,13 @@ GROUP BY SKU</property>
                       externalMetadataColumnId="Package\Load data to DepartmentDelays\Insert data to DepartmentDelays.Inputs[ADO NET Destination Input].ExternalColumns[SKU]"
                       lineageId="Package\Load data to DepartmentDelays\Get data from amaba.Outputs[ADO NET Source Output].Columns[SKU]" />
                     <inputColumn
+                      refId="Package\Load data to DepartmentDelays\Insert data to DepartmentDelays.Inputs[ADO NET Destination Input].Columns[src]"
+                      cachedDataType="wstr"
+                      cachedLength="7"
+                      cachedName="src"
+                      externalMetadataColumnId="Package\Load data to DepartmentDelays\Insert data to DepartmentDelays.Inputs[ADO NET Destination Input].ExternalColumns[src]"
+                      lineageId="Package\Load data to DepartmentDelays\Get data from amaba.Outputs[ADO NET Source Output].Columns[src]" />
+                    <inputColumn
                       refId="Package\Load data to DepartmentDelays\Insert data to DepartmentDelays.Inputs[ADO NET Destination Input].Columns[cnt]"
                       cachedDataType="i4"
                       cachedName="cnt"
@@ -225,6 +258,11 @@ GROUP BY SKU</property>
                       refId="Package\Load data to DepartmentDelays\Insert data to DepartmentDelays.Inputs[ADO NET Destination Input].ExternalColumns[cnt]"
                       dataType="i4"
                       name="cnt" />
+                    <externalMetadataColumn
+                      refId="Package\Load data to DepartmentDelays\Insert data to DepartmentDelays.Inputs[ADO NET Destination Input].ExternalColumns[src]"
+                      dataType="wstr"
+                      length="50"
+                      name="src" />
                   </externalMetadataColumns>
                 </input>
               </inputs>

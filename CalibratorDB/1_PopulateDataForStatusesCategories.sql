@@ -5,7 +5,6 @@ SELECT
 FROM (
 	VALUES
 	('ReportStatus',''),
-	('EquipmentStatus',''),
 	('CalibratedUnitsWorkStatus',''),
 	('CalibratedUnitsStatus',''),
 	('SpecialCare',''),
