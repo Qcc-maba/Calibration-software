@@ -115,9 +115,10 @@ CONCAT(
       ,ce.[SerialNumber]
       ,ce.[CalibratorId]
 	  ,CONCAT(u.FirstName, '' '', u.LastName) as CalibratorFullName
-      ,ce.[MainCategory]
+      ,mc.EquipmentMainClassNameHEB as [MainCategory]
+	  ,ess.[Name] as [SecondaryCategory]
       ,ce.[NextCalibrationDate]
-      ,ce.[CarId]
+      ,c.[CarId]
 	  ,c.Model	
 	  ,c.LicenseNumber
 	  ,COUNT(1) OVER(PARTITION BY 1 ORDER BY ce.[ID] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
@@ -125,7 +126,10 @@ CONCAT(
   JOIN [dbo].[Departments] as d ON ce.DepartmentId = d.ID AND d.IsDeleted = 0
   LEFT JOIN [dbo].[Statuses] as s ON s.StatusId = ce.[StatusId]
   LEFT JOIN [dbo].[Users] as u ON ce.[CalibratorId] = u.ID AND u.IsActive = 1 
-  LEFT JOIN [dbo].[Cars] as c ON ce.[CarId] = c.CarId AND c.IsDeleted = 0 '
+  LEFT JOIN [dbo].[CarsToEquipment] as cte ON cte.EquipmentId = ce.ID AND cte.IsDeleted=0
+  LEFT JOIN [dbo].[Cars] as c ON c.CarId = cte.CarId AND c.IsDeleted = 0 
+  LEFT JOIN [dbo].[CalibEquipmentMainClass] as mc ON ce.MainClassId	= mc.ID
+  LEFT JOIN [dbo].[CalibEquipmentSubClass] as ess ON ce.SubClassId = ess.ID'
   ,CASE WHEN @CalibratorFullName IS NOT NULL THEN ' JOIN #Calibrators as cf ON ce.[CalibratorId] = cf.[CalibratorId] ' ELSE ' ' END
   ,CASE WHEN @StatusDescription IS NOT NULL THEN ' JOIN #StatusDescriptions as sdf ON ce.[StatusId] = sdf.[StatusId] ' ELSE ' ' END
   ,'
