@@ -16,7 +16,7 @@ CREATE    PROCEDURE [dbo].[GetAllEmployees]
 	@Address NVARCHAR(200) = NULL,
     @LocationArea NVARCHAR(200) = NULL,
 	@Email NVARCHAR(50) = NULL,
-    @UserRoleIds NVARCHAR(500)  = NULL,
+    @UserRoleId INT  = NULL,
 	@UserStatusIds NVARCHAR(50) = NULL,
 	@DepartmentIdsList nvarchar(max) = NULL,
 	@CertificationIds NVARCHAR(MAX) = NULL,
@@ -66,18 +66,6 @@ SELECT
   FROM [dbo].[Statuses] as s
   JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
 WHERE sc.StatusDescriptionENG = 'UserStatus'
-
-DROP TABLE IF EXISTS #UserRoleIds
-CREATE TABLE #UserRoleIds
-(
-UserId INT
-)
-
-INSERT #UserRoleIds(UserId)
---Insert users filtered by provided @UserRoleIds
-SELECT DISTINCT v.Value
-FROM dbo.ParseCSVToTable(@UserRoleIds) as v
-
 
 DROP TABLE IF EXISTS #UserStatusesIds
 CREATE TABLE #UserStatusesIds
@@ -184,7 +172,6 @@ FROM [dbo].[Users] as u
 JOIN #Status as ss ON u.IsActive = ss.IsActive
 LEFT JOIN [dbo].[UserRoles] as ur ON u.UserRoleId = ur.UserRoleId
 '
-,IIF(@UserRoleIds IS NOT NULL,' JOIN #UserRoleIds as uf1 ON u.ID =  uf1.UserId ',' ')
 ,IIF(@UserStatusIds IS NOT NULL,' JOIN #UserStatusesIds as uf2 ON u.ID =  uf2.UserId ',' ')
 ,IIF(@DepartmentIdsList IS NOT NULL,' JOIN #DepartmentUserIds as uf3 ON u.ID =  uf3.UserId ',' ')
 ,IIF(@CertificationIds IS NOT NULL,' JOIN #CertificationUserIds as uf4 ON u.ID =  uf4.UserId ',' ')
@@ -216,6 +203,7 @@ WHERE u.ID > 0
 ,CASE WHEN @Address IS NOT NULL THEN ' AND u.UserAddress LIKE N''%'+ @Address +'%'' 'ELSE ' ' END
 ,CASE WHEN @LocationArea IS NOT NULL THEN ' AND u.LocationArea LIKE N''%'+ @LocationArea +'%'' 'ELSE ' ' END
 ,CASE WHEN @Email IS NOT NULL THEN ' AND u.Email LIKE N''%'+ @Email +'%'' 'ELSE ' ' END
+,CASE WHEN @UserRoleId IS NOT NULL THEN ' AND u.UserRoleId = '+ CAST(@UserRoleId as VARCHAR(20)) +' 'ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
 OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql

@@ -70,7 +70,7 @@ WHERE (u.ID = @CalibratorId)  AND u.IsActive = 0
 THROW 51000, 'Incorrect or inactive user assigned as calibrator.', 1;
 
 if @CarId IS NOT NULL AND NOT EXISTS (
-SELECT 1 FROM Cars WHERE CarId = @CarId
+SELECT 1 FROM Cars WHERE CarId = @CarId and IsDeleted = 0
 )
 THROW 51000, 'Incorrect car was assigned.', 1;
 
@@ -88,21 +88,23 @@ BEGIN TRY
 			  ,[CalibratorId] = @CalibratorId
 			  ,[MainClassId] = @MainCategoryId
 			  ,[SubClassId] = @SecondaryCategoryId
-			  ,[NextCalibrationDate] = NULLIF(@NextCalibrationDate,'1900-01-01')
+			  ,[NextCalibrationDate] = @NextCalibrationDate
 			  ,[UpdatedDate] = GETDATE()
 			  ,[UpdateUserID] = @Userid
 		 WHERE ID = @ID
 
-		IF @PrevCarId IS NOT NULL AND @CarId <> @PrevCarId
+		IF @PrevCarId IS NOT NULL 
 			UPDATE [dbo].[CarsToEquipment]
-				SET [CarId] = @CarId
+				SET [CarId] = COALESCE(@CarId,[CarId])
 				   ,[UpdateUserID] = @Userid
 				   ,[UpdatedDate] = GETDATE()
-			WHERE [CarId] = @PrevCarId AND [EquipmentId] = @ID
-
-		IF @PrevCarId IS NULL  
-			INSERT [dbo].[CarsToEquipment]([CarId],[EquipmentId],[UpdateUserID])
-			VALUES (@CarId,@ID,@Userid)
+				   ,[IsDeleted] = IIF(@CarId IS NULL,1,0)
+			WHERE [CarId] = @PrevCarId AND [EquipmentId] = @ID AND IsDeleted = 0
+		
+		IF @CarId IS NOT NULL
+		 AND NOT EXISTS (SELECT 1 FROM [dbo].[CarsToEquipment] WHERE [CarId] = @CarId AND [EquipmentId] = @ID AND IsDeleted = 0) 
+		INSERT [dbo].[CarsToEquipment]([CarId],[EquipmentId],[UpdateUserID])
+		VALUES (@CarId,@ID,@Userid)
 
 	COMMIT
 END TRY

@@ -9,12 +9,12 @@ CREATE    PROCEDURE [dbo].[GetEquipmentManagementTableData]
 @PageNumber INT = 1,
 @OrderBy NVARCHAR(30) = N'DepartmentName',
 @OrderByAsc BIT = 1,
-@DepartmentId INT = -1,
+@DepartmentId INT = NULL,
 @EquipmentName NVARCHAR(255)= NULL,
 @SerialNumber NVARCHAR(100)= NULL,
-@StatusId INT = -1,
-@CalibratorId INT = -1,
-@CarId INT = -1,
+@StatusId INT = NULL,
+@CalibratorId INT = NULL,
+@CarId INT = NULL,
 @MainCategory NVARCHAR(100)= NULL,
 @NextCalibrationDate DATE = NULL,
 @CarLicenseNumber NVARCHAR(100)= NULL,
@@ -50,12 +50,12 @@ IF @StatusId > 0 AND @StatusId NOT IN (SELECT StatusId
 				JOIN [dbo].[StatusesCategories] as c On s.[StatusCategoryId] = c.[StatusCategoryId]
 				WHERE c.StatusDescriptionENG = 'CalibrationEquipmentStatus' )
 THROW 51000, 'Incorrect status was assigned.', 1;
-
+/*
 if @CalibratorId > 0 AND NOT EXISTS (
 SELECT 1 FROM [dbo].[Users] as u
 WHERE (u.ID = @CalibratorId)  AND u.IsActive = 1
 )
-THROW 51000, 'Incorrect or inactive user assigned as calibrator.', 1;
+THROW 51000, 'Incorrect or inactive user assigned as calibrator.', 1;*/
 
 if @CarId > 0 AND NOT EXISTS (
 SELECT 1 FROM Cars WHERE CarId = @CarId and IsDeleted = 0
@@ -141,10 +141,10 @@ CONCAT(
   ,CASE WHEN @DepartmentName IS NOT NULL THEN' AND d.[DepartmentName] LIKE ''%'+ @DepartmentName+'%'' 'ELSE ' ' END
   ,CASE WHEN @CarLicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] LIKE ''%'+ @CarLicenseNumber+'%'' 'ELSE ' ' END
   ,CASE WHEN @MainCategory IS NOT NULL THEN' AND ce.[MainCategory] LIKE ''%'+ @MainCategory+'%'' 'ELSE ' ' END
-  ,CASE WHEN @StatusId > 0 THEN' AND ce.[StatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @CalibratorId > 0 THEN' AND ce.[CalibratorId] = '+CAST(@CalibratorId as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @DepartmentId > 0 THEN' AND ce.[DepartmentId] = '+CAST(@DepartmentId as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @CarId > 0 THEN' AND ce.[CarId] = '+CAST(@CarId as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @StatusId IS NOT NULL THEN' AND ce.[StatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @CalibratorId IS NOT NULL THEN' AND ce.[CalibratorId] = '+CAST(@CalibratorId as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @DepartmentId IS NOT NULL THEN' AND ce.[DepartmentId] = '+CAST(@DepartmentId as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @CarId IS NOT NULL THEN' AND c.[CarId] = '+CAST(@CarId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @NextCalibrationDate IS NOT NULL AND @NextCalibrationDate > '1900-01-01' THEN' AND ce.[NextCalibrationDate] = '''+CAST(@NextCalibrationDate as NVARCHAR(50))+''' 'ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
