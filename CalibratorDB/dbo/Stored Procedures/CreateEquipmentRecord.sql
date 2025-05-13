@@ -55,9 +55,9 @@ IF @StatusId NOT IN (SELECT StatusId
 				WHERE c.StatusDescriptionENG = 'CalibrationEquipmentStatus' )
 THROW 51000, 'Incorrect status was assigned.', 1;
 
-if @CalibratorId IS NOT NULL AND NOT EXISTS (
+if @CalibratorId IS NOT NULL AND EXISTS (
 SELECT 1 FROM [dbo].[Users] as u
-WHERE (u.ID = @CalibratorId)  AND u.IsActive = 1
+WHERE (u.ID = @CalibratorId)  AND u.IsActive = 0
 )
 THROW 51000, 'Incorrect or inactive user assigned as calibrator.', 1;
 

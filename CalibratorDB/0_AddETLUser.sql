@@ -10,7 +10,8 @@ INSERT INTO [dbo].[Users]
            ,[Email]
            ,[Password]
            ,[Phone]
-           ,[IsActive])
+           ,[IsActive]
+		   ,[UserRoleId])
      VALUES
            (0
 		   ,'ETL'
@@ -20,24 +21,27 @@ INSERT INTO [dbo].[Users]
            ,'N/A'
            ,''
            ,'N/A'
-           ,1)
+           ,1
+		   ,1)
 SET IDENTITY_INSERT [dbo].[Users] OFF 
 MERGE INTO [dbo].[Users] AS dest
 USING (
-	SELECT [FirstName]
-		,[LastName]
-		,[FirstNameEng]
-		,[LastNameEng]
-		,[Email]
-		,[Password]
-		,[Phone]
-		,[IsActive]
-		,[CreatedDate]
-		,[UpdatedDate]
-		,[UpdateUserID]
-		,[UserAddress]
-		,[LocationArea]
-		,[Stamp]
+	SELECT 
+	     ds.[FirstName]
+		,ds.[LastName]
+		,ds.[FirstNameEng]
+		,ds.[LastNameEng]
+		,ds.[Email]
+		,ds.[Password]
+		,ds.[Phone]
+		,ds.[IsActive]
+		,ds.[CreatedDate]
+		,ds.[UpdatedDate]
+		,ds.[UpdateUserID]
+		,ds.[UserAddress]
+		,ds.[LocationArea]
+		,ds.[Stamp]
+		,ur.UserRoleId
 	FROM (
 		VALUES (
 			 N'sinova'
@@ -54,6 +58,7 @@ USING (
 			,''
 			,''
 			,''
+			,'Validator'
 			)
 			,(
 			 N'sinova'
@@ -70,22 +75,7 @@ USING (
 			,''
 			,''
 			,''
-			)
-			,(
-			 N'sinova'
-			,N'inactive '
-			,N'Sinova'
-			,N'Inactive '
-			,N'sinova_inactive@gmail.com'
-			,'123'
-			,''
-			,0
-			,GETDATE()
-			,NULL
-			,0
-			,''
-			,''
-			,''
+			,'Coordinator'
 			)
 			,(
 			 N'sinova'
@@ -102,6 +92,7 @@ USING (
 			,''
 			,''
 			,''
+			,'SuperAdmin'
 			)
 			,(
 			 N'sinova'
@@ -118,6 +109,7 @@ USING (
 			,''
 			,''
 			,'123-456'
+			,'TeamLeader'
 			)
 			,(
 			 N'sinova'
@@ -134,6 +126,7 @@ USING (
 			,''
 			,''
 			,''
+			,'Calibrator'
 			)
 			,(
 			 N'sinova'
@@ -150,6 +143,7 @@ USING (
 			,''
 			,''
 			,''
+			,'OperationManager'
 			)
 			,(
 			 N'sinova'
@@ -166,6 +160,7 @@ USING (
 			,''
 			,''
 			,''
+			,'Client'
 			)
 			,(
 			 N'sinova'
@@ -182,6 +177,7 @@ USING (
 			,''
 			,''
 			,''
+			,'CustomerSupport'
 			)
 			,(
 			 N'אלירן'
@@ -198,8 +194,10 @@ USING (
 			,''
 			,''
 			,''
+			,'SuperAdmin'
 			)
-		) ds([FirstName], [LastName], [FirstNameEng], [LastNameEng], [Email], [Password], [Phone], [IsActive], [CreatedDate], [UpdatedDate], [UpdateUserID], [UserAddress], [LocationArea], [Stamp])
+		) ds([FirstName], [LastName], [FirstNameEng], [LastNameEng], [Email], [Password], [Phone], [IsActive], [CreatedDate], [UpdatedDate], [UpdateUserID], [UserAddress], [LocationArea], [Stamp],[UserRole])
+		JOIN dbo.UserRoles as ur ON ds.[UserRole] = ur.UserRoleName
 	) AS source
 	ON dest.[Email] = source.[Email]
 WHEN MATCHED
@@ -217,6 +215,7 @@ WHEN MATCHED
 			,dest.[UpdateUserID] = source.[UpdateUserID]
 			,dest.[UserAddress] = source.[UserAddress]
 			,dest.[LocationArea] = source.[LocationArea]
+			,dest.[UserRoleId] = source.[UserRoleId]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -233,6 +232,7 @@ WHEN NOT MATCHED BY TARGET
 			,[UpdateUserID]
 			,[UserAddress]
 			,[LocationArea]
+			,[UserRoleId]
 			)
 		VALUES (
 			source.[FirstName]
@@ -248,4 +248,5 @@ WHEN NOT MATCHED BY TARGET
 			,source.[UpdateUserID]
 			,source.[UserAddress]
 			,source.[LocationArea]
+			,source.[UserRoleId]
 			);

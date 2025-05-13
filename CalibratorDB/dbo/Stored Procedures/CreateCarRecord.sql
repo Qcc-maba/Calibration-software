@@ -57,15 +57,15 @@ WHERE c.Model = @Model AND c.LicenseNumber = @LicenseNumber
 THROW 51000, 'Car already exists', 1;
 
 --- Check if all users are valid
-if NOT EXISTS (
+if EXISTS (
 SELECT 1 FROM [dbo].[Users] as u
-WHERE (u.ID = @AssignedCalibrator)  AND u.IsActive = 1
+WHERE (u.ID = @AssignedCalibrator)  AND u.IsActive = 0
 ) AND @AssignedCalibrator IS NOT NULL
 THROW 51000, 'Incorrect or inactive user assigned as calibrator.', 1;
 
-if NOT EXISTS (
+if EXISTS (
 SELECT 1 FROM [dbo].[Users] as u
-WHERE (u.ID = @Owner)  AND u.IsActive = 1
+WHERE (u.ID = @Owner)  AND u.IsActive = 0
 ) and @Owner IS NOT NULL
 THROW 51000, 'Incorrect or inactive user assigned as owner.', 1;
 

@@ -60,8 +60,7 @@ SELECT DISTINCT
 	u.LocationArea,
 	ud.DepartmentName
   FROM [dbo].[Users] as u
-  JOIN [dbo].[UsersToUserRoles] as utr ON utr.UserId = u.ID
-  JOIN [dbo].[UserRoles] as ur ON  utr.UserRoleId = ur.UserRoleId AND ur.UserRoleDescriptionENG = ''Calibrator''
+  JOIN [dbo].[UserRoles] as ur ON  u.UserRoleId = ur.UserRoleId AND ur.UserRoleDescriptionENG = ''Calibrator''
   LEFT JOIN [dbo].[UsersToDepartments] as utd ON u.ID = utd.UserId
   LEFT JOIN [dbo].[Departments] as ud ON ud.ID = utd.DepartmentId
   LEFT JOIN [dbo].[CalibratorsToWorkPlan] cp ON u.[ID] = cp.CalibratorId AND cp.IsDeleted = 0

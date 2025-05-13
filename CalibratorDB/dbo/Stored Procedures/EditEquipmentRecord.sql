@@ -63,9 +63,9 @@ IF @StatusId NOT IN (SELECT StatusId
 				WHERE c.StatusDescriptionENG = 'CalibrationEquipmentStatus' )
 THROW 51000, 'Incorrect status was assigned.', 1;
 
-if @CalibratorId IS NOT NULL AND NOT EXISTS (
+if @CalibratorId IS NOT NULL AND EXISTS (
 SELECT 1 FROM [dbo].[Users] as u
-WHERE (u.ID = @CalibratorId)  AND u.IsActive = 1
+WHERE (u.ID = @CalibratorId)  AND u.IsActive = 0
 )
 THROW 51000, 'Incorrect or inactive user assigned as calibrator.', 1;
 
@@ -93,12 +93,16 @@ BEGIN TRY
 			  ,[UpdateUserID] = @Userid
 		 WHERE ID = @ID
 
-		IF @CarId <> @PrevCarId
+		IF @PrevCarId IS NOT NULL AND @CarId <> @PrevCarId
 			UPDATE [dbo].[CarsToEquipment]
 				SET [CarId] = @CarId
 				   ,[UpdateUserID] = @Userid
 				   ,[UpdatedDate] = GETDATE()
 			WHERE [CarId] = @PrevCarId AND [EquipmentId] = @ID
+
+		IF @PrevCarId IS NULL  
+			INSERT [dbo].[CarsToEquipment]([CarId],[EquipmentId],[UpdateUserID])
+			VALUES (@CarId,@ID,@Userid)
 
 	COMMIT
 END TRY

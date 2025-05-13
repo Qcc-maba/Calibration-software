@@ -23,7 +23,6 @@ SELECT
 	,CONCAT(u.FirstName, ' ', u.LastName) as UserFullName
 	,CONCAT(u.FirstNameEng, ' ', u.LastNameEng) as UserFullNameEng
 FROM [dbo].[Users] as u
-JOIN [dbo].[UsersToUserRoles] as rel ON u.ID = rel.UserId and rel.IsDeleted = 0
-JOIN [dbo].[UserRoles] as ur ON rel.UserRoleId = ur.UserRoleId
+JOIN [dbo].[UserRoles] as ur ON u.UserRoleId = ur.UserRoleId
 WHERE ur.UserRoleName = @UserRoleName AND u.IsActive = 1
 END

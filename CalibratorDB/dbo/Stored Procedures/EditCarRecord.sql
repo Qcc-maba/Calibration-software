@@ -10,7 +10,7 @@ CREATE   PROCEDURE [dbo].[EditCarRecord]
 @Model NVARCHAR(50),
 @NumberOfSeats INT,
 @StatusId INT,
-@OwnerId INT,
+@OwnerId INT = NULL,
 @AssignedCalibrator INT,
 @TreatmentPeriod INT,
 @NextTreatmentDate DATE,
@@ -64,16 +64,16 @@ WHERE  e.ID IS NULL
 )
 THROW 51000, 'Incorrect or inactive equipment were found in list.', 1;
 
-if NOT EXISTS (
+if EXISTS (
 SELECT 1 FROM [dbo].[Users] as u
-WHERE (u.ID = @OwnerId)  AND u.IsActive = 1
+WHERE (u.ID = @OwnerId)  AND u.IsActive = 0
 )
 THROW 51000, 'Incorrect or inactive user assigned as owner.', 1;
 
 
-if NOT EXISTS (
+if EXISTS (
 SELECT 1 FROM [dbo].[Users] as u
-WHERE (u.ID = @AssignedCalibrator)  AND u.IsActive = 1
+WHERE (u.ID = @AssignedCalibrator)  AND u.IsActive = 0
 )
 THROW 51000, 'Incorrect or inactive user assigned as owner.', 1;
 
@@ -88,7 +88,7 @@ BEGIN TRY
 		  ,[TreatmentPeriod] = @TreatmentPeriod
 		  ,[NextTreatmentDate] = @NextTreatmentDate
 		  ,[NextYearlyTestDate] = @NextTestDate
-		  ,[OwnerId] = @OwnerId
+		  ,[OwnerId] = COALESCE(@OwnerId,[OwnerId])
 		  ,[CarStatusId] = @StatusId
 		  ,[UpdatedDate] = GETDATE()
 		  ,[AssignedCalibratorId] = @AssignedCalibrator

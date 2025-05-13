@@ -58,8 +58,8 @@ CalibratorId INT
 )
 INSERT #Calibrators(CalibratorId)
 SELECT u.ID FROM [dbo].[Users] as u 
-JOIN [dbo].[UsersToUserRoles] as r ON u.ID = r.UserId
-WHERE u.IsActive = 1 AND r.UserRoleId = 3 --Calibrator
+JOIN [dbo].[UserRoles] as r ON u.UserRoleId = r.UserRoleId
+WHERE u.IsActive = 1 AND r.UserRoleDescriptionENG = 'Calibrator'
       AND (
         u.LastName LIKE '%'+@CalibratorFullName+'%' 
 		OR u.FirstName LIKE '%'+@CalibratorFullName+'%'

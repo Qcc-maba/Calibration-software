@@ -116,7 +116,9 @@ CONCAT(
       ,ce.[CalibratorId]
 	  ,CONCAT(u.FirstName, '' '', u.LastName) as CalibratorFullName
       ,mc.EquipmentMainClassNameHEB as [MainCategory]
+	  ,ce.MainClassId as [MainCategoryId]
 	  ,ess.[Name] as [SecondaryCategory]
+	  ,ce.SubClassId as [SecondaryCategoryId]
       ,ce.[NextCalibrationDate]
       ,c.[CarId]
 	  ,c.Model	

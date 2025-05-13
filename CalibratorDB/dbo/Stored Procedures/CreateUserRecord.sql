@@ -11,25 +11,25 @@ CREATE     PROCEDURE [dbo].[CreateUserRecord]
 ,@UserAddress nvarchar(200) = NULL
 ,@Password nvarchar(50) = NULL
 ,@LocationArea nvarchar(200) = NULL
-,@UserRoleIdsList nvarchar(200) 
+,@UserRoleId INT
 ,@UserStatusId INT
 ,@Email nvarchar(50)
 ,@DepartmentIdsList nvarchar(max) 
 ,@CertificationIdsList nvarchar(max)
 ,@LoggedInUserEmail nvarchar(50)
-,@Stamp VARBINARY(MAX) = NULL
+,@Stamp NVARCHAR(200) = NULL
 
 /*
 EXEC [dbo].[CreateUserRecord]
- @FirstName = 'test111'
+ @FirstName = 'test11_1'
 ,@LastName = 'test1'
 ,@Phone ='911-911-911'
-,@UserAddress ='test address'
+,@UserAddress ='test address1'
 ,@Password ='test123'
 ,@LocationArea ='test area'
-,@UserRoleIdsList ='1,2,3'
+,@UserRoleId ='1'
 ,@UserStatusId = 56
-,@Email ='tes2t@test.com1233'
+,@Email ='tes2t@test.com12333'
 ,@DepartmentIdsList = '1,2,3'
 ,@CertificationIdsList ='1,2,3'
 ,@LoggedInUserEmail = 'sinova_super_admin@gmail.com'
@@ -61,17 +61,6 @@ INSERT #CertificationIds(CertificationId)
 SELECT Value FROM dbo.ParseCSVToTable(@CertificationIdsList)
 END
 
-IF @UserRoleIdsList IS NOT NULL
-BEGIN
-DROP TABLE IF EXISTS #UserRoles
-CREATE TABLE #UserRoles
-(
-UserRoleId INT
-)
-
-INSERT #UserRoles(UserRoleId)
-SELECT Value FROM dbo.ParseCSVToTable(@UserRoleIdsList)
-END
 
 DECLARE @IsActive BIT 
 
@@ -105,7 +94,8 @@ BEGIN TRY
 			   ,[UserAddress]
 			   ,[LocationArea]
 			   ,[UpdateUserID]
-			   ,[Stamp])
+			   ,[Stamp]
+			   ,[UserRoleId])
 		 VALUES(
 			 @FirstName
 			,@LastName 
@@ -117,15 +107,12 @@ BEGIN TRY
 			,@LocationArea 
 			,@LoggedInUserId
 			,@Stamp
+			,@UserRoleId
 			)
 
 	DECLARE @Userid INT
 
 	SELECT @Userid = SCOPE_IDENTITY()
-
-	INSERT [dbo].[UsersToUserRoles](UserId,UserRoleId,UpdateUserID)
-	SELECT DISTINCT @Userid, UserRoleId,@LoggedInUserId
-	FROM #UserRoles
 
 	INSERT [dbo].[CalibratorsToCertification](CertificationId,CalibratorId,UpdateUserID)
 	SELECT DISTINCT CertificationId,@Userid,@LoggedInUserId

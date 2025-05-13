@@ -51,16 +51,9 @@ BEGIN
 		,u.LastName
 		,u.Email
 		,u.Phone as Mobile
-		,r.RoleId
+		,u.UserRoleId as RoleId
 		,ud.DepartmentId
 	FROM dbo.Users as u
-	JOIN 
-	(
-		SELECT r.UserId, STRING_AGG(r.UserRoleId,',')  as RoleId
-		FROM dbo.UsersToUserRoles as r
-		WHERE r.IsDeleted = 0
-		GROUP BY r.UserId
-	) as r ON r.UserId = u.ID
 	LEFT JOIN 
 	(
 		SELECT ud.UserId, STRING_AGG(ud.DepartmentId,',') as DepartmentId

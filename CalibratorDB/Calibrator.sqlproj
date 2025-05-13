@@ -140,7 +140,6 @@
     <Build Include="dbo\Stored Procedures\CreateEquipmentRecord.sql" />
     <Build Include="dbo\Stored Procedures\EditEquipmentRecord.sql" />
     <Build Include="dbo\Stored Procedures\GetEquipmentManagementTableData.sql" />
-    <Build Include="dbo\Tables\UsersToUserRoles.sql" />
     <Build Include="dbo\Tables\UserRoles.sql" />
     <Build Include="dbo\Stored Procedures\GetUsersByRole.sql" />
     <Build Include="dbo\Stored Procedures\GetStatusByCategory.sql" />

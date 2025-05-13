@@ -11,7 +11,7 @@ CREATE     PROCEDURE [dbo].[EditUserRecord]
 ,@UserAddress nvarchar(200) = NULL
 ,@Password nvarchar(50) = NULL
 ,@LocationArea nvarchar(200) = NULL
-,@UserRoleIdsList nvarchar(200) = NULL
+,@UserRoleId int = NULL
 ,@UserStatusId INT
 ,@Email nvarchar(50) = NULL
 ,@DepartmentIdsList nvarchar(max) = NULL
@@ -28,7 +28,7 @@ EXEC [dbo].[EditUserRecord]
 ,@UserAddress ='test address'
 ,@Password ='test123'
 ,@LocationArea ='test area'
-,@UserRoleIdsList ='1,2,3'
+,@UserRoleId =1
 ,@Email ='tes2t@test.com1234'
 ,@UserStatusId = 55
 ,@DepartmentIdsList = '1'
@@ -66,9 +66,6 @@ CREATE TABLE #UserRoles
 UserRoleId INT
 )
 
-IF @UserRoleIdsList IS NOT NULL
-INSERT #UserRoles(UserRoleId)
-SELECT Value FROM dbo.ParseCSVToTable(@UserRoleIdsList)
 
 DECLARE @IsActive BIT 
 
@@ -102,23 +99,9 @@ BEGIN TRY
 		  ,u.[UserAddress] = COALESCE(@UserAddress,u.[UserAddress])
 		  ,u.[LocationArea] = COALESCE(@LocationArea,u.[LocationArea])
 		  ,u.[Stamp] = COALESCE(@Stamp,u.[Stamp])
+		  ,u.[UserRoleId] = COALESCE(@UserRoleId,u.[UserRoleId])
 	FROM [dbo].[Users] as u
 	WHERE u.ID = @UserId
-
-	IF @UserRoleIdsList IS NOT NULL
-	BEGIN
-	UPDATE ur 
-	SET IsDeleted = 1,UpdateUserID = @LoggedInUserId
-	FROM [dbo].[UsersToUserRoles] as ur
-	LEFT JOIN #UserRoles as tur ON  ur.UserRoleId = tur.UserRoleId and ur.IsDeleted = 0
-	WHERE ur.UserId = @UserId AND tur.UserRoleId IS NULL
-
-	INSERT [dbo].[UsersToUserRoles](UserId,UserRoleId,UpdateUserID)
-	SELECT @UserId, tur.UserRoleId,@LoggedInUserId
-	FROM #UserRoles as tur
-	LEFT JOIN [dbo].[UsersToUserRoles] as ur ON ur.UserId = @UserId AND ur.UserRoleId = tur.UserRoleId AND ur.IsDeleted = 0
-	WHERE ur.UserRoleId IS NULL
-	END
 
 	IF @DepartmentIdsList IS NOT NULL
 	BEGIN

@@ -26,8 +26,7 @@ DECLARE @UserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @UserEmail)
 
 IF NOT EXISTS (
 SELECT 1 FROM [dbo].[Users] as u
-JOIN [dbo].[UsersToUserRoles] as utr ON u.ID = utr.UserId
-JOIN [dbo].[UserRoles] as ur ON ur.UserRoleId = utr.UserRoleId
+LEFT JOIN [dbo].[UserRoles] as ur ON u.UserRoleId = ur.UserRoleId
 WHERE u.ID = @UserId /*AND ur.UserRoleName = 'Calibrator'*/ and u.IsActive = 1
 )
 THROW 51000, 'Provided user is not active', 1;

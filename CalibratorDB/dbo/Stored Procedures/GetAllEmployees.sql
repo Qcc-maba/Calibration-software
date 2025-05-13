@@ -75,10 +75,9 @@ UserId INT
 
 INSERT #UserRoleIds(UserId)
 --Insert users filtered by provided @UserRoleIds
-SELECT DISTINCT ur.UserId 
+SELECT DISTINCT v.Value
 FROM dbo.ParseCSVToTable(@UserRoleIds) as v
-JOIN [dbo].[UsersToUserRoles] as ur ON v.Value = ur.UserRoleId
-WHERE ur.IsDeleted = 0
+
 
 DROP TABLE IF EXISTS #UserStatusesIds
 CREATE TABLE #UserStatusesIds
@@ -166,12 +165,12 @@ SELECT u.ID,
 	   u.Email,
 	   u.UserAddress,
 	   u.LocationArea,
-	   ur.UserRoleENG,	
-	   ur.UserRoleHEB,
+	   ur.UserRoleDescriptionENG as UserRoleENG,	
+	   ur.UserRoleDescriptionHEB as UserRoleHEB,
 	   dep.DepartmentIds,
 	   dep.DepartmentNames,
 	   cc.Certification,
-	   ur.UserRoleIds,
+	   ur.UserRoleId as UserRoleIds,
 	   cc.CertificationIds,
 	   u.Stamp,
 	   u.Password,
@@ -183,6 +182,7 @@ SELECT u.ID,
 	   COUNT(1) OVER(PARTITION BY 1 ORDER BY u.ID ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
 FROM [dbo].[Users] as u
 JOIN #Status as ss ON u.IsActive = ss.IsActive
+LEFT JOIN [dbo].[UserRoles] as ur ON u.UserRoleId = ur.UserRoleId
 '
 ,IIF(@UserRoleIds IS NOT NULL,' JOIN #UserRoleIds as uf1 ON u.ID =  uf1.UserId ',' ')
 ,IIF(@UserStatusIds IS NOT NULL,' JOIN #UserStatusesIds as uf2 ON u.ID =  uf2.UserId ',' ')
@@ -191,17 +191,6 @@ JOIN #Status as ss ON u.IsActive = ss.IsActive
 ,IIF(@FirstName IS NOT NULL OR @LastName IS NOT NULL,' JOIN #UserFullName  as f ON u.ID =  f.UserId ',' ')
 ,IIF(@EventStartDate IS NOT NULL AND @EventEndDate IS NOT NULL,' LEFT JOIN #AssociatedCalendarEvents as ace ON u.ID =  ace.UserId ',' '),
 'LEFT JOIN
-(
-SELECT utr.UserId, 
-       STRING_AGG(ur.UserRoleId,'','') as UserRoleIds,
-	   STRING_AGG(LTRIM(RTRIM(ur.UserRoleDescriptionENG)),'', '') AS UserRoleENG,	
-	   STRING_AGG(LTRIM(RTRIM(ur.UserRoleDescriptionHEB)),'', '') AS UserRoleHEB
-FROM [dbo].[UsersToUserRoles] as utr 
-JOIN [dbo].[UserRoles] as ur ON utr.UserRoleId = ur.UserRoleId
-WHERE utr.IsDeleted = 0 
-GROUP BY utr.UserId
-) AS ur ON u.ID = ur.UserId
-LEFT JOIN
 (
 SELECT ctc.CalibratorId as UserId,
 	   STRING_AGG(cc.ID,'','') as CertificationIds,

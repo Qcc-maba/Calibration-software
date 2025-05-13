@@ -53,8 +53,8 @@ BEGIN
 		)
 		INSERT #Calibrators(CalibratorId)
 		SELECT u.ID FROM [dbo].[Users] as u 
-		JOIN [dbo].[UsersToUserRoles] as r ON u.ID = r.UserId and r.IsDeleted = 0
-		WHERE u.IsActive = 1 AND r.UserRoleId = (SELECT TOP 1 UserRoleId FROM [dbo].[UserRoles] WHERE UserRoleDescriptionENG='Calibrator')
+		JOIN [dbo].[UserRoles] as r ON u.UserRoleId  = r.UserRoleId AND r.UserRoleDescriptionENG='Calibrator'
+		WHERE u.IsActive = 1 
 			  AND (
 				u.LastName LIKE '%'+@AssignedCalibrators+'%' 
 				OR u.FirstName LIKE '%'+@AssignedCalibrators+'%'
