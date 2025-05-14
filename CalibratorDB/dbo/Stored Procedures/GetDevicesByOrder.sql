@@ -27,9 +27,10 @@ SELECT
 	,od.SerialNumber AS [Device number]
 	,od.DeviceModel AS [Device model]
 	,od.MbaReportNumber
+	,od.OrderDetailId
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
-WHERE (OrderNumber = TRIM(@OrderNumber))
+WHERE OrderNumber = TRIM(@OrderNumber)
 
 ORDER BY OrderNumber
 	,MbaReportNumber

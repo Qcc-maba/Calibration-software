@@ -4,9 +4,14 @@
 @StartDate DATETIME2(0),
 @EndDate DATETIME2(0),
 @ParticipantIDs NVARCHAR(MAX),
-@Comments NVARCHAR(255)
+@Comments NVARCHAR(255),
+@LoggedInUserEmail NVARCHAR(50) = NULL
 AS
 BEGIN
+
+DECLARE @Userid INT = 0
+IF @LoggedInUserEmail IS NOT NULL
+SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
 
 DROP TABLE IF EXISTS #ParticipantIDs
 CREATE TABLE #ParticipantIDs
@@ -37,17 +42,18 @@ BEGIN TRY
 
 	UPDATE dbo.CalendarEvents 
 	SET EventTypeId = @EventTypeId ,StartDate = @StartDate,EndDate = @EndDate , Comments = @Comments,
-		UpdatedDate = GETDATE()
+		UpdatedDate = GETDATE(),
+		UpdateUserID = @Userid
 	WHERE CalendarEventId = @ID
 
 	UPDATE ctp 
-	SET IsDeleted = 1
+	SET IsDeleted = 1, UpdateUserID = @Userid
 	FROM dbo.CalendarEventsToParticipants as ctp
 	LEFT JOIN #ParticipantIDs as p ON ctp.UserId = p.ParticipantId
 	WHERE ctp.CalendarEventId = @ID AND p.ParticipantId IS NULL and ctp.IsDeleted = 0
 
-	INSERT dbo.CalendarEventsToParticipants (CalendarEventId,UserId)
-	SELECT DISTINCT p.CalendarEventId, p.ParticipantId 
+	INSERT dbo.CalendarEventsToParticipants (CalendarEventId,UserId,UpdateUserID)
+	SELECT DISTINCT p.CalendarEventId, p.ParticipantId ,@Userid
 	FROM #ParticipantIDs as p 
 	LEFT JOIN dbo.CalendarEventsToParticipants as ctp ON ctp.UserId = p.ParticipantId 
 													  AND p.CalendarEventId = ctp.CalendarEventId

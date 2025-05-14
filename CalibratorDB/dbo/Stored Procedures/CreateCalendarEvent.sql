@@ -10,12 +10,17 @@ CREATE   PROCEDURE [dbo].[CreateCalendarEvent]
 @StartDate DATETIME2(0),
 @EndDate DATETIME2(0),
 @ParticipantIDs NVARCHAR(300),
-@Comments NVARCHAR(255) =''
+@Comments NVARCHAR(255) ='',
+@LoggedInUserEmail NVARCHAR(50) = NULL
 
 --exec dbo.CreateCalendarEvent @Title ='Test event4',@StartDate = '2025-03-15 12:30:54', @EndDate = '2025-03-15 12:30:54',@ParticipantIDs = '6,7', @Comments = N'test'
 
 AS
 BEGIN
+
+DECLARE @Userid INT = 0
+IF @LoggedInUserEmail IS NOT NULL
+SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
 
 DROP TABLE IF EXISTS #ParticipantIDs
 CREATE TABLE #ParticipantIDs
@@ -46,13 +51,13 @@ DECLARE @CalendarEventId INT
 BEGIN TRY
 	BEGIN TRANSACTION
 
-	INSERT dbo.CalendarEvents (EventTypeId,StartDate,EndDate,Comments)
-	VALUES (@EventTypeId,@StartDate,@EndDate,@Comments)
+	INSERT dbo.CalendarEvents (EventTypeId,StartDate,EndDate,Comments,UpdateUserID)
+	VALUES (@EventTypeId,@StartDate,@EndDate,@Comments,@Userid)
 
 	SELECT @CalendarEventId = SCOPE_IDENTITY()  
 
-	INSERT dbo.CalendarEventsToParticipants (CalendarEventId,UserId)
-	SELECT DISTINCT @CalendarEventId, ParticipantId
+	INSERT dbo.CalendarEventsToParticipants (CalendarEventId,UserId,UpdateUserID)
+	SELECT DISTINCT @CalendarEventId, ParticipantId,@Userid
 	FROM #ParticipantIDs
 
 

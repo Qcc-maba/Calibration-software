@@ -1,6 +1,6 @@
 ﻿CREATE TABLE [dbo].[OrderWorkPlans] (
     [OrderWorkPlanId]  INT            IDENTITY (1, 1) NOT NULL,
-    [OrderNumber]      NCHAR (12)     NOT NULL,
+    [OrderNumber]      NVARCHAR (20)  NULL,
     [WorkPlanOpenDate] DATETIME2 (0)  NOT NULL,
     [IsCancelled]      BIT            DEFAULT ((0)) NOT NULL,
     [CreatedDate]      DATETIME2 (0)  DEFAULT (getdate()) NOT NULL,
