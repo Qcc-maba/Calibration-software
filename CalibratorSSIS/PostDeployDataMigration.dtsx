@@ -12,8 +12,8 @@
   DTS:ObjectName="PostDeployDataMigration"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="61"
-  DTS:VersionGUID="{8112AE92-F6DC-42BA-BE93-29E77B62C2B6}">
+  DTS:VersionBuild="62"
+  DTS:VersionGUID="{5B2E9722-6FC8-4A08-A42D-E9BD4AF7F86F}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables>
@@ -41,6 +41,7 @@
         <DTS:Executable
           DTS:refId="Package\Sequence Container\Get car status"
           DTS:CreationName="Microsoft.ExecuteSQLTask"
+          DTS:DelayValidation="True"
           DTS:Description="Execute SQL Task"
           DTS:DTSID="{557DC7E3-1BEE-4038-86D1-9156E9DE081D}"
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
@@ -64,6 +65,7 @@
         <DTS:Executable
           DTS:refId="Package\Sequence Container\Migrate car data"
           DTS:CreationName="Microsoft.Pipeline"
+          DTS:DelayValidation="True"
           DTS:Description="Data Flow Task"
           DTS:DTSID="{48726FFD-669E-4C07-AEF6-636E75E161D0}"
           DTS:ExecutableType="Microsoft.Pipeline"
@@ -1024,6 +1026,7 @@ ORDER BY LTRIM(RTRIM([Email]))</property>
         <DTS:Executable
           DTS:refId="Package\Sequence Container\Migrate Equipment data"
           DTS:CreationName="Microsoft.Pipeline"
+          DTS:DelayValidation="True"
           DTS:Description="Data Flow Task"
           DTS:DTSID="{0A402C55-43E0-4C7B-B2D0-DF729CA758FF}"
           DTS:ExecutableType="Microsoft.Pipeline"
@@ -5559,6 +5562,7 @@ ORDER  BY s.StatusDescriptionHEB</property>
         <DTS:Executable
           DTS:refId="Package\Sequence Container\Migrate EquipmentMainClass"
           DTS:CreationName="Microsoft.Pipeline"
+          DTS:DelayValidation="True"
           DTS:Description="Data Flow Task"
           DTS:DTSID="{E9322FD0-58E0-4C0A-BB5E-6019B63F3AAB}"
           DTS:ExecutableType="Microsoft.Pipeline"
@@ -5889,6 +5893,7 @@ ORDER  BY s.StatusDescriptionHEB</property>
         <DTS:Executable
           DTS:refId="Package\Sequence Container\Migrate EquipmentSubClass"
           DTS:CreationName="Microsoft.Pipeline"
+          DTS:DelayValidation="True"
           DTS:Description="Data Flow Task"
           DTS:DTSID="{181A9415-A884-49CF-B581-E200423E544A}"
           DTS:ExecutableType="Microsoft.Pipeline"
@@ -6185,6 +6190,7 @@ ORDER  BY s.StatusDescriptionHEB</property>
         <DTS:Executable
           DTS:refId="Package\Sequence Container\Migrate users list"
           DTS:CreationName="Microsoft.Pipeline"
+          DTS:DelayValidation="True"
           DTS:Description="Data Flow Task"
           DTS:DTSID="{63ADE1F3-958F-49BC-AD80-7DEEA29E2EB1}"
           DTS:ExecutableType="Microsoft.Pipeline"
@@ -6876,6 +6882,40 @@ WHERE rn=1</property>
           Id="Package\Sequence Container\Migrate users list"
           TopLeft="32.533314028052,11.7999990779162" />
         <EdgeLayout
+          Id="Package\Sequence Container.PrecedenceConstraints[Constraint]"
+          TopLeft="110.933314028052,53.3999990779162">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="110.53334007197,149.599999204477"
+              Start="0,0"
+              End="110.53334007197,142.099999204477">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,84.7681763235404" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,84.7681763235404"
+                    Point2="0,88.7681763235404"
+                    Point3="4,88.7681763235404" />
+                  <mssgle:LineSegment
+                    End="106.53334007197,88.7681763235404" />
+                  <mssgle:CubicBezierSegment
+                    Point1="106.53334007197,88.7681763235404"
+                    Point2="110.53334007197,88.7681763235404"
+                    Point3="110.53334007197,92.7681763235404" />
+                  <mssgle:LineSegment
+                    End="110.53334007197,142.099999204477" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
           Id="Package\Sequence Container.PrecedenceConstraints[Constraint 1]"
           TopLeft="329.599984701475,53.9999993129571">
           <EdgeLayout.Curve>
@@ -6991,40 +7031,6 @@ WHERE rn=1</property>
                   Capacity="5">
                   <mssgle:LineSegment
                     End="0,18.5666658289564" />
-                </mssgle:SegmentCollection>
-              </mssgle:Curve.Segments>
-            </mssgle:Curve>
-          </EdgeLayout.Curve>
-          <EdgeLayout.Labels>
-            <EdgeLabelCollection />
-          </EdgeLayout.Labels>
-        </EdgeLayout>
-        <EdgeLayout
-          Id="Package\Sequence Container.PrecedenceConstraints[Constraint]"
-          TopLeft="110.933314028052,53.3999990779162">
-          <EdgeLayout.Curve>
-            <mssgle:Curve
-              StartConnector="{assembly:Null}"
-              EndConnector="110.53334007197,149.599999204477"
-              Start="0,0"
-              End="110.53334007197,142.099999204477">
-              <mssgle:Curve.Segments>
-                <mssgle:SegmentCollection
-                  Capacity="5">
-                  <mssgle:LineSegment
-                    End="0,84.7681763235404" />
-                  <mssgle:CubicBezierSegment
-                    Point1="0,84.7681763235404"
-                    Point2="0,88.7681763235404"
-                    Point3="4,88.7681763235404" />
-                  <mssgle:LineSegment
-                    End="106.53334007197,88.7681763235404" />
-                  <mssgle:CubicBezierSegment
-                    Point1="106.53334007197,88.7681763235404"
-                    Point2="110.53334007197,88.7681763235404"
-                    Point3="110.53334007197,92.7681763235404" />
-                  <mssgle:LineSegment
-                    End="110.53334007197,142.099999204477" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
