@@ -4,11 +4,11 @@
 -- Description:	Get devices by order number
 -- =============================================
 CREATE PROCEDURE [dbo].[GetDevicesByOrder] --'LA25100040  '
-	@OrderNumber nvarchar(20),
-	@MainCategories nvarchar(MAX) = NULL,
-	@SecondaryCategories nvarchar(MAX) = NULL,
-	@DeviceManufacturer nvarchar(MAX) = NULL,
-	@DeviceModels nvarchar(MAX) = NULL
+	@OrderNumber NVARCHAR(20),
+	@MainCategories NVARCHAR(MAX) = NULL,
+	@SecondaryCategories NVARCHAR(MAX) = NULL,
+	@DeviceManufacturer NVARCHAR(MAX) = NULL,
+	@DeviceModels NVARCHAR(MAX) = NULL
 AS
 BEGIN
 
@@ -65,7 +65,7 @@ CONCAT(
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
 '
-,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mc ON od.MainCategory COLLATE DATABASE_DEFAULT  = mc.MainCategory COLLATE DATABASE_DEFAULT ',' ')
+,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mc ON od.MainCategory COLLATE DATABASE_DEFAULT = mc.MainCategory COLLATE DATABASE_DEFAULT ',' ')
 ,IIF(@SecondaryCategories IS NOT NULL,' JOIN #SecondaryCategories as sc ON od.SecondCategory COLLATE DATABASE_DEFAULT   = sc.SecondaryCategory COLLATE DATABASE_DEFAULT ',' ')
 ,IIF(@DeviceManufacturer IS NOT NULL,' JOIN #DeviceManufacturer as dmf ON od.DeviceManufacturer COLLATE DATABASE_DEFAULT  = dmf.DeviceManufacturer COLLATE DATABASE_DEFAULT ',' ')
 ,IIF(@DeviceModels IS NOT NULL,' JOIN #DeviceModels as dm ON od.DeviceModel COLLATE DATABASE_DEFAULT = dm.DeviceModel COLLATE DATABASE_DEFAULT ',' ')
