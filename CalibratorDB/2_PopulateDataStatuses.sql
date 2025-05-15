@@ -64,7 +64,8 @@ USING (
 		('OrderStatus','','Packed',N'נארז'),
 		('EventTypes','','Company Event - Mandatory',N'אירוע חברה - חובה'),
 		('EventTypes','','Company Event - Optional',N' אירוע חברה -רשות'),
-		('EventTypes','','Holiday',N'חג'),
+		('EventTypes','','Sick Leave',N'מחלה'),
+		('EventTypes','','Vacation',N'חופש'),
 		('EventTypes','','Day Off',N'יום חופש'),
 		('UserStatus','','Active',N'פעיל'),
 		('UserStatus','','NotActive',N'לא פעיל')
