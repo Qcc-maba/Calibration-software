@@ -1,5 +1,5 @@
 ﻿CREATE  PROCEDURE [etl].[CalibGetDataLogGetSet]
-@TableName [nvarchar](255),
+@TableName [NVARCHAR](255),
 @LastExecutionDate DATETIME2(0) = NULL
 AS
 SET NOCOUNT ON;

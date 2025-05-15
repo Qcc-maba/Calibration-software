@@ -5,18 +5,18 @@
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-148
 -- =============================================
 CREATE     PROCEDURE [dbo].[CreateUserRecord]
- @FirstName nvarchar(50) = NULL
-,@LastName nvarchar(50) = NULL
-,@Phone nvarchar(20) = NULL
-,@UserAddress nvarchar(200) = NULL
-,@Password nvarchar(50) = NULL
-,@LocationArea nvarchar(200) = NULL
+ @FirstName NVARCHAR(50) = NULL
+,@LastName NVARCHAR(50) = NULL
+,@Phone NVARCHAR(20) = NULL
+,@UserAddress NVARCHAR(200) = NULL
+,@Password NVARCHAR(50) = NULL
+,@LocationArea NVARCHAR(200) = NULL
 ,@UserRoleId INT
 ,@UserStatusId INT
-,@Email nvarchar(50)
-,@DepartmentIdsList nvarchar(max) 
-,@CertificationIdsList nvarchar(max)
-,@LoggedInUserEmail nvarchar(50)
+,@Email NVARCHAR(50)
+,@DepartmentIdsList NVARCHAR(max) 
+,@CertificationIdsList NVARCHAR(max)
+,@LoggedInUserEmail NVARCHAR(50)
 ,@Stamp NVARCHAR(200) = NULL
 
 /*

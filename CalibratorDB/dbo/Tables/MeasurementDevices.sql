@@ -1,6 +1,6 @@
 ﻿CREATE TABLE [dbo].[MeasurementDevices] (
     [ID]               INT             IDENTITY (1, 1) NOT NULL,
-    [MabaID]           VARCHAR (50)    NOT NULL,
+    [MabaID]           NVARCHAR (50)    NOT NULL,
     [CreateDate]       DATETIME2 (7)   CONSTRAINT [DF_MeasurementDevices_Added] DEFAULT (getdate()) NULL,
     [RemoveDate]       DATETIME2 (7)   NULL,
     [Description]      NVARCHAR (50)   NULL,

@@ -9,7 +9,7 @@ CREATE   PROCEDURE [dbo].[AssignCalibratorsAvailability]
 @AvailabilityStatusId [int],
 @AvailbilityDateFrom [datetime2](0),
 @AvailbilityDateTo [datetime2](0),
-@LoggedInUserEmail nvarchar(50)
+@LoggedInUserEmail NVARCHAR(50)
 
 /*
 

@@ -6,7 +6,7 @@
 -- =============================================
 CREATE   PROCEDURE [dbo].[DeleteUserRecord]
 @UserIDs NVARCHAR(MAX),
-@LoggedInUserEmail nvarchar(50)
+@LoggedInUserEmail NVARCHAR(50)
 
 /*
 EXEC [dbo].[DeleteUserRecord] 

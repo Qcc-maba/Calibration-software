@@ -1,5 +1,5 @@
 ﻿CREATE PROCEDURE [dbo].[GetSensorByName]
-    @MabaID VARCHAR(50)
+    @MabaID NVARCHAR(50)
 AS
 BEGIN
 ;WITH LastVersion

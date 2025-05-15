@@ -18,7 +18,7 @@ CREATE    PROCEDURE [dbo].[GetAllEmployees]
 	@Email NVARCHAR(50) = NULL,
     @UserRoleId INT  = NULL,
 	@UserStatusIds NVARCHAR(50) = NULL,
-	@DepartmentIdsList nvarchar(max) = NULL,
+	@DepartmentIdsList NVARCHAR(max) = NULL,
 	@CertificationIds NVARCHAR(MAX) = NULL,
 	@EventStartDate DATETIME2(0) = NULL,
     @EventEndDate DATETIME2(0) = NULL
@@ -203,7 +203,7 @@ WHERE u.ID > 0
 ,CASE WHEN @Address IS NOT NULL THEN ' AND u.UserAddress LIKE N''%'+ @Address +'%'' 'ELSE ' ' END
 ,CASE WHEN @LocationArea IS NOT NULL THEN ' AND u.LocationArea LIKE N''%'+ @LocationArea +'%'' 'ELSE ' ' END
 ,CASE WHEN @Email IS NOT NULL THEN ' AND u.Email LIKE N''%'+ @Email +'%'' 'ELSE ' ' END
-,CASE WHEN @UserRoleId IS NOT NULL THEN ' AND u.UserRoleId = '+ CAST(@UserRoleId as VARCHAR(20)) +' 'ELSE ' ' END
+,CASE WHEN @UserRoleId IS NOT NULL THEN ' AND u.UserRoleId = '+ CAST(@UserRoleId as NVARCHAR(20)) +' 'ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
 OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql

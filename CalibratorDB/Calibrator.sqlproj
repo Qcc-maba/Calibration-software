@@ -200,6 +200,8 @@
     <Build Include="dbo\Stored Procedures\GetAllMainCategories.sql" />
     <Build Include="dbo\Stored Procedures\GetSensorByName.sql" />
     <Build Include="dbo\Stored Procedures\SplitOrder.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllDeviceModels.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllDeviceManufacturer.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />

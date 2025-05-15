@@ -5,8 +5,8 @@
 -- JiraLink: 
 -- =============================================
 CREATE   PROCEDURE [dbo].[AssignOrderItemsStatus]
-@UserEmail nvarchar(50),
-@MbaReportNumber nvarchar(20),
+@UserEmail NVARCHAR(50),
+@MbaReportNumber NVARCHAR(20),
 @OrderItemStatusId int,
 @OrderItemsStatusDate datetime2(0)
 /*

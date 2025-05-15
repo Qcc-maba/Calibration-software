@@ -222,7 +222,7 @@ CONCAT(
 	sp.StatusDescriptionHEB, 
 	wp.[IsCancelled]'
 	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL 
-		  THEN ' HAVING MAX(od.[CalibDate]) >= '''+CAST(@DateFrom AS nvarchar(20))+''' AND MAX(od.[CalibDate]) <= '''+CAST(@DateTo AS nvarchar(20))+''''
+		  THEN ' HAVING MAX(od.[CalibDate]) >= '''+CAST(@DateFrom AS NVARCHAR(20))+''' AND MAX(od.[CalibDate]) <= '''+CAST(@DateTo AS NVARCHAR(20))+''''
 	  ELSE ' ' END
   ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')

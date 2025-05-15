@@ -3,7 +3,7 @@
     [Value1]               DECIMAL (25, 15) NOT NULL,
     [Value2]               DECIMAL (25, 15) NULL,
     [Deviation]            DECIMAL (35, 15) NULL,
-    [Note]                 VARCHAR (300)    NULL,
+    [Note]                 NVARCHAR (300)    NULL,
     [MeasurementDevicesId] INT              NULL,
     [MeasurementId]        INT              NULL,
     [UnitID]               INT              NULL,

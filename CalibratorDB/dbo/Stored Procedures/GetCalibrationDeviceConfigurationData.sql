@@ -4,7 +4,7 @@
 -- Description:	Get Calibration device configuration data 
 -- =============================================
 CREATE PROCEDURE [dbo].[GetCalibrationDeviceConfigurationData]
-	@DeviceNumber nvarchar(20)
+	@DeviceNumber NVARCHAR(20)
 AS
 BEGIN
 	-- SET NOCOUNT ON added to prevent extra result sets from

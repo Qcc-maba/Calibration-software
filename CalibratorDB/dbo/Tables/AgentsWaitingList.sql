@@ -1,8 +1,8 @@
 ﻿CREATE TABLE [dbo].[AgentsWaitingList] (
-    [AgentName]      VARCHAR (100)  NOT NULL,
-    [CustomerNumber] VARCHAR (50)   NOT NULL,
+    [AgentName]      NVARCHAR (100)  NOT NULL,
+    [CustomerNumber] NVARCHAR (50)   NOT NULL,
     [CustomerName]   NVARCHAR (300) NULL,
-    [Klita]          VARCHAR (16)   NOT NULL,
+    [Klita]          NVARCHAR (16)   NOT NULL,
     [src]            NVARCHAR(50)   NOT NULL
 );
 

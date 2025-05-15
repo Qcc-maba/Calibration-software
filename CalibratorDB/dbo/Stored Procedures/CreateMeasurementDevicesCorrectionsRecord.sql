@@ -8,14 +8,14 @@ CREATE    PROCEDURE dbo.CreateMeasurementDevicesCorrectionsRecord
 	@Value1 [decimal](25, 15),
 	@Value2 [decimal](25, 15) = NULL,
 	@Deviation [decimal](35, 15),
-	@Note [varchar](300) = NULL,
+	@Note [NVARCHAR](300) = NULL,
 	@MeasurementDeviceId [int] = NULL,
 	@MeasurementId [int] = NULL,
 	@UnitID [int] = NULL,
 	@DateAdded [datetime] = NULL,
 	@CorVersion [int] = NULL,
 	@DepartmentId [int] = NULL,
-	@Equation [nvarchar](300) = NULL
+	@Equation [NVARCHAR](300) = NULL
 
 /*
 EXEC [dbo].[CreateMeasurementDevicesCorrectionsRecord] 

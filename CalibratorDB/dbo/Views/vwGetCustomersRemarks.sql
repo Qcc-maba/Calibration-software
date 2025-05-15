@@ -9,7 +9,7 @@ SELECT CustText2.CUST,
             WHERE CustText.CUST = CustText2.CUST
             ORDER BY CustText.TEXTLINE
             FOR XML PATH (''), TYPE
-        ).value('text()[1]','nvarchar(max)'), 1, 1, '') [Remarks]
+        ).value('text()[1]','NVARCHAR(max)'), 1, 1, '') [Remarks]
 FROM  [31.154.20.231].amaba.dbo.CUSTOMERSTEXT CustText2
 GROUP BY CustText2.CUST
 
