@@ -32,6 +32,16 @@ THROW 51000, 'Order have 1 item. Make no sense to split', 1;
 
 BEGIN TRY
 
+BEGIN TRAN
+	
+	DECLARE @OrigOrderWorkPlan NVARCHAR(20) = ''
+
+	SELECT @OrigOrderWorkPlan = LEFT([OrderNumber],IIF(CHARINDEX('-', [OrderNumber]) = 0,LEN([OrderNumber]),CHARINDEX('-', [OrderNumber])-1))
+	FROM [dbo].[OrderWorkPlans]
+	WHERE OrderWorkPlanId = @OrderId
+
+	DECLARE @CntOfOrders INT = 1
+	SELECT @CntOfOrders = (SELECT COUNT(*) FROM [dbo].[OrderWorkPlans] WHERE [OrderNumber] LIKE @OrigOrderWorkPlan+'%')
 
 	UPDATE [dbo].[OrderWorkPlans]
 	SET [OrderNumber] = 
@@ -61,7 +71,7 @@ BEGIN TRY
 			WHEN CHARINDEX('-', [OrderNumber]) = 0
 				THEN CONCAT (TRIM([OrderNumber]),'-1')
 			ELSE CONCAT (SUBSTRING([OrderNumber], 1, CHARINDEX('-', [OrderNumber]))
-					,TRY_CAST(RIGHT([OrderNumber], LEN([OrderNumber]) - CHARINDEX('-', [OrderNumber])) AS INT) + 1)
+					,@CntOfOrders + 1)
 		END
 		,GETDATE()
 		,0
@@ -83,6 +93,7 @@ BEGIN TRY
 		(
 		SELECT OrderDetailsId FROM #OrderDetailsIds
 		)
+COMMIT
 END TRY
 
 BEGIN CATCH
