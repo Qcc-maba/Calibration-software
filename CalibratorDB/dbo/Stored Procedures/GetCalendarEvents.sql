@@ -38,10 +38,15 @@ BEGIN
 	)
 	INSERT #CalendarEventFilteredByDepartment(CalendarEventId)
 	SELECT DISTINCT ce.CalendarEventId
-	FROM [Calibrator].[dbo].[CalendarEvents] as ce
+	FROM [dbo].[CalendarEvents] as ce
 	JOIN [dbo].[CalendarEventsToParticipants] as cetp ON ce.CalendarEventId = cetp.CalendarEventId and cetp.IsDeleted = 0
-	JOIN [dbo].[UsersToDepartments] as u ON cetp.UserId = u.UserId and cetp.IsDeleted = 0
-	WHERE u.UserId = @Userid AND ce.IsDeleted = 0
+	JOIN [dbo].[Users] as u ON cetp.UserId = u.ID AND u.IsActive = 1
+	JOIN [dbo].[UsersToDepartments] as ud ON u.ID = ud.UserId and cetp.IsDeleted = 0
+	WHERE ce.IsDeleted = 0 AND ud.DepartmentId IN
+	(
+	SELECT d.DepartmentId FROM [dbo].[UsersToDepartments] as d
+	WHERE d.UserId = @Userid
+	)
 END
 
 

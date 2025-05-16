@@ -15,7 +15,7 @@ CREATE     PROCEDURE [dbo].[CreateUserRecord]
 ,@UserStatusId INT
 ,@Email NVARCHAR(50)
 ,@DepartmentIdsList NVARCHAR(max) 
-,@CertificationIdsList NVARCHAR(max)
+,@CertificationIdsList NVARCHAR(max) = NULL
 ,@LoggedInUserEmail NVARCHAR(50)
 ,@Stamp NVARCHAR(200) = NULL
 
@@ -114,6 +114,7 @@ BEGIN TRY
 
 	SELECT @Userid = SCOPE_IDENTITY()
 
+	IF @CertificationIdsList IS NOT NULL
 	INSERT [dbo].[CalibratorsToCertification](CertificationId,CalibratorId,UpdateUserID)
 	SELECT DISTINCT CertificationId,@Userid,@LoggedInUserId
 	FROM #CertificationIds
