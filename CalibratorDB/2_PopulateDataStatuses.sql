@@ -68,7 +68,8 @@ USING (
 		('EventTypes','','Vacation',N'חופש'),
 		('EventTypes','','Day Off',N'יום חופש'),
 		('UserStatus','','Active',N'פעיל'),
-		('UserStatus','','NotActive',N'לא פעיל')
+		('UserStatus','','NotActive',N'לא פעיל'),
+		('Position','','test position',N'test position')
 		) ds ([StatusCategory],[Code],[StatusDescriptionENG],[StatusDescriptionHEB])
 		JOIN [dbo].[StatusesCategories] as sc ON ds.StatusCategory = sc.StatusDescriptionENG
 	) AS source

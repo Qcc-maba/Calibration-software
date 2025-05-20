@@ -14,7 +14,8 @@ FROM (
 	('MeasurementDeviceStatus',''),
 	('OrderStatus',''),
 	('EventTypes',''),
-	('UserStatus','')
+	('UserStatus',''),
+	('Position','')
 	) ds ([StatusDescriptionENG],[StatusDescriptionHEB])
 	) AS source
 	ON dest.[StatusDescriptionENG] = source.[StatusDescriptionENG]

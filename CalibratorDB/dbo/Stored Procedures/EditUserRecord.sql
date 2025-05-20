@@ -19,7 +19,7 @@ CREATE     PROCEDURE [dbo].[EditUserRecord]
 ,@LoggedInUserEmail NVARCHAR(50)
 ,@UserId INT
 ,@Stamp NVARCHAR(200) = NULL
-,@Position NVARCHAR(100) = NULL
+,@PositionId INT = NULL
 /*
 EXEC [dbo].[EditUserRecord]
  @FirstName = 'test1'
@@ -100,7 +100,7 @@ BEGIN TRY
 		  ,u.[LocationArea] = COALESCE(@LocationArea,u.[LocationArea])
 		  ,u.[Stamp] = COALESCE(@Stamp,u.[Stamp])
 		  ,u.[UserRoleId] = COALESCE(@UserRoleId,u.[UserRoleId])
-		  ,u.[Position] = COALESCE(@Position,u.[Position])
+		  ,u.[PositionId] = COALESCE(@PositionId,u.[PositionId])
 	FROM [dbo].[Users] as u
 	WHERE u.ID = @UserId
 

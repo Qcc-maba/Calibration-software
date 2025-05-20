@@ -21,13 +21,14 @@ CREATE    PROCEDURE [dbo].[GetAllEmployees]
 	@DepartmentIdsList NVARCHAR(max) = NULL,
 	@CertificationIds NVARCHAR(MAX) = NULL,
 	@EventStartDate DATETIME2(0) = NULL,
-    @EventEndDate DATETIME2(0) = NULL
+    @EventEndDate DATETIME2(0) = NULL,
+	@PositionId INT = NULL
 AS
 BEGIN
 
 	IF @OrderBy NOT IN 
-	(N'FirstName', N'LastName', N'FirstNameEng', N'LastNameEng', N'Phone', N'Email', N'UserAddress', N'LocationArea', N'UserRoleENG', N'UserRoleHEB', N'DepartmentNames', N'Certification',N'Stamp')
-	THROW 51000, 'Incorrect value for parameter @OrderBy. Available values FirstName|LastName|FirstNameEng|LastNameEng|Phone|Email|UserAddress|LocationArea|UserRoleENG|UserRoleHEB|DepartmentNames|Certification|Stamp', 1;
+	(N'FirstName', N'LastName', N'FirstNameEng', N'LastNameEng', N'Phone', N'Email', N'UserAddress', N'LocationArea', N'UserRoleENG', N'UserRoleHEB', N'DepartmentNames', N'Certification',N'Stamp',N'Position')
+	THROW 51000, 'Incorrect value for parameter @OrderBy. Available values FirstName|LastName|FirstNameEng|LastNameEng|Phone|Email|UserAddress|LocationArea|UserRoleENG|UserRoleHEB|DepartmentNames|Certification|Stamp|Position', 1;
 
 
 	IF @FirstName IS NOT NULL OR @LastName IS NOT NULL 
@@ -167,10 +168,12 @@ SELECT u.ID,
 	   '
 	   ,IIF(@EventStartDate IS NOT NULL AND @EventEndDate IS NOT NULL,'ace.EventTypeId, ace.StatusDescriptionHEB , ace.StatusDescriptionENG,  ',' '),
 	   '
-	   u.Position,
+	   u.PositionId,
+	   ps.StatusDescriptionHEB as Position,
 	   COUNT(1) OVER(PARTITION BY 1 ORDER BY u.ID ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
 FROM [dbo].[Users] as u
 JOIN #Status as ss ON u.IsActive = ss.IsActive
+LEFT JOIN [dbo].[Statuses] as ps ON u.PositionId = ps.StatusId
 LEFT JOIN [dbo].[UserRoles] as ur ON u.UserRoleId = ur.UserRoleId
 '
 ,IIF(@UserStatusIds IS NOT NULL,' JOIN #UserStatusesIds as uf2 ON u.ID =  uf2.UserId ',' ')
@@ -205,6 +208,7 @@ WHERE u.ID > 0
 ,CASE WHEN @LocationArea IS NOT NULL THEN ' AND u.LocationArea LIKE N''%'+ @LocationArea +'%'' 'ELSE ' ' END
 ,CASE WHEN @Email IS NOT NULL THEN ' AND u.Email LIKE N''%'+ @Email +'%'' 'ELSE ' ' END
 ,CASE WHEN @UserRoleId IS NOT NULL THEN ' AND u.UserRoleId = '+ CAST(@UserRoleId as NVARCHAR(20)) +' 'ELSE ' ' END
+,CASE WHEN @PositionId IS NOT NULL THEN ' AND u.PositionId = '+ CAST(@PositionId as NVARCHAR(20)) +' 'ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
 OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql
