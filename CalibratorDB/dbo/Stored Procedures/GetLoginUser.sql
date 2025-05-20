@@ -53,6 +53,7 @@ BEGIN
 		,u.Phone as Mobile
 		,u.UserRoleId as RoleId
 		,ud.DepartmentId
+		,u.Position
 	FROM dbo.Users as u
 	LEFT JOIN 
 	(

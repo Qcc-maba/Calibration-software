@@ -18,6 +18,7 @@ CREATE     PROCEDURE [dbo].[CreateUserRecord]
 ,@CertificationIdsList NVARCHAR(max) = NULL
 ,@LoggedInUserEmail NVARCHAR(50)
 ,@Stamp NVARCHAR(200) = NULL
+,@Position NVARCHAR(100) = NULL
 
 /*
 EXEC [dbo].[CreateUserRecord]
@@ -95,7 +96,8 @@ BEGIN TRY
 			   ,[LocationArea]
 			   ,[UpdateUserID]
 			   ,[Stamp]
-			   ,[UserRoleId])
+			   ,[UserRoleId]
+			   ,[Position])
 		 VALUES(
 			 @FirstName
 			,@LastName 
@@ -108,6 +110,7 @@ BEGIN TRY
 			,@LoggedInUserId
 			,@Stamp
 			,@UserRoleId
+			,@Position
 			)
 
 	DECLARE @Userid INT

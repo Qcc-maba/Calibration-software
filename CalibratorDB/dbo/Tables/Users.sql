@@ -16,6 +16,7 @@
     [AWSID]        INT            NULL,
     [Stamp]        NVARCHAR (200) NULL,
     [UserRoleId]   INT            NULL,
+    [Position]     NVARCHAR (100) NULL,
     CONSTRAINT [PK_Users] PRIMARY KEY CLUSTERED ([ID] ASC),
     CONSTRAINT [FK_Users_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_Users_UserRoleId] FOREIGN KEY ([UserRoleId]) REFERENCES [dbo].[UserRoles] ([UserRoleId])
