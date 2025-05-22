@@ -197,9 +197,9 @@ USING (
 			,'SuperAdmin'
 			)
 			,(
-			 N'ExternalCalibrator'
+			 N'sinova'
 			,N'ExternalCalibrator'
-			,N'ExternalCalibrator'
+			,N'sinova'
 			,N'ExternalCalibrator'
 			,N'ExternalCalibrator@mba.co.il'
 			,'1234'
