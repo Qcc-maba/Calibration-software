@@ -67,7 +67,6 @@ USING (
 		('EventTypes','','Company Event - Optional',N' אירוע חברה -רשות'),
 		('EventTypes','','Sick Leave',N'מחלה'),
 		('EventTypes','','Vacation',N'חופש'),
-		('EventTypes','','Day Off',N'יום חופש'),
 		('UserStatus','','Active',N'פעיל'),
 		('UserStatus','','NotActive',N'לא פעיל'),
 		('Position','CT','Calibration Technician',N'כייל'),
