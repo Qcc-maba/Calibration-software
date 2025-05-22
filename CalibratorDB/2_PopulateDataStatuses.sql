@@ -44,6 +44,7 @@ USING (
 		('CarStatus','','Available',N'תקין'),
 		('CarStatus','','Treatment',N'טיפול'),
 		('CarStatus','','Damage',N'פגום'),
+		('CarStatus','','Sold',N'נמכר'),
 		('CalibrationEquipmentStatus','','Available',N'זמין '),
 		('CalibrationEquipmentStatus','','Treatment',N'טיפול'),
 		('CalibrationEquipmentStatus','','Damage',N'תקול '),
@@ -69,7 +70,12 @@ USING (
 		('EventTypes','','Day Off',N'יום חופש'),
 		('UserStatus','','Active',N'פעיל'),
 		('UserStatus','','NotActive',N'לא פעיל'),
-		('Position','','test position',N'test position')
+		('Position','CT','Calibration Technician',N'כייל'),
+		('Position','TL','Team Leader',N'ראש צוות'),
+		('Position','DH','Department Head',N'ראש מדור'),
+		('Position','ME','Metrology Engineer',N'טכנולוג'),
+		('Position','COO','Chief Operations Officer',N'מנהל תפעול'),
+		('Position','CTO','Chief Technology Officer',N'מנהל טכני')
 		) ds ([StatusCategory],[Code],[StatusDescriptionENG],[StatusDescriptionHEB])
 		JOIN [dbo].[StatusesCategories] as sc ON ds.StatusCategory = sc.StatusDescriptionENG
 	) AS source
