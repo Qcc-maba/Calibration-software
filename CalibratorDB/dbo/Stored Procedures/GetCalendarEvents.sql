@@ -29,7 +29,9 @@ DECLARE @Userid INT = 0
 
 IF @LoggedInUserEmail IS NOT NULL
 BEGIN
-	SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+	SELECT TOP 1 @Userid = ID FROM dbo.Users as u
+	JOIN [dbo].[UsersToDepartments] as d ON u.ID = d.UserId
+	WHERE u.Email = @LoggedInUserEmail
 
 	DROP TABLE IF EXISTS #CalendarEventFilteredByDepartment
 	CREATE TABLE #CalendarEventFilteredByDepartment
@@ -61,7 +63,7 @@ CONCAT(
     FROM dbo.CalendarEvents AS ce
 	JOIN [dbo].[Statuses] as ss ON ce.EventTypeId = ss.StatusId
 	LEFT JOIN dbo.CalendarEventsToParticipants as p ON ce.CalendarEventId = p.CalendarEventId and p.IsDeleted = 0'
-     ,CASE WHEN @LoggedInUserEmail IS NOT NULL THEN ' JOIN #CalendarEventFilteredByDepartment as f ON ce.CalendarEventId = f.CalendarEventId ' ELSE ' ' END,
+     ,CASE WHEN @Userid <> 0 THEN ' JOIN #CalendarEventFilteredByDepartment as f ON ce.CalendarEventId = f.CalendarEventId ' ELSE ' ' END,
     'WHERE ce.IsDeleted = 0 AND
 	ce.StartDate >= ''',@StartDate,''' AND ce.StartDate <= ''',@EndDate,'''
 	GROUP BY ce.CalendarEventId,ce.EventTypeId, ss.StatusDescriptionENG , ss.StatusDescriptionHEB ,ce.StartDate, ce.EndDate, ce.Comments,ce.UpdateUserID

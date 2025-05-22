@@ -14,7 +14,8 @@ USING (
 			('Coordinator',N'משבץ','Coordinator',1),
 			('Validator',N'ולידטור','Validator',1),
 			('Client',N'לקוח','Client',1),
-			('Customer support',N'שירות לקוחות','CustomerSupport',1)
+			('Customer support',N'שירות לקוחות','CustomerSupport',1),
+			('External Calibrator',N'','ExternalCalibrator',1)
 		) ds ([UserRoleDescriptionENG],[UserRoleDescriptionHEB],[UserRoleName],[IsApplicationRole])
 	) AS source
 	ON dest.[UserRoleName] = source.[UserRoleName]

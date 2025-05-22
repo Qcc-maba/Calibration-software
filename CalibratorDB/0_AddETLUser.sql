@@ -196,6 +196,23 @@ USING (
 			,''
 			,'SuperAdmin'
 			)
+			,(
+			 N'ExternalCalibrator'
+			,N'ExternalCalibrator'
+			,N'ExternalCalibrator'
+			,N'ExternalCalibrator'
+			,N'ExternalCalibrator@mba.co.il'
+			,'1234'
+			,'0585686607'
+			,1
+			,GETDATE()
+			,NULL
+			,0
+			,''
+			,''
+			,''
+			,'ExternalCalibrator'
+			)
 		) ds([FirstName], [LastName], [FirstNameEng], [LastNameEng], [Email], [Password], [Phone], [IsActive], [CreatedDate], [UpdatedDate], [UpdateUserID], [UserAddress], [LocationArea], [Stamp],[UserRole])
 		JOIN dbo.UserRoles as ur ON ds.[UserRole] = ur.UserRoleName
 	) AS source
