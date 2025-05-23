@@ -42,7 +42,7 @@ UPDATE [dbo].[CalibEquipmentsToOrderHeaders]
 SET IsDeleted = 1
 WHERE OrderWorkPlanId = @OrderWorkPlanId
 
-IF (SELECT COUNT(*) FROM #AssociatedEquipmentIDs) >= 1
+IF (SELECT COUNT(*) FROM #AssociatedEquipmentIDs WHERE EquipmentId > 0) >= 1
 
 INSERT [dbo].[CalibEquipmentsToOrderHeaders]
 (
