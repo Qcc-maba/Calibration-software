@@ -25,7 +25,7 @@ BEGIN
         ELSE
         BEGIN
             -- Wrong password case
-            SELECT MessageHeb, MessageEng FROM UserMessages WHERE Id = 3
+            SELECT MessageHeb, MessageEng FROM UserMessages WHERE MessageEng = 'Wrong password'
             RETURN
         END
     END
@@ -34,14 +34,14 @@ BEGIN
 	-- If user doesn't exist
     IF @UserExists = 0
     BEGIN
-        SELECT MessageHeb, MessageEng FROM UserMessages WHERE Id = 1
+        SELECT MessageHeb, MessageEng FROM UserMessages WHERE MessageEng = 'User is not exist'
         RETURN
     END
 
     -- If user exists but is not active
     IF @IsActive = 0
     BEGIN
-        SELECT MessageHeb, MessageEng FROM UserMessages WHERE Id = 2
+        SELECT MessageHeb, MessageEng FROM UserMessages WHERE MessageEng = 'User is not active'
         RETURN
     END
 

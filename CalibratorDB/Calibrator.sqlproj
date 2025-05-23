@@ -213,6 +213,7 @@
     <None Include="MeasurementDevicesMainClasses.sql" />
     <None Include="MeasurementDevices.sql" />
     <None Include="UnitGroups.sql" />
+    <None Include="0_Add_UserMessages.sql" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="hebutils">
