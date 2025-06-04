@@ -204,6 +204,17 @@
     <Build Include="dbo\Stored Procedures\GetAllDeviceManufacturer.sql" />
     <Build Include="dbo\Stored Procedures\GetAllCalibrationDevices.sql" />
     <Build Include="dbo\Stored Procedures\GetAllMeasurementDevicesMainClasses.sql" />
+    <None Include="0_AddSourceSystems.sql" />
+    <Build Include="stg\Tables\stg_Customers.sql" />
+    <Build Include="stg\Tables\stg_CustomerContacts.sql" />
+    <Build Include="dbo\Tables\Source.sql" />
+    <Build Include="dbo\Tables\Customers.sql" />
+    <Build Include="dbo\Tables\CustomerContacts.sql" />
+    <Build Include="stg\Stored Procedures\MergeCustomersData.sql" />
+    <Build Include="stg\Stored Procedures\MergeCustomersContactsData.sql" />
+    <Build Include="stg\Tables\stg_OrdersMainCategories.sql" />
+    <Build Include="dbo\Tables\OrdersMainCategories.sql" />
+    <Build Include="stg\Stored Procedures\MergeOrdersMainCategories.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />
