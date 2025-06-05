@@ -1,6 +1,6 @@
 ﻿CREATE TABLE [dbo].[MeasurementDevices] (
     [ID]               INT             IDENTITY (1, 1) NOT NULL,
-    [MabaID]           NVARCHAR (50)    NOT NULL,
+    [MabaID]           NVARCHAR (50)   NOT NULL,
     [CreateDate]       DATETIME2 (7)   CONSTRAINT [DF_MeasurementDevices_Added] DEFAULT (getdate()) NULL,
     [RemoveDate]       DATETIME2 (7)   NULL,
     [Description]      NVARCHAR (50)   NULL,
@@ -28,6 +28,7 @@
     [AllowMinOOR]      BIT             CONSTRAINT [DF_MeasurementDevices_AllowMinOOR] DEFAULT ((0)) NOT NULL,
     [AllowMaxOOR]      BIT             CONSTRAINT [DF_MeasurementDevices_AllowMaxOOR] DEFAULT ((0)) NOT NULL,
     [IsDeleted]        BIT             DEFAULT ((0)) NOT NULL,
+    [Resolution]       INT             NULL,
     CONSTRAINT [PK_MeasurementDevices] PRIMARY KEY CLUSTERED ([ID] ASC) WITH (FILLFACTOR = 90),
     CONSTRAINT [FK_MeasurementDevices_MeasurementDevicesMainClasses] FOREIGN KEY ([MainClass]) REFERENCES [dbo].[MeasurementDevicesMainClasses] ([Id]),
     CONSTRAINT [FK_MeasurementDevices_MeasurementDevicesManufacturers] FOREIGN KEY ([ManufacturerId]) REFERENCES [dbo].[MeasurementDevicesManufacturers] ([ID]),

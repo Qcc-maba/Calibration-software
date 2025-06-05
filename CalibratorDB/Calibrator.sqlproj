@@ -215,6 +215,13 @@
     <Build Include="stg\Tables\stg_OrdersMainCategories.sql" />
     <Build Include="dbo\Tables\OrdersMainCategories.sql" />
     <Build Include="stg\Stored Procedures\MergeOrdersMainCategories.sql" />
+    <Build Include="stg\Tables\stg_OrdersSecondaryCategories.sql" />
+    <Build Include="stg\Tables\stg_Manufacturers.sql" />
+    <Build Include="dbo\Tables\Populate stg table.sql" />
+    <Build Include="dbo\Tables\OrdersSecondaryCategories.sql" />
+    <Build Include="dbo\Tables\OrdersDeviceManufacturers.sql" />
+    <Build Include="stg\Stored Procedures\MergeOrdersSecondaryCategories.sql" />
+    <Build Include="stg\Stored Procedures\MergeOrdersDeviceManufacturers.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />

@@ -29,15 +29,21 @@ THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
 		  ,NULL AS [Intervals] 
 		  ,NULL AS [Status]
 		  ,mc.NameHebrew
+		  ,mc.NameEnglish
 		  ,u.ShortNameHe AS UnitName
 		  ,md.WorkRangeMin	as LowerDomainBorder
 		  ,md.WorkRangeMax as UpperDomainBorder 
 		  ,m.NameHe as MeasurmentName
 		  ,d.DepartmentName
-		  ,''not defined yet'' as Channels
+		  ,''10.3.3.46:3490'' as IP
+		  ,md.Resolution
+		  ,CASE WHEN mc.NameEnglish = ''Sensor'' THEN 60 ELSE NULL END as ChannelsNumber
+		  ,CASE WHEN mc.NameEnglish = ''Sensor'' AND Description LIKE ''%TC-K%'' THEN ''2W''
+				WHEN mc.NameEnglish = ''Sensor'' THEN ''4W'' 
+			ELSE NULL END as Connection
 	  FROM [dbo].[MeasurementDevices] as md
 	  '
-	  ,CASE WHEN @ApplyFilterByDevicesParents = 1 THEN ' JOIN [dbo].[MeasurementDevicesParents] as pf ON md.[ID] = pf.[DeviceId] AND pf.[ParentId] ='+CAST(@CalibrationDeviceId as NVARCHAR(50))+'' ELSE ' ' END
+	  ,CASE WHEN @ApplyFilterByDevicesParents = 1 THEN ' JOIN [dbo].[MeasurementDevicesParents] as pf ON md.[ID] = pf.[ParentId] AND pf.[DeviceId] ='+CAST(@CalibrationDeviceId as NVARCHAR(50))+'' ELSE ' ' END
 	  ,'
 	  JOIN [dbo].[MeasurementDevicesMainClasses] as mc ON md.MainClass = mc.Id
 	  JOIN [dbo].[Units] as u ON md.Unit = u.ID
