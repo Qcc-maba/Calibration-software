@@ -42,7 +42,6 @@
     [CustomerContactEmail]                 NVARCHAR (100) NULL,
     CONSTRAINT [PK_OrderDetails] PRIMARY KEY CLUSTERED ([OrderDetailId] ASC, [OrderWorkPlanId] ASC),
     CONSTRAINT [FK_OrderDetails] FOREIGN KEY ([SpecialCareTypeId]) REFERENCES [dbo].[Statuses] ([StatusId]),
-    CONSTRAINT [FK_OrderDetails_ClientRemarkId] FOREIGN KEY ([ClientRemarkId]) REFERENCES [dbo].[ClientRemarks] ([ClientRemarkId]),
     CONSTRAINT [FK_OrderDetails_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_OrderDetails_OrderWorkPlanId] FOREIGN KEY ([OrderWorkPlanId]) REFERENCES [dbo].[OrderWorkPlans] ([OrderWorkPlanId]),
     CONSTRAINT [FK_OrderDetails_StatusId] FOREIGN KEY ([StatusId]) REFERENCES [dbo].[Statuses] ([StatusId]),

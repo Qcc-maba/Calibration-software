@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="47"
-  DTS:VersionGUID="{C5E3A643-F352-4386-95C6-FA1BFA98CD6B}">
+  DTS:VersionBuild="51"
+  DTS:VersionGUID="{F4B6557F-8AD3-4D72-A1CD-FECCF1E86224}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -29,6 +29,22 @@
       <DTS:Variables />
       <DTS:Executables>
         <DTS:Executable
+          DTS:refId="Package\Execute merges in sequence\Merge Customer Remarks"
+          DTS:CreationName="Microsoft.ExecuteSQLTask"
+          DTS:Description="Execute SQL Task"
+          DTS:DTSID="{513BDB3B-47D7-48A3-906A-CEE2B1D3C854}"
+          DTS:ExecutableType="Microsoft.ExecuteSQLTask"
+          DTS:LocaleID="-1"
+          DTS:ObjectName="Merge Customer Remarks"
+          DTS:ThreadHint="5">
+          <DTS:Variables />
+          <DTS:ObjectData>
+            <SQLTask:SqlTaskData
+              SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
+              SQLTask:SqlStatementSource="EXEC [stg].[MergeCustomerRemarks]" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
+          </DTS:ObjectData>
+        </DTS:Executable>
+        <DTS:Executable
           DTS:refId="Package\Execute merges in sequence\Merge Customers Contacts Data"
           DTS:CreationName="Microsoft.ExecuteSQLTask"
           DTS:Description="Execute SQL Task"
@@ -36,7 +52,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Contacts Data"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -52,7 +68,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Data"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -85,7 +101,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Device Manufacturers"
-          DTS:ThreadHint="4">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -101,7 +117,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Main Categories"
-          DTS:ThreadHint="3">
+          DTS:ThreadHint="4">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -117,7 +133,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Secondary Categories"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="3">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -135,6 +151,14 @@
           DTS:LogicalAnd="True"
           DTS:ObjectName="Constraint"
           DTS:To="Package\Execute merges in sequence\Merge Customers Contacts Data" />
+        <DTS:PrecedenceConstraint
+          DTS:refId="Package\Execute merges in sequence.PrecedenceConstraints[Constraint 1]"
+          DTS:CreationName=""
+          DTS:DTSID="{575465E6-7057-416B-8D18-4355F52693B5}"
+          DTS:From="Package\Execute merges in sequence\Merge Customers Data"
+          DTS:LogicalAnd="True"
+          DTS:ObjectName="Constraint 1"
+          DTS:To="Package\Execute merges in sequence\Merge Customer Remarks" />
       </DTS:PrecedenceConstraints>
     </DTS:Executable>
     <DTS:Executable
@@ -602,6 +626,331 @@ WHERE pb.INACTIVE ='' AND pb.ORDFLAG ='Y'</property>
                   endId="Package\Populate staging tables\Load data to stg_CustomerContact\Load stg table.Inputs[ADO NET Destination Input]"
                   name="ADO NET Source Output"
                   startId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Output]" />
+              </paths>
+            </pipeline>
+          </DTS:ObjectData>
+        </DTS:Executable>
+        <DTS:Executable
+          DTS:refId="Package\Populate staging tables\Load data to stg_CustomerRemark"
+          DTS:CreationName="Microsoft.Pipeline"
+          DTS:Description="Data Flow Task"
+          DTS:DTSID="{A7CCB579-00E6-41B8-A0A6-F4E130A622BD}"
+          DTS:ExecutableType="Microsoft.Pipeline"
+          DTS:LocaleID="-1"
+          DTS:ObjectName="Load data to stg_CustomerRemark"
+          DTS:TaskContact="Performs high-performance data extraction, transformation and loading;Microsoft Corporation; Microsoft SQL Server; (C) Microsoft Corporation; All Rights Reserved;http://www.microsoft.com/sql/support/default.asp;1">
+          <DTS:Variables />
+          <DTS:ObjectData>
+            <pipeline
+              version="1">
+              <components>
+                <component
+                  refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data"
+                  componentClassID="Microsoft.ManagedComponentHost"
+                  contactInfo="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server.;Microsoft Corporation; Microsoft SQL Server; © Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;4"
+                  description="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server."
+                  name="Get source data"
+                  usesDispositions="true"
+                  version="4">
+                  <properties>
+                    <property
+                      dataType="System.String"
+                      description="Specifies the SQL statement used by the component to extract data."
+                      expressionType="Notify"
+                      name="SqlCommand"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT CUST
+	,COMPRESS(STRING_AGG(CAST(REVERSE(c.TEXT) AS NVARCHAR(MAX)), '')) as CompresedText
+	,BINARY_CHECKSUM(STRING_AGG(CAST(REVERSE(c.TEXT) AS NVARCHAR(MAX)), '')) as HashText
+	,'MABA' as SourceSystem
+FROM amaba.dbo.CUSTOMERSTEXT AS c
+WHERE c.CUST IN (
+		SELECT CUST
+		FROM amaba.dbo.ORDERS AS o
+		WHERE DATEADD(n, o.CURDATE, '1988-01-01') &gt;= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+		)
+GROUP BY CUST
+
+UNION ALL
+
+SELECT CUST
+	,COMPRESS(STRING_AGG(CAST(REVERSE(c.TEXT) AS NVARCHAR(MAX)), '')) CompresedText
+	,BINARY_CHECKSUM(STRING_AGG(CAST(REVERSE(c.TEXT) AS NVARCHAR(MAX)), '')) as HashText
+	,'SEPHARM' as SourceSystem
+FROM sepharm.dbo.CUSTOMERSTEXT AS c
+WHERE c.CUST IN (
+		SELECT CUST
+		FROM sepharm.dbo.ORDERS AS o
+		WHERE DATEADD(n, o.CURDATE, '1988-01-01') &gt;= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+		)
+GROUP BY CUST</property>
+                    <property
+                      dataType="System.Int32"
+                      description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
+                      name="CommandTimeout">30</property>
+                    <property
+                      dataType="System.Boolean"
+                      description="Indicates whether to allow non-string external columns to be implicitly converted to strings at the output columns."
+                      name="AllowImplicitStringConversion">true</property>
+                    <property
+                      dataType="System.String"
+                      description="The Source database table name."
+                      expressionType="Notify"
+                      name="TableOrViewName"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor"></property>
+                    <property
+                      dataType="System.Int32"
+                      description="Specify the mode to retrieve external column information"
+                      name="AccessMode"
+                      typeConverter="Microsoft.SqlServer.Dts.Pipeline.DataReaderSourceAdapter+EnumToStringConverter">2</property>
+                    <property
+                      dataType="System.String"
+                      name="UserComponentTypeName">Microsoft.DataReaderSourceAdapter</property>
+                  </properties>
+                  <connections>
+                    <connection
+                      refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Connections[IDbConnection]"
+                      connectionManagerID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}:external"
+                      connectionManagerRefId="Project.ConnectionManagers[OnPremPriority]"
+                      description="Managed connection manager"
+                      name="IDbConnection" />
+                  </connections>
+                  <outputs>
+                    <output
+                      refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output]"
+                      name="ADO NET Source Output">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].Columns[CUST]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CUST]"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].Columns[CUST]"
+                          name="CUST"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].Columns[CompresedText]"
+                          dataType="image"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CompresedText]"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].Columns[CompresedText]"
+                          name="CompresedText"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].Columns[HashText]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].ExternalColumns[HashText]"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].Columns[HashText]"
+                          name="HashText"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceSystem]"
+                          length="7"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]"
+                          name="SourceSystem"
+                          truncationRowDisposition="FailComponent" />
+                      </outputColumns>
+                      <externalMetadataColumns
+                        isUsed="True">
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CUST]"
+                          dataType="i4"
+                          name="CUST" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CompresedText]"
+                          dataType="image"
+                          name="CompresedText" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].ExternalColumns[HashText]"
+                          dataType="i4"
+                          name="HashText" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceSystem]"
+                          dataType="wstr"
+                          length="7"
+                          name="SourceSystem" />
+                      </externalMetadataColumns>
+                    </output>
+                    <output
+                      refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Error Output]"
+                      isErrorOut="true"
+                      name="ADO NET Source Error Output">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Error Output].Columns[CUST]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Error Output].Columns[CUST]"
+                          name="CUST" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Error Output].Columns[CompresedText]"
+                          dataType="image"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Error Output].Columns[CompresedText]"
+                          name="CompresedText" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Error Output].Columns[HashText]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Error Output].Columns[HashText]"
+                          name="HashText" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceSystem]"
+                          dataType="wstr"
+                          length="7"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceSystem]"
+                          name="SourceSystem" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                          name="ErrorCode"
+                          specialFlags="1" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                          name="ErrorColumn"
+                          specialFlags="2" />
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                  </outputs>
+                </component>
+                <component
+                  refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table"
+                  componentClassID="Microsoft.ManagedComponentHost"
+                  contactInfo="Loads data into an ADO.NET-compliant database that uses a database table or view. Load data into a new or existing table. For example, use an ADO.NET provider for ODBC to load data into an ODBC destination.;Microsoft Corporation; Microsoft SQL Server; © Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;2"
+                  description="Loads data into an ADO.NET-compliant database that uses a database table or view. Load data into a new or existing table. For example, use an ADO.NET provider for ODBC to load data into an ODBC destination."
+                  name="Populate stg table"
+                  usesDispositions="true"
+                  version="2">
+                  <properties>
+                    <property
+                      dataType="System.String"
+                      description="The Destination database table name."
+                      expressionType="Notify"
+                      name="TableOrViewName"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">"stg"."stg_CustomerRemarks"</property>
+                    <property
+                      dataType="System.Int32"
+                      description="Specify the number of rows per batch. The default is 0 which uses the same size as SSIS internal buffer. "
+                      expressionType="Notify"
+                      name="BatchSize">0</property>
+                    <property
+                      dataType="System.Int32"
+                      description="The number of seconds before a command times out. A value of 0 indicates infinite time-out. "
+                      expressionType="Notify"
+                      name="CommandTimeout">30</property>
+                    <property
+                      dataType="System.Boolean"
+                      description="Specifies whether to use the SqlBulkCopy interface to improve the performance of bulk insert operations. Only certain providers support this interface."
+                      expressionType="Notify"
+                      name="UseBulkInsertWhenPossible">true</property>
+                    <property
+                      dataType="System.String"
+                      name="UserComponentTypeName">Microsoft.ADONETDestination</property>
+                  </properties>
+                  <connections>
+                    <connection
+                      refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Connections[IDbConnection]"
+                      connectionManagerID="{5D340525-F86F-4A09-8F4F-C17373323AB0}:external"
+                      connectionManagerRefId="Project.ConnectionManagers[AWSCalibrator]"
+                      description="Managed connection manager"
+                      name="IDbConnection" />
+                  </connections>
+                  <inputs>
+                    <input
+                      refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input]"
+                      errorRowDisposition="FailComponent"
+                      hasSideEffects="true"
+                      name="ADO NET Destination Input">
+                      <inputColumns>
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input].Columns[CUST]"
+                          cachedDataType="i4"
+                          cachedName="CUST"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[CUST]"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].Columns[CUST]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input].Columns[CompresedText]"
+                          cachedDataType="image"
+                          cachedName="CompresedText"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[CompresedText]"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].Columns[CompresedText]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input].Columns[HashText]"
+                          cachedDataType="i4"
+                          cachedName="HashText"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[HashText]"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].Columns[HashText]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input].Columns[SourceSystem]"
+                          cachedDataType="wstr"
+                          cachedLength="7"
+                          cachedName="SourceSystem"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[SourceSystem]"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]" />
+                      </inputColumns>
+                      <externalMetadataColumns
+                        isUsed="True">
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[CUST]"
+                          dataType="i4"
+                          name="CUST" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[CompresedText]"
+                          dataType="bytes"
+                          length="2147483647"
+                          name="CompresedText" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[HashText]"
+                          dataType="i4"
+                          name="HashText" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[SourceSystem]"
+                          dataType="wstr"
+                          length="7"
+                          name="SourceSystem" />
+                      </externalMetadataColumns>
+                    </input>
+                  </inputs>
+                  <outputs>
+                    <output
+                      refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Outputs[ADO NET Destination Error Output]"
+                      exclusionGroup="1"
+                      isErrorOut="true"
+                      name="ADO NET Destination Error Output"
+                      synchronousInputId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input]">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
+                          name="ErrorCode"
+                          specialFlags="1" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
+                          name="ErrorColumn"
+                          specialFlags="2" />
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                  </outputs>
+                </component>
+              </components>
+              <paths>
+                <path
+                  refId="Package\Populate staging tables\Load data to stg_CustomerRemark.Paths[ADO NET Source Output]"
+                  endId="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table.Inputs[ADO NET Destination Input]"
+                  name="ADO NET Source Output"
+                  startId="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data.Outputs[ADO NET Source Output]" />
               </paths>
             </pipeline>
           </DTS:ObjectData>
@@ -3285,7 +3634,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
       <DTS:ObjectData>
         <SQLTask:SqlTaskData
           SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
-          SQLTask:SqlStatementSource="TRUNCATE TABLE stg.stg_Orders&#xA;TRUNCATE TABLE stg.stg_CustomerContacts&#xA;TRUNCATE TABLE stg.stg_Customers&#xA;TRUNCATE TABLE stg.stg_OrdersMainCategories&#xA;TRUNCATE TABLE stg.stg_OrdersSecondaryCategories&#xA;TRUNCATE TABLE stg.stg_Manufacturers" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
+          SQLTask:SqlStatementSource="TRUNCATE TABLE stg.stg_Orders&#xA;TRUNCATE TABLE stg.stg_CustomerContacts&#xA;TRUNCATE TABLE stg.stg_Customers&#xA;TRUNCATE TABLE stg.stg_OrdersMainCategories&#xA;TRUNCATE TABLE stg.stg_OrdersSecondaryCategories&#xA;TRUNCATE TABLE stg.stg_Manufacturers&#xA;TRUNCATE TABLE stg.stg_CustomerRemarks" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
       </DTS:ObjectData>
     </DTS:Executable>
   </DTS:Executables>
@@ -3322,33 +3671,41 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
         <NodeLayout
           Size="229.6,41.6"
           Id="Package\Execute merges in sequence\Merge Customers Contacts Data"
-          TopLeft="4.99999754130847,102.866665178074" />
+          TopLeft="5.49999999999996,107.1" />
         <NodeLayout
           Size="185.6,41.6"
           Id="Package\Execute merges in sequence\Merge Customers Data"
-          TopLeft="29.9999961753688,29.9333315675128" />
+          TopLeft="27.5,5.49999999999995" />
         <NodeLayout
           Size="207.2,41.6"
           Id="Package\Execute merges in sequence\Merge data to Orders tables"
-          TopLeft="33.7999974047134,181.566663044624" />
+          TopLeft="760.699974593521,15.2333339721626" />
+        <NodeLayout
+          Size="246.4,41.6"
+          Id="Package\Execute merges in sequence\Merge Orders Device Manufacturers"
+          TopLeft="563.1,107.1" />
         <NodeLayout
           Size="220.8,41.6"
           Id="Package\Execute merges in sequence\Merge Orders Main Categories"
-          TopLeft="258.333317033119,30.5333323811161" />
+          TopLeft="869.9,107.1" />
+        <NodeLayout
+          Size="248,41.6"
+          Id="Package\Execute merges in sequence\Merge Orders Secondary Categories"
+          TopLeft="1151.3,107.1" />
         <EdgeLayout
           Id="Package\Execute merges in sequence.PrecedenceConstraints[Constraint]"
-          TopLeft="121.299996858339,71.5333315675128">
+          TopLeft="120.3,47.1">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,31.333333610561"
+              EndConnector="0,60"
               Start="0,0"
-              End="0,23.833333610561">
+              End="0,52.5">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,23.833333610561" />
+                    End="0,52.5" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
@@ -3358,69 +3715,103 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
           </EdgeLayout.Labels>
         </EdgeLayout>
         <NodeLayout
-          Size="248,41.6"
-          Id="Package\Execute merges in sequence\Merge Orders Secondary Categories"
-          TopLeft="266.66664991114,105.066665196154" />
-        <NodeLayout
-          Size="246.4,41.6"
-          Id="Package\Execute merges in sequence\Merge Orders Device Manufacturers"
-          TopLeft="281.666649091576,171.133331531353" />
-        <ContainerLayout
-          HeaderHeight="43"
-          IsExpanded="True"
-          PanelSize="568,280"
-          Size="568,323.2"
-          Id="Package\Execute merges in sequence"
-          TopLeft="39.9999978144966,513.066663098865" />
-        <NodeLayout
-          Size="239.2,41.6"
-          Id="Package\Populate staging tables\Load data to stg_CustomerContact"
-          TopLeft="44.0333267312915,88.4666651057535" />
-        <NodeLayout
-          Size="208.8,41.6"
-          Id="Package\Populate staging tables\Load data to stg_Customers"
-          TopLeft="58.899994946023,15.5999990236759" />
-        <NodeLayout
-          Size="190.4,41.6"
-          Id="Package\Populate staging tables\Load data to stg_Orders"
-          TopLeft="61.1999927605191,235.299997306069" />
-        <NodeLayout
-          Size="263.2,41.6"
-          Id="Package\Populate staging tables\Load data to stg_OrdersMainCategories"
-          TopLeft="53.899995219211,157.799997812311" />
-        <NodeLayout
-          Size="258.4,41.6"
-          Id="Package\Populate staging tables\Load data to stg_SecondaryCategories"
-          TopLeft="340.566646223102,14.7333327246375" />
-        <NodeLayout
-          Size="224.8,41.6"
-          Id="Package\Populate staging tables\Load data to stg_Manufacturers"
-          TopLeft="352.233312252331,84.1333316579131" />
-        <ContainerLayout
-          HeaderHeight="43"
-          IsExpanded="True"
-          PanelSize="632,332"
-          Size="632,375.2"
-          Id="Package\Populate staging tables"
-          TopLeft="33.3333315120804,113.466666027837" />
-        <NodeLayout
-          Size="173.6,41.6"
-          Id="Package\Truncate stg_Orders"
-          TopLeft="261.666652369831,25.9999998191992" />
+          Size="200,41.6"
+          Id="Package\Execute merges in sequence\Merge Customer Remarks"
+          TopLeft="273.647594005391,104.952377818501" />
         <EdgeLayout
-          Id="Package.PrecedenceConstraints[Constraint]"
-          TopLeft="348.899991940955,67.5999998191992">
+          Id="Package\Execute merges in sequence.PrecedenceConstraints[Constraint 1]"
+          TopLeft="149.9,47.1">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,45.8666662086377"
+              EndConnector="223.747594005391,57.8523778185014"
               Start="0,0"
-              End="0,38.3666662086377">
+              End="223.747594005391,50.3523778185014">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,38.3666662086377" />
+                    End="0,19.4376299880083" />
+                  <mssgle:CubicBezierSegment
+                    Point1="0,19.4376299880083"
+                    Point2="0,23.4376299880083"
+                    Point3="4,23.4376299880083" />
+                  <mssgle:LineSegment
+                    End="219.747594005391,23.4376299880083" />
+                  <mssgle:CubicBezierSegment
+                    Point1="219.747594005391,23.4376299880083"
+                    Point2="223.747594005391,23.4376299880083"
+                    Point3="223.747594005391,27.4376299880083" />
+                  <mssgle:LineSegment
+                    End="223.747594005391,50.3523778185014" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <ContainerLayout
+          HeaderHeight="43"
+          IsExpanded="True"
+          PanelSize="1404.8,208.8"
+          Size="1404.8,252"
+          Id="Package\Execute merges in sequence"
+          TopLeft="302.3,312.7" />
+        <NodeLayout
+          Size="239.2,41.6"
+          Id="Package\Populate staging tables\Load data to stg_CustomerContact"
+          TopLeft="5.49999999999991,5.50000000000007" />
+        <NodeLayout
+          Size="208.8,41.6"
+          Id="Package\Populate staging tables\Load data to stg_Customers"
+          TopLeft="305.7,5.50000000000007" />
+        <NodeLayout
+          Size="224.8,41.6"
+          Id="Package\Populate staging tables\Load data to stg_Manufacturers"
+          TopLeft="574.7,5.49999999999995" />
+        <NodeLayout
+          Size="190.4,41.6"
+          Id="Package\Populate staging tables\Load data to stg_Orders"
+          TopLeft="859.9,5.49999999999995" />
+        <NodeLayout
+          Size="263.2,41.6"
+          Id="Package\Populate staging tables\Load data to stg_OrdersMainCategories"
+          TopLeft="1110.5,5.49999999999995" />
+        <NodeLayout
+          Size="258.4,41.6"
+          Id="Package\Populate staging tables\Load data to stg_SecondaryCategories"
+          TopLeft="1433.9,5.49999999999984" />
+        <NodeLayout
+          Size="240,41.6"
+          Id="Package\Populate staging tables\Load data to stg_CustomerRemark"
+          TopLeft="1753.1,5.49999999999984" />
+        <ContainerLayout
+          HeaderHeight="43"
+          IsExpanded="True"
+          PanelSize="1998.4,102.4"
+          Size="1998.4,145.6"
+          Id="Package\Populate staging tables"
+          TopLeft="5.5,107.1" />
+        <NodeLayout
+          Size="173.6,41.6"
+          Id="Package\Truncate stg_Orders"
+          TopLeft="917.9,5.49999999999973" />
+        <EdgeLayout
+          Id="Package.PrecedenceConstraints[Constraint]"
+          TopLeft="1004.7,47.0999999999997">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,60.0000000000001"
+              Start="0,0"
+              End="0,52.5000000000001">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,52.5000000000001" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
@@ -3431,30 +3822,18 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
         </EdgeLayout>
         <EdgeLayout
           Id="Package.PrecedenceConstraints[Constraint 1]"
-          TopLeft="349.33333151208,488.666666027837">
+          TopLeft="1004.7,252.7">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="-25.3333336975838,24.399997071028"
+              EndConnector="0,60.0000000000003"
               Start="0,0"
-              End="-25.3333336975838,16.899997071028">
+              End="0,52.5000000000003">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,8.199998535514" />
-                  <mssgle:CubicBezierSegment
-                    Point1="0,8.199998535514"
-                    Point2="0,12.199998535514"
-                    Point3="-4,12.199998535514" />
-                  <mssgle:LineSegment
-                    End="-21.3333336975838,12.199998535514" />
-                  <mssgle:CubicBezierSegment
-                    Point1="-21.3333336975838,12.199998535514"
-                    Point2="-25.3333336975838,12.199998535514"
-                    Point3="-25.3333336975838,16.199998535514" />
-                  <mssgle:LineSegment
-                    End="-25.3333336975838,16.899997071028" />
+                    End="0,52.5000000000003" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
@@ -3470,7 +3849,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
     design-time-name="Package\Populate staging tables\Load data to stg_CustomerContact">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_CustomerContact\Load stg table"
@@ -3498,7 +3877,9 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -3577,6 +3958,60 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
     </Properties>
   </PipelineComponentMetadata>
   <TaskHost
+    design-time-name="Package\Populate staging tables\Load data to stg_Manufacturers">
+    <LayoutInfo>
+      <GraphLayout
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        <NodeLayout
+          Size="161.6,41.6"
+          Id="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table"
+          TopLeft="206.99999691546,203.999996960163" />
+        <NodeLayout
+          Size="152,41.6"
+          Id="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data"
+          TopLeft="209.999996870756,100.999998494983" />
+        <EdgeLayout
+          Id="Package\Populate staging tables\Load data to stg_Manufacturers.Paths[ADO NET Source Output]"
+          TopLeft="286.899996893108,142.599998494983">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,61.3999984651804"
+              Start="0,0"
+              End="0,53.8999984651804">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,53.8999984651804" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+      </GraphLayout>
+    </LayoutInfo>
+  </TaskHost>
+  <PipelineComponentMetadata
+    design-time-name="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <PipelineComponentMetadata
+    design-time-name="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <TaskHost
     design-time-name="Package\Populate staging tables\Load data to stg_Orders">
     <LayoutInfo>
       <GraphLayout
@@ -3636,7 +4071,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
     design-time-name="Package\Populate staging tables\Load data to stg_OrdersMainCategories">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_OrdersMainCategories\Load stg table"
@@ -3664,7 +4099,9 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -3690,7 +4127,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
     design-time-name="Package\Populate staging tables\Load data to stg_SecondaryCategories">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
         <NodeLayout
           Size="161.6,41.6"
           Id="Package\Populate staging tables\Load data to stg_SecondaryCategories\Populate stg table"
@@ -3718,20 +4155,14 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
     </LayoutInfo>
   </TaskHost>
-  <PipelineComponentMetadata
-    design-time-name="Package\Populate staging tables\Load data to stg_SecondaryCategories\Populate stg table">
-    <Properties>
-      <Property>
-        <Name>DataSourceViewID</Name>
-      </Property>
-    </Properties>
-  </PipelineComponentMetadata>
   <PipelineComponentMetadata
     design-time-name="Package\Populate staging tables\Load data to stg_SecondaryCategories\Get source data">
     <Properties>
@@ -3740,33 +4171,41 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
       </Property>
     </Properties>
   </PipelineComponentMetadata>
+  <PipelineComponentMetadata
+    design-time-name="Package\Populate staging tables\Load data to stg_SecondaryCategories\Populate stg table">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
   <TaskHost
-    design-time-name="Package\Populate staging tables\Load data to stg_Manufacturers">
+    design-time-name="Package\Populate staging tables\Load data to stg_CustomerRemark">
     <LayoutInfo>
       <GraphLayout
         Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="161.6,41.6"
-          Id="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table"
-          TopLeft="206.99999691546,203.999996960163" />
+          Id="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table"
+          TopLeft="282.999995782971,212.999996826053" />
         <NodeLayout
           Size="152,41.6"
-          Id="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data"
-          TopLeft="209.999996870756,100.999998494983" />
+          Id="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data"
+          TopLeft="283.99999576807,104.999998435378" />
         <EdgeLayout
-          Id="Package\Populate staging tables\Load data to stg_Manufacturers.Paths[ADO NET Source Output]"
-          TopLeft="286.899996893108,142.599998494983">
+          Id="Package\Populate staging tables\Load data to stg_CustomerRemark.Paths[ADO NET Source Output]"
+          TopLeft="361.899995775521,146.599998435378">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,61.3999984651804"
+              EndConnector="0,66.3999983906746"
               Start="0,0"
-              End="0,53.8999984651804">
+              End="0,58.8999983906746">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,53.8999984651804" />
+                    End="0,58.8999983906746" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
@@ -3779,7 +4218,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
     </LayoutInfo>
   </TaskHost>
   <PipelineComponentMetadata
-    design-time-name="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table">
+    design-time-name="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table">
     <Properties>
       <Property>
         <Name>DataSourceViewID</Name>
@@ -3787,7 +4226,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
     </Properties>
   </PipelineComponentMetadata>
   <PipelineComponentMetadata
-    design-time-name="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data">
+    design-time-name="Package\Populate staging tables\Load data to stg_CustomerRemark\Get source data">
     <Properties>
       <Property>
         <Name>DataSourceViewID</Name>

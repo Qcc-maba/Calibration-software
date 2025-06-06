@@ -155,7 +155,6 @@
     <Build Include="stg\Stored Procedures\MergeOrdersData.sql" />
     <Build Include="dbo\Tables\OrderWorkPlans.sql" />
     <Build Include="dbo\Tables\OrderDetails.sql" />
-    <Build Include="dbo\Tables\ClientRemarks.sql" />
     <Build Include="dbo\Tables\CalibEquipmentsToOrderHeaders.sql" />
     <Build Include="dbo\Stored Procedures\GetDepartments.sql" />
     <Build Include="dbo\Stored Procedures\GetAllEquipment.sql" />
@@ -222,6 +221,9 @@
     <Build Include="dbo\Tables\OrdersDeviceManufacturers.sql" />
     <Build Include="stg\Stored Procedures\MergeOrdersSecondaryCategories.sql" />
     <Build Include="stg\Stored Procedures\MergeOrdersDeviceManufacturers.sql" />
+    <Build Include="stg\Tables\stg_CustomerRemarks.sql" />
+    <Build Include="dbo\Tables\CustomerRemarks.sql" />
+    <Build Include="stg\Stored Procedures\MergeCustomerRemarks.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />
