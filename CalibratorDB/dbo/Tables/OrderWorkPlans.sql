@@ -8,9 +8,12 @@
     [CreatedByUserId]  INT            NULL,
     [UpdateUserID]     INT            NULL,
     [Notes]            NVARCHAR (255) NULL,
+    [OrderSourceId]    INT            NULL,
+    [SourceId]         TINYINT        NULL,
     CONSTRAINT [PK_OrderWorkPlans] PRIMARY KEY CLUSTERED ([OrderWorkPlanId] ASC),
     CONSTRAINT [FK_OrdersHeaders_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_OrdersHeaders_UpdatedByUserId] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID]),
+    CONSTRAINT [FK_OrderWorkPlans_SourceId] FOREIGN KEY ([SourceId]) REFERENCES [dbo].[Source] ([SourceId]),
     CONSTRAINT [UQ_OrderNumber] UNIQUE NONCLUSTERED ([OrderNumber] ASC)
 );
 

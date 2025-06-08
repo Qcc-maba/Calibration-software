@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="51"
-  DTS:VersionGUID="{F4B6557F-8AD3-4D72-A1CD-FECCF1E86224}">
+  DTS:VersionBuild="61"
+  DTS:VersionGUID="{44FEED58-D169-4175-A5FB-34E24F9D39CC}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -36,7 +36,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customer Remarks"
-          DTS:ThreadHint="5">
+          DTS:ThreadHint="4">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -77,23 +77,6 @@
           </DTS:ObjectData>
         </DTS:Executable>
         <DTS:Executable
-          DTS:refId="Package\Execute merges in sequence\Merge data to Orders tables"
-          DTS:CreationName="Microsoft.ExecuteSQLTask"
-          DTS:Description="Execute SQL Task"
-          DTS:Disabled="True"
-          DTS:DTSID="{D59B407A-35E7-4DAF-9058-E37A3B94BD6A}"
-          DTS:ExecutableType="Microsoft.ExecuteSQLTask"
-          DTS:LocaleID="-1"
-          DTS:ObjectName="Merge data to Orders tables"
-          DTS:ThreadHint="2">
-          <DTS:Variables />
-          <DTS:ObjectData>
-            <SQLTask:SqlTaskData
-              SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
-              SQLTask:SqlStatementSource="EXEC stg.MergeOrdersData" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
-          </DTS:ObjectData>
-        </DTS:Executable>
-        <DTS:Executable
           DTS:refId="Package\Execute merges in sequence\Merge Orders Device Manufacturers"
           DTS:CreationName="Microsoft.ExecuteSQLTask"
           DTS:Description="Execute SQL Task"
@@ -117,7 +100,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Main Categories"
-          DTS:ThreadHint="4">
+          DTS:ThreadHint="3">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -133,7 +116,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Secondary Categories"
-          DTS:ThreadHint="3">
+          DTS:ThreadHint="2">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -160,6 +143,22 @@
           DTS:ObjectName="Constraint 1"
           DTS:To="Package\Execute merges in sequence\Merge Customer Remarks" />
       </DTS:PrecedenceConstraints>
+    </DTS:Executable>
+    <DTS:Executable
+      DTS:refId="Package\Merge data to Orders tables"
+      DTS:CreationName="Microsoft.ExecuteSQLTask"
+      DTS:Description="Execute SQL Task"
+      DTS:DTSID="{D59B407A-35E7-4DAF-9058-E37A3B94BD6A}"
+      DTS:ExecutableType="Microsoft.ExecuteSQLTask"
+      DTS:LocaleID="-1"
+      DTS:ObjectName="Merge data to Orders tables"
+      DTS:ThreadHint="0">
+      <DTS:Variables />
+      <DTS:ObjectData>
+        <SQLTask:SqlTaskData
+          SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
+          SQLTask:SqlStatementSource="EXEC stg.MergeOrdersData" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
+      </DTS:ObjectData>
     </DTS:Executable>
     <DTS:Executable
       DTS:refId="Package\Populate staging tables"
@@ -985,7 +984,7 @@ GROUP BY CUST</property>
                       name="SqlCommand"
                       UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT 
 	c.CUST as CustomerID,
-	c.CUSTDES as CustomerName,
+	REVERSE(c.CUSTDES) as CustomerName,
 	c.PHONE as CustomerPhone,
 	REVERSE(c.STATE) as CustomerCity,
 	REVERSE(c.ADDRESS) as CustomerAddress,
@@ -994,7 +993,7 @@ FROM amaba.dbo.CUSTOMERS as c
 UNION ALL
 SELECT 
 	c.CUST as CustomerID,
-	c.CUSTDES as CustomerName,
+	REVERSE(c.CUSTDES) as CustomerName,
 	c.PHONE as CustomerPhone,
 	REVERSE(c.STATE) as CustomerCity,
 	REVERSE(c.ADDRESS) as CustomerAddress,
@@ -1675,7 +1674,6 @@ FROM [sepharm].dbo.SERNUMBERS AS sn
           DTS:refId="Package\Populate staging tables\Load data to stg_Orders"
           DTS:CreationName="Microsoft.Pipeline"
           DTS:Description="Data Flow Task"
-          DTS:Disabled="True"
           DTS:DTSID="{90E1561A-113F-4089-8070-50250496168E}"
           DTS:ExecutableType="Microsoft.Pipeline"
           DTS:LocaleID="-1"
@@ -1699,83 +1697,51 @@ FROM [sepharm].dbo.SERNUMBERS AS sn
                       description="Specifies the SQL statement used by the component to extract data."
                       expressionType="Notify"
                       name="SqlCommand"
-                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT [OrderNumber]
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT [SourceOrderId]
+      ,[KLINE]
+      ,[SERN]
+      ,[ORDNAME]
       ,[OpenDate]
-      ,[CustomerID]
-      ,SUBSTRING([CustomerName],1,100) AS [CustomerName]
-      ,[CustomerPhone]
-      ,[CustomerContactName]
-      ,SUBSTRING([CustomerCity],1,100) AS [CustomerCity]
-      ,SUBSTRING([CustomerAddress],1,100) AS [CustomerAddress]
-      ,[CustomerContactPhone]
-      ,[MBAContactName]
-      ,[MBAContactPhone]
-      ,[MBAContactMobile]
-      ,NULL AS [ClientRemarks]
-      ,[MbaReportNumber]
-      ,[Serial Number] as [SerialNumber]
-      ,[Manufacturer Number] as [ManufacturerNumber]
-      ,[Device Description] as [DeviceDescription]
-      ,[Device model] as [Devicemodel]
       ,[CalibDate]
-      ,[NextCalibDate]
-      ,[CALIBMONTH]
-      ,[ReturnDate]
-      ,[Part Name] as [PartName]
-      ,[Part Description] as [PartDescription]
+      ,[CustomerSourceId]
+      ,[SerialNumber]
+      ,[ManufacturerNumber]
+      ,[Devicemodel]
+      ,[SpecialCareTypeId]
       ,[InHouse]
-      ,[DepartmentCode]
-      ,[DepartmentName]
-      ,[StatusCode]
-      ,[CalibStatud]
-      ,SUBSTRING([Device manufacturer],1,50) as [DeviceManufacturer]
-      ,[PART]
-      ,[Klita]
-      ,[CustomerContactPersonRole]
-      ,[CustomerContactAdditionalPhoneNumber]
-      ,[CustomerContactEmail]
-	  ,'amaba' as src
-  FROM [dbo].[vwGetOrders_WorkPlan_Full]
-  WHERE [OpenDate] &gt; DATEADD(DAY,-7,GETDATE())
-UNION ALL
-SELECT [OrderNumber]
+      ,[MainCategorySourceId]
+      ,[SecondCategorySourceId]
+      ,[PartName]
+      ,[DeviceType]
+      ,[MbaReportNumber]
+      ,[DeviceManufacturerSourceId]
+      ,OrderLineCnt
+	  ,'MABA' as SourceSystem
+  FROM [amaba].[dbo].[vwGetOrders_WorkPlan_Full_new]
+  WHERE InHouse IS NOT NULL
+UNION ALl
+SELECT [SourceOrderId]
+      ,[KLINE]
+      ,[SERN]
+      ,[ORDNAME]
       ,[OpenDate]
-      ,[CustomerID]
-      ,SUBSTRING([CustomerName],1,100) AS [CustomerName]
-      ,[CustomerPhone]
-      ,[CustomerContactName]
-      ,SUBSTRING([CustomerCity],1,100) AS [CustomerCity]
-      ,SUBSTRING([CustomerAddress],1,100) AS [CustomerAddress]
-      ,[CustomerContactPhone]
-      ,[MBAContactName]
-      ,[MBAContactPhone]
-      ,[MBAContactMobile]
-      ,NULL AS [ClientRemarks]
-      ,[MbaReportNumber]
-      ,[Serial Number] as [SerialNumber]
-      ,[Manufacturer Number] as [ManufacturerNumber]
-      ,[Device Description] as [DeviceDescription]
-      ,[Device model] as [Devicemodel]
       ,[CalibDate]
-      ,[NextCalibDate]
-      ,[CALIBMONTH]
-      ,[ReturnDate]
-      ,[Part Name] as [PartName]
-      ,[Part Description] as [PartDescription]
+      ,[CustomerSourceId]
+      ,[SerialNumber]
+      ,[ManufacturerNumber]
+      ,[Devicemodel]
+      ,[SpecialCareTypeId]
       ,[InHouse]
-      ,[DepartmentCode]
-      ,[DepartmentName]
-      ,[StatusCode]
-      ,[CalibStatud]
-      ,SUBSTRING([Device manufacturer],1,50) as [DeviceManufacturer]
-      ,[PART]
-      ,[Klita]
-      ,[CustomerContactPersonRole]
-      ,[CustomerContactAdditionalPhoneNumber]
-      ,[CustomerContactEmail]
-	  ,'sepharm' as src
-  FROM [sepharm].[dbo].[vwGetOrders_WorkPlan_Full]
-  WHERE [OpenDate] &gt; DATEADD(DAY,-7,GETDATE())</property>
+      ,[MainCategorySourceId]
+      ,[SecondCategorySourceId]
+      ,[PartName]
+      ,[DeviceType]
+      ,[MbaReportNumber]
+      ,[DeviceManufacturerSourceId]
+      ,OrderLineCnt
+	  ,'SEPHARM' as SourceSystem
+  FROM [sepharm].[dbo].[vwGetOrders_WorkPlan_Full_new]
+  WHERE InHouse IS NOT NULL</property>
                     <property
                       dataType="System.Int32"
                       description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
@@ -1813,14 +1779,41 @@ SELECT [OrderNumber]
                       name="ADO NET Source Output">
                       <outputColumns>
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[OrderNumber]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SourceOrderId]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceOrderId]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SourceOrderId]"
+                          name="SourceOrderId"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[KLINE]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[KLINE]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[KLINE]"
+                          name="KLINE"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SERN]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SERN]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SERN]"
+                          name="SERN"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ORDNAME]"
                           dataType="wstr"
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[OrderNumber]"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ORDNAME]"
                           length="16"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[OrderNumber]"
-                          name="OrderNumber"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ORDNAME]"
+                          name="ORDNAME"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[OpenDate]"
@@ -1832,123 +1825,22 @@ SELECT [OrderNumber]
                           name="OpenDate"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerID]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerID]"
-                          length="16"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerID]"
-                          name="CustomerID"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerName]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerName]"
-                          length="100"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerName]"
-                          name="CustomerName"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerPhone]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerPhone]"
-                          length="20"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerPhone]"
-                          name="CustomerPhone"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactName]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactName]"
-                          length="37"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactName]"
-                          name="CustomerContactName"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerCity]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerCity]"
-                          length="100"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerCity]"
-                          name="CustomerCity"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerAddress]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerAddress]"
-                          length="100"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerAddress]"
-                          name="CustomerAddress"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactPhone]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactPhone]"
-                          length="20"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactPhone]"
-                          name="CustomerContactPhone"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MBAContactName]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MBAContactName]"
-                          length="32"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MBAContactName]"
-                          name="MBAContactName"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MBAContactPhone]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MBAContactPhone]"
-                          length="20"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MBAContactPhone]"
-                          name="MBAContactPhone"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MBAContactMobile]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MBAContactMobile]"
-                          length="20"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MBAContactMobile]"
-                          name="MBAContactMobile"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ClientRemarks]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CalibDate]"
                           dataType="i4"
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ClientRemarks]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ClientRemarks]"
-                          name="ClientRemarks"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CalibDate]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CalibDate]"
+                          name="CalibDate"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MbaReportNumber]"
-                          dataType="wstr"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSourceId]"
+                          dataType="i4"
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MbaReportNumber]"
-                          length="20"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MbaReportNumber]"
-                          name="MbaReportNumber"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerSourceId]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSourceId]"
+                          name="CustomerSourceId"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SerialNumber]"
@@ -1971,16 +1863,6 @@ SELECT [OrderNumber]
                           name="ManufacturerNumber"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceDescription]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DeviceDescription]"
-                          length="48"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceDescription]"
-                          name="DeviceDescription"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[Devicemodel]"
                           dataType="wstr"
                           errorOrTruncationOperation="Conversion"
@@ -1991,40 +1873,41 @@ SELECT [OrderNumber]
                           name="Devicemodel"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CalibDate]"
-                          dataType="dbTimeStamp"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CalibDate]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CalibDate]"
-                          name="CalibDate"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[NextCalibDate]"
-                          dataType="dbTimeStamp"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[NextCalibDate]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[NextCalibDate]"
-                          name="NextCalibDate"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CALIBMONTH]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SpecialCareTypeId]"
                           dataType="i4"
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CALIBMONTH]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CALIBMONTH]"
-                          name="CALIBMONTH"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SpecialCareTypeId]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SpecialCareTypeId]"
+                          name="SpecialCareTypeId"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ReturnDate]"
-                          dataType="dbTimeStamp"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[InHouse]"
+                          dataType="i4"
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ReturnDate]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ReturnDate]"
-                          name="ReturnDate"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[InHouse]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[InHouse]"
+                          name="InHouse"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MainCategorySourceId]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MainCategorySourceId]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MainCategorySourceId]"
+                          name="MainCategorySourceId"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SecondCategorySourceId]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SecondCategorySourceId]"
+                          length="48"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SecondCategorySourceId]"
+                          name="SecondCategorySourceId"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[PartName]"
@@ -2037,202 +1920,84 @@ SELECT [OrderNumber]
                           name="PartName"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[PartDescription]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceType]"
                           dataType="wstr"
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[PartDescription]"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DeviceType]"
                           length="59"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[PartDescription]"
-                          name="PartDescription"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceType]"
+                          name="DeviceType"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[InHouse]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MbaReportNumber]"
                           dataType="i4"
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[InHouse]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[InHouse]"
-                          name="InHouse"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MbaReportNumber]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MbaReportNumber]"
+                          name="MbaReportNumber"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DepartmentCode]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceManufacturerSourceId]"
                           dataType="i4"
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DepartmentCode]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DepartmentCode]"
-                          name="DepartmentCode"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DeviceManufacturerSourceId]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceManufacturerSourceId]"
+                          name="DeviceManufacturerSourceId"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DepartmentName]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DepartmentName]"
-                          length="32"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DepartmentName]"
-                          name="DepartmentName"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[StatusCode]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[OrderLineCnt]"
                           dataType="i4"
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[StatusCode]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[StatusCode]"
-                          name="StatusCode"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[OrderLineCnt]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[OrderLineCnt]"
+                          name="OrderLineCnt"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CalibStatud]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]"
                           dataType="wstr"
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CalibStatud]"
-                          length="12"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CalibStatud]"
-                          name="CalibStatud"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceManufacturer]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DeviceManufacturer]"
-                          length="50"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceManufacturer]"
-                          name="DeviceManufacturer"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[PART]"
-                          dataType="i4"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[PART]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[PART]"
-                          name="PART"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[Klita]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[Klita]"
-                          length="16"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[Klita]"
-                          name="Klita"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactPersonRole]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactPersonRole]"
-                          length="32"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactPersonRole]"
-                          name="CustomerContactPersonRole"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactAdditionalPhoneNumber]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactAdditionalPhoneNumber]"
-                          length="20"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactAdditionalPhoneNumber]"
-                          name="CustomerContactAdditionalPhoneNumber"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactEmail]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactEmail]"
-                          length="48"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactEmail]"
-                          name="CustomerContactEmail"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[src]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[src]"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceSystem]"
                           length="7"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[src]"
-                          name="src"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]"
+                          name="SourceSystem"
                           truncationRowDisposition="FailComponent" />
                       </outputColumns>
                       <externalMetadataColumns
                         isUsed="True">
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[OrderNumber]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceOrderId]"
+                          dataType="i4"
+                          name="SourceOrderId" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[KLINE]"
+                          dataType="i4"
+                          name="KLINE" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SERN]"
+                          dataType="i4"
+                          name="SERN" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ORDNAME]"
                           dataType="wstr"
                           length="16"
-                          name="OrderNumber" />
+                          name="ORDNAME" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[OpenDate]"
                           dataType="dbTimeStamp"
                           name="OpenDate" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerID]"
-                          dataType="wstr"
-                          length="16"
-                          name="CustomerID" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerName]"
-                          dataType="wstr"
-                          length="100"
-                          name="CustomerName" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerPhone]"
-                          dataType="wstr"
-                          length="20"
-                          name="CustomerPhone" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactName]"
-                          dataType="wstr"
-                          length="37"
-                          name="CustomerContactName" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerCity]"
-                          dataType="wstr"
-                          length="100"
-                          name="CustomerCity" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerAddress]"
-                          dataType="wstr"
-                          length="100"
-                          name="CustomerAddress" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactPhone]"
-                          dataType="wstr"
-                          length="20"
-                          name="CustomerContactPhone" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MBAContactName]"
-                          dataType="wstr"
-                          length="32"
-                          name="MBAContactName" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MBAContactPhone]"
-                          dataType="wstr"
-                          length="20"
-                          name="MBAContactPhone" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MBAContactMobile]"
-                          dataType="wstr"
-                          length="20"
-                          name="MBAContactMobile" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ClientRemarks]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CalibDate]"
                           dataType="i4"
-                          name="ClientRemarks" />
+                          name="CalibDate" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MbaReportNumber]"
-                          dataType="wstr"
-                          length="20"
-                          name="MbaReportNumber" />
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerSourceId]"
+                          dataType="i4"
+                          name="CustomerSourceId" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SerialNumber]"
                           dataType="wstr"
@@ -2244,97 +2009,54 @@ SELECT [OrderNumber]
                           length="17"
                           name="ManufacturerNumber" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DeviceDescription]"
-                          dataType="wstr"
-                          length="48"
-                          name="DeviceDescription" />
-                        <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[Devicemodel]"
                           dataType="wstr"
                           length="30"
                           name="Devicemodel" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CalibDate]"
-                          dataType="dbTimeStamp"
-                          name="CalibDate" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[NextCalibDate]"
-                          dataType="dbTimeStamp"
-                          name="NextCalibDate" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CALIBMONTH]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SpecialCareTypeId]"
                           dataType="i4"
-                          name="CALIBMONTH" />
+                          name="SpecialCareTypeId" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ReturnDate]"
-                          dataType="dbTimeStamp"
-                          name="ReturnDate" />
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[InHouse]"
+                          dataType="i4"
+                          name="InHouse" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MainCategorySourceId]"
+                          dataType="i4"
+                          name="MainCategorySourceId" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SecondCategorySourceId]"
+                          dataType="wstr"
+                          length="48"
+                          name="SecondCategorySourceId" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[PartName]"
                           dataType="wstr"
                           length="22"
                           name="PartName" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[PartDescription]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DeviceType]"
                           dataType="wstr"
                           length="59"
-                          name="PartDescription" />
+                          name="DeviceType" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[InHouse]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MbaReportNumber]"
                           dataType="i4"
-                          name="InHouse" />
+                          name="MbaReportNumber" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DepartmentCode]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DeviceManufacturerSourceId]"
                           dataType="i4"
-                          name="DepartmentCode" />
+                          name="DeviceManufacturerSourceId" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DepartmentName]"
-                          dataType="wstr"
-                          length="32"
-                          name="DepartmentName" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[StatusCode]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[OrderLineCnt]"
                           dataType="i4"
-                          name="StatusCode" />
+                          name="OrderLineCnt" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CalibStatud]"
-                          dataType="wstr"
-                          length="12"
-                          name="CalibStatud" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DeviceManufacturer]"
-                          dataType="wstr"
-                          length="50"
-                          name="DeviceManufacturer" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[PART]"
-                          dataType="i4"
-                          name="PART" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[Klita]"
-                          dataType="wstr"
-                          length="16"
-                          name="Klita" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactPersonRole]"
-                          dataType="wstr"
-                          length="32"
-                          name="CustomerContactPersonRole" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactAdditionalPhoneNumber]"
-                          dataType="wstr"
-                          length="20"
-                          name="CustomerContactAdditionalPhoneNumber" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactEmail]"
-                          dataType="wstr"
-                          length="48"
-                          name="CustomerContactEmail" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[src]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceSystem]"
                           dataType="wstr"
                           length="7"
-                          name="src" />
+                          name="SourceSystem" />
                       </externalMetadataColumns>
                     </output>
                     <output
@@ -2343,87 +2065,41 @@ SELECT [OrderNumber]
                       name="ADO NET Source Error Output">
                       <outputColumns>
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[OrderNumber]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceOrderId]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceOrderId]"
+                          name="SourceOrderId" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[KLINE]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[KLINE]"
+                          name="KLINE" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SERN]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SERN]"
+                          name="SERN" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ORDNAME]"
                           dataType="wstr"
                           length="16"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[OrderNumber]"
-                          name="OrderNumber" />
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ORDNAME]"
+                          name="ORDNAME" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[OpenDate]"
                           dataType="dbTimeStamp"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[OpenDate]"
                           name="OpenDate" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerID]"
-                          dataType="wstr"
-                          length="16"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerID]"
-                          name="CustomerID" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerName]"
-                          dataType="wstr"
-                          length="100"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerName]"
-                          name="CustomerName" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerPhone]"
-                          dataType="wstr"
-                          length="20"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerPhone]"
-                          name="CustomerPhone" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactName]"
-                          dataType="wstr"
-                          length="37"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactName]"
-                          name="CustomerContactName" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerCity]"
-                          dataType="wstr"
-                          length="100"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerCity]"
-                          name="CustomerCity" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerAddress]"
-                          dataType="wstr"
-                          length="100"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerAddress]"
-                          name="CustomerAddress" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactPhone]"
-                          dataType="wstr"
-                          length="20"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactPhone]"
-                          name="CustomerContactPhone" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[MBAContactName]"
-                          dataType="wstr"
-                          length="32"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[MBAContactName]"
-                          name="MBAContactName" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[MBAContactPhone]"
-                          dataType="wstr"
-                          length="20"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[MBAContactPhone]"
-                          name="MBAContactPhone" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[MBAContactMobile]"
-                          dataType="wstr"
-                          length="20"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[MBAContactMobile]"
-                          name="MBAContactMobile" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ClientRemarks]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CalibDate]"
                           dataType="i4"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ClientRemarks]"
-                          name="ClientRemarks" />
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CalibDate]"
+                          name="CalibDate" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[MbaReportNumber]"
-                          dataType="wstr"
-                          length="20"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[MbaReportNumber]"
-                          name="MbaReportNumber" />
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerSourceId]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerSourceId]"
+                          name="CustomerSourceId" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SerialNumber]"
                           dataType="wstr"
@@ -2437,37 +2113,32 @@ SELECT [OrderNumber]
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ManufacturerNumber]"
                           name="ManufacturerNumber" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DeviceDescription]"
-                          dataType="wstr"
-                          length="48"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DeviceDescription]"
-                          name="DeviceDescription" />
-                        <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[Devicemodel]"
                           dataType="wstr"
                           length="30"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[Devicemodel]"
                           name="Devicemodel" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CalibDate]"
-                          dataType="dbTimeStamp"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CalibDate]"
-                          name="CalibDate" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[NextCalibDate]"
-                          dataType="dbTimeStamp"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[NextCalibDate]"
-                          name="NextCalibDate" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CALIBMONTH]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SpecialCareTypeId]"
                           dataType="i4"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CALIBMONTH]"
-                          name="CALIBMONTH" />
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SpecialCareTypeId]"
+                          name="SpecialCareTypeId" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ReturnDate]"
-                          dataType="dbTimeStamp"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ReturnDate]"
-                          name="ReturnDate" />
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[InHouse]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[InHouse]"
+                          name="InHouse" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[MainCategorySourceId]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[MainCategorySourceId]"
+                          name="MainCategorySourceId" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SecondCategorySourceId]"
+                          dataType="wstr"
+                          length="48"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SecondCategorySourceId]"
+                          name="SecondCategorySourceId" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[PartName]"
                           dataType="wstr"
@@ -2475,79 +2146,32 @@ SELECT [OrderNumber]
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[PartName]"
                           name="PartName" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[PartDescription]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DeviceType]"
                           dataType="wstr"
                           length="59"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[PartDescription]"
-                          name="PartDescription" />
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DeviceType]"
+                          name="DeviceType" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[InHouse]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[MbaReportNumber]"
                           dataType="i4"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[InHouse]"
-                          name="InHouse" />
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[MbaReportNumber]"
+                          name="MbaReportNumber" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DepartmentCode]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DeviceManufacturerSourceId]"
                           dataType="i4"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DepartmentCode]"
-                          name="DepartmentCode" />
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DeviceManufacturerSourceId]"
+                          name="DeviceManufacturerSourceId" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DepartmentName]"
-                          dataType="wstr"
-                          length="32"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DepartmentName]"
-                          name="DepartmentName" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[StatusCode]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[OrderLineCnt]"
                           dataType="i4"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[StatusCode]"
-                          name="StatusCode" />
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[OrderLineCnt]"
+                          name="OrderLineCnt" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CalibStatud]"
-                          dataType="wstr"
-                          length="12"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CalibStatud]"
-                          name="CalibStatud" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DeviceManufacturer]"
-                          dataType="wstr"
-                          length="50"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DeviceManufacturer]"
-                          name="DeviceManufacturer" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[PART]"
-                          dataType="i4"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[PART]"
-                          name="PART" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[Klita]"
-                          dataType="wstr"
-                          length="16"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[Klita]"
-                          name="Klita" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactPersonRole]"
-                          dataType="wstr"
-                          length="32"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactPersonRole]"
-                          name="CustomerContactPersonRole" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactAdditionalPhoneNumber]"
-                          dataType="wstr"
-                          length="20"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactAdditionalPhoneNumber]"
-                          name="CustomerContactAdditionalPhoneNumber" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactEmail]"
-                          dataType="wstr"
-                          length="48"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactEmail]"
-                          name="CustomerContactEmail" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[src]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceSystem]"
                           dataType="wstr"
                           length="7"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[src]"
-                          name="src" />
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceSystem]"
+                          name="SourceSystem" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
                           dataType="i4"
@@ -2615,12 +2239,30 @@ SELECT [OrderNumber]
                       name="ADO NET Destination Input">
                       <inputColumns>
                         <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[OrderNumber]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[SourceOrderId]"
+                          cachedDataType="i4"
+                          cachedName="SourceOrderId"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SourceOrderId]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SourceOrderId]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[KLINE]"
+                          cachedDataType="i4"
+                          cachedName="KLINE"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[KLINE]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[KLINE]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[SERN]"
+                          cachedDataType="i4"
+                          cachedName="SERN"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SERN]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SERN]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[ORDNAME]"
                           cachedDataType="wstr"
                           cachedLength="16"
-                          cachedName="OrderNumber"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[OrderNumber]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[OrderNumber]" />
+                          cachedName="ORDNAME"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ORDNAME]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ORDNAME]" />
                         <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[OpenDate]"
                           cachedDataType="dbTimeStamp"
@@ -2628,88 +2270,17 @@ SELECT [OrderNumber]
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[OpenDate]"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[OpenDate]" />
                         <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerID]"
-                          cachedDataType="wstr"
-                          cachedLength="16"
-                          cachedName="CustomerID"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerID]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerID]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerName]"
-                          cachedDataType="wstr"
-                          cachedLength="100"
-                          cachedName="CustomerName"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerName]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerName]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerPhone]"
-                          cachedDataType="wstr"
-                          cachedLength="20"
-                          cachedName="CustomerPhone"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerPhone]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerPhone]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerContactName]"
-                          cachedDataType="wstr"
-                          cachedLength="37"
-                          cachedName="CustomerContactName"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactName]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactName]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerCity]"
-                          cachedDataType="wstr"
-                          cachedLength="100"
-                          cachedName="CustomerCity"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerCity]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerCity]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerAddress]"
-                          cachedDataType="wstr"
-                          cachedLength="100"
-                          cachedName="CustomerAddress"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerAddress]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerAddress]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerContactPhone]"
-                          cachedDataType="wstr"
-                          cachedLength="20"
-                          cachedName="CustomerContactPhone"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactPhone]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactPhone]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[MBAContactName]"
-                          cachedDataType="wstr"
-                          cachedLength="32"
-                          cachedName="MBAContactName"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[MBAContactName]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MBAContactName]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[MBAContactPhone]"
-                          cachedDataType="wstr"
-                          cachedLength="20"
-                          cachedName="MBAContactPhone"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[MBAContactPhone]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MBAContactPhone]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[MBAContactMobile]"
-                          cachedDataType="wstr"
-                          cachedLength="20"
-                          cachedName="MBAContactMobile"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[MBAContactMobile]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MBAContactMobile]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[ClientRemarks]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CalibDate]"
                           cachedDataType="i4"
-                          cachedName="ClientRemarks"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ClientRemarks]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ClientRemarks]" />
+                          cachedName="CalibDate"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CalibDate]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CalibDate]" />
                         <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[MbaReportNumber]"
-                          cachedDataType="wstr"
-                          cachedLength="20"
-                          cachedName="MbaReportNumber"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[MbaReportNumber]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MbaReportNumber]" />
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerSourceId]"
+                          cachedDataType="i4"
+                          cachedName="CustomerSourceId"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerSourceId]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSourceId]" />
                         <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[SerialNumber]"
                           cachedDataType="wstr"
@@ -2725,13 +2296,6 @@ SELECT [OrderNumber]
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ManufacturerNumber]"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ManufacturerNumber]" />
                         <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[DeviceDescription]"
-                          cachedDataType="wstr"
-                          cachedLength="48"
-                          cachedName="DeviceDescription"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DeviceDescription]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceDescription]" />
-                        <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[Devicemodel]"
                           cachedDataType="wstr"
                           cachedLength="30"
@@ -2739,29 +2303,30 @@ SELECT [OrderNumber]
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[Devicemodel]"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[Devicemodel]" />
                         <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CalibDate]"
-                          cachedDataType="dbTimeStamp"
-                          cachedName="CalibDate"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CalibDate]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CalibDate]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[NextCalibDate]"
-                          cachedDataType="dbTimeStamp"
-                          cachedName="NextCalibDate"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[NextCalibDate]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[NextCalibDate]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CALIBMONTH]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[SpecialCareTypeId]"
                           cachedDataType="i4"
-                          cachedName="CALIBMONTH"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CALIBMONTH]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CALIBMONTH]" />
+                          cachedName="SpecialCareTypeId"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SpecialCareTypeId]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SpecialCareTypeId]" />
                         <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[ReturnDate]"
-                          cachedDataType="dbTimeStamp"
-                          cachedName="ReturnDate"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ReturnDate]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ReturnDate]" />
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[InHouse]"
+                          cachedDataType="i4"
+                          cachedName="InHouse"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[InHouse]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[InHouse]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[MainCategorySourceId]"
+                          cachedDataType="i4"
+                          cachedName="MainCategorySourceId"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[MainCategorySourceId]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MainCategorySourceId]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[SecondCategorySourceId]"
+                          cachedDataType="wstr"
+                          cachedLength="48"
+                          cachedName="SecondCategorySourceId"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SecondCategorySourceId]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SecondCategorySourceId]" />
                         <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[PartName]"
                           cachedDataType="wstr"
@@ -2770,164 +2335,57 @@ SELECT [OrderNumber]
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[PartName]"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[PartName]" />
                         <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[PartDescription]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[DeviceType]"
                           cachedDataType="wstr"
                           cachedLength="59"
-                          cachedName="PartDescription"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[PartDescription]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[PartDescription]" />
+                          cachedName="DeviceType"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DeviceType]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceType]" />
                         <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[InHouse]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[MbaReportNumber]"
                           cachedDataType="i4"
-                          cachedName="InHouse"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[InHouse]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[InHouse]" />
+                          cachedName="MbaReportNumber"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[MbaReportNumber]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MbaReportNumber]" />
                         <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[DepartmentCode]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[DeviceManufacturerSourceId]"
                           cachedDataType="i4"
-                          cachedName="DepartmentCode"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DepartmentCode]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DepartmentCode]" />
+                          cachedName="DeviceManufacturerSourceId"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DeviceManufacturerSourceId]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceManufacturerSourceId]" />
                         <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[DepartmentName]"
-                          cachedDataType="wstr"
-                          cachedLength="32"
-                          cachedName="DepartmentName"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DepartmentName]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DepartmentName]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[StatusCode]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[OrderLineCnt]"
                           cachedDataType="i4"
-                          cachedName="StatusCode"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[StatusCode]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[StatusCode]" />
+                          cachedName="OrderLineCnt"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[OrderLineCnt]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[OrderLineCnt]" />
                         <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CalibStatud]"
-                          cachedDataType="wstr"
-                          cachedLength="12"
-                          cachedName="CalibStatud"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CalibStatud]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CalibStatud]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[DeviceManufacturer]"
-                          cachedDataType="wstr"
-                          cachedLength="50"
-                          cachedName="DeviceManufacturer"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DeviceManufacturer]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceManufacturer]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[PART]"
-                          cachedDataType="i4"
-                          cachedName="PART"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[PART]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[PART]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[Klita]"
-                          cachedDataType="wstr"
-                          cachedLength="16"
-                          cachedName="Klita"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[Klita]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[Klita]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerContactPersonRole]"
-                          cachedDataType="wstr"
-                          cachedLength="32"
-                          cachedName="CustomerContactPersonRole"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactPersonRole]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactPersonRole]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerContactAdditionalPhoneNumber]"
-                          cachedDataType="wstr"
-                          cachedLength="20"
-                          cachedName="CustomerContactAdditionalPhoneNumber"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactAdditionalPhoneNumber]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactAdditionalPhoneNumber]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerContactEmail]"
-                          cachedDataType="wstr"
-                          cachedLength="48"
-                          cachedName="CustomerContactEmail"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactEmail]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactEmail]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[src]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[SourceSystem]"
                           cachedDataType="wstr"
                           cachedLength="7"
-                          cachedName="src"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[src]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[src]" />
+                          cachedName="SourceSystem"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SourceSystem]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]" />
                       </inputColumns>
                       <externalMetadataColumns
                         isUsed="True">
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[OrderNumber]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SourceOrderId]"
+                          dataType="i4"
+                          name="SourceOrderId" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ORDNAME]"
                           dataType="wstr"
                           length="16"
-                          name="OrderNumber" />
+                          name="ORDNAME" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[OpenDate]"
                           dataType="dbTimeStamp"
                           name="OpenDate" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerID]"
-                          dataType="wstr"
-                          length="16"
-                          name="CustomerID" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerName]"
-                          dataType="wstr"
-                          length="100"
-                          name="CustomerName" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerPhone]"
-                          dataType="wstr"
-                          length="20"
-                          name="CustomerPhone" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactName]"
-                          dataType="wstr"
-                          length="37"
-                          name="CustomerContactName" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerCity]"
-                          dataType="wstr"
-                          length="100"
-                          name="CustomerCity" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerAddress]"
-                          dataType="wstr"
-                          length="100"
-                          name="CustomerAddress" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactPhone]"
-                          dataType="wstr"
-                          length="20"
-                          name="CustomerContactPhone" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[MBAContactName]"
-                          dataType="wstr"
-                          length="32"
-                          name="MBAContactName" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[MBAContactPhone]"
-                          dataType="wstr"
-                          length="20"
-                          name="MBAContactPhone" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[MBAContactMobile]"
-                          dataType="wstr"
-                          length="20"
-                          name="MBAContactMobile" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ClientRemarks]"
-                          dataType="wstr"
-                          length="2147483647"
-                          name="ClientRemarks" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[MbaReportNumber]"
-                          dataType="wstr"
-                          length="20"
-                          name="MbaReportNumber" />
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerSourceId]"
+                          dataType="i4"
+                          name="CustomerSourceId" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SerialNumber]"
                           dataType="wstr"
@@ -2939,97 +2397,66 @@ SELECT [OrderNumber]
                           length="17"
                           name="ManufacturerNumber" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DeviceDescription]"
-                          dataType="wstr"
-                          length="48"
-                          name="DeviceDescription" />
-                        <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[Devicemodel]"
                           dataType="wstr"
                           length="30"
                           name="Devicemodel" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CalibDate]"
-                          dataType="dbTimeStamp"
-                          name="CalibDate" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[NextCalibDate]"
-                          dataType="dbTimeStamp"
-                          name="NextCalibDate" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CALIBMONTH]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SpecialCareTypeId]"
                           dataType="i4"
-                          name="CALIBMONTH" />
+                          name="SpecialCareTypeId" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ReturnDate]"
-                          dataType="dbTimeStamp"
-                          name="ReturnDate" />
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[InHouse]"
+                          dataType="i4"
+                          name="InHouse" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[MainCategorySourceId]"
+                          dataType="i4"
+                          name="MainCategorySourceId" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SecondCategorySourceId]"
+                          dataType="wstr"
+                          length="48"
+                          name="SecondCategorySourceId" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[PartName]"
                           dataType="wstr"
                           length="22"
                           name="PartName" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[PartDescription]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DeviceType]"
                           dataType="wstr"
                           length="59"
-                          name="PartDescription" />
+                          name="DeviceType" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[InHouse]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[MbaReportNumber]"
                           dataType="i4"
-                          name="InHouse" />
+                          name="MbaReportNumber" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DepartmentCode]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DeviceManufacturerSourceId]"
                           dataType="i4"
-                          name="DepartmentCode" />
+                          name="DeviceManufacturerSourceId" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DepartmentName]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SourceSystem]"
                           dataType="wstr"
-                          length="32"
-                          name="DepartmentName" />
+                          length="7"
+                          name="SourceSystem" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[StatusCode]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[OrderLineCnt]"
                           dataType="i4"
-                          name="StatusCode" />
+                          name="OrderLineCnt" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CalibStatud]"
-                          dataType="wstr"
-                          length="12"
-                          name="CalibStatud" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DeviceManufacturer]"
-                          dataType="wstr"
-                          length="50"
-                          name="DeviceManufacturer" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[PART]"
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[KLINE]"
                           dataType="i4"
-                          name="PART" />
+                          name="KLINE" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[Klita]"
-                          dataType="wstr"
-                          length="16"
-                          name="Klita" />
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SERN]"
+                          dataType="i4"
+                          name="SERN" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactPersonRole]"
-                          dataType="wstr"
-                          length="60"
-                          name="CustomerContactPersonRole" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactAdditionalPhoneNumber]"
-                          dataType="wstr"
-                          length="40"
-                          name="CustomerContactAdditionalPhoneNumber" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactEmail]"
-                          dataType="wstr"
-                          length="100"
-                          name="CustomerContactEmail" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[src]"
-                          dataType="wstr"
-                          length="50"
-                          name="src" />
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CalibDate]"
+                          dataType="dbTimeStamp"
+                          name="CalibDate" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -3655,6 +3082,14 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
       DTS:LogicalAnd="True"
       DTS:ObjectName="Constraint 1"
       DTS:To="Package\Execute merges in sequence" />
+    <DTS:PrecedenceConstraint
+      DTS:refId="Package.PrecedenceConstraints[Constraint 2]"
+      DTS:CreationName=""
+      DTS:DTSID="{692C32DF-2BFC-42B3-A9B9-7612929E10A6}"
+      DTS:From="Package\Execute merges in sequence"
+      DTS:LogicalAnd="True"
+      DTS:ObjectName="Constraint 2"
+      DTS:To="Package\Merge data to Orders tables" />
   </DTS:PrecedenceConstraints>
   <DTS:DesignTimeProperties><![CDATA[<?xml version="1.0"?>
 <!--This CDATA section contains the layout information of the package. The section includes information such as (x,y) coordinates, width, and height.-->
@@ -3676,10 +3111,6 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
           Size="185.6,41.6"
           Id="Package\Execute merges in sequence\Merge Customers Data"
           TopLeft="27.5,5.49999999999995" />
-        <NodeLayout
-          Size="207.2,41.6"
-          Id="Package\Execute merges in sequence\Merge data to Orders tables"
-          TopLeft="760.699974593521,15.2333339721626" />
         <NodeLayout
           Size="246.4,41.6"
           Id="Package\Execute merges in sequence\Merge Orders Device Manufacturers"
@@ -3842,6 +3273,32 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
             <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
+        <NodeLayout
+          Size="207.2,41.6"
+          Id="Package\Merge data to Orders tables"
+          TopLeft="896.433317033119,616.066665602955" />
+        <EdgeLayout
+          Id="Package.PrecedenceConstraints[Constraint 2]"
+          TopLeft="1002.36665851656,564.7">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,51.3666656029552"
+              Start="0,0"
+              End="0,43.8666656029552">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,43.8666656029552" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
       </GraphLayout>
     </LayoutInfo>
   </Package>
@@ -3849,7 +3306,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
     design-time-name="Package\Populate staging tables\Load data to stg_CustomerContact">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_CustomerContact\Load stg table"
@@ -3877,9 +3334,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -3905,7 +3360,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
     design-time-name="Package\Populate staging tables\Load data to stg_Customers">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_Customers\Load stg table"
@@ -3933,9 +3388,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -4015,7 +3468,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
     design-time-name="Package\Populate staging tables\Load data to stg_Orders">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="223.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging"
@@ -4030,22 +3483,20 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,44.0424227170454"
+              EndConnector="0,44.042422717045"
               Start="0,0"
-              End="0,36.5424227170454">
+              End="0,36.542422717045">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,36.5424227170454" />
+                    End="0,36.542422717045" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -4071,7 +3522,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
     design-time-name="Package\Populate staging tables\Load data to stg_OrdersMainCategories">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_OrdersMainCategories\Load stg table"
@@ -4099,9 +3550,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -4127,7 +3576,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
     design-time-name="Package\Populate staging tables\Load data to stg_SecondaryCategories">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="161.6,41.6"
           Id="Package\Populate staging tables\Load data to stg_SecondaryCategories\Populate stg table"
@@ -4155,9 +3604,7 @@ WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>

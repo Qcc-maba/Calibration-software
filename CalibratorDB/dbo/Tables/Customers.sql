@@ -15,3 +15,8 @@
     CONSTRAINT [FK_Customers_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
 
+
+GO
+CREATE NONCLUSTERED INDEX [IDX_Customers_CustomerIdFromSource_SourceId]
+    ON [dbo].[Customers]([CustomerIdFromSource] ASC, [SourceId] ASC);
+

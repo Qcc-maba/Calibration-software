@@ -8,231 +8,173 @@ CREATE PROCEDURE [stg].[MergeOrdersData]
 AS
 BEGIN
 
+SET NOCOUNT ON;
+
 DECLARE @dt DATETIME2(0) = GETDATE()
 
 MERGE INTO [dbo].[OrderWorkPlans] AS dest
 USING (
-	SELECT DISTINCT [OrderNumber]
-		,[OpenDate] AS [WorkPlanOpenDate]
-		,GETDATE() AS [CreatedDate]
-		,0 AS [CreatedByUserId]
-	FROM [stg].[stg_Orders]
+	SELECT DISTINCT
+	     o.ORDNAME as [OrderNumber]
+		,o.OpenDate as [WorkPlanOpenDate]
+		,@dt AS [CreatedDate]
+		,0 as [UpdateUserID]
+		,0 as [CreatedByUserId]
+		,0 as [IsCancelled]
+		,NULL as [Notes]
+		,o.SourceOrderId as [OrderSourceId]
+		,ss.[SourceId]
+	FROM [stg].[stg_Orders] as o
+	JOIN [dbo].[Source] as ss ON o.[SourceSystem] = ss.SourceName
 	) AS source
-	ON dest.[OrderNumber] = source.[OrderNumber]
-WHEN MATCHED
-	AND dest.[WorkPlanOpenDate] <> source.[WorkPlanOpenDate]
-	THEN
-		UPDATE
-		SET dest.[WorkPlanOpenDate] = source.[WorkPlanOpenDate]
-			,dest.[UpdatedDate] = @dt
-			,dest.[UpdateUserID] = 0
+	ON dest.[OrderSourceId] = source.[OrderSourceId]
+	   AND dest.[OrderSourceId] = source.[OrderSourceId]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
-			[OrderNumber]
+             [OrderNumber]
 			,[WorkPlanOpenDate]
+			,[CreatedDate]
 			,[CreatedByUserId]
+			,[UpdateUserID]
+			,[IsCancelled]
+			,[Notes]
+			,[OrderSourceId]
+			,[SourceId]
 			)
 		VALUES (
-			source.[OrderNumber]
+			 source.[OrderNumber]
 			,source.[WorkPlanOpenDate]
-			,0
+			,source.[CreatedDate]
+			,source.[CreatedByUserId]
+			,source.[UpdateUserID]
+			,source.[IsCancelled]
+			,source.[Notes]
+			,source.[OrderSourceId]
+			,source.[SourceId]
 			);
 
 MERGE INTO [dbo].[OrderDetails] AS dest
 USING (
-	SELECT DISTINCT wp.[OrderWorkPlanId]
-		,o.[CustomerName]
-		,o.[CustomerCity]
-		,o.[CustomerID]
-		,o.[CustomerPhone]
-		,o.[CustomerContactName]
-		,o.[CustomerAddress]
-		,o.[CustomerContactPhone]
-		,o.[MBAContactName]
-		,o.[MBAContactPhone]
-		,o.[MBAContactMobile]
-		,o.[InHouse] AS [IsInHouse]
-		,NULL AS [Notes]
-		,o.[PartName]
-		,o.[DeviceDescription] as [SecondCategory]
-		,o.DepartmentName as [MainCategory]
-		,o.[MbaReportNumber]
-		,o.[CalibDate]
-		,o.[NextCalibDate]
-		,o.[CALIBMONTH]
-		,o.[ReturnDate]
-		,o.[PartDescription]
-		,0 AS [IsCancelled]
-		,s.StatusId
-		,o.[CalibStatud]
-		,o.[PART]
-		,o.[SerialNumber]
-		,o.[DeviceManufacturer]
-		,o.Devicemodel AS [DeviceModel]
-		,o.[Klita]
-		,0 AS [CreatedByUserId]
-		--add special care
-		,o.CustomerContactPersonRole
-		,o.CustomerContactAdditionalPhoneNumber
-		,o.CustomerContactEmail
-	FROM [stg].[stg_Orders] AS o
-	JOIN [dbo].[OrderWorkPlans] AS wp ON o.OrderNumber = wp.OrderNumber
-	LEFT JOIN [dbo].[Statuses] AS s ON o.CalibStatud = s.StatusDescriptionHEB
-		AND s.StatusCategoryId = 12
-	WHERE o.[Klita] IS NOT NULL
-		AND o.MbaReportNumber IS NOT NULL
+	SELECT 
+		wp.OrderWorkPlanId
+	  ,o.[CalibDate]
+      ,o.[SerialNumber]
+      ,o.[ManufacturerNumber]
+      ,o.[Devicemodel] as [DeviceModel]
+      ,o.[SpecialCareTypeId]
+      ,o.[InHouse] as IsInHouse
+      ,o.[PartName]
+      ,o.[DeviceType]
+      ,o.[MbaReportNumber]
+	  ,omc.OrdersMainCategoryId
+	  ,osc.OrdersSecondaryCategoryId
+	  ,dm.OrdersDeviceManufacturerId
+	  ,o.SecondCategorySourceId AS SecondCategory
+	  ,c.CustomerId
+	  ,o.KLINE
+	  ,o.SERN
+	  ,NULL AS [StatusId]
+	  ,0 as [CreatedByUserId]
+	  ,0 as [UpdateUserID]
+	  ,@dt AS [CreatedDate]
+	FROM [stg].[stg_Orders] as o
+	JOIN [dbo].[Source] as ss ON o.[SourceSystem] = ss.SourceName
+	JOIN [dbo].[OrderWorkPlans] as wp ON wp.[SourceId] = ss.[SourceId] AND o.[SourceOrderId] = wp.OrderSourceId
+	LEFT JOIN [dbo].[OrdersMainCategories] as omc ON o.[MainCategorySourceId] = omc.OrdersMainCategoryIdFromSource AND omc.[SourceId] = ss.[SourceId]
+    LEFT JOIN [dbo].[OrdersSecondaryCategories] as osc ON o.[SecondCategorySourceId] = osc.[OrdersSecondaryCategoryName] AND osc.[SourceId] = ss.[SourceId]
+    LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON o.[DeviceManufacturerSourceId] = dm.OrdersDeviceManufacturersIdFromSource AND dm.[SourceId] = ss.[SourceId]
+    LEFT JOIN [dbo].[Customers] as c ON o.[CustomerSourceId] = c.CustomerIdFromSource AND c.[SourceId] = ss.[SourceId]
+
 	) AS source
-	ON dest.[Klita] = source.[Klita]
-		AND dest.MbaReportNumber = source.MbaReportNumber
-		AND dest.[OrderWorkPlanId] = source.[OrderWorkPlanId]
-WHEN MATCHED
+	ON dest.OrderWorkPlanId = source.OrderWorkPlanId
+	   AND dest.KLINE = source.KLINE
+	   AND COALESCE(dest.SERN,-1) = CASE WHEN dest.SERN IS NULL THEN -1 ELSE source.SERN END
+WHEN MATCHED AND
+	(
+	       COALESCE(dest.[CalibDate],'') <> COALESCE(source.[CalibDate],'')
+		OR COALESCE(dest.[SerialNumber],'') <> COALESCE(source.[SerialNumber],'')
+		OR COALESCE(dest.[ManufacturerNumber],'') <> COALESCE(source.[ManufacturerNumber],'')
+		OR COALESCE(dest.[DeviceModel],'') <> COALESCE(source.[DeviceModel],'')
+		OR COALESCE(dest.[SpecialCareTypeId],'') <> COALESCE(source.[SpecialCareTypeId],'')
+		OR COALESCE(dest.[IsInHouse],'') <> COALESCE(source.[IsInHouse],'')
+		OR COALESCE(dest.[PartName],'') <> COALESCE(source.[PartName],'')
+		OR COALESCE(dest.[DeviceType],'') <> COALESCE(source.[DeviceType],'')
+		OR COALESCE(dest.[MbaReportNumber],'') <> COALESCE(source.[MbaReportNumber],'')
+		OR COALESCE(dest.[OrdersMainCategoryId],'') <> COALESCE(source.[OrdersMainCategoryId],'')
+		OR COALESCE(dest.[OrdersSecondaryCategoryId],'') <> COALESCE(source.[OrdersSecondaryCategoryId],'')
+		OR COALESCE(dest.[OrdersDeviceManufacturerId],'') <> COALESCE(source.[OrdersDeviceManufacturerId],'')
+		OR COALESCE(dest.[SecondCategory],'') <> COALESCE(source.[SecondCategory],'')
+		OR COALESCE(dest.[CustomerId],'') <> COALESCE(source.[CustomerId],'')
+		OR COALESCE(dest.[StatusId],'') <> COALESCE(source.[StatusId],'')
+		OR COALESCE(dest.[SERN],'') <> COALESCE(source.[SERN],'')
+	)
 	THEN
 		UPDATE
-		SET dest.[CustomerName] = source.[CustomerName]
-			,dest.[CustomerCity] = source.[CustomerCity]
-			,dest.[CustomerID] = source.[CustomerID]
-			,dest.[CustomerPhone] = source.[CustomerPhone]
-			,dest.[CustomerContactName] = source.[CustomerContactName]
-			,dest.[CustomerAddress] = source.[CustomerAddress]
-			,dest.[CustomerContactPhone] = source.[CustomerContactPhone]
-			,dest.[MBAContactName] = source.[MBAContactName]
-			,dest.[MBAContactPhone] = source.[MBAContactPhone]
-			,dest.[MBAContactMobile] = source.[MBAContactMobile]
-			,dest.[IsInHouse] = source.[IsInHouse]
-			,dest.[Notes] = source.[Notes]
-			,dest.[PartName] = source.[PartName]
-			,dest.[SecondCategory] = source.[SecondCategory]
-			,dest.[MainCategory] = source.[MainCategory]
-			,dest.[CalibDate] = source.[CalibDate]
-			,dest.[NextCalibDate] = source.[NextCalibDate]
-			,dest.[CALIBMONTH] = source.[CALIBMONTH]
-			,dest.[ReturnDate] = source.[ReturnDate]
-			,dest.[PartDescription] = source.[PartDescription]
-			,dest.[IsCancelled] = source.[IsCancelled]
-			,dest.[StatusId] = source.[StatusId]
-			,dest.[CalibStatud] = source.[CalibStatud]
-			,dest.[PART] = source.[PART]
+		SET  dest.[CalibDate] = source.[CalibDate]
 			,dest.[SerialNumber] = source.[SerialNumber]
-			,dest.[DeviceManufacturer] = source.[DeviceManufacturer]
+			,dest.[ManufacturerNumber] = source.[ManufacturerNumber]
 			,dest.[DeviceModel] = source.[DeviceModel]
+			,dest.[SpecialCareTypeId] = source.[SpecialCareTypeId]
+			,dest.[IsInHouse] = source.[IsInHouse]
+			,dest.[PartName] = source.[PartName]
+			,dest.[DeviceType] = source.[DeviceType]
+			,dest.[MbaReportNumber] = source.[MbaReportNumber]
+			,dest.[OrdersMainCategoryId] = source.[OrdersMainCategoryId]
+			,dest.[OrdersSecondaryCategoryId] = source.[OrdersSecondaryCategoryId]
+			,dest.[OrdersDeviceManufacturerId] = source.[OrdersDeviceManufacturerId]
+			,dest.[SecondCategory] = source.[SecondCategory]
+			,dest.[CustomerId] = source.[CustomerId]
+			,dest.[StatusId] = source.[StatusId]
+			,dest.[SERN] = source.[SERN]
 			,dest.[UpdatedDate] = @dt
-			,dest.[UpdateUserID] = 0
-			,dest.CustomerContactPersonRole = source.CustomerContactPersonRole
-			,dest.CustomerContactAdditionalPhoneNumber = source.CustomerContactAdditionalPhoneNumber
-			,dest.CustomerContactEmail = source.CustomerContactEmail
+			,dest.[UpdateUserID] = source.[UpdateUserID]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
 			[OrderWorkPlanId]
-			,[CustomerName]
-			,[CustomerCity]
-			,[CustomerID]
-			,[CustomerPhone]
-			,[CustomerContactName]
-			,[CustomerAddress]
-			,[CustomerContactPhone]
-			,[MBAContactName]
-			,[MBAContactPhone]
-			,[MBAContactMobile]
-			,[IsInHouse]
-			,[Notes]
-			,[PartName]
-			,[SecondCategory]
-			,[MainCategory]
-			,[MbaReportNumber]
 			,[CalibDate]
-			,[NextCalibDate]
-			,[CALIBMONTH]
-			,[ReturnDate]
-			,[PartDescription]
-			,[IsCancelled]
-			,[StatusId]
-			,[CalibStatud]
-			,[PART]
 			,[SerialNumber]
-			,[DeviceManufacturer]
+			,[ManufacturerNumber]
 			,[DeviceModel]
-			,[Klita]
+			,[SpecialCareTypeId]
+			,[IsInHouse]
+			,[PartName]
+			,[DeviceType]
+			,[MbaReportNumber]
+			,[OrdersMainCategoryId]
+			,[OrdersSecondaryCategoryId]
+			,[OrdersDeviceManufacturerId]
+			,[SecondCategory]
+			,[CustomerId]
+			,[StatusId]
+			,[KLINE]
+			,[SERN]
+			,[CreatedDate]
 			,[CreatedByUserId]
-			,[CustomerContactPersonRole]
-			,[CustomerContactAdditionalPhoneNumber]
-			,[CustomerContactEmail]
 			)
 		VALUES (
 			source.[OrderWorkPlanId]
-			,source.[CustomerName]
-			,source.[CustomerCity]
-			,source.[CustomerID]
-			,source.[CustomerPhone]
-			,source.[CustomerContactName]
-			,source.[CustomerAddress]
-			,source.[CustomerContactPhone]
-			,source.[MBAContactName]
-			,source.[MBAContactPhone]
-			,source.[MBAContactMobile]
-			,source.[IsInHouse]
-			,source.[Notes]
-			,source.[PartName]
-			,source.[SecondCategory]
-			,source.[MainCategory]
-			,source.[MbaReportNumber]
 			,source.[CalibDate]
-			,source.[NextCalibDate]
-			,source.[CALIBMONTH]
-			,source.[ReturnDate]
-			,source.[PartDescription]
-			,source.[IsCancelled]
-			,source.[StatusId]
-			,source.[CalibStatud]
-			,source.[PART]
 			,source.[SerialNumber]
-			,source.[DeviceManufacturer]
+			,source.[ManufacturerNumber]
 			,source.[DeviceModel]
-			,source.[Klita]
-			,0
-			,source.[CustomerContactPersonRole]
-			,source.[CustomerContactAdditionalPhoneNumber]
-			,source.[CustomerContactEmail]
+			,source.[SpecialCareTypeId]
+			,source.[IsInHouse]
+			,source.[PartName]
+			,source.[DeviceType]
+			,source.[MbaReportNumber]
+			,source.[OrdersMainCategoryId]
+			,source.[OrdersSecondaryCategoryId]
+			,source.[OrdersDeviceManufacturerId]
+			,source.[SecondCategory]
+			,source.[CustomerId]
+			,source.[StatusId]
+			,source.[KLINE]
+			,source.[SERN]
+			,source.[CreatedDate]
+			,source.[CreatedByUserId]
 			);
 
-MERGE INTO [dbo].[ClientRemarks] AS dest
-USING (
-	SELECT o.ClientRemarks AS [ClientRemark]
-		,d.OrderDetailId
-		,HASHBYTES('SHA2_256', o.ClientRemarks) AS TextHash
-	FROM [stg].[stg_Orders] AS o
-	JOIN [dbo].[OrderWorkPlans] AS wp ON o.OrderNumber = wp.OrderNumber
-	JOIN [dbo].[OrderDetails] AS d ON wp.OrderWorkPlanId = d.OrderWorkPlanId
-		AND o.MbaReportNumber = d.MbaReportNumber
-		AND o.Klita = d.Klita
-	) AS source
-	ON dest.OrderDetailId = source.OrderDetailId
-WHEN MATCHED
-	AND dest.[TextHash] <> source.[TextHash]
-	THEN
-		UPDATE
-		SET dest.[ClientRemark] = source.[ClientRemark]
-			,dest.[TextHash] = source.[TextHash]
-WHEN NOT MATCHED BY TARGET
-	THEN
-		INSERT (
-			[ClientRemark]
-			,[OrderDetailId]
-			,[TextHash]
-			)
-		VALUES (
-			source.[ClientRemark]
-			,source.[OrderDetailId]
-			,source.[TextHash]
-			);
-
-UPDATE d
-SET d.ClientRemarkId = c.ClientRemarkId
-FROM [dbo].[OrderDetails] as d
-JOIN [dbo].[ClientRemarks] as c ON d.OrderDetailId = c.OrderDetailId
-WHERE ISNULL(d.ClientRemarkId,0) <> c.ClientRemarkId
-
-TRUNCATE TABLE [stg].[stg_Orders]
 
 END

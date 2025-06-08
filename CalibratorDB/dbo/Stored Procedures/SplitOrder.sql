@@ -64,6 +64,7 @@ BEGIN TRAN
 		,[CreatedByUserId]
 		,[UpdateUserID]
 		,[Notes]
+		,[SourceId]
 		)
 
 	SELECT 			
@@ -80,6 +81,7 @@ BEGIN TRAN
 		,[CreatedByUserId]
 		,[UpdateUserID]
 		,[Notes]
+		,[SourceId]
 	FROM [dbo].[OrderWorkPlans]
 	WHERE OrderWorkPlanId = @OrderId
 

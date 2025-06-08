@@ -6,5 +6,9 @@
 -- =============================================
 CREATE    PROCEDURE [dbo].[GetAllDeviceManufacturer]
 AS
-SELECT DISTINCT DeviceManufacturer 
-FROM [dbo].[OrderDetails]
+SELECT 
+	odm.OrdersDeviceManufacturerId, 
+	odm.OrdersDeviceManufacturerDescription as DeviceManufacturer,
+	ss.SourceName
+FROM [dbo].[OrdersDeviceManufacturers] as odm
+JOIN [dbo].[Source] as ss ON odm.SourceId = ss.SourceId

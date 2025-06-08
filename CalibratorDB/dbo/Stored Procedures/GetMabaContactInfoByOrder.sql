@@ -19,13 +19,14 @@ SET NOCOUNT ON;
 
 SELECT DISTINCT
 wp.OrderNumber
-,od.CustomerContactName as ContactPersonName
-,od.CustomerContactPersonRole as ContactPersonRole
-,od.CustomerContactPhone as PhoneNumber
-,od.CustomerContactAdditionalPhoneNumber as AdditionalPhoneNumber
-,od.CustomerContactEmail as Email
+,cc.CustomerContactName as ContactPersonName
+,cc.CustomerContactPersonRole as ContactPersonRole
+,cc.CustomerContactPhone as PhoneNumber
+,cc.CustomerContactAdditionalPhoneNumber as AdditionalPhoneNumber
+,cc.CustomerContactEmail as Email
 FROM [dbo].[OrderWorkPlans] as wp
 JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
+JOIN [dbo].[CustomerContacts] as cc ON od.CustomerId = cc.CustomerId
 WHERE wp.OrderNumber = @OrderID and wp.IsCancelled = 0
 
 
