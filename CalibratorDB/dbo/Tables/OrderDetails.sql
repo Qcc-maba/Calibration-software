@@ -22,6 +22,7 @@
     [UpdatedDate]                DATETIME2 (0) NULL,
     [CreatedByUserId]            INT           NULL,
     [UpdateUserID]               INT           NULL,
+    [IsDeleted]                  BIT           DEFAULT ((0)) NOT NULL,
     CONSTRAINT [PK_OrderDetails] PRIMARY KEY CLUSTERED ([OrderDetailId] ASC, [OrderWorkPlanId] ASC),
     CONSTRAINT [FK_OrderDetails] FOREIGN KEY ([SpecialCareTypeId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_OrderDetails_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[Users] ([ID]),

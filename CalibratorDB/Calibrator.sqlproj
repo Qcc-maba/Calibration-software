@@ -223,6 +223,12 @@
     <Build Include="stg\Tables\stg_CustomerRemarks.sql" />
     <Build Include="dbo\Tables\CustomerRemarks.sql" />
     <Build Include="stg\Stored Procedures\MergeCustomerRemarks.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllProductTypes.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllProducedIn.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllOrderLocations.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllOrderDeviceSecondaryCategories.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllOrderDeviceMainCategories.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllOrderClients.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />
