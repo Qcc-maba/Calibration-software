@@ -138,7 +138,7 @@ CONCAT(
     ,IIF((SELECT COUNT(*) FROM #FilteredDetails) > 0,' JOIN #FilteredDetails as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId ',' ')
 	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
 	,IIF(@EquipmentIds IS NOT NULL,' JOIN #EquipmentId as eid ON wp.OrderWorkPlanId = eid.OrderWorkPlanId ',' ')
-	,'JOIN [dbo].[OrderDetails_new] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
+	,'JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
 	  JOIN [dbo].[Customers] as c ON od.[CustomerId] = c.[CustomerId]
 	  LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON od.[OrdersDeviceManufacturerId] = dm.[OrdersDeviceManufacturerId]
 	'
@@ -165,7 +165,7 @@ CONCAT(
 	 SELECT OrderWorkPlanId, STRING_AGG(MainCategory,'','') AS MainCategory
 	 FROM (
 	 SELECT DISTINCT od.OrderWorkPlanId,omc.OrdersMainCategoryName as MainCategory
-	 FROM [dbo].[OrderDetails_new] as od
+	 FROM [dbo].[OrderDetails] as od
 	 JOIN [dbo].[OrderWorkPlans] as wp ON od.OrderWorkPlanId = wp.OrderWorkPlanId
 	 JOIN [dbo].[OrdersMainCategories] as omc ON od.OrdersMainCategoryId = omc.OrdersMainCategoryId
 	 WHERE od.IsInHouse = 0 and wp.IsCancelled = 0
