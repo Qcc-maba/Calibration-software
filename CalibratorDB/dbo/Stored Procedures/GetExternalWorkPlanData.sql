@@ -25,7 +25,8 @@ CREATE   PROCEDURE [dbo].[GetExternalWorkPlanData]
 	@AssignedCalibratorsIds NVARCHAR(MAX) = NULL, -- -1 means that we should include orders with empty calibrator
 	@EquipmentIds NVARCHAR(MAX) = NULL,
 	@SpecialCareTypeIds NVARCHAR(255) = NULL,
-	@OrderNumber NVARCHAR(20) = NULL 
+	@OrderNumber NVARCHAR(20) = NULL,
+	@GlobalSearch NVARCHAR(200) = NULL
 AS
 
 BEGIN
@@ -91,8 +92,6 @@ BEGIN
 	LEFT JOIN [dbo].[CalibratorsToWorkPlan] as cwp ON wp.OrderWorkPlanId = cwp.OrderWorkPlanId and cwp.IsDeleted = 0
 	WHERE wp.IsCancelled = 0 AND cwp.OrderWorkPlanId IS NULL
 
-
-
 	DROP TABLE IF EXISTS #EquipmentId
 	CREATE TABLE #EquipmentId
 	(
@@ -112,9 +111,7 @@ BEGIN
 
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
-'
- SELECT 
-        wp.[OrderNumber] AS [OrderNumber] ,
+'SELECT wp.[OrderNumber] AS [OrderNumber],
         MAX(od.[CalibDate]) AS [Date],
         spc.[SpecialCares],
         c.[CustomerName] as [ClientName],
@@ -133,7 +130,7 @@ CONCAT(
 		STRING_AGG(od.SerialNumber,'','') AS DeviceNumber,
 		STRING_AGG(dm.OrdersDeviceManufacturerDescription,'','') AS DeviceManufacturer,
 		STRING_AGG(od.DeviceModel,'','') AS DeviceModel,
-		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
+		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
     ,IIF((SELECT COUNT(*) FROM #FilteredDetails) > 0,' JOIN #FilteredDetails as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId ',' ')
 	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
@@ -141,65 +138,47 @@ CONCAT(
 	,'JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
 	  JOIN [dbo].[Customers] as c ON od.[CustomerId] = c.[CustomerId]
 	  LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON od.[OrdersDeviceManufacturerId] = dm.[OrdersDeviceManufacturerId]
-	'
-	,IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
+	',IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
 	,'LEFT JOIN 
-	(
-		SELECT co.OrderWorkPlanId,STRING_AGG(co.CarId,'','') as [Cars]
+	(  SELECT co.OrderWorkPlanId,STRING_AGG(co.CarId,'','') as [Cars]
 		FROM [dbo].[CarsToOrder] as co 
 		WHERE co.IsDeleted = 0
 		GROUP BY co.OrderWorkPlanId
-	 ) as co
-	ON wp.OrderWorkPlanId = co.OrderWorkPlanId
+	 ) as co ON wp.OrderWorkPlanId = co.OrderWorkPlanId
 	LEFT JOIN 
-	(
-		SELECT cwp.OrderWorkPlanId,STRING_AGG(CONCAT(u.FirstName,'' '',u.LastName),'','') as Calibrators
+	(	SELECT cwp.OrderWorkPlanId,STRING_AGG(CONCAT(u.FirstName,'' '',u.LastName),'','') as Calibrators
 		FROM [dbo].[CalibratorsToWorkPlan] as cwp
 		JOIN [dbo].[Users] as u ON cwp.CalibratorId = u.ID
-		WHERE cwp.IsDeleted = 0
-		GROUP BY cwp.OrderWorkPlanId
-	 ) as cwp
-	ON wp.OrderWorkPlanId = cwp.OrderWorkPlanId
+		WHERE cwp.IsDeleted = 0	GROUP BY cwp.OrderWorkPlanId
+	 ) as cwp ON wp.OrderWorkPlanId = cwp.OrderWorkPlanId
 	LEFT JOIN 
-	(
-	 SELECT OrderWorkPlanId, STRING_AGG(MainCategory,'','') AS MainCategory
-	 FROM (
-	 SELECT DISTINCT od.OrderWorkPlanId,omc.OrdersMainCategoryName as MainCategory
+	(SELECT OrderWorkPlanId, STRING_AGG(MainCategory,'','') AS MainCategory
+	 FROM ( SELECT DISTINCT od.OrderWorkPlanId,omc.OrdersMainCategoryName as MainCategory
 	 FROM [dbo].[OrderDetails] as od
 	 JOIN [dbo].[OrderWorkPlans] as wp ON od.OrderWorkPlanId = wp.OrderWorkPlanId
 	 JOIN [dbo].[OrdersMainCategories] as omc ON od.OrdersMainCategoryId = omc.OrdersMainCategoryId
 	 WHERE od.IsInHouse = 0 and wp.IsCancelled = 0
-	 ) ds
-	 GROUP BY OrderWorkPlanId
+	 ) ds GROUP BY OrderWorkPlanId
 	) as mc ON wp.OrderWorkPlanId = mc.OrderWorkPlanId
 	LEFT JOIN 
-	(
-	 SELECT OrderWorkPlanId, 
-	 STRING_AGG(StatusDescriptionENG,'','') AS StatusDescriptionENG,
+	( SELECT OrderWorkPlanId,STRING_AGG(StatusDescriptionENG,'','') AS StatusDescriptionENG,
 	 STRING_AGG(StatusDescriptionHEB,'','') AS StatusDescriptionHEB
-	 FROM (
-	 SELECT DISTINCT od.OrderWorkPlanId, s.StatusDescriptionENG,
-	 s.StatusDescriptionHEB
+	 FROM (SELECT DISTINCT od.OrderWorkPlanId, s.StatusDescriptionENG, s.StatusDescriptionHEB
 	 FROM [dbo].[OrderDetails] as od
 	 JOIN [dbo].[Statuses] as s ON od.SpecialCareTypeId = s.StatusId
 	 WHERE od.IsInHouse = 0 and od.IsCancelled = 0
-	 ) ds
-	 GROUP BY OrderWorkPlanId
+	 ) ds GROUP BY OrderWorkPlanId
 	) as sp ON wp.OrderWorkPlanId = sp.OrderWorkPlanId
 	LEFT JOIN 
-	( 
-	  SELECT coh.OrderWorkPlanId, STRING_AGG(coh.CalibEquipmentId,'', '') as EquipmentIds, 
+	( SELECT coh.OrderWorkPlanId, STRING_AGG(coh.CalibEquipmentId,'', '') as EquipmentIds, 
 			STRING_AGG(ce.EquipmentName,'', '') as EquipmentNames
 	  FROM [dbo].[CalibEquipmentsToOrderHeaders] as coh
 	  JOIN [dbo].[CalibEquipments] as ce ON coh.CalibEquipmentId = ce.ID AND ce.IsDeleted = 0
-	  WHERE coh.IsDeleted = 0
-	  GROUP BY coh.OrderWorkPlanId
+	  WHERE coh.IsDeleted = 0 GROUP BY coh.OrderWorkPlanId
 	)as coh ON wp.OrderWorkPlanId = coh.OrderWorkPlanId
 	LEFT JOIN 
-	(
-	 SELECT OrderWorkPlanId,STRING_AGG(SpecialCareTypeId,'','') as SpecialCares
-	 FROM [dbo].[OrderDetails]
-	 WHERE IsInHouse = 0 and IsCancelled = 0
+	(SELECT OrderWorkPlanId,STRING_AGG(SpecialCareTypeId,'','') as SpecialCares
+	 FROM [dbo].[OrderDetails] WHERE IsInHouse = 0 and IsCancelled = 0
 	 GROUP BY OrderWorkPlanId 
 	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
 	WHERE od.IsInHouse = 0 AND wp.IsCancelled = 0'
@@ -214,6 +193,7 @@ CONCAT(
 	,CASE WHEN @DeviceNumber IS NOT NULL THEN ' AND od.SerialNumber LIKE N''%'+ @DeviceNumber +'%'' 'ELSE ' ' END
 	,CASE WHEN @DeviceManufacturer IS NOT NULL THEN ' AND dm.OrdersDeviceManufacturerDescription LIKE N''%'+ @DeviceManufacturer +'%'''ELSE ' ' END
     ,CASE WHEN @OrderNumber IS NOT NULL THEN ' AND wp.OrderNumber LIKE N''%'+ @OrderNumber +'%'''ELSE ' ' END
+    ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(cwp.[Calibrators],mc.[MainCategory],c.[CustomerCity],c.[CustomerName],od.[SecondCategory],sp.[StatusDescriptionENG],wp.[OrderNumber]) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
 	,'GROUP BY wp.[OrderNumber], 
 	spc.[SpecialCares],
 	c.[CustomerName], 
@@ -231,9 +211,8 @@ CONCAT(
 	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL 
 		  THEN ' HAVING MAX(od.[CalibDate]) >= '''+CAST(@DateFrom AS NVARCHAR(20))+''' AND MAX(od.[CalibDate]) <= '''+CAST(@DateTo AS NVARCHAR(20))+''''
 	  ELSE ' ' END
-  ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
-    OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
-
+  ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
+PRINT LEN(@sql)
 PRINT @sql
 EXEC sp_executesql @sql
 

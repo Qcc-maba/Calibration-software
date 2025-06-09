@@ -1,10 +1,11 @@
-﻿-- =============================================
+﻿
+-- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 24/03/2025
 -- Description:	This SP should edit a calendar event. It must take the event title, start time, end time, and a string with participant ids divided by comma.
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-170
 -- =============================================
-CREATE    PROCEDURE [dbo].[GetEquipmentManagementTableData]
+CREATE  PROCEDURE [dbo].[GetEquipmentManagementTableData]
 @RowsPerPage INT = 50,
 @PageNumber INT = 1,
 @OrderBy NVARCHAR(30) = N'DepartmentName',
@@ -20,7 +21,8 @@ CREATE    PROCEDURE [dbo].[GetEquipmentManagementTableData]
 @CarLicenseNumber NVARCHAR(100)= NULL,
 @CalibratorFullName NVARCHAR(200) = NULL,
 @StatusDescription NVARCHAR(255) = NULL,
-@DepartmentName NVARCHAR(255) = NULL
+@DepartmentName NVARCHAR(255) = NULL,
+@GlobalSearch NVARCHAR(200) = NULL
 /*
 EXEC dbo.GetEquipmentManagementTableData
 @DepartmentId  = 1,
@@ -34,6 +36,8 @@ EXEC dbo.GetEquipmentManagementTableData
 */
 
 AS
+
+SET NOCOUNT ON;
 
 IF @OrderBy NOT IN (N'ID',N'DepartmentId',N'DepartmentName',N'StatusId',N'StatusDescriptionENG',N'StatusDescriptionHEB',N'EquipmentName',N'SerialNumber',N'CalibratorId',N'CalibratorFullName',N'MainCategory',N'NextCalibrationDate',N'CarId',N'Model',N'LicenseNumber')
 THROW 51000, 'Incorrect value for parameter @OrderBy.', 1;
@@ -146,6 +150,7 @@ CONCAT(
   ,CASE WHEN @DepartmentId IS NOT NULL THEN' AND ce.[DepartmentId] = '+CAST(@DepartmentId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @CarId IS NOT NULL THEN' AND c.[CarId] = '+CAST(@CarId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @NextCalibrationDate IS NOT NULL AND @NextCalibrationDate > '1900-01-01' THEN' AND ce.[NextCalibrationDate] = '''+CAST(@NextCalibrationDate as NVARCHAR(50))+''' 'ELSE ' ' END
+  ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ce.[EquipmentName],ce.[SerialNumber],s.StatusDescriptionHEB,u.FirstName,u.LastName,c.LicenseNumber,mc.EquipmentMainClassNameHEB,d.[DepartmentName])  LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql

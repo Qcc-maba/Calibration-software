@@ -22,9 +22,12 @@ CREATE    PROCEDURE [dbo].[GetAllEmployees]
 	@CertificationIds NVARCHAR(MAX) = NULL,
 	@EventStartDate DATETIME2(0) = NULL,
     @EventEndDate DATETIME2(0) = NULL,
-	@PositionId INT = NULL
+	@PositionId INT = NULL,
+	@GlobalSearch NVARCHAR(200) = NULL
 AS
 BEGIN
+
+SET NOCOUNT ON;
 
 	IF @OrderBy NOT IN 
 	(N'FirstName', N'LastName', N'FirstNameEng', N'LastNameEng', N'Phone', N'Email', N'UserAddress', N'LocationArea', N'UserRoleENG', N'UserRoleHEB', N'DepartmentNames', N'Certification',N'Stamp',N'Position')
@@ -58,12 +61,14 @@ DROP TABLE IF EXISTS #Status
 CREATE TABLE #Status 
 (
 StatusId INT,
-IsActive BIT
+IsActive BIT,
+AvailabilityStatusDescriptionHEB NVARCHAR(100)
 )
-INSERT #Status(StatusId,IsActive)
+INSERT #Status(StatusId,IsActive,AvailabilityStatusDescriptionHEB)
 SELECT 
   s.StatusId,
-  IIF(s.StatusDescriptionENG='Active',1,0) as IsActive
+  IIF(s.StatusDescriptionENG='Active',1,0) as IsActive,
+  s.StatusDescriptionHEB
   FROM [dbo].[Statuses] as s
   JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
 WHERE sc.StatusDescriptionENG = 'UserStatus'
@@ -164,7 +169,8 @@ SELECT u.ID,
 	   u.Stamp,
 	   u.Password,
 	   u.IsActive,
-	   ss.StatusId,
+	   ss.StatusId as AvaibabilityStatusId,
+	   ss.AvailabilityStatusDescriptionHEB,
 	   '
 	   ,IIF(@EventStartDate IS NOT NULL AND @EventEndDate IS NOT NULL,'ace.EventTypeId, ace.StatusDescriptionHEB , ace.StatusDescriptionENG,  ',' '),
 	   '
@@ -209,8 +215,10 @@ WHERE u.ID > 0
 ,CASE WHEN @Email IS NOT NULL THEN ' AND u.Email LIKE N''%'+ @Email +'%'' 'ELSE ' ' END
 ,CASE WHEN @UserRoleId IS NOT NULL THEN ' AND u.UserRoleId = '+ CAST(@UserRoleId as NVARCHAR(20)) +' 'ELSE ' ' END
 ,CASE WHEN @PositionId IS NOT NULL THEN ' AND u.PositionId = '+ CAST(@PositionId as NVARCHAR(20)) +' 'ELSE ' ' END
+,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(u.FirstName,u.LastName,u.FirstNameEng,u.LastNameEng,u.Phone,u.Email,cc.Certification,u.UserAddress,u.LocationArea,dep.DepartmentNames,ps.StatusDescriptionHEB,ur.UserRoleDescriptionHEB,ss.AvailabilityStatusDescriptionHEB) COLLATE DATABASE_DEFAULT  LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
 OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
+PRINT LEN(@sql)
 PRINT @sql
 EXEC sp_executesql @sql
 
