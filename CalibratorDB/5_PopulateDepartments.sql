@@ -35,5 +35,9 @@ INSERT [dbo].[Departments] ([ID], [DepartmentName], [AddedByUserId], [CreatedAt]
 GO
 INSERT [dbo].[Departments] ([ID], [DepartmentName], [AddedByUserId], [CreatedAt], [UpdatedAt]) VALUES (17, N'טמפרטורה', 0, CAST(N'2025-03-31T13:00:56.0000000' AS DateTime2), NULL)
 GO
+INSERT [dbo].[Departments] ([ID], [DepartmentName], [AddedByUserId], [CreatedAt], [UpdatedAt]) VALUES (18, N'כללי', 0, CAST(N'2025-03-31T13:00:56.0000000' AS DateTime2), NULL)
+GO
+INSERT [dbo].[Departments] ([ID], [DepartmentName], [AddedByUserId], [CreatedAt], [UpdatedAt]) VALUES (19, N'מסה', 0, CAST(N'2025-03-31T13:00:56.0000000' AS DateTime2), NULL)
+GO
 SET IDENTITY_INSERT [dbo].[Departments] OFF
 GO
