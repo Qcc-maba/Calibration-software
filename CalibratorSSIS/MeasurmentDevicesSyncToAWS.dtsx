@@ -1,0 +1,1651 @@
+﻿<?xml version="1.0"?>
+<DTS:Executable xmlns:DTS="www.microsoft.com/SqlServer/Dts"
+  DTS:refId="Package"
+  DTS:CreationDate="3/28/2025 1:47:57 PM"
+  DTS:CreationName="Microsoft.Package"
+  DTS:CreatorComputerName="DESKTOP-50K623D"
+  DTS:CreatorName="DESKTOP-50K623D\Eduard"
+  DTS:DTSID="{C203B4E2-2E2E-441D-A499-4F236427614C}"
+  DTS:ExecutableType="Microsoft.Package"
+  DTS:LastModifiedProductVersion="16.0.5685.0"
+  DTS:LocaleID="1033"
+  DTS:ObjectName="MeasurmentDevicesSyncToAWS"
+  DTS:PackageType="5"
+  DTS:ProtectionLevel="2"
+  DTS:VersionBuild="77"
+  DTS:VersionGUID="{B261D361-413A-46DF-9938-4358FD946572}">
+  <DTS:Property
+    DTS:Name="PackageFormatVersion">8</DTS:Property>
+  <DTS:Variables />
+  <DTS:Executables>
+    <DTS:Executable
+      DTS:refId="Package\Execute merges in sequence"
+      DTS:CreationName="STOCK:SEQUENCE"
+      DTS:Description="Sequence Container"
+      DTS:DTSID="{381AE0BC-D895-4833-B487-2B816EFD4181}"
+      DTS:ExecutableType="STOCK:SEQUENCE"
+      DTS:LocaleID="-1"
+      DTS:ObjectName="Execute merges in sequence">
+      <DTS:Variables />
+      <DTS:Executables>
+        <DTS:Executable
+          DTS:refId="Package\Execute merges in sequence\Merge Measurement Device Unit Groups Data"
+          DTS:CreationName="Microsoft.ExecuteSQLTask"
+          DTS:Description="Execute SQL Task"
+          DTS:DTSID="{76CE8839-DDA4-44B4-9401-4523EC84D4B3}"
+          DTS:ExecutableType="Microsoft.ExecuteSQLTask"
+          DTS:LocaleID="-1"
+          DTS:ObjectName="Merge Measurement Device Unit Groups Data"
+          DTS:ThreadHint="1">
+          <DTS:Variables />
+          <DTS:ObjectData>
+            <SQLTask:SqlTaskData
+              SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
+              SQLTask:SqlStatementSource="EXEC stg.MergeMeasurementDeviceUnitGroupsData" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
+          </DTS:ObjectData>
+        </DTS:Executable>
+        <DTS:Executable
+          DTS:refId="Package\Execute merges in sequence\Merge Measurement Device Units Data"
+          DTS:CreationName="Microsoft.ExecuteSQLTask"
+          DTS:Description="Execute SQL Task"
+          DTS:DTSID="{828E8CE5-B6D8-42B4-9FCA-5086A98FD652}"
+          DTS:ExecutableType="Microsoft.ExecuteSQLTask"
+          DTS:LocaleID="-1"
+          DTS:ObjectName="Merge Measurement Device Units Data"
+          DTS:ThreadHint="1">
+          <DTS:Variables />
+          <DTS:ObjectData>
+            <SQLTask:SqlTaskData
+              SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
+              SQLTask:SqlStatementSource="EXEC stg.MergeMeasurementDeviceUnitsData" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
+          </DTS:ObjectData>
+        </DTS:Executable>
+        <DTS:Executable
+          DTS:refId="Package\Execute merges in sequence\Merge Measurement Devices Main Classes"
+          DTS:CreationName="Microsoft.ExecuteSQLTask"
+          DTS:Description="Execute SQL Task"
+          DTS:DTSID="{22750752-B409-4919-8E77-E82908EE0E10}"
+          DTS:ExecutableType="Microsoft.ExecuteSQLTask"
+          DTS:LocaleID="-1"
+          DTS:ObjectName="Merge Measurement Devices Main Classes"
+          DTS:ThreadHint="0">
+          <DTS:Variables />
+          <DTS:ObjectData>
+            <SQLTask:SqlTaskData
+              SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
+              SQLTask:SqlStatementSource="EXEC stg.MergeMeasurementDevicesMainClasses" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
+          </DTS:ObjectData>
+        </DTS:Executable>
+      </DTS:Executables>
+      <DTS:PrecedenceConstraints>
+        <DTS:PrecedenceConstraint
+          DTS:refId="Package\Execute merges in sequence.PrecedenceConstraints[Constraint]"
+          DTS:CreationName=""
+          DTS:DTSID="{681026D9-DDE2-4C04-BA68-D1ED507FCF88}"
+          DTS:From="Package\Execute merges in sequence\Merge Measurement Device Unit Groups Data"
+          DTS:LogicalAnd="True"
+          DTS:ObjectName="Constraint"
+          DTS:To="Package\Execute merges in sequence\Merge Measurement Device Units Data" />
+      </DTS:PrecedenceConstraints>
+    </DTS:Executable>
+    <DTS:Executable
+      DTS:refId="Package\Merge data to Orders tables"
+      DTS:CreationName="Microsoft.ExecuteSQLTask"
+      DTS:Description="Execute SQL Task"
+      DTS:Disabled="True"
+      DTS:DTSID="{223C5624-2594-4E5E-8C23-29894CF80114}"
+      DTS:ExecutableType="Microsoft.ExecuteSQLTask"
+      DTS:LocaleID="-1"
+      DTS:ObjectName="Merge data to Orders tables"
+      DTS:ThreadHint="0">
+      <DTS:Variables />
+      <DTS:ObjectData>
+        <SQLTask:SqlTaskData
+          SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
+          SQLTask:SqlStatementSource="EXEC stg.MergeOrdersData" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
+      </DTS:ObjectData>
+    </DTS:Executable>
+    <DTS:Executable
+      DTS:refId="Package\Populate staging tables"
+      DTS:CreationName="STOCK:SEQUENCE"
+      DTS:Description="Sequence Container"
+      DTS:DTSID="{E6F4A865-97C6-4FB3-98A5-020728B424CD}"
+      DTS:ExecutableType="STOCK:SEQUENCE"
+      DTS:LocaleID="-1"
+      DTS:ObjectName="Populate staging tables">
+      <DTS:Variables />
+      <DTS:Executables>
+        <DTS:Executable
+          DTS:refId="Package\Populate staging tables\Load stg Measurement Devices Main Class"
+          DTS:CreationName="Microsoft.Pipeline"
+          DTS:Description="Data Flow Task"
+          DTS:DTSID="{64936F17-7CF9-4DC4-BF72-AA493E431750}"
+          DTS:ExecutableType="Microsoft.Pipeline"
+          DTS:LocaleID="-1"
+          DTS:ObjectName="Load stg Measurement Devices Main Class"
+          DTS:TaskContact="Performs high-performance data extraction, transformation and loading;Microsoft Corporation; Microsoft SQL Server; (C) Microsoft Corporation; All Rights Reserved;http://www.microsoft.com/sql/support/default.asp;1">
+          <DTS:Variables />
+          <DTS:ObjectData>
+            <pipeline
+              version="1">
+              <components>
+                <component
+                  refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data"
+                  componentClassID="Microsoft.ManagedComponentHost"
+                  contactInfo="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server.;Microsoft Corporation; Microsoft SQL Server; © Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;4"
+                  description="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server."
+                  name="Get source data"
+                  usesDispositions="true"
+                  version="4">
+                  <properties>
+                    <property
+                      dataType="System.String"
+                      description="Specifies the SQL statement used by the component to extract data."
+                      expressionType="Notify"
+                      name="SqlCommand"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT
+	mc.ID as MeasurementDevicesMainClassSourceId	 	,mc.NameHe	
+	,mc.Description	
+	,mc.NameEn
+FROM [kyulan].[dbo].[tblInstrMainClass] as mc</property>
+                    <property
+                      dataType="System.Int32"
+                      description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
+                      name="CommandTimeout">30</property>
+                    <property
+                      dataType="System.Boolean"
+                      description="Indicates whether to allow non-string external columns to be implicitly converted to strings at the output columns."
+                      name="AllowImplicitStringConversion">true</property>
+                    <property
+                      dataType="System.String"
+                      description="The Source database table name."
+                      expressionType="Notify"
+                      name="TableOrViewName"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor"></property>
+                    <property
+                      dataType="System.Int32"
+                      description="Specify the mode to retrieve external column information"
+                      name="AccessMode"
+                      typeConverter="Microsoft.SqlServer.Dts.Pipeline.DataReaderSourceAdapter+EnumToStringConverter">2</property>
+                    <property
+                      dataType="System.String"
+                      name="UserComponentTypeName">Microsoft.DataReaderSourceAdapter</property>
+                  </properties>
+                  <connections>
+                    <connection
+                      refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Connections[IDbConnection]"
+                      connectionManagerID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}:external"
+                      connectionManagerRefId="Project.ConnectionManagers[OnPremPriority]"
+                      description="Managed connection manager"
+                      name="IDbConnection" />
+                  </connections>
+                  <outputs>
+                    <output
+                      refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output]"
+                      name="ADO NET Source Output">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].Columns[MeasurementDevicesMainClassSourceId]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MeasurementDevicesMainClassSourceId]"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].Columns[MeasurementDevicesMainClassSourceId]"
+                          name="MeasurementDevicesMainClassSourceId"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].Columns[NameHe]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].ExternalColumns[NameHe]"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].Columns[NameHe]"
+                          name="NameHe"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].Columns[Description]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].ExternalColumns[Description]"
+                          length="150"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].Columns[Description]"
+                          name="Description"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].Columns[NameEn]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].ExternalColumns[NameEn]"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].Columns[NameEn]"
+                          name="NameEn"
+                          truncationRowDisposition="FailComponent" />
+                      </outputColumns>
+                      <externalMetadataColumns
+                        isUsed="True">
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MeasurementDevicesMainClassSourceId]"
+                          dataType="i4"
+                          name="MeasurementDevicesMainClassSourceId" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].ExternalColumns[NameHe]"
+                          dataType="wstr"
+                          length="50"
+                          name="NameHe" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].ExternalColumns[Description]"
+                          dataType="wstr"
+                          length="150"
+                          name="Description" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].ExternalColumns[NameEn]"
+                          dataType="wstr"
+                          length="50"
+                          name="NameEn" />
+                      </externalMetadataColumns>
+                    </output>
+                    <output
+                      refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Error Output]"
+                      isErrorOut="true"
+                      name="ADO NET Source Error Output">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Error Output].Columns[MeasurementDevicesMainClassSourceId]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Error Output].Columns[MeasurementDevicesMainClassSourceId]"
+                          name="MeasurementDevicesMainClassSourceId" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Error Output].Columns[NameHe]"
+                          dataType="wstr"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Error Output].Columns[NameHe]"
+                          name="NameHe" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Error Output].Columns[Description]"
+                          dataType="wstr"
+                          length="150"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Error Output].Columns[Description]"
+                          name="Description" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Error Output].Columns[NameEn]"
+                          dataType="wstr"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Error Output].Columns[NameEn]"
+                          name="NameEn" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                          name="ErrorCode"
+                          specialFlags="1" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                          name="ErrorColumn"
+                          specialFlags="2" />
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                  </outputs>
+                </component>
+                <component
+                  refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table"
+                  componentClassID="Microsoft.ManagedComponentHost"
+                  contactInfo="Loads data into an ADO.NET-compliant database that uses a database table or view. Load data into a new or existing table. For example, use an ADO.NET provider for ODBC to load data into an ODBC destination.;Microsoft Corporation; Microsoft SQL Server; © Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;2"
+                  description="Loads data into an ADO.NET-compliant database that uses a database table or view. Load data into a new or existing table. For example, use an ADO.NET provider for ODBC to load data into an ODBC destination."
+                  name="Populate stg table"
+                  usesDispositions="true"
+                  version="2">
+                  <properties>
+                    <property
+                      dataType="System.String"
+                      description="The Destination database table name."
+                      expressionType="Notify"
+                      name="TableOrViewName"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">"stg"."stg_MeasurementDevicesMainClasses"</property>
+                    <property
+                      dataType="System.Int32"
+                      description="Specify the number of rows per batch. The default is 0 which uses the same size as SSIS internal buffer. "
+                      expressionType="Notify"
+                      name="BatchSize">0</property>
+                    <property
+                      dataType="System.Int32"
+                      description="The number of seconds before a command times out. A value of 0 indicates infinite time-out. "
+                      expressionType="Notify"
+                      name="CommandTimeout">30</property>
+                    <property
+                      dataType="System.Boolean"
+                      description="Specifies whether to use the SqlBulkCopy interface to improve the performance of bulk insert operations. Only certain providers support this interface."
+                      expressionType="Notify"
+                      name="UseBulkInsertWhenPossible">true</property>
+                    <property
+                      dataType="System.String"
+                      name="UserComponentTypeName">Microsoft.ADONETDestination</property>
+                  </properties>
+                  <connections>
+                    <connection
+                      refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Connections[IDbConnection]"
+                      connectionManagerID="{5D340525-F86F-4A09-8F4F-C17373323AB0}:external"
+                      connectionManagerRefId="Project.ConnectionManagers[AWSCalibrator]"
+                      description="Managed connection manager"
+                      name="IDbConnection" />
+                  </connections>
+                  <inputs>
+                    <input
+                      refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input]"
+                      errorRowDisposition="FailComponent"
+                      hasSideEffects="true"
+                      name="ADO NET Destination Input">
+                      <inputColumns>
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input].Columns[MeasurementDevicesMainClassSourceId]"
+                          cachedDataType="i4"
+                          cachedName="MeasurementDevicesMainClassSourceId"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[MeasurementDevicesMainClassSourceId]"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].Columns[MeasurementDevicesMainClassSourceId]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input].Columns[NameHe]"
+                          cachedDataType="wstr"
+                          cachedLength="50"
+                          cachedName="NameHe"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[NameHe]"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].Columns[NameHe]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input].Columns[Description]"
+                          cachedDataType="wstr"
+                          cachedLength="150"
+                          cachedName="Description"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[Description]"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].Columns[Description]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input].Columns[NameEn]"
+                          cachedDataType="wstr"
+                          cachedLength="50"
+                          cachedName="NameEn"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[NameEn]"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output].Columns[NameEn]" />
+                      </inputColumns>
+                      <externalMetadataColumns
+                        isUsed="True">
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[MeasurementDevicesMainClassSourceId]"
+                          dataType="i4"
+                          name="MeasurementDevicesMainClassSourceId" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[NameHe]"
+                          dataType="wstr"
+                          length="50"
+                          name="NameHe" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[Description]"
+                          dataType="wstr"
+                          length="150"
+                          name="Description" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[NameEn]"
+                          dataType="wstr"
+                          length="50"
+                          name="NameEn" />
+                      </externalMetadataColumns>
+                    </input>
+                  </inputs>
+                  <outputs>
+                    <output
+                      refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Outputs[ADO NET Destination Error Output]"
+                      exclusionGroup="1"
+                      isErrorOut="true"
+                      name="ADO NET Destination Error Output"
+                      synchronousInputId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input]">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
+                          name="ErrorCode"
+                          specialFlags="1" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
+                          name="ErrorColumn"
+                          specialFlags="2" />
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                  </outputs>
+                </component>
+              </components>
+              <paths>
+                <path
+                  refId="Package\Populate staging tables\Load stg Measurement Devices Main Class.Paths[ADO NET Source Output]"
+                  endId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table.Inputs[ADO NET Destination Input]"
+                  name="ADO NET Source Output"
+                  startId="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data.Outputs[ADO NET Source Output]" />
+              </paths>
+            </pipeline>
+          </DTS:ObjectData>
+        </DTS:Executable>
+        <DTS:Executable
+          DTS:refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup"
+          DTS:CreationName="Microsoft.Pipeline"
+          DTS:Description="Data Flow Task"
+          DTS:DTSID="{D79A2E70-45C3-45A2-9842-BF149A580D0A}"
+          DTS:ExecutableType="Microsoft.Pipeline"
+          DTS:LocaleID="-1"
+          DTS:ObjectName="Load stg MeasurementDevicesUnitGroup"
+          DTS:TaskContact="Performs high-performance data extraction, transformation and loading;Microsoft Corporation; Microsoft SQL Server; (C) Microsoft Corporation; All Rights Reserved;http://www.microsoft.com/sql/support/default.asp;1">
+          <DTS:Variables />
+          <DTS:ObjectData>
+            <pipeline
+              version="1">
+              <components>
+                <component
+                  refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data"
+                  componentClassID="Microsoft.ManagedComponentHost"
+                  contactInfo="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server.;Microsoft Corporation; Microsoft SQL Server; © Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;4"
+                  description="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server."
+                  name="Get source data"
+                  usesDispositions="true"
+                  version="4">
+                  <properties>
+                    <property
+                      dataType="System.String"
+                      description="Specifies the SQL statement used by the component to extract data."
+                      expressionType="Notify"
+                      name="SqlCommand"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT
+	ug.[NameEn],
+	ug.[NameHe],
+	ug.[Description],
+	ug.[Simbol] as [Symbol],
+	ug.[HelpLink],
+	ug.[ID] as [MeasurementDevicesUnitGroupSourceId]
+FROM [kyulan].[dbo].[tblUnitGroups] as ug</property>
+                    <property
+                      dataType="System.Int32"
+                      description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
+                      name="CommandTimeout">30</property>
+                    <property
+                      dataType="System.Boolean"
+                      description="Indicates whether to allow non-string external columns to be implicitly converted to strings at the output columns."
+                      name="AllowImplicitStringConversion">true</property>
+                    <property
+                      dataType="System.String"
+                      description="The Source database table name."
+                      expressionType="Notify"
+                      name="TableOrViewName"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor"></property>
+                    <property
+                      dataType="System.Int32"
+                      description="Specify the mode to retrieve external column information"
+                      name="AccessMode"
+                      typeConverter="Microsoft.SqlServer.Dts.Pipeline.DataReaderSourceAdapter+EnumToStringConverter">2</property>
+                    <property
+                      dataType="System.String"
+                      name="UserComponentTypeName">Microsoft.DataReaderSourceAdapter</property>
+                  </properties>
+                  <connections>
+                    <connection
+                      refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Connections[IDbConnection]"
+                      connectionManagerID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}:external"
+                      connectionManagerRefId="Project.ConnectionManagers[OnPremPriority]"
+                      description="Managed connection manager"
+                      name="IDbConnection" />
+                  </connections>
+                  <outputs>
+                    <output
+                      refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output]"
+                      name="ADO NET Source Output">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[NameEn]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].ExternalColumns[NameEn]"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[NameEn]"
+                          name="NameEn"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[NameHe]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].ExternalColumns[NameHe]"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[NameHe]"
+                          name="NameHe"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[Description]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].ExternalColumns[Description]"
+                          length="500"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[Description]"
+                          name="Description"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[Symbol]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].ExternalColumns[Symbol]"
+                          length="5"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[Symbol]"
+                          name="Symbol"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[HelpLink]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].ExternalColumns[HelpLink]"
+                          length="150"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[HelpLink]"
+                          name="HelpLink"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[MeasurementDevicesUnitGroupSourceId]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MeasurementDevicesUnitGroupSourceId]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[MeasurementDevicesUnitGroupSourceId]"
+                          name="MeasurementDevicesUnitGroupSourceId"
+                          truncationRowDisposition="FailComponent" />
+                      </outputColumns>
+                      <externalMetadataColumns
+                        isUsed="True">
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].ExternalColumns[NameEn]"
+                          dataType="wstr"
+                          length="50"
+                          name="NameEn" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].ExternalColumns[NameHe]"
+                          dataType="wstr"
+                          length="50"
+                          name="NameHe" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].ExternalColumns[Description]"
+                          dataType="wstr"
+                          length="500"
+                          name="Description" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].ExternalColumns[Symbol]"
+                          dataType="wstr"
+                          length="5"
+                          name="Symbol" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].ExternalColumns[HelpLink]"
+                          dataType="wstr"
+                          length="150"
+                          name="HelpLink" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MeasurementDevicesUnitGroupSourceId]"
+                          dataType="i4"
+                          name="MeasurementDevicesUnitGroupSourceId" />
+                      </externalMetadataColumns>
+                    </output>
+                    <output
+                      refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output]"
+                      isErrorOut="true"
+                      name="ADO NET Source Error Output">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[NameEn]"
+                          dataType="wstr"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[NameEn]"
+                          name="NameEn" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[NameHe]"
+                          dataType="wstr"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[NameHe]"
+                          name="NameHe" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[Description]"
+                          dataType="wstr"
+                          length="500"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[Description]"
+                          name="Description" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[Symbol]"
+                          dataType="wstr"
+                          length="5"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[Symbol]"
+                          name="Symbol" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[HelpLink]"
+                          dataType="wstr"
+                          length="150"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[HelpLink]"
+                          name="HelpLink" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[MeasurementDevicesUnitGroupSourceId]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[MeasurementDevicesUnitGroupSourceId]"
+                          name="MeasurementDevicesUnitGroupSourceId" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                          name="ErrorCode"
+                          specialFlags="1" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                          name="ErrorColumn"
+                          specialFlags="2" />
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                  </outputs>
+                </component>
+                <component
+                  refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table"
+                  componentClassID="Microsoft.ManagedComponentHost"
+                  contactInfo="Loads data into an ADO.NET-compliant database that uses a database table or view. Load data into a new or existing table. For example, use an ADO.NET provider for ODBC to load data into an ODBC destination.;Microsoft Corporation; Microsoft SQL Server; © Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;2"
+                  description="Loads data into an ADO.NET-compliant database that uses a database table or view. Load data into a new or existing table. For example, use an ADO.NET provider for ODBC to load data into an ODBC destination."
+                  name="Populate stg table"
+                  usesDispositions="true"
+                  version="2">
+                  <properties>
+                    <property
+                      dataType="System.String"
+                      description="The Destination database table name."
+                      expressionType="Notify"
+                      name="TableOrViewName"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">"stg"."stg_MeasurementDeviceUnitGroups"</property>
+                    <property
+                      dataType="System.Int32"
+                      description="Specify the number of rows per batch. The default is 0 which uses the same size as SSIS internal buffer. "
+                      expressionType="Notify"
+                      name="BatchSize">0</property>
+                    <property
+                      dataType="System.Int32"
+                      description="The number of seconds before a command times out. A value of 0 indicates infinite time-out. "
+                      expressionType="Notify"
+                      name="CommandTimeout">30</property>
+                    <property
+                      dataType="System.Boolean"
+                      description="Specifies whether to use the SqlBulkCopy interface to improve the performance of bulk insert operations. Only certain providers support this interface."
+                      expressionType="Notify"
+                      name="UseBulkInsertWhenPossible">true</property>
+                    <property
+                      dataType="System.String"
+                      name="UserComponentTypeName">Microsoft.ADONETDestination</property>
+                  </properties>
+                  <connections>
+                    <connection
+                      refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Connections[IDbConnection]"
+                      connectionManagerID="{5D340525-F86F-4A09-8F4F-C17373323AB0}:external"
+                      connectionManagerRefId="Project.ConnectionManagers[AWSCalibrator]"
+                      description="Managed connection manager"
+                      name="IDbConnection" />
+                  </connections>
+                  <inputs>
+                    <input
+                      refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input]"
+                      errorRowDisposition="FailComponent"
+                      hasSideEffects="true"
+                      name="ADO NET Destination Input">
+                      <inputColumns>
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].Columns[NameEn]"
+                          cachedDataType="wstr"
+                          cachedLength="50"
+                          cachedName="NameEn"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[NameEn]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[NameEn]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].Columns[NameHe]"
+                          cachedDataType="wstr"
+                          cachedLength="50"
+                          cachedName="NameHe"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[NameHe]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[NameHe]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].Columns[Description]"
+                          cachedDataType="wstr"
+                          cachedLength="500"
+                          cachedName="Description"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[Description]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[Description]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].Columns[Symbol]"
+                          cachedDataType="wstr"
+                          cachedLength="5"
+                          cachedName="Symbol"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[Symbol]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[Symbol]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].Columns[HelpLink]"
+                          cachedDataType="wstr"
+                          cachedLength="150"
+                          cachedName="HelpLink"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[HelpLink]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[HelpLink]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].Columns[MeasurementDevicesUnitGroupSourceId]"
+                          cachedDataType="i4"
+                          cachedName="MeasurementDevicesUnitGroupSourceId"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[MeasurementDevicesUnitGroupSourceId]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output].Columns[MeasurementDevicesUnitGroupSourceId]" />
+                      </inputColumns>
+                      <externalMetadataColumns
+                        isUsed="True">
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[NameEn]"
+                          dataType="wstr"
+                          length="50"
+                          name="NameEn" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[NameHe]"
+                          dataType="wstr"
+                          length="50"
+                          name="NameHe" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[Description]"
+                          dataType="wstr"
+                          length="500"
+                          name="Description" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[Symbol]"
+                          dataType="wstr"
+                          length="5"
+                          name="Symbol" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[HelpLink]"
+                          dataType="wstr"
+                          length="150"
+                          name="HelpLink" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[MeasurementDevicesUnitGroupSourceId]"
+                          dataType="i4"
+                          name="MeasurementDevicesUnitGroupSourceId" />
+                      </externalMetadataColumns>
+                    </input>
+                  </inputs>
+                  <outputs>
+                    <output
+                      refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Outputs[ADO NET Destination Error Output]"
+                      exclusionGroup="1"
+                      isErrorOut="true"
+                      name="ADO NET Destination Error Output"
+                      synchronousInputId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input]">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
+                          name="ErrorCode"
+                          specialFlags="1" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
+                          name="ErrorColumn"
+                          specialFlags="2" />
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                  </outputs>
+                </component>
+              </components>
+              <paths>
+                <path
+                  refId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup.Paths[ADO NET Source Output]"
+                  endId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table.Inputs[ADO NET Destination Input]"
+                  name="ADO NET Source Output"
+                  startId="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data.Outputs[ADO NET Source Output]" />
+              </paths>
+            </pipeline>
+          </DTS:ObjectData>
+        </DTS:Executable>
+        <DTS:Executable
+          DTS:refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits"
+          DTS:CreationName="Microsoft.Pipeline"
+          DTS:Description="Data Flow Task"
+          DTS:DTSID="{D37D5FF2-6094-4A63-B10D-B3D2858B628B}"
+          DTS:ExecutableType="Microsoft.Pipeline"
+          DTS:LocaleID="-1"
+          DTS:ObjectName="Load stg MeasurementDeviceUnits"
+          DTS:TaskContact="Performs high-performance data extraction, transformation and loading;Microsoft Corporation; Microsoft SQL Server; (C) Microsoft Corporation; All Rights Reserved;http://www.microsoft.com/sql/support/default.asp;1">
+          <DTS:Variables />
+          <DTS:ObjectData>
+            <pipeline
+              version="1">
+              <components>
+                <component
+                  refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data"
+                  componentClassID="Microsoft.ManagedComponentHost"
+                  contactInfo="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server.;Microsoft Corporation; Microsoft SQL Server; © Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;4"
+                  description="Consumes data from SQL Server, OLE DB, ODBC, or Oracle, using the corresponding .NET Framework data provider. Use a Transact-SQL statement to define the result set. For example, extract data from SQL Server with the .NET Framework data provider for SQL Server."
+                  name="Get source data"
+                  usesDispositions="true"
+                  version="4">
+                  <properties>
+                    <property
+                      dataType="System.String"
+                      description="Specifies the SQL statement used by the component to extract data."
+                      expressionType="Notify"
+                      name="SqlCommand"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT u.[ID] as [MeasurementDeviceUnitSourceId]
+      ,u.[ShortNameEn]
+      ,u.[ShortNameEnAsc]
+      ,u.[LongNameEn]
+      ,u.[ShortNameHeAsc]
+      ,u.[ShortNameHe]
+      ,u.[LongNameHe]
+      ,u.[GroupID] as [MeasurementDevicesUnitGroupSourceId]
+      ,u.[Note]
+  FROM [kyulan].[dbo].[tblUnits] as u</property>
+                    <property
+                      dataType="System.Int32"
+                      description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
+                      name="CommandTimeout">30</property>
+                    <property
+                      dataType="System.Boolean"
+                      description="Indicates whether to allow non-string external columns to be implicitly converted to strings at the output columns."
+                      name="AllowImplicitStringConversion">true</property>
+                    <property
+                      dataType="System.String"
+                      description="The Source database table name."
+                      expressionType="Notify"
+                      name="TableOrViewName"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor"></property>
+                    <property
+                      dataType="System.Int32"
+                      description="Specify the mode to retrieve external column information"
+                      name="AccessMode"
+                      typeConverter="Microsoft.SqlServer.Dts.Pipeline.DataReaderSourceAdapter+EnumToStringConverter">2</property>
+                    <property
+                      dataType="System.String"
+                      name="UserComponentTypeName">Microsoft.DataReaderSourceAdapter</property>
+                  </properties>
+                  <connections>
+                    <connection
+                      refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Connections[IDbConnection]"
+                      connectionManagerID="{95E35362-CA6B-4BF3-9F4B-9688C3DCFB10}:external"
+                      connectionManagerRefId="Project.ConnectionManagers[OnPremPriority]"
+                      description="Managed connection manager"
+                      name="IDbConnection" />
+                  </connections>
+                  <outputs>
+                    <output
+                      refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output]"
+                      name="ADO NET Source Output">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[MeasurementDeviceUnitSourceId]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MeasurementDeviceUnitSourceId]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[MeasurementDeviceUnitSourceId]"
+                          name="MeasurementDeviceUnitSourceId"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[ShortNameEn]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShortNameEn]"
+                          length="10"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[ShortNameEn]"
+                          name="ShortNameEn"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[ShortNameEnAsc]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShortNameEnAsc]"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[ShortNameEnAsc]"
+                          name="ShortNameEnAsc"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[LongNameEn]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[LongNameEn]"
+                          length="100"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[LongNameEn]"
+                          name="LongNameEn"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[ShortNameHeAsc]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShortNameHeAsc]"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[ShortNameHeAsc]"
+                          name="ShortNameHeAsc"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[ShortNameHe]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShortNameHe]"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[ShortNameHe]"
+                          name="ShortNameHe"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[LongNameHe]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[LongNameHe]"
+                          length="100"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[LongNameHe]"
+                          name="LongNameHe"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[MeasurementDevicesUnitGroupSourceId]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MeasurementDevicesUnitGroupSourceId]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[MeasurementDevicesUnitGroupSourceId]"
+                          name="MeasurementDevicesUnitGroupSourceId"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[Note]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[Note]"
+                          length="500"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[Note]"
+                          name="Note"
+                          truncationRowDisposition="FailComponent" />
+                      </outputColumns>
+                      <externalMetadataColumns
+                        isUsed="True">
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MeasurementDeviceUnitSourceId]"
+                          dataType="i4"
+                          name="MeasurementDeviceUnitSourceId" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShortNameEn]"
+                          dataType="wstr"
+                          length="10"
+                          name="ShortNameEn" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShortNameEnAsc]"
+                          dataType="wstr"
+                          length="50"
+                          name="ShortNameEnAsc" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[LongNameEn]"
+                          dataType="wstr"
+                          length="100"
+                          name="LongNameEn" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShortNameHeAsc]"
+                          dataType="wstr"
+                          length="50"
+                          name="ShortNameHeAsc" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShortNameHe]"
+                          dataType="wstr"
+                          length="50"
+                          name="ShortNameHe" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[LongNameHe]"
+                          dataType="wstr"
+                          length="100"
+                          name="LongNameHe" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MeasurementDevicesUnitGroupSourceId]"
+                          dataType="i4"
+                          name="MeasurementDevicesUnitGroupSourceId" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].ExternalColumns[Note]"
+                          dataType="wstr"
+                          length="500"
+                          name="Note" />
+                      </externalMetadataColumns>
+                    </output>
+                    <output
+                      refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output]"
+                      isErrorOut="true"
+                      name="ADO NET Source Error Output">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[MeasurementDeviceUnitSourceId]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[MeasurementDeviceUnitSourceId]"
+                          name="MeasurementDeviceUnitSourceId" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[ShortNameEn]"
+                          dataType="wstr"
+                          length="10"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[ShortNameEn]"
+                          name="ShortNameEn" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[ShortNameEnAsc]"
+                          dataType="wstr"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[ShortNameEnAsc]"
+                          name="ShortNameEnAsc" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[LongNameEn]"
+                          dataType="wstr"
+                          length="100"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[LongNameEn]"
+                          name="LongNameEn" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[ShortNameHeAsc]"
+                          dataType="wstr"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[ShortNameHeAsc]"
+                          name="ShortNameHeAsc" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[ShortNameHe]"
+                          dataType="wstr"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[ShortNameHe]"
+                          name="ShortNameHe" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[LongNameHe]"
+                          dataType="wstr"
+                          length="100"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[LongNameHe]"
+                          name="LongNameHe" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[MeasurementDevicesUnitGroupSourceId]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[MeasurementDevicesUnitGroupSourceId]"
+                          name="MeasurementDevicesUnitGroupSourceId" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[Note]"
+                          dataType="wstr"
+                          length="500"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[Note]"
+                          name="Note" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
+                          name="ErrorCode"
+                          specialFlags="1" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorColumn]"
+                          name="ErrorColumn"
+                          specialFlags="2" />
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                  </outputs>
+                </component>
+                <component
+                  refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table"
+                  componentClassID="Microsoft.ManagedComponentHost"
+                  contactInfo="Loads data into an ADO.NET-compliant database that uses a database table or view. Load data into a new or existing table. For example, use an ADO.NET provider for ODBC to load data into an ODBC destination.;Microsoft Corporation; Microsoft SQL Server; © Microsoft Corporation; All Rights Reserved; http://www.microsoft.com/sql/support;2"
+                  description="Loads data into an ADO.NET-compliant database that uses a database table or view. Load data into a new or existing table. For example, use an ADO.NET provider for ODBC to load data into an ODBC destination."
+                  name="Populate stg table"
+                  usesDispositions="true"
+                  version="2">
+                  <properties>
+                    <property
+                      dataType="System.String"
+                      description="The Destination database table name."
+                      expressionType="Notify"
+                      name="TableOrViewName"
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">"stg"."stg_MeasurementDeviceUnits"</property>
+                    <property
+                      dataType="System.Int32"
+                      description="Specify the number of rows per batch. The default is 0 which uses the same size as SSIS internal buffer. "
+                      expressionType="Notify"
+                      name="BatchSize">0</property>
+                    <property
+                      dataType="System.Int32"
+                      description="The number of seconds before a command times out. A value of 0 indicates infinite time-out. "
+                      expressionType="Notify"
+                      name="CommandTimeout">30</property>
+                    <property
+                      dataType="System.Boolean"
+                      description="Specifies whether to use the SqlBulkCopy interface to improve the performance of bulk insert operations. Only certain providers support this interface."
+                      expressionType="Notify"
+                      name="UseBulkInsertWhenPossible">true</property>
+                    <property
+                      dataType="System.String"
+                      name="UserComponentTypeName">Microsoft.ADONETDestination</property>
+                  </properties>
+                  <connections>
+                    <connection
+                      refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Connections[IDbConnection]"
+                      connectionManagerID="{5D340525-F86F-4A09-8F4F-C17373323AB0}:external"
+                      connectionManagerRefId="Project.ConnectionManagers[AWSCalibrator]"
+                      description="Managed connection manager"
+                      name="IDbConnection" />
+                  </connections>
+                  <inputs>
+                    <input
+                      refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input]"
+                      errorRowDisposition="FailComponent"
+                      hasSideEffects="true"
+                      name="ADO NET Destination Input">
+                      <inputColumns>
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].Columns[MeasurementDeviceUnitSourceId]"
+                          cachedDataType="i4"
+                          cachedName="MeasurementDeviceUnitSourceId"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[MeasurementDeviceUnitSourceId]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[MeasurementDeviceUnitSourceId]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].Columns[ShortNameEn]"
+                          cachedDataType="wstr"
+                          cachedLength="10"
+                          cachedName="ShortNameEn"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[ShortNameEn]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[ShortNameEn]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].Columns[ShortNameEnAsc]"
+                          cachedDataType="wstr"
+                          cachedLength="50"
+                          cachedName="ShortNameEnAsc"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[ShortNameEnAsc]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[ShortNameEnAsc]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].Columns[LongNameEn]"
+                          cachedDataType="wstr"
+                          cachedLength="100"
+                          cachedName="LongNameEn"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[LongNameEn]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[LongNameEn]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].Columns[ShortNameHeAsc]"
+                          cachedDataType="wstr"
+                          cachedLength="50"
+                          cachedName="ShortNameHeAsc"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[ShortNameHeAsc]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[ShortNameHeAsc]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].Columns[ShortNameHe]"
+                          cachedDataType="wstr"
+                          cachedLength="50"
+                          cachedName="ShortNameHe"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[ShortNameHe]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[ShortNameHe]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].Columns[LongNameHe]"
+                          cachedDataType="wstr"
+                          cachedLength="100"
+                          cachedName="LongNameHe"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[LongNameHe]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[LongNameHe]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].Columns[Note]"
+                          cachedDataType="wstr"
+                          cachedLength="500"
+                          cachedName="Note"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[Note]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[Note]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].Columns[MeasurementDevicesUnitGroupSourceId]"
+                          cachedDataType="i4"
+                          cachedName="MeasurementDevicesUnitGroupSourceId"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[MeasurementDeviceUnitGroupId]"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output].Columns[MeasurementDevicesUnitGroupSourceId]" />
+                      </inputColumns>
+                      <externalMetadataColumns
+                        isUsed="True">
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[ShortNameEn]"
+                          dataType="wstr"
+                          length="10"
+                          name="ShortNameEn" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[ShortNameEnAsc]"
+                          dataType="wstr"
+                          length="50"
+                          name="ShortNameEnAsc" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[LongNameEn]"
+                          dataType="wstr"
+                          length="100"
+                          name="LongNameEn" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[ShortNameHeAsc]"
+                          dataType="wstr"
+                          length="50"
+                          name="ShortNameHeAsc" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[ShortNameHe]"
+                          dataType="wstr"
+                          length="50"
+                          name="ShortNameHe" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[LongNameHe]"
+                          dataType="wstr"
+                          length="100"
+                          name="LongNameHe" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[MeasurementDeviceUnitGroupId]"
+                          dataType="i4"
+                          name="MeasurementDeviceUnitGroupId" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[Note]"
+                          dataType="wstr"
+                          length="500"
+                          name="Note" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[MeasurementDeviceUnitSourceId]"
+                          dataType="i4"
+                          name="MeasurementDeviceUnitSourceId" />
+                      </externalMetadataColumns>
+                    </input>
+                  </inputs>
+                  <outputs>
+                    <output
+                      refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Outputs[ADO NET Destination Error Output]"
+                      exclusionGroup="1"
+                      isErrorOut="true"
+                      name="ADO NET Destination Error Output"
+                      synchronousInputId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input]">
+                      <outputColumns>
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorCode]"
+                          name="ErrorCode"
+                          specialFlags="1" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Outputs[ADO NET Destination Error Output].Columns[ErrorColumn]"
+                          name="ErrorColumn"
+                          specialFlags="2" />
+                      </outputColumns>
+                      <externalMetadataColumns />
+                    </output>
+                  </outputs>
+                </component>
+              </components>
+              <paths>
+                <path
+                  refId="Package\Populate staging tables\Load stg MeasurementDeviceUnits.Paths[ADO NET Source Output]"
+                  endId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table.Inputs[ADO NET Destination Input]"
+                  name="ADO NET Source Output"
+                  startId="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data.Outputs[ADO NET Source Output]" />
+              </paths>
+            </pipeline>
+          </DTS:ObjectData>
+        </DTS:Executable>
+      </DTS:Executables>
+    </DTS:Executable>
+    <DTS:Executable
+      DTS:refId="Package\Truncate staging tables"
+      DTS:CreationName="Microsoft.ExecuteSQLTask"
+      DTS:Description="Execute SQL Task"
+      DTS:DTSID="{E5CE2AAA-888C-4D25-A648-2DE42C601BDA}"
+      DTS:ExecutableType="Microsoft.ExecuteSQLTask"
+      DTS:LocaleID="-1"
+      DTS:ObjectName="Truncate staging tables"
+      DTS:ThreadHint="0">
+      <DTS:Variables />
+      <DTS:ObjectData>
+        <SQLTask:SqlTaskData
+          SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
+          SQLTask:SqlStatementSource="TRUNCATE TABLE [stg].[stg_MeasurementDeviceUnitGroups]&#xA;TRUNCATE TABLE [stg].[stg_MeasurementDeviceUnits]&#xA;TRUNCATE TABLE [stg].[stg_MeasurementDevicesMainClasses]" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
+      </DTS:ObjectData>
+    </DTS:Executable>
+  </DTS:Executables>
+  <DTS:PrecedenceConstraints>
+    <DTS:PrecedenceConstraint
+      DTS:refId="Package.PrecedenceConstraints[Constraint]"
+      DTS:CreationName=""
+      DTS:DTSID="{0D7B3B65-5D6E-49DA-8555-FEBEE574A613}"
+      DTS:From="Package\Truncate staging tables"
+      DTS:LogicalAnd="True"
+      DTS:ObjectName="Constraint"
+      DTS:To="Package\Populate staging tables" />
+    <DTS:PrecedenceConstraint
+      DTS:refId="Package.PrecedenceConstraints[Constraint 1]"
+      DTS:CreationName=""
+      DTS:DTSID="{FA540955-6F2A-4749-942E-535AD9078727}"
+      DTS:From="Package\Populate staging tables"
+      DTS:LogicalAnd="True"
+      DTS:ObjectName="Constraint 1"
+      DTS:To="Package\Execute merges in sequence" />
+    <DTS:PrecedenceConstraint
+      DTS:refId="Package.PrecedenceConstraints[Constraint 2]"
+      DTS:CreationName=""
+      DTS:DTSID="{DF64A481-AE28-4937-83DB-0B13B3BC3349}"
+      DTS:From="Package\Execute merges in sequence"
+      DTS:LogicalAnd="True"
+      DTS:ObjectName="Constraint 2"
+      DTS:To="Package\Merge data to Orders tables" />
+  </DTS:PrecedenceConstraints>
+  <DTS:DesignTimeProperties><![CDATA[<?xml version="1.0"?>
+<!--This CDATA section contains the layout information of the package. The section includes information such as (x,y) coordinates, width, and height.-->
+<!--If you manually edit this section and make a mistake, you can delete it. -->
+<!--The package will still be able to load normally but the previous layout information will be lost and the designer will automatically re-arrange the elements on the design surface.-->
+<Objects
+  Version="8">
+  <!--Each node below will contain properties that do not affect runtime behavior.-->
+  <Package
+    design-time-name="Package">
+    <LayoutInfo>
+      <GraphLayout
+        Capacity="16" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        <NodeLayout
+          Size="292,41.6"
+          Id="Package\Execute merges in sequence\Merge Measurement Device Unit Groups Data"
+          TopLeft="51.1714092531383,24.0952354521034" />
+        <NodeLayout
+          Size="260,41.6"
+          Id="Package\Execute merges in sequence\Merge Measurement Device Units Data"
+          TopLeft="61.6475994691499,130.571425187872" />
+        <EdgeLayout
+          Id="Package\Execute merges in sequence.PrecedenceConstraints[Constraint]"
+          TopLeft="194.409504361144,65.6952354521034">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,64.8761897357683"
+              Start="0,0"
+              End="0,57.3761897357683">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,57.3761897357683" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <NodeLayout
+          Size="279.2,41.6"
+          Id="Package\Execute merges in sequence\Merge Measurement Devices Main Classes"
+          TopLeft="389.333307471541,24.0666650695933" />
+        <ContainerLayout
+          HeaderHeight="43"
+          IsExpanded="True"
+          PanelSize="1404.8,227.2"
+          Size="1404.8,270.4"
+          Id="Package\Execute merges in sequence"
+          TopLeft="302.3,312.7" />
+        <NodeLayout
+          Size="207.2,41.6"
+          Id="Package\Merge data to Orders tables"
+          TopLeft="896.433317033119,616.066665602955" />
+        <NodeLayout
+          Size="268.8,41.6"
+          Id="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup"
+          TopLeft="21.7809508849232,26.647617816452" />
+        <NodeLayout
+          Size="240,41.6"
+          Id="Package\Populate staging tables\Load stg MeasurementDeviceUnits"
+          TopLeft="322.971410619078,27.8857130459378" />
+        <NodeLayout
+          Size="278.4,41.6"
+          Id="Package\Populate staging tables\Load stg Measurement Devices Main Class"
+          TopLeft="594.638062754748,28.5047606606806" />
+        <ContainerLayout
+          HeaderHeight="43"
+          IsExpanded="True"
+          PanelSize="1998.4,132.8"
+          Size="1998.4,176"
+          Id="Package\Populate staging tables"
+          TopLeft="5.5,107.1" />
+        <NodeLayout
+          Size="186.4,41.6"
+          Id="Package\Truncate staging tables"
+          TopLeft="917.9,5.49999999999973" />
+        <EdgeLayout
+          Id="Package.PrecedenceConstraints[Constraint]"
+          TopLeft="1007.9,47.0999999999997">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,60.0000000000003"
+              Start="0,0"
+              End="0,52.5000000000003">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,52.5000000000003" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
+          Id="Package.PrecedenceConstraints[Constraint 1]"
+          TopLeft="1004.7,283.1">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,29.6"
+              Start="0,0"
+              End="0,22.1">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,22.1" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
+          Id="Package.PrecedenceConstraints[Constraint 2]"
+          TopLeft="1002.36665851656,583.1">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,32.9666656029551"
+              Start="0,0"
+              End="0,25.4666656029551">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,25.4666656029551" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+      </GraphLayout>
+    </LayoutInfo>
+  </Package>
+  <TaskHost
+    design-time-name="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup">
+    <LayoutInfo>
+      <GraphLayout
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        <NodeLayout
+          Size="161.6,41.6"
+          Id="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table"
+          TopLeft="190.999997153878,204.999996945262" />
+        <NodeLayout
+          Size="152,41.6"
+          Id="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data"
+          TopLeft="188.999997183681,95.9999985694886" />
+        <EdgeLayout
+          Id="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup.Paths[ADO NET Source Output]"
+          TopLeft="268.399997168779,137.599998569489">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,67.3999983757734"
+              Start="0,0"
+              End="0,59.8999983757734">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,59.8999983757734" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+      </GraphLayout>
+    </LayoutInfo>
+  </TaskHost>
+  <PipelineComponentMetadata
+    design-time-name="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Populate stg table">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <PipelineComponentMetadata
+    design-time-name="Package\Populate staging tables\Load stg MeasurementDevicesUnitGroup\Get source data">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <TaskHost
+    design-time-name="Package\Populate staging tables\Load stg MeasurementDeviceUnits">
+    <LayoutInfo>
+      <GraphLayout
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        <NodeLayout
+          Size="152,41.6"
+          Id="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data"
+          TopLeft="176.999997362494,82.9999987632036" />
+        <NodeLayout
+          Size="161.6,41.6"
+          Id="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table"
+          TopLeft="167.999997496605,178.999997332692" />
+        <EdgeLayout
+          Id="Package\Populate staging tables\Load stg MeasurementDeviceUnits.Paths[ADO NET Source Output]"
+          TopLeft="250.89999742955,124.599998763204">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,54.3999985694886"
+              Start="0,0"
+              End="0,46.8999985694886">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,46.8999985694886" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+      </GraphLayout>
+    </LayoutInfo>
+  </TaskHost>
+  <PipelineComponentMetadata
+    design-time-name="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Get source data">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <PipelineComponentMetadata
+    design-time-name="Package\Populate staging tables\Load stg MeasurementDeviceUnits\Populate stg table">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <TaskHost
+    design-time-name="Package\Populate staging tables\Load stg Measurement Devices Main Class">
+    <LayoutInfo>
+      <GraphLayout
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        <NodeLayout
+          Size="161.6,41.6"
+          Id="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table"
+          TopLeft="280.999995812774,247.999996304512" />
+        <NodeLayout
+          Size="152,41.6"
+          Id="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data"
+          TopLeft="282.999995782971,110.999998345971" />
+        <EdgeLayout
+          Id="Package\Populate staging tables\Load stg Measurement Devices Main Class.Paths[ADO NET Source Output]"
+          TopLeft="360.399995797873,152.599998345971">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="0,95.3999979585409"
+              Start="0,0"
+              End="0,87.8999979585409">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="0,87.8999979585409" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+      </GraphLayout>
+    </LayoutInfo>
+  </TaskHost>
+  <PipelineComponentMetadata
+    design-time-name="Package\Populate staging tables\Load stg Measurement Devices Main Class\Populate stg table">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+  <PipelineComponentMetadata
+    design-time-name="Package\Populate staging tables\Load stg Measurement Devices Main Class\Get source data">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
+</Objects>]]></DTS:DesignTimeProperties>
+</DTS:Executable>

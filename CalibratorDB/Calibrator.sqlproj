@@ -74,11 +74,9 @@
     <Folder Include="etl\Stored Procedures\" />
   </ItemGroup>
   <ItemGroup>
-    <Build Include="dbo\Tables\DeviceTypes.sql" />
     <Build Include="dbo\Tables\MeasurementDevicesSubClass.sql" />
     <Build Include="dbo\Tables\MeasurementDevices.sql" />
     <Build Include="dbo\Tables\ConversionParameters.sql" />
-    <Build Include="dbo\Tables\MeasurementDeviceStatus.sql" />
     <Build Include="dbo\Tables\CalibratorsToWorkPlan.sql" />
     <Build Include="dbo\Tables\MeasurementDevicesParents.sql" />
     <Build Include="dbo\Tables\Translate.sql" />
@@ -100,7 +98,6 @@
     <Build Include="dbo\Tables\Statuses.sql" />
     <Build Include="dbo\Tables\Cars.sql" />
     <Build Include="dbo\Tables\MeasurementDevicesCorrections.sql" />
-    <Build Include="dbo\Tables\UnitGroups.sql" />
     <Build Include="dbo\Tables\CarsToEquipment.sql" />
     <Build Include="dbo\Tables\Departments.sql" />
     <Build Include="dbo\Views\vwGetDepartmentOrdersByUserId.sql" />
@@ -229,6 +226,14 @@
     <Build Include="dbo\Stored Procedures\GetAllOrderDeviceSecondaryCategories.sql" />
     <Build Include="dbo\Stored Procedures\GetAllOrderDeviceMainCategories.sql" />
     <Build Include="dbo\Stored Procedures\GetAllOrderClients.sql" />
+    <Build Include="stg\Tables\stg_MeasurementDeviceUnits.sql" />
+    <Build Include="stg\Tables\stg_MeasurementDeviceUnitGroups.sql" />
+    <Build Include="stg\Tables\stg_MeasurementDevicesMainClasses.sql" />
+    <Build Include="dbo\Tables\MeasurementDeviceUnits.sql" />
+    <Build Include="dbo\Tables\MeasurementDeviceUnitGroups.sql" />
+    <Build Include="stg\Stored Procedures\MergeMeasurementDeviceUnitsData.sql" />
+    <Build Include="stg\Stored Procedures\MergeMeasurementDeviceUnitGroupsData.sql" />
+    <Build Include="stg\Stored Procedures\MergeMeasurementDevicesMainClasses.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />
