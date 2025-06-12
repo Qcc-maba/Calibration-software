@@ -234,6 +234,21 @@
     <Build Include="stg\Stored Procedures\MergeMeasurementDeviceUnitsData.sql" />
     <Build Include="stg\Stored Procedures\MergeMeasurementDeviceUnitGroupsData.sql" />
     <Build Include="stg\Stored Procedures\MergeMeasurementDevicesMainClasses.sql" />
+    <Build Include="stg\Tables\stg_MeasurementsToMeasurmentUnits.sql" />
+    <Build Include="stg\Tables\stg_MeasurementsSpecifications.sql" />
+    <Build Include="stg\Tables\stg_Measurements.sql" />
+    <Build Include="stg\Tables\stg_MeasurementDevicesSubClass.sql" />
+    <Build Include="stg\Tables\stg_MeasurementDevicesManufacturers.sql" />
+    <Build Include="stg\Tables\stg_MeasurementDeviceParents.sql" />
+    <Build Include="dbo\Tables\MeasurementsToMeasurmentUnits.sql" />
+    <Build Include="dbo\Tables\MeasurementsSpecifications.sql" />
+    <Build Include="dbo\Tables\MeasurementDeviceParents.sql" />
+    <Build Include="stg\Stored Procedures\MergeMeasurementsToMeasurmentUnitsData.sql" />
+    <Build Include="stg\Stored Procedures\MergeMeasurementsSpecificationsData.sql" />
+    <Build Include="stg\Stored Procedures\MergeMeasurementsData.sql" />
+    <Build Include="stg\Stored Procedures\MergeMeasurementDevicesSubClassData.sql" />
+    <Build Include="stg\Stored Procedures\MergeMeasurementDevicesManufacturersData.sql" />
+    <Build Include="stg\Stored Procedures\MergeMeasurementDeviceParentsData.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />

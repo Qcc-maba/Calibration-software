@@ -12,8 +12,8 @@
   DTS:ObjectName="PostDeployDataMigration"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="62"
-  DTS:VersionGUID="{5B2E9722-6FC8-4A08-A42D-E9BD4AF7F86F}">
+  DTS:VersionBuild="63"
+  DTS:VersionGUID="{FE737E6E-CD50-42B0-B988-C0F9F9DD9578}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables>
@@ -1028,6 +1028,7 @@ ORDER BY LTRIM(RTRIM([Email]))</property>
           DTS:CreationName="Microsoft.Pipeline"
           DTS:DelayValidation="True"
           DTS:Description="Data Flow Task"
+          DTS:Disabled="True"
           DTS:DTSID="{0A402C55-43E0-4C7B-B2D0-DF729CA758FF}"
           DTS:ExecutableType="Microsoft.Pipeline"
           DTS:LocaleID="-1"
@@ -5564,6 +5565,7 @@ ORDER  BY s.StatusDescriptionHEB</property>
           DTS:CreationName="Microsoft.Pipeline"
           DTS:DelayValidation="True"
           DTS:Description="Data Flow Task"
+          DTS:Disabled="True"
           DTS:DTSID="{E9322FD0-58E0-4C0A-BB5E-6019B63F3AAB}"
           DTS:ExecutableType="Microsoft.Pipeline"
           DTS:LocaleID="-1"
@@ -5895,6 +5897,7 @@ ORDER  BY s.StatusDescriptionHEB</property>
           DTS:CreationName="Microsoft.Pipeline"
           DTS:DelayValidation="True"
           DTS:Description="Data Flow Task"
+          DTS:Disabled="True"
           DTS:DTSID="{181A9415-A884-49CF-B581-E200423E544A}"
           DTS:ExecutableType="Microsoft.Pipeline"
           DTS:LocaleID="-1"
@@ -7055,17 +7058,13 @@ WHERE rn=1</property>
       <GraphLayout
         Capacity="16" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
-          Size="198.4,41.6"
-          Id="Package\Sequence Container\Migrate car data\Get cars data from source"
-          TopLeft="99.9999945362411,38.1333330681589" />
-        <NodeLayout
-          Size="149.6,41.6"
-          Id="Package\Sequence Container\Migrate car data\Insert cars data"
-          TopLeft="198.333322496878,299.866664581431" />
-        <NodeLayout
           Size="150.4,41.6"
           Id="Package\Sequence Container\Migrate car data\Get list of users"
           TopLeft="344.16664786223,40.2666677996847" />
+        <NodeLayout
+          Size="198.4,41.6"
+          Id="Package\Sequence Container\Migrate car data\Get cars data from source"
+          TopLeft="99.9999945362411,38.1333330681589" />
         <NodeLayout
           Size="129.6,41.6"
           Id="Package\Sequence Container\Migrate car data\Merge Join"
@@ -7074,6 +7073,10 @@ WHERE rn=1</property>
           Size="144.8,41.6"
           Id="Package\Sequence Container\Migrate car data\Add car status"
           TopLeft="209.999988526107,220.999998463194" />
+        <NodeLayout
+          Size="149.6,41.6"
+          Id="Package\Sequence Container\Migrate car data\Insert cars data"
+          TopLeft="198.333322496878,299.866664581431" />
         <EdgeLayout
           Id="Package\Sequence Container\Migrate car data.Paths[Merge Join Output]"
           TopLeft="285.683321472424,178.533332381116">
