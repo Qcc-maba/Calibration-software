@@ -75,9 +75,8 @@ CalibratorId INT
 )
 INSERT #Calibrators(CalibratorId)
 SELECT u.ID FROM [dbo].[Users] as u 
-JOIN [dbo].[UsersToUserRoles] as r ON u.ID = r.UserId
-WHERE u.IsActive = 1 AND r.UserRoleId = 3 --Calibrator
-    AND r.IsDeleted = 0
+JOIN [dbo].[UserRoles] as r ON u.UserRoleId = r.UserRoleId
+WHERE u.IsActive = 1 AND r.UserRoleDescriptionENG='Calibrator' --Calibrator
 	AND (
 u.LastName LIKE '%'+@CalibratorFullName+'%' 
 		OR u.FirstName LIKE '%'+@CalibratorFullName+'%'
@@ -112,45 +111,45 @@ CONCAT(
 'SELECT ce.[ID] AS EquipmentId
       ,ce.[DepartmentId]
 	  ,d.[DepartmentName]
-      ,ce.[StatusId]
+      ,ce.MeasurementDeviceStatusId as [StatusId]
 	  ,s.StatusDescriptionENG	
 	  ,s.StatusDescriptionHEB
-      ,ce.[EquipmentName]
+      ,ce.[Description] as EquipmentName
       ,ce.[SerialNumber]
       ,ce.[CalibratorId]
 	  ,CONCAT(u.FirstName, '' '', u.LastName) as CalibratorFullName
-      ,mc.EquipmentMainClassNameHEB as [MainCategory]
+      ,mc.NameHebrew as [MainCategory]
 	  ,ce.MainClassId as [MainCategoryId]
 	  ,ess.[Name] as [SecondaryCategory]
 	  ,ce.SubClassId as [SecondaryCategoryId]
-      ,ce.[NextCalibrationDate]
+      ,ce.[NextCalibration] as [NextCalibrationDate]
       ,c.[CarId]
 	  ,c.Model	
 	  ,c.LicenseNumber
 	  ,COUNT(1) OVER(PARTITION BY 1 ORDER BY ce.[ID] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
-  FROM [dbo].[CalibEquipments] as ce
+  FROM [dbo].[MeasurementDevices] as ce
   JOIN [dbo].[Departments] as d ON ce.DepartmentId = d.ID AND d.IsDeleted = 0
-  LEFT JOIN [dbo].[Statuses] as s ON s.StatusId = ce.[StatusId]
+  LEFT JOIN [dbo].[Statuses] as s ON s.StatusId = ce.[MeasurementDeviceStatusId]
   LEFT JOIN [dbo].[Users] as u ON ce.[CalibratorId] = u.ID AND u.IsActive = 1 
-  LEFT JOIN [dbo].[CarsToEquipment] as cte ON cte.EquipmentId = ce.ID AND cte.IsDeleted=0
+  LEFT JOIN [dbo].[CarsToEquipment] as cte ON cte.MeasurementDeviceId = ce.ID AND cte.IsDeleted=0
   LEFT JOIN [dbo].[Cars] as c ON c.CarId = cte.CarId AND c.IsDeleted = 0 
-  LEFT JOIN [dbo].[CalibEquipmentMainClass] as mc ON ce.MainClassId	= mc.ID
-  LEFT JOIN [dbo].[CalibEquipmentSubClass] as ess ON ce.SubClassId = ess.ID'
+  LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mc ON ce.MainClassId	= mc.Id
+  LEFT JOIN [dbo].[MeasurementDevicesSubClass] as ess ON ce.SubClassId = ess.ID'
   ,CASE WHEN @CalibratorFullName IS NOT NULL THEN ' JOIN #Calibrators as cf ON ce.[CalibratorId] = cf.[CalibratorId] ' ELSE ' ' END
-  ,CASE WHEN @StatusDescription IS NOT NULL THEN ' JOIN #StatusDescriptions as sdf ON ce.[StatusId] = sdf.[StatusId] ' ELSE ' ' END
+  ,CASE WHEN @StatusDescription IS NOT NULL THEN ' JOIN #StatusDescriptions as sdf ON ce.[MeasurementDeviceStatusId] = sdf.[StatusId] ' ELSE ' ' END
   ,'
   WHERE ce.IsDeleted = 0'
-  ,CASE WHEN @EquipmentName IS NOT NULL THEN' AND ce.[EquipmentName] = '''+ @EquipmentName+''' 'ELSE ' ' END
+  ,CASE WHEN @EquipmentName IS NOT NULL THEN' AND ce.[Description] = '''+ @EquipmentName+''' 'ELSE ' ' END
   ,CASE WHEN @SerialNumber IS NOT NULL THEN' AND ce.[SerialNumber] LIKE ''%'+ @SerialNumber+'%'' 'ELSE ' ' END
   ,CASE WHEN @DepartmentName IS NOT NULL THEN' AND d.[DepartmentName] LIKE ''%'+ @DepartmentName+'%'' 'ELSE ' ' END
   ,CASE WHEN @CarLicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] LIKE ''%'+ @CarLicenseNumber+'%'' 'ELSE ' ' END
-  ,CASE WHEN @MainCategory IS NOT NULL THEN' AND ce.[MainCategory] LIKE ''%'+ @MainCategory+'%'' 'ELSE ' ' END
-  ,CASE WHEN @StatusId IS NOT NULL THEN' AND ce.[StatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @MainCategory IS NOT NULL THEN' AND mc.NameHebrew LIKE ''%'+ @MainCategory+'%'' 'ELSE ' ' END
+  ,CASE WHEN @StatusId IS NOT NULL THEN' AND ce.[MeasurementDeviceStatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @CalibratorId IS NOT NULL THEN' AND ce.[CalibratorId] = '+CAST(@CalibratorId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @DepartmentId IS NOT NULL THEN' AND ce.[DepartmentId] = '+CAST(@DepartmentId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @CarId IS NOT NULL THEN' AND c.[CarId] = '+CAST(@CarId as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @NextCalibrationDate IS NOT NULL AND @NextCalibrationDate > '1900-01-01' THEN' AND ce.[NextCalibrationDate] = '''+CAST(@NextCalibrationDate as NVARCHAR(50))+''' 'ELSE ' ' END
-  ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ce.[EquipmentName],ce.[SerialNumber],s.StatusDescriptionHEB,u.FirstName,u.LastName,c.LicenseNumber,mc.EquipmentMainClassNameHEB,d.[DepartmentName])  LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
+  ,CASE WHEN @NextCalibrationDate IS NOT NULL AND @NextCalibrationDate > '1900-01-01' THEN' AND ce.[NextCalibration] = '''+CAST(@NextCalibrationDate as NVARCHAR(50))+''' 'ELSE ' ' END
+  ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ce.[Description],ce.[SerialNumber],s.StatusDescriptionHEB,u.FirstName,u.LastName,c.LicenseNumber,mc.NameHebrew,d.[DepartmentName])  LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql

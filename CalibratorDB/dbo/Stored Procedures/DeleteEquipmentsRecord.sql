@@ -39,8 +39,8 @@ BEGIN TRY
 	JOIN #EquipmentsIDs as d ON c.CalibEquipmentId = d.EquipmentId
 
 	UPDATE c 
-	SET c.UpdatedDate = GETDATE(), c.IsDeleted = 1
-	FROM [dbo].[CalibEquipments] as c
+	SET c.UpdateDate = GETDATE(), c.IsDeleted = 1
+	FROM [dbo].[MeasurementDevices] as c
 	JOIN #EquipmentsIDs as d ON c.ID = d.EquipmentId
 
 

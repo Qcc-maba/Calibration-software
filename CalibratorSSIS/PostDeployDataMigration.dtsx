@@ -12,8 +12,8 @@
   DTS:ObjectName="PostDeployDataMigration"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="63"
-  DTS:VersionGUID="{FE737E6E-CD50-42B0-B988-C0F9F9DD9578}">
+  DTS:VersionBuild="65"
+  DTS:VersionGUID="{3E8D606D-B740-41AE-B96D-CC7B52316D45}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables>
@@ -6255,6 +6255,12 @@ ORDER  BY s.StatusDescriptionHEB</property>
                       name="ADO NET Destination Input">
                       <inputColumns>
                         <inputColumn
+                          refId="Package\Sequence Container\Migrate users list\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[UserSourceId]"
+                          cachedDataType="i4"
+                          cachedName="UserSourceId"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate users list\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[UserSourceId]"
+                          lineageId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Output].Columns[UserSourceId]" />
+                        <inputColumn
                           refId="Package\Sequence Container\Migrate users list\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[FirstNameEng]"
                           cachedDataType="wstr"
                           cachedLength="50"
@@ -6296,6 +6302,12 @@ ORDER  BY s.StatusDescriptionHEB</property>
                           externalMetadataColumnId="Package\Sequence Container\Migrate users list\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[Phone]"
                           lineageId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Output].Columns[Phone]" />
                         <inputColumn
+                          refId="Package\Sequence Container\Migrate users list\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[UserRoleId]"
+                          cachedDataType="i4"
+                          cachedName="UserRoleId"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate users list\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[UserRoleId]"
+                          lineageId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Output].Columns[UserRoleId]" />
+                        <inputColumn
                           refId="Package\Sequence Container\Migrate users list\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[UpdateUserID]"
                           cachedDataType="i4"
                           cachedName="UpdateUserID"
@@ -6321,12 +6333,6 @@ ORDER  BY s.StatusDescriptionHEB</property>
                           cachedName="Active"
                           externalMetadataColumnId="Package\Sequence Container\Migrate users list\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[IsActive]"
                           lineageId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Output].Columns[Active]" />
-                        <inputColumn
-                          refId="Package\Sequence Container\Migrate users list\ADO NET Destination.Inputs[ADO NET Destination Input].Columns[UserRoleId]"
-                          cachedDataType="i4"
-                          cachedName="UserRoleId"
-                          externalMetadataColumnId="Package\Sequence Container\Migrate users list\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[UserRoleId]"
-                          lineageId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Output].Columns[UserRoleId]" />
                       </inputColumns>
                       <externalMetadataColumns
                         isUsed="True">
@@ -6408,6 +6414,14 @@ ORDER  BY s.StatusDescriptionHEB</property>
                           refId="Package\Sequence Container\Migrate users list\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[UserRoleId]"
                           dataType="i4"
                           name="UserRoleId" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate users list\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[PositionId]"
+                          dataType="i4"
+                          name="PositionId" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate users list\ADO NET Destination.Inputs[ADO NET Destination Input].ExternalColumns[UserSourceId]"
+                          dataType="i4"
+                          name="UserSourceId" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -6454,7 +6468,8 @@ ORDER  BY s.StatusDescriptionHEB</property>
 as
 (
 SELECT 
-       u.[FirstNameEng]
+       u.ID as [UserSourceId]
+	  ,u.[FirstNameEng]
       ,u.[LastNameEng]
       ,u.[FirstNameHeb]
       ,u.[LastNameHeb]
@@ -6473,7 +6488,8 @@ SELECT
 SELECT 
 *, 0 as [UpdateUserID]
 FROM cte
-WHERE rn=1</property>
+WHERE rn=1
+ORDER BY 1</property>
                     <property
                       dataType="System.Int32"
                       description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
@@ -6510,6 +6526,15 @@ WHERE rn=1</property>
                       refId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Output]"
                       name="ADO NET Source Output">
                       <outputColumns>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Output].Columns[UserSourceId]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Output].ExternalColumns[UserSourceId]"
+                          lineageId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Output].Columns[UserSourceId]"
+                          name="UserSourceId"
+                          truncationRowDisposition="FailComponent" />
                         <outputColumn
                           refId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Output].Columns[FirstNameEng]"
                           dataType="wstr"
@@ -6638,6 +6663,10 @@ WHERE rn=1</property>
                       <externalMetadataColumns
                         isUsed="True">
                         <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Output].ExternalColumns[UserSourceId]"
+                          dataType="i4"
+                          name="UserSourceId" />
+                        <externalMetadataColumn
                           refId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Output].ExternalColumns[FirstNameEng]"
                           dataType="wstr"
                           length="50"
@@ -6703,6 +6732,11 @@ WHERE rn=1</property>
                       isErrorOut="true"
                       name="ADO NET Source Error Output">
                       <outputColumns>
+                        <outputColumn
+                          refId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Error Output].Columns[UserSourceId]"
+                          dataType="i4"
+                          lineageId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Error Output].Columns[UserSourceId]"
+                          name="UserSourceId" />
                         <outputColumn
                           refId="Package\Sequence Container\Migrate users list\Get User data.Outputs[ADO NET Source Error Output].Columns[FirstNameEng]"
                           dataType="wstr"

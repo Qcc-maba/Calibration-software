@@ -4,7 +4,7 @@
 -- Description:	This SP should add MeasurementDevicesCorrections
 -- JiraLink: 
 -- =============================================
-CREATE    PROCEDURE dbo.CreateMeasurementDevicesCorrectionsRecord
+CREATE    PROCEDURE [dbo].[CreateMeasurementDevicesCorrectionsRecord]
 	@Value1 [decimal](25, 15),
 	@Value2 [decimal](25, 15) = NULL,
 	@Deviation [decimal](35, 15),
@@ -51,7 +51,7 @@ SELECT 1 FROM [dbo].Measurements WHERE ID = @MeasurementId
 THROW 51000, 'Incorrect Measurement value provided.', 1;
 
 IF NOT EXISTS(
-SELECT 1 FROM [dbo].Units WHERE ID = @UnitID
+SELECT 1 FROM [dbo].[MeasurementDeviceUnits] WHERE MeasurementDeviceUnitId = @UnitID
 )AND @UnitID IS NOT NULL
 THROW 51000, 'Incorrect UnitID value provided.', 1;
 
@@ -77,7 +77,7 @@ INSERT INTO [dbo].[MeasurementDevicesCorrections]
            ,[MeasurementDevicesId]
            ,[MeasurementId]
            ,[UnitID]
-           ,[DateAdded]
+           ,[CreatedDate]
            ,[CorVersion]
            ,[DepartmentId]
            ,[Equation])

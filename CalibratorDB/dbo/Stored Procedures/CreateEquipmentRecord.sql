@@ -19,10 +19,10 @@ CREATE   PROCEDURE [dbo].[CreateEquipmentRecord]
 /*
 EXEC dbo.CreateEquipmentRecord
  @DepartmentId = 1
-,@StatusId = 30
-,@EquipmentName = 'Test'
+,@StatusId = 38
+,@EquipmentName = 'Test2'
 ,@SerialNumber = '00-00-11'
-,@CalibratorId = 107
+,@CalibratorId = 38
 ,@MainCategoryId = 1
 ,@NextCalibrationDate = '2025-03-24'
 ,@CarId = 1
@@ -70,20 +70,22 @@ BEGIN TRY
 
 	BEGIN TRAN
 
-		INSERT INTO [dbo].[CalibEquipments]
-				   ([DepartmentId]
-				   ,[StatusId]
-				   ,[EquipmentName]
+		INSERT INTO [dbo].[MeasurementDevices]
+				   ([MabaID]
+				   ,[DepartmentId]
+				   ,[MeasurementDeviceStatusId]
+				   ,[Description]
 				   ,[SerialNumber]
 				   ,[CalibratorId]
 				   ,[MainClassId]	
 				   ,[SubClassId]
-				   ,[NextCalibrationDate]
+				   ,[NextCalibration]
 				   ,[UpdateUserID]
 				   )
 		VALUES 
 		(
-		 @DepartmentId
+		''
+		,@DepartmentId
 		,@StatusId
 		,@EquipmentName
 		,@SerialNumber
@@ -99,7 +101,7 @@ BEGIN TRY
 		IF @CarId IS NOT NULL
 			INSERT INTO [dbo].[CarsToEquipment]
 					   ([CarId]
-					   ,[EquipmentId]
+					   ,[MeasurementDeviceId]
 					   ,[UpdateUserID])
 
 			SELECT 
@@ -110,7 +112,8 @@ BEGIN TRY
 END TRY
 
 BEGIN CATCH
-	ROLLBACK
+	SELECT ERROR_MESSAGE()
+	ROLLBACK 
 END CATCH
 
 END

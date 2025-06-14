@@ -7,9 +7,9 @@
 -- =============================================
 CREATE  PROCEDURE [dbo].[GetAllMainCategories]
 AS
-SELECT mc.ID, 
-	   mc.EquipmentMainClassNameHEB,	
-	   mc.Description,
-	   mc.EquipmentMainClassNameENG
-FROM [dbo].[CalibEquipmentMainClass] as mc
+SELECT mc.Id, 
+	   mc.NameHebrew as EquipmentMainClassNameHEB,	
+	   NULL as Description,
+	   mc.NameEnglish as EquipmentMainClassNameENG
+FROM [dbo].[MeasurementDevicesMainClasses] as mc
 WHERE mc.IsDeleted = 0

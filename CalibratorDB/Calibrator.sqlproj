@@ -82,8 +82,6 @@
     <Build Include="dbo\Tables\Translate.sql" />
     <Build Include="dbo\Tables\UserMessages.sql" />
     <Build Include="dbo\Tables\CustomerSupportDepartmentParts.sql" />
-    <Build Include="dbo\Tables\CalibEquipments.sql" />
-    <Build Include="dbo\Tables\Units.sql" />
     <Build Include="dbo\Tables\MeasurementDevicesManufacturers.sql" />
     <Build Include="dbo\Tables\Notes.sql" />
     <Build Include="dbo\Tables\CalendarEventsToParticipants.sql" />
@@ -123,7 +121,6 @@
     <Build Include="dbo\Stored Procedures\GetExternalWorkPlanData.sql" />
     <Build Include="dbo\Stored Procedures\GetDevicesByOrder.sql" />
     <Build Include="dbo\Stored Procedures\CreateCalendarEvent.sql" />
-    <Build Include="dbo\Stored Procedures\GetExternalWorkPlanData_old.sql" />
     <Build Include="dbo\Stored Procedures\GetCalendarEvents.sql" />
     <Build Include="dbo\Stored Procedures\EditCalendarEvent.sql" />
     <Build Include="dbo\Stored Procedures\GetAllCalibrators.sql" />
@@ -144,15 +141,12 @@
     <Build Include="dbo\Stored Procedures\GetConversionParameter.sql" />
     <Build Include="dbo\Stored Procedures\CreateConversionParameter.sql" />
     <None Include="4_CustomerSupportDepartmentParts.sql" />
-    <Build Include="stg\Tables\stg_Equip.sql" />
-    <Build Include="stg\Stored Procedures\MergeCalibEquipmentData.sql" />
     <Build Include="Security\stg.sql" />
     <Build Include="dbo\Stored Procedures\AssignCarToEquipment.sql" />
     <Build Include="stg\Tables\stg_Orders.sql" />
     <Build Include="stg\Stored Procedures\MergeOrdersData.sql" />
     <Build Include="dbo\Tables\OrderWorkPlans.sql" />
     <Build Include="dbo\Tables\OrderDetails.sql" />
-    <Build Include="dbo\Tables\CalibEquipmentsToOrderHeaders.sql" />
     <Build Include="dbo\Stored Procedures\GetDepartments.sql" />
     <Build Include="dbo\Stored Procedures\GetAllEquipment.sql" />
     <Build Include="dbo\Stored Procedures\AssignEquipmentToOrder.sql" />
@@ -191,8 +185,6 @@
     <Build Include="etl\Tables\CalibGetDataLog.sql" />
     <Build Include="etl\Stored Procedures\CalibGetDataLogGetSet.sql" />
     <Build Include="dbo\Stored Procedures\GetLocations.sql" />
-    <Build Include="dbo\Tables\CalibEquipmentSubClass.sql" />
-    <Build Include="dbo\Tables\CalibEquipmentMainClass.sql" />
     <Build Include="dbo\Stored Procedures\GetAllMainCategories.sql" />
     <Build Include="dbo\Stored Procedures\GetSensorByName.sql" />
     <Build Include="dbo\Stored Procedures\SplitOrder.sql" />
@@ -249,17 +241,16 @@
     <Build Include="stg\Stored Procedures\MergeMeasurementDevicesSubClassData.sql" />
     <Build Include="stg\Stored Procedures\MergeMeasurementDevicesManufacturersData.sql" />
     <Build Include="stg\Stored Procedures\MergeMeasurementDeviceParentsData.sql" />
+    <Build Include="stg\Tables\stg_MeasurementDevicesCorrections.sql" />
+    <Build Include="stg\Tables\stg_MeasurementDevices.sql" />
+    <Build Include="stg\Stored Procedures\MergeMeasurementDevicesData.sql" />
+    <Build Include="stg\Stored Procedures\MergeMeasurementDevicesCorrectionsData.sql" />
+    <Build Include="dbo\Tables\MeasurementDevicesToOrderHeaders.sql" />
+    <Build Include="stg\Tables\stg_DataLoggerIP.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="0_AddETLUser.sql" />
     <None Include="5_PopulateDepartments.sql" />
-    <None Include="MeasurementDevicesSubClass.sql" />
-    <None Include="Units.sql" />
-    <None Include="MeasurementDevicesManufacturers.sql" />
-    <None Include="Measurements.sql" />
-    <None Include="MeasurementDevicesMainClasses.sql" />
-    <None Include="MeasurementDevices.sql" />
-    <None Include="UnitGroups.sql" />
     <None Include="0_Add_UserMessages.sql" />
   </ItemGroup>
   <ItemGroup>

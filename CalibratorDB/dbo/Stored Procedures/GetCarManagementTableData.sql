@@ -82,8 +82,8 @@ CREATE TABLE #EquipmentName
 EquipmentId INT
 )
 INSERT #EquipmentName(EquipmentId)
-SELECT u.ID FROM [dbo].[CalibEquipments] as u 
-WHERE u.EquipmentName LIKE '%'+@EquipmentName+'%' and u.IsDeleted = 0
+SELECT u.ID FROM [dbo].[MeasurementDevices] as u 
+WHERE u.[Description] LIKE '%'+@EquipmentName+'%' and u.IsDeleted = 0
 END
 
 IF @StatusDescription IS NOT NULL
@@ -121,19 +121,19 @@ CONCAT(
       ,c.[AssignedCalibratorId]
 	  ,CONCAT(u.LastName,'' '', u.FirstName) as CalibratorFullName
 	  ,CONCAT(u.FirstNameEng,'' '', u.LastNameEng) as CalibratorFullNameENG
-	  ,STRING_AGG(ce.EquipmentId,'','') as EquipmentId
-	  ,STRING_AGG(e.EquipmentName,'','') as EquipmentName
+	  ,STRING_AGG(ce.MeasurementDeviceId,'','') as EquipmentId
+	  ,STRING_AGG(e.Description,'','') as EquipmentName
 	  ,COUNT(1) OVER(PARTITION BY 1 ORDER BY c.[CarId] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
   FROM [dbo].[Cars] as c
   JOIN [dbo].[Statuses] as s ON c.[CarStatusId] = s.[StatusId]
   LEFT JOIN [dbo].[Users] as u ON c.[AssignedCalibratorId] = u.[ID]
   LEFT JOIN [dbo].[Users] as u1 ON c.[OwnerId] = u1.[ID]
   LEFT JOIN [dbo].[CarsToEquipment] as ce ON c.[CarId] = ce.[CarId] AND ce.IsDeleted = 0'
-  ,CASE WHEN @AssociatedEquipmentId IS NOT NULL THEN ' JOIN #AssociatedEquipmentIDs as f ON ce.[EquipmentId] = f.[EquipmentId] ' ELSE ' ' END
+  ,CASE WHEN @AssociatedEquipmentId IS NOT NULL THEN ' JOIN #AssociatedEquipmentIDs as f ON ce.[MeasurementDeviceId] = f.[EquipmentId] ' ELSE ' ' END
   ,CASE WHEN @CalibratorFullName IS NOT NULL THEN ' JOIN #Calibrators as cf ON c.[AssignedCalibratorId] = cf.[CalibratorId] ' ELSE ' ' END
-  ,CASE WHEN @EquipmentName IS NOT NULL THEN ' JOIN #EquipmentName as cen ON ce.EquipmentId = cen.[EquipmentId] ' ELSE ' ' END
+  ,CASE WHEN @EquipmentName IS NOT NULL THEN ' JOIN #EquipmentName as cen ON ce.MeasurementDeviceId = cen.[EquipmentId] ' ELSE ' ' END
   ,CASE WHEN @StatusDescription IS NOT NULL THEN ' JOIN #StatusDescriptions as sdf ON c.[CarStatusId] = sdf.[StatusId] ' ELSE ' ' END
-  ,'LEFT JOIN [dbo].[CalibEquipments] as e ON ce.[EquipmentId] = e.ID AND e.IsDeleted = 0
+  ,'LEFT JOIN [dbo].[MeasurementDevices] as e ON ce.[MeasurementDeviceId] = e.ID  AND e.IsDeleted = 0
   WHERE c.IsDeleted = 0'
   ,CASE WHEN @LicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] = N'''+ @LicenseNumber+''' 'ELSE ' ' END
   ,CASE WHEN @Model IS NOT NULL THEN ' AND c.[Model] = N'''+ @Model+''' 'ELSE ' ' END
@@ -161,7 +161,7 @@ CONCAT(
       ,c.[AssignedCalibratorId]
 	  ,CONCAT(u.LastName,'' '', u.FirstName)
 	  ,CONCAT(u.FirstNameEng,'' '', u.LastNameEng) '
-	,CASE WHEN @GlobalSearch IS NOT NULL THEN ' HAVING CONCAT(c.[LicenseNumber],c.[Model],s.[StatusDescriptionHEB],CONCAT(u.LastName,'' '', u.FirstName),c.[TreatmentPeriod],STRING_AGG(e.EquipmentName,'','')) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
+	,CASE WHEN @GlobalSearch IS NOT NULL THEN ' HAVING CONCAT(c.[LicenseNumber],c.[Model],s.[StatusDescriptionHEB],CONCAT(u.LastName,'' '', u.FirstName),c.[TreatmentPeriod],STRING_AGG(e.Description,'','')) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
   ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql

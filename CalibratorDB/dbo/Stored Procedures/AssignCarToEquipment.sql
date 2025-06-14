@@ -38,14 +38,14 @@ IF EXISTS
 SELECT 1 FROM #Equipment WHERE EquipmentId IS NULL
 UNION ALL
 SELECT 1 FROM #Equipment as e
-  JOIN [Calibrator].[dbo].[Statuses] as s ON e.StatusId = s.StatusId
+  JOIN [dbo].[Statuses] as s ON e.StatusId = s.StatusId
   WHERE s.StatusDescriptionENG <> N'Available'
 )
 THROW 51000, 'Incorrect or inactive equipment was provided.', 1;
 
 INSERT INTO [dbo].[CarsToEquipment]
            ([CarId]
-           ,[EquipmentId]
+           ,[MeasurementDeviceId]
            ,[UpdateUserID])
 
 SELECT 
@@ -53,6 +53,6 @@ SELECT
 	e.EquipmentId,
 	@Userid
 FROM #Equipment as e 
-LEFT JOIN [dbo].[CarsToEquipment] as cte ON cte.CarId = @CarId AND e.EquipmentId = cte.EquipmentId
-WHERE cte.EquipmentId IS NULL
+LEFT JOIN [dbo].[CarsToEquipment] as cte ON cte.CarId = @CarId AND e.[EquipmentId] = cte.[MeasurementDeviceId]
+WHERE cte.[MeasurementDeviceId] IS NULL
 END

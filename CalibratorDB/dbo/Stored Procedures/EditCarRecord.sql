@@ -19,11 +19,11 @@ CREATE   PROCEDURE [dbo].[EditCarRecord]
 
 /*
 EXEC [dbo].[EditCarRecord] 
-   @CarId = 68
+   @CarId = 5
   ,@LicenseNumber = 'Tesla'
   ,@Model = 'tesla test model'
   ,@NumberOfSeats = 5
-  ,@StatusId = 29
+  ,@StatusId = 35
   ,@OwnerId = 2
   ,@AssignedCalibrator = 6
   ,@TreatmentPeriod = 10000
@@ -99,7 +99,7 @@ BEGIN TRY
 	SET IsDeleted = 1
 	WHERE CarId = @CarId
 
-	INSERT [dbo].[CarsToEquipment](CarId, EquipmentId)
+	INSERT [dbo].[CarsToEquipment](CarId, MeasurementDeviceId)
 	SELECT DISTINCT @CarId, EquipmentId
 	FROM #AssociatedEquipmentIDs
 	COMMIT

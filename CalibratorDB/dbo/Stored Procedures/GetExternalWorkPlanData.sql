@@ -99,7 +99,7 @@ BEGIN
 	)
 	INSERT #EquipmentId([OrderWorkPlanId])
 	SELECT DISTINCT ce.OrderWorkPlanId FROM dbo.ParseCSVToTable(@EquipmentIds) as f
-	JOIN [dbo].[CalibEquipmentsToOrderHeaders] as ce ON ce.CalibEquipmentId = f.Value and ce.IsDeleted = 0
+	JOIN [dbo].[CalibEquipmentsToOrderHeaders] as ce ON ce.MeasurementDeviceId = f.Value and ce.IsDeleted = 0
 
 	DROP TABLE IF EXISTS #SpecialCareTypes
 	CREATE TABLE #SpecialCareTypes
@@ -170,10 +170,10 @@ CONCAT(
 	 ) ds GROUP BY OrderWorkPlanId
 	) as sp ON wp.OrderWorkPlanId = sp.OrderWorkPlanId
 	LEFT JOIN 
-	( SELECT coh.OrderWorkPlanId, STRING_AGG(coh.CalibEquipmentId,'', '') as EquipmentIds, 
-			STRING_AGG(ce.EquipmentName,'', '') as EquipmentNames
+	( SELECT coh.OrderWorkPlanId, STRING_AGG(coh.MeasurementDeviceId,'', '') as EquipmentIds, 
+			STRING_AGG(ce.Description,'', '') as EquipmentNames
 	  FROM [dbo].[CalibEquipmentsToOrderHeaders] as coh
-	  JOIN [dbo].[CalibEquipments] as ce ON coh.CalibEquipmentId = ce.ID AND ce.IsDeleted = 0
+	  JOIN [dbo].[MeasurementDevices] as ce ON coh.MeasurementDeviceId = ce.ID AND ce.IsDeleted = 0
 	  WHERE coh.IsDeleted = 0 GROUP BY coh.OrderWorkPlanId
 	)as coh ON wp.OrderWorkPlanId = coh.OrderWorkPlanId
 	LEFT JOIN 

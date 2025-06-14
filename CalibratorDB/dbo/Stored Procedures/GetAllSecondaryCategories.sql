@@ -8,5 +8,5 @@
 CREATE  PROCEDURE [dbo].[GetAllSecondaryCategories]
 AS
 SELECT ce.ID, ce.Name as  SecondCategory
-FROM [dbo].[CalibEquipmentSubClass] as ce
+FROM [dbo].[MeasurementDevicesSubClass] as ce
 WHERE ce.IsDeleted = 0

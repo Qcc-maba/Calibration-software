@@ -19,15 +19,15 @@ CREATE   PROCEDURE [dbo].[EditEquipmentRecord]
 
 /*
 EXEC dbo.EditEquipmentRecord
-@ID = 2626
+@ID = 2518
 ,@DepartmentId = 1
-,@StatusId = 30
+,@StatusId = 38
 ,@EquipmentName = 'Test'
 ,@SerialNumber = '00-00-11'
 ,@CalibratorId = 107
 ,@MainCategoryId = 2
 ,@NextCalibrationDate = '2026-03-24'
-,@CarId = ''
+,@CarId = '1'
 */
 
 AS
@@ -40,7 +40,7 @@ IF @LoggedInUserEmail IS NOT NULL
 SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
 
 if NOT EXISTS (
-SELECT 1 FROM dbo.CalibEquipments
+SELECT 1 FROM [dbo].[MeasurementDevices]
 WHERE ID = @ID
 )
 THROW 51000, 'Incorrect @ID', 1;
@@ -78,18 +78,18 @@ BEGIN TRY
 
 	BEGIN TRAN
 		
-		DECLARE @PrevCarId INT = (SELECT TOP 1 CarId FROM [dbo].[CarsToEquipment] WHERE IsDeleted = 0 AND [EquipmentId] = @ID ORDER BY CreatedDate DESC)
+		DECLARE @PrevCarId INT = (SELECT TOP 1 CarId FROM [dbo].[CarsToEquipment] WHERE IsDeleted = 0 AND [MeasurementDeviceId] = @ID ORDER BY CreatedDate DESC)
 
-		UPDATE [dbo].[CalibEquipments]
+		UPDATE [dbo].[MeasurementDevices]
 		   SET [DepartmentId] = @DepartmentId
-			  ,[StatusId] = @StatusId
-			  ,[EquipmentName] = @EquipmentName
+			  ,[MeasurementDeviceStatusId] = @StatusId
+			  ,[Description] = @EquipmentName
 			  ,[SerialNumber] = @SerialNumber
 			  ,[CalibratorId] = @CalibratorId
 			  ,[MainClassId] = @MainCategoryId
 			  ,[SubClassId] = @SecondaryCategoryId
-			  ,[NextCalibrationDate] = @NextCalibrationDate
-			  ,[UpdatedDate] = GETDATE()
+			  ,[NextCalibration] = @NextCalibrationDate
+			  ,[UpdateDate] = GETDATE()
 			  ,[UpdateUserID] = @Userid
 		 WHERE ID = @ID
 
@@ -99,11 +99,11 @@ BEGIN TRY
 				   ,[UpdateUserID] = @Userid
 				   ,[UpdatedDate] = GETDATE()
 				   ,[IsDeleted] = IIF(@CarId IS NULL,1,0)
-			WHERE [CarId] = @PrevCarId AND [EquipmentId] = @ID AND IsDeleted = 0
+			WHERE [CarId] = @PrevCarId AND [MeasurementDeviceId] = @ID AND IsDeleted = 0
 		
 		IF @CarId IS NOT NULL
-		 AND NOT EXISTS (SELECT 1 FROM [dbo].[CarsToEquipment] WHERE [CarId] = @CarId AND [EquipmentId] = @ID AND IsDeleted = 0) 
-		INSERT [dbo].[CarsToEquipment]([CarId],[EquipmentId],[UpdateUserID])
+		 AND NOT EXISTS (SELECT 1 FROM [dbo].[CarsToEquipment] WHERE [CarId] = @CarId AND [MeasurementDeviceId] = @ID AND IsDeleted = 0) 
+		INSERT [dbo].[CarsToEquipment]([CarId],[MeasurementDeviceId],[UpdateUserID])
 		VALUES (@CarId,@ID,@Userid)
 
 	COMMIT

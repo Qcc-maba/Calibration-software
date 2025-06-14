@@ -1,5 +1,4 @@
 ﻿CREATE TABLE [dbo].[MeasurementDeviceParents] (
-    [ID]                               INT           IDENTITY (1, 1) NOT NULL,
     [MeasurementDeviceId]              INT           NOT NULL,
     [MeasurementDeviceParentId]        INT           NOT NULL,
     [MeasurementDeviceParentsSourceId] INT           NULL,

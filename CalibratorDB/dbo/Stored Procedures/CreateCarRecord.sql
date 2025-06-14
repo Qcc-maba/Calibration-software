@@ -18,10 +18,10 @@ CREATE   PROCEDURE [dbo].[CreateCarRecord]
 
 /*
 EXEC [dbo].[CreateCarRecord] 
-   @LicenseNumber = '000-001-003'
+   @LicenseNumber = '090-001-003'
   ,@Model = 'Tesla Truck'
   ,@NumberOfSeats = 5
-  ,@Status = 26
+  ,@Status = 35
   ,@TreatmentPeriod = 30000
   ,@NextTreatment = '2025-03-19'
   ,@NextTestDate = '2026-03-19'
@@ -45,8 +45,8 @@ SELECT Value FROM dbo.ParseCSVToTable(@AssociatedEquipmentIDs)
 --- Check equipment id's is valid
 if EXISTS (
 SELECT 1 FROM #AssociatedEquipmentIDs as t
-JOIN [dbo].[CalibEquipments] as e ON e.ID = t.EquipmentId
-JOIN [dbo].[Statuses] as s ON s.StatusId = e.StatusId
+JOIN [dbo].[MeasurementDevices] as e ON e.ID = t.EquipmentId
+JOIN [dbo].[Statuses] as s ON s.StatusId = e.MeasurementDeviceStatusId
 WHERE  s.StatusDescriptionENG <> 'Available'
 )
 THROW 51000, 'Incorrect or inactive equipment were found in list or equipment not in available state.', 1;
@@ -107,7 +107,7 @@ BEGIN TRY
 
 	SELECT @CarId = SCOPE_IDENTITY()
 
-	INSERT [dbo].[CarsToEquipment]([CarId],[EquipmentId])
+	INSERT [dbo].[CarsToEquipment]([CarId],[MeasurementDeviceId])
 	SELECT DISTINCT @CarId, [EquipmentId] FROM #AssociatedEquipmentIDs
 
 	COMMIT

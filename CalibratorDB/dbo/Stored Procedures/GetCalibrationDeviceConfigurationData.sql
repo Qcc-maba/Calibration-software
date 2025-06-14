@@ -25,7 +25,7 @@ SELECT
     dbo.MeasurementDevicesMainClasses.NameHebrew AS [Main class],
     dbo.MeasurementDevicesSubClass.Name AS [Sub Class],
     dbo.Measurements.NameHe AS [Measurement Name],
-    dbo.Units.LongNameHe AS Unit,
+    [dbo].[MeasurementDeviceUnits].LongNameHe AS Unit,
     Units_1.LongNameHe AS [Work Unit],
     dbo.MeasurementDevices.WorkRangeMin AS [Work Range Min],
     dbo.MeasurementDevices.WorkRangeMax AS [Work Range Max],
@@ -34,17 +34,17 @@ SELECT
     dbo.MeasurementDevices.AllowMinOOR AS [Allow OOR Min],
     dbo.MeasurementDevices.AllowMaxOOR AS [Allow OOR Max]
 FROM 
-    dbo.Units AS Units_1
-        INNER JOIN dbo.MeasurementDevices ON Units_1.ID = dbo.MeasurementDevices.WorkRangeUnit
-        RIGHT OUTER JOIN dbo.MeasurementDevicesSubClass ON dbo.MeasurementDevicesSubClass.ID = dbo.MeasurementDevices.SubClass
-        INNER JOIN dbo.MeasurementDevicesMainClasses ON dbo.MeasurementDevices.MainClass = dbo.MeasurementDevicesMainClasses.Id
+    [dbo].[MeasurementDeviceUnits] AS Units_1
+        INNER JOIN dbo.MeasurementDevices ON Units_1.MeasurementDeviceUnitId = dbo.MeasurementDevices.WorkRangeUnitId
+        RIGHT OUTER JOIN dbo.MeasurementDevicesSubClass ON dbo.MeasurementDevicesSubClass.ID = dbo.MeasurementDevices.SubClassId
+        INNER JOIN dbo.MeasurementDevicesMainClasses ON dbo.MeasurementDevices.MainClassId = dbo.MeasurementDevicesMainClasses.Id
         INNER JOIN dbo.Users ON dbo.MeasurementDevices.CalibratorId = dbo.Users.ID 
     LEFT OUTER JOIN dbo.MeasurementDevicesManufacturers 
         ON dbo.MeasurementDevices.ManufacturerId = dbo.MeasurementDevicesManufacturers.ID
     LEFT OUTER JOIN dbo.Measurements 
         ON dbo.MeasurementDevices.MeasurementId = dbo.Measurements.ID
-    LEFT OUTER JOIN dbo.Units 
-        ON dbo.MeasurementDevices.Unit = dbo.Units.ID
+    LEFT OUTER JOIN [dbo].[MeasurementDeviceUnits]
+        ON dbo.MeasurementDevices.UnitId = [dbo].[MeasurementDeviceUnits].MeasurementDeviceUnitId
 WHERE	(dbo.MeasurementDevices.MabaID = @DeviceNumber)
 
 END
