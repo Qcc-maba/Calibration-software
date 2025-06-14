@@ -1,0 +1,15 @@
+﻿:r".\1_PopulateDataUserRoles.sql"
+GO 
+:r".\2_AddETLUser.sql"
+GO
+:r".\3_Add_UserMessages.sql"
+GO 
+:r".\4_AddSourceSystems.sql"
+GO 
+:r".\5_PopulateDepartments.sql"
+GO 
+:r".\6_CustomerSupportDepartmentParts.sql"
+GO 
+:r".\7_PopulateDataForStatusesCategories.sql"
+GO 
+:r".\8_PopulateDataStatuses.sql"
