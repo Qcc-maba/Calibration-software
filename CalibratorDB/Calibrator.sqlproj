@@ -89,7 +89,6 @@
     <Build Include="dbo\Tables\Measurements.sql" />
     <Build Include="dbo\Tables\MeasurementDevicesMainClasses.sql" />
     <Build Include="dbo\Tables\CarsToOrder.sql" />
-    <Build Include="dbo\Tables\MeasurementDevicesModels.sql" />
     <Build Include="dbo\Tables\CalibratorsCertifications.sql" />
     <Build Include="dbo\Tables\Users.sql" />
     <Build Include="dbo\Tables\StatusesCategories.sql" />
@@ -140,7 +139,7 @@
     <Build Include="dbo\Stored Procedures\GetMeasurementDevicesCorrections.sql" />
     <Build Include="dbo\Stored Procedures\GetConversionParameter.sql" />
     <Build Include="dbo\Stored Procedures\CreateConversionParameter.sql" />
-    <None Include="4_CustomerSupportDepartmentParts.sql" />
+    <None Include="6_CustomerSupportDepartmentParts.sql" />
     <Build Include="Security\stg.sql" />
     <Build Include="dbo\Stored Procedures\AssignCarToEquipment.sql" />
     <Build Include="stg\Tables\stg_Orders.sql" />
@@ -192,7 +191,7 @@
     <Build Include="dbo\Stored Procedures\GetAllDeviceManufacturer.sql" />
     <Build Include="dbo\Stored Procedures\GetAllCalibrationDevices.sql" />
     <Build Include="dbo\Stored Procedures\GetAllMeasurementDevicesMainClasses.sql" />
-    <None Include="0_AddSourceSystems.sql" />
+    <None Include="4_AddSourceSystems.sql" />
     <Build Include="stg\Tables\stg_Customers.sql" />
     <Build Include="stg\Tables\stg_CustomerContacts.sql" />
     <Build Include="dbo\Tables\Source.sql" />
@@ -249,9 +248,10 @@
     <Build Include="stg\Tables\stg_DataLoggerIP.sql" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="0_AddETLUser.sql" />
+    <None Include="2_AddETLUser.sql" />
     <None Include="5_PopulateDepartments.sql" />
-    <None Include="0_Add_UserMessages.sql" />
+    <None Include="3_Add_UserMessages.sql" />
+    <None Include="PostDeployScripts_InitialDeploy_.sql" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="hebutils">
@@ -264,10 +264,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <PostDeploy Include="1_PopulateDataForStatusesCategories.sql">
+    <PostDeploy Include="7_PopulateDataForStatusesCategories.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </PostDeploy>
-    <None Include="2_PopulateDataStatuses.sql" />
-    <None Include="3_PopulateDataUserRoles.sql" />
+    <None Include="8_PopulateDataStatuses.sql" />
+    <None Include="1_PopulateDataUserRoles.sql" />
   </ItemGroup>
 </Project>

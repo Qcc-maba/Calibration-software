@@ -12,8 +12,8 @@
   DTS:ObjectName="MeasurmentDevicesSyncToAWS"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="125"
-  DTS:VersionGUID="{4A93F7E4-50B2-41A5-9653-25FD63C93607}">
+  DTS:VersionBuild="126"
+  DTS:VersionGUID="{56ADF2D2-4DF2-494C-B04B-5422E2453F1F}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:ConnectionManagers>
@@ -92,7 +92,7 @@
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
               SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
-              SQLTask:SqlStatementSource="EXEC stg.MergeMeasurementDeviceParentsData" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
+              SQLTask:SqlStatementSource="EXEC [stg].[MergeMeasurementDeviceParentsData]" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
           </DTS:ObjectData>
         </DTS:Executable>
         <DTS:Executable

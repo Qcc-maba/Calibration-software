@@ -12,8 +12,8 @@
   DTS:ObjectName="PostDeployDataMigration"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="65"
-  DTS:VersionGUID="{3E8D606D-B740-41AE-B96D-CC7B52316D45}">
+  DTS:VersionBuild="66"
+  DTS:VersionGUID="{90A54DBB-1E0D-4FE6-9C0C-8B0C3B825AAB}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables>

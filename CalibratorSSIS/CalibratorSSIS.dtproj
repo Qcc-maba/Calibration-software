@@ -26,7 +26,7 @@
           <SSIS:Property SSIS:Name="CreatorComputerName">DESKTOP-50K623D</SSIS:Property>
           <SSIS:Property SSIS:Name="Description">
           </SSIS:Property>
-          <SSIS:Property SSIS:Name="PasswordVerifier" SSIS:Sensitive="1" SSIS:Salt="EAeXroejRLo=" SSIS:IV="Fbx91LWoBPQynIQJaGKA/w==" SSIS:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc">43j26z/VZhht+kWPu2qI4tFKZTynythml7FxnI8GfQQqxKMAiQHhvDE6pq1gP9UYnPquQJ4ywmvktQFoCZ0WDkz2J21mkTZdlIVi0Q0EZCtnWcE3BzkVU5tt2HwJhPgvc7V0iiCcKclwm8TwGCqekmHa38nzbyY34WVTaLllkMOFxzVKEoBp12lYVonCiO2I</SSIS:Property>
+          <SSIS:Property SSIS:Name="PasswordVerifier" SSIS:Sensitive="1" SSIS:Salt="9D3ax3HRbwQ=" SSIS:IV="96AGcb9bgust6nzVG/hAJA==" SSIS:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc">AmjMU4yjJgwsCXxKEOoJMfdX+gpDBd8MuE7uIQKsl6Ud1VHWf2U/X1MmmMdMzkQitHOOmqszRR5UMpuNLWYZ/Pekk297wvEH/eFFeNZm1MeCfIILbmDcGLhmC5IuVd+rQaIBQ5GFFp8qmBiCLZyw+3HvYRRS8lxPh38D9IOkxqUMyA9AazFRdMcjB7DK5/lW</SSIS:Property>
           <SSIS:Property SSIS:Name="FormatVersion">1</SSIS:Property>
         </SSIS:Properties>
         <SSIS:Packages>
@@ -421,10 +421,10 @@
                 <SSIS:Property SSIS:Name="Name">OrdersSync</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionBuild">21</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">22</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionComments">
                 </SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionGUID">{76FBB935-E0B1-4EA0-8770-D77D936A185C}</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{32F98DDB-E114-49F7-9679-8FD1D92D7F34}</SSIS:Property>
                 <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
                 <SSIS:Property SSIS:Name="Description">
                 </SSIS:Property>
@@ -615,10 +615,10 @@
                 <SSIS:Property SSIS:Name="Name">PostDeployDataMigration</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionBuild">62</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">66</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionComments">
                 </SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionGUID">{5B2E9722-6FC8-4A08-A42D-E9BD4AF7F86F}</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{90A54DBB-1E0D-4FE6-9C0C-8B0C3B825AAB}</SSIS:Property>
                 <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
                 <SSIS:Property SSIS:Name="Description">
                 </SSIS:Property>
@@ -632,10 +632,10 @@
                 <SSIS:Property SSIS:Name="Name">MeasurmentDevicesSyncToAWS</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionBuild">119</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">126</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionComments">
                 </SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionGUID">{808F4D6E-C487-487F-A816-FF2765503BCE}</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{56ADF2D2-4DF2-494C-B04B-5422E2453F1F}</SSIS:Property>
                 <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
                 <SSIS:Property SSIS:Name="Description">
                 </SSIS:Property>
