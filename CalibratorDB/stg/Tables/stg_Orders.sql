@@ -20,6 +20,7 @@
     [SERN]                       INT             NULL,
     [CalibDate]                  DATETIME2 (0)   NULL,
     [VPRICE]                     DECIMAL (18, 2) NULL,
-    [PRICE]                      DECIMAL (18, 2) NULL
+    [PRICE]                      DECIMAL (18, 2) NULL,
+    [PART]                       INT             NULL
 );
 

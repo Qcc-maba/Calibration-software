@@ -64,6 +64,7 @@ USING (
       ,o.[Devicemodel] as [DeviceModel]
       ,o.[SpecialCareTypeId]
       ,o.[InHouse] as IsInHouse
+	  ,o.[PART]
       ,o.[PartName]
       ,o.[DeviceType]
       ,o.[MbaReportNumber]
@@ -112,6 +113,7 @@ WHEN MATCHED AND
 		OR COALESCE(dest.[SERN],'') <> COALESCE(source.[SERN],'')
 		OR COALESCE(dest.VPRICE,0) <> COALESCE(source.VPRICE,0)
 		OR COALESCE(dest.PRICE,0) <> COALESCE(source.PRICE,0)
+		OR COALESCE(dest.PART,0) <> COALESCE(source.PART,0)
 	)
 	THEN
 		UPDATE
@@ -135,6 +137,7 @@ WHEN MATCHED AND
 			,dest.[UpdateUserID] = source.[UpdateUserID]
 		    ,dest.VPRICE = source.VPRICE
 		    ,dest.PRICE = source.PRICE
+			,dest.PART = source.PART
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -160,6 +163,7 @@ WHEN NOT MATCHED BY TARGET
 			,[CreatedByUserId]
 			,[VPRICE]
 			,[PRICE]
+			,[PART]
 			)
 		VALUES (
 			source.[OrderWorkPlanId]
@@ -184,6 +188,7 @@ WHEN NOT MATCHED BY TARGET
 			,source.[CreatedByUserId]
 			,source.[VPRICE]
 			,source.[PRICE]
+			,source.[PART]
 			);
 
 

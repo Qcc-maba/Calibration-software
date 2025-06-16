@@ -26,6 +26,7 @@
     [IsCancelled]                BIT             DEFAULT ((0)) NOT NULL,
     [VPRICE]                     DECIMAL (18, 2) NULL,
     [PRICE]                      DECIMAL (18, 2) NULL,
+    [PART]                       INT             NULL,
     CONSTRAINT [PK_OrderDetails] PRIMARY KEY CLUSTERED ([OrderDetailId] ASC, [OrderWorkPlanId] ASC),
     CONSTRAINT [FK_OrderDetails] FOREIGN KEY ([SpecialCareTypeId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_OrderDetails_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[Users] ([ID]),

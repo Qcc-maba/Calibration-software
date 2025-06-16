@@ -35,8 +35,8 @@ THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
 		  ,md.WorkRangeMax as UpperDomainBorder 
 		  ,m.NameHe as MeasurmentName
 		  ,d.DepartmentName
-		  ,md.[IP] as [IP]
-		  ,md.Resolution
+		  ,COALESCE(md.[IP],''0.0.0.0:0000'') as [IP]
+		  ,COALESCE(md.Resolution,60) as Resolution
 		  ,CASE WHEN mc.NameEnglish = ''Sensor'' THEN 60 ELSE 30 END as ChannelsNumber
 		  ,CASE WHEN mc.NameEnglish = ''Sensor'' AND Description LIKE ''%TC-K%'' THEN ''2W''
 				WHEN mc.NameEnglish = ''Sensor'' THEN ''4W'' 

@@ -113,6 +113,7 @@ DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 'SELECT wp.[OrderNumber] AS [OrderNumber],
         MAX(od.[CalibDate]) AS [Date],
+		MAX(od.[CustomerId]) as [CustomerId], 
         spc.[SpecialCares],
         c.[CustomerName] as [ClientName],
         c.[CustomerCity] as [Location],
@@ -132,6 +133,8 @@ CONCAT(
 		STRING_AGG(od.DeviceModel,'','') AS DeviceModel,
 	    MAX(od.VPRICE) as VPRICE,
 	    MAX(od.PRICE) as PRICE,
+		MAX(od.[PartName]) as PartName, 
+		MAX(od.[OrderDetailId]) as OrderDetailId,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
     ,IIF((SELECT COUNT(*) FROM #FilteredDetails) > 0,' JOIN #FilteredDetails as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId ',' ')
@@ -214,7 +217,8 @@ CONCAT(
 		  THEN ' HAVING MAX(od.[CalibDate]) >= '''+CAST(@DateFrom AS NVARCHAR(20))+''' AND MAX(od.[CalibDate]) <= '''+CAST(@DateTo AS NVARCHAR(20))+''''
 	  ELSE ' ' END
   ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
-PRINT LEN(@sql)
+PRINT LEN(REPLACE(@sql, '    ', ' '))
+SET @sql = REPLACE(@sql, '    ', ' ')
 PRINT @sql
 EXEC sp_executesql @sql
 
