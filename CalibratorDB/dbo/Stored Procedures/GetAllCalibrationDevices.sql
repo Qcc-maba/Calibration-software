@@ -35,23 +35,26 @@ THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
 		  ,md.WorkRangeMax as UpperDomainBorder 
 		  ,m.NameHe as MeasurmentName
 		  ,d.DepartmentName
-		  ,''10.3.3.46:3490'' as IP
+		  ,md.[IP] as [IP]
 		  ,md.Resolution
 		  ,CASE WHEN mc.NameEnglish = ''Sensor'' THEN 60 ELSE 30 END as ChannelsNumber
 		  ,CASE WHEN mc.NameEnglish = ''Sensor'' AND Description LIKE ''%TC-K%'' THEN ''2W''
 				WHEN mc.NameEnglish = ''Sensor'' THEN ''4W'' 
 			ELSE NULL END as Connection
+		  ,md.MeasurementId	
+		  ,md.MainClassId	
+		  ,md.SubClassId
 	  FROM [dbo].[MeasurementDevices] as md
 	  '
-	  ,CASE WHEN @ApplyFilterByDevicesParents = 1 THEN ' JOIN [dbo].[MeasurementDevicesParents] as pf ON md.[ID] = pf.[DeviceId] AND pf.[ParentId] ='+CAST(@CalibrationDeviceId as NVARCHAR(50))+'' ELSE ' ' END
+	  ,CASE WHEN @ApplyFilterByDevicesParents = 1 THEN ' JOIN [dbo].[MeasurementDeviceParents] as pf ON md.[ID] = pf.[MeasurementDeviceId] AND pf.[MeasurementDeviceParentId] ='+CAST(@CalibrationDeviceId as NVARCHAR(50))+'' ELSE ' ' END
 	  ,'
-	  JOIN [dbo].[MeasurementDevicesMainClasses] as mc ON md.MainClass = mc.Id
-	  LEFT JOIN [dbo].[Units] as u ON md.Unit = u.ID
+	  JOIN [dbo].[MeasurementDevicesMainClasses] as mc ON md.MainClassId = mc.Id
+	  LEFT JOIN [dbo].[MeasurementDeviceUnits] as u ON md.UnitId = u.MeasurementDeviceUnitId
 	  LEFT JOIN [dbo].[Measurements] as m ON md.MeasurementId = m.ID
 	  LEFT JOIN [dbo].[Departments] as d ON md.DepartmentId = d.ID
 	  WHERE md.RemoveDate IS NULL AND md.IsDeleted = 0
 	  '
-	  ,CASE WHEN @MeasurementDevicesMainClassId IS NOT NULL AND @ApplyFilterByDevicesParents = 0 THEN' AND md.MainClass = '+ +CAST(@MeasurementDevicesMainClassId as NVARCHAR(50))+' 'ELSE ' ' END
+	  ,CASE WHEN @MeasurementDevicesMainClassId IS NOT NULL AND @ApplyFilterByDevicesParents = 0 THEN' AND md.MainClassId = '+ +CAST(@MeasurementDevicesMainClassId as NVARCHAR(50))+' 'ELSE ' ' END
 	  ,CASE WHEN @CalibrationDeviceId IS NOT NULL AND @ApplyFilterByDevicesParents = 0 THEN' AND md.[ID] = '+ +CAST(@CalibrationDeviceId as NVARCHAR(50))+' 'ELSE ' ' END 
 	  )
 

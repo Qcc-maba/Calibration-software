@@ -99,7 +99,7 @@ BEGIN
 	)
 	INSERT #EquipmentId([OrderWorkPlanId])
 	SELECT DISTINCT ce.OrderWorkPlanId FROM dbo.ParseCSVToTable(@EquipmentIds) as f
-	JOIN [dbo].[CalibEquipmentsToOrderHeaders] as ce ON ce.MeasurementDeviceId = f.Value and ce.IsDeleted = 0
+	JOIN [dbo].[MeasurementDevicesToOrderHeaders] as ce ON ce.MeasurementDeviceId = f.Value and ce.IsDeleted = 0
 
 	DROP TABLE IF EXISTS #SpecialCareTypes
 	CREATE TABLE #SpecialCareTypes
@@ -130,6 +130,8 @@ CONCAT(
 		STRING_AGG(od.SerialNumber,'','') AS DeviceNumber,
 		STRING_AGG(dm.OrdersDeviceManufacturerDescription,'','') AS DeviceManufacturer,
 		STRING_AGG(od.DeviceModel,'','') AS DeviceModel,
+	    MAX(od.VPRICE) as VPRICE,
+	    MAX(od.PRICE) as PRICE,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
     ,IIF((SELECT COUNT(*) FROM #FilteredDetails) > 0,' JOIN #FilteredDetails as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId ',' ')
@@ -172,7 +174,7 @@ CONCAT(
 	LEFT JOIN 
 	( SELECT coh.OrderWorkPlanId, STRING_AGG(coh.MeasurementDeviceId,'', '') as EquipmentIds, 
 			STRING_AGG(ce.Description,'', '') as EquipmentNames
-	  FROM [dbo].[CalibEquipmentsToOrderHeaders] as coh
+	  FROM [dbo].[MeasurementDevicesToOrderHeaders] as coh
 	  JOIN [dbo].[MeasurementDevices] as ce ON coh.MeasurementDeviceId = ce.ID AND ce.IsDeleted = 0
 	  WHERE coh.IsDeleted = 0 GROUP BY coh.OrderWorkPlanId
 	)as coh ON wp.OrderWorkPlanId = coh.OrderWorkPlanId

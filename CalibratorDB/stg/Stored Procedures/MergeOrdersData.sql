@@ -77,6 +77,8 @@ USING (
 	  ,NULL AS [StatusId]
 	  ,0 as [CreatedByUserId]
 	  ,0 as [UpdateUserID]
+	  ,o.VPRICE	
+	  ,o.PRICE
 	  ,@dt AS [CreatedDate]
 	FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as ss ON o.[SourceSystem] = ss.SourceName
@@ -108,6 +110,8 @@ WHEN MATCHED AND
 		OR COALESCE(dest.[CustomerId],'') <> COALESCE(source.[CustomerId],'')
 		OR COALESCE(dest.[StatusId],'') <> COALESCE(source.[StatusId],'')
 		OR COALESCE(dest.[SERN],'') <> COALESCE(source.[SERN],'')
+		OR COALESCE(dest.VPRICE,0) <> COALESCE(source.VPRICE,0)
+		OR COALESCE(dest.PRICE,0) <> COALESCE(source.PRICE,0)
 	)
 	THEN
 		UPDATE
@@ -129,6 +133,8 @@ WHEN MATCHED AND
 			,dest.[SERN] = source.[SERN]
 			,dest.[UpdatedDate] = @dt
 			,dest.[UpdateUserID] = source.[UpdateUserID]
+		    ,dest.VPRICE = source.VPRICE
+		    ,dest.PRICE = source.PRICE
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -152,6 +158,8 @@ WHEN NOT MATCHED BY TARGET
 			,[SERN]
 			,[CreatedDate]
 			,[CreatedByUserId]
+			,[VPRICE]
+			,[PRICE]
 			)
 		VALUES (
 			source.[OrderWorkPlanId]
@@ -174,6 +182,8 @@ WHEN NOT MATCHED BY TARGET
 			,source.[SERN]
 			,source.[CreatedDate]
 			,source.[CreatedByUserId]
+			,source.[VPRICE]
+			,source.[PRICE]
 			);
 
 

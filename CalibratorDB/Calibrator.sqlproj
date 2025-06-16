@@ -78,7 +78,6 @@
     <Build Include="dbo\Tables\MeasurementDevices.sql" />
     <Build Include="dbo\Tables\ConversionParameters.sql" />
     <Build Include="dbo\Tables\CalibratorsToWorkPlan.sql" />
-    <Build Include="dbo\Tables\MeasurementDevicesParents.sql" />
     <Build Include="dbo\Tables\Translate.sql" />
     <Build Include="dbo\Tables\UserMessages.sql" />
     <Build Include="dbo\Tables\CustomerSupportDepartmentParts.sql" />
@@ -246,6 +245,9 @@
     <Build Include="stg\Stored Procedures\MergeMeasurementDevicesCorrectionsData.sql" />
     <Build Include="dbo\Tables\MeasurementDevicesToOrderHeaders.sql" />
     <Build Include="stg\Tables\stg_DataLoggerIP.sql" />
+    <Build Include="dbo\Stored Procedures\GetMeasurementsSpecifications.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllMeasurementDevicesSecondaryCategories.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllMeasurementDevicesManufacturers.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
