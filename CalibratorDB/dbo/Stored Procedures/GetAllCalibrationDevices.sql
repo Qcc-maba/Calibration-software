@@ -44,6 +44,7 @@ THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
 		  ,md.MeasurementId	
 		  ,md.MainClassId	
 		  ,md.SubClassId
+		  ,u.MeasurementDeviceUnitGroupId
 	  FROM [dbo].[MeasurementDevices] as md
 	  '
 	  ,CASE WHEN @ApplyFilterByDevicesParents = 1 THEN ' JOIN [dbo].[MeasurementDeviceParents] as pf ON md.[ID] = pf.[MeasurementDeviceId] AND pf.[MeasurementDeviceParentId] ='+CAST(@CalibrationDeviceId as NVARCHAR(50))+'' ELSE ' ' END

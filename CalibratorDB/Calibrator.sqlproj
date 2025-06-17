@@ -253,6 +253,7 @@
     <Build Include="stg\Stored Procedures\MergeMabaComments.sql" />
     <Build Include="dbo\Stored Procedures\GetMabaComments.sql" />
     <Build Include="dbo\Stored Procedures\GetCustomerRemarks.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllMeasurementUnits.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
