@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="22"
-  DTS:VersionGUID="{32F98DDB-E114-49F7-9679-8FD1D92D7F34}">
+  DTS:VersionBuild="23"
+  DTS:VersionGUID="{9B355C6F-0AFB-44D5-9421-B26E68BFC0A5}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -21,6 +21,7 @@
     <DTS:Executable
       DTS:refId="Package\Load data to DepartmentDelays"
       DTS:CreationName="Microsoft.Pipeline"
+      DTS:DelayValidation="True"
       DTS:Description="Data Flow Task"
       DTS:DTSID="{C05655B8-D88D-459B-8FA0-6B45AF637A9A}"
       DTS:ExecutableType="Microsoft.Pipeline"

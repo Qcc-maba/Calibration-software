@@ -1,4 +1,5 @@
-﻿-- =============================================
+﻿
+-- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 02/04/2025
 -- Description:	Merge orders data from amaba
@@ -14,21 +15,27 @@ DECLARE @dt DATETIME2(0) = GETDATE()
 
 MERGE INTO [dbo].[OrderWorkPlans] AS dest
 USING (
-	SELECT DISTINCT
+SELECT DISTINCT
 	     o.ORDNAME as [OrderNumber]
 		,o.OpenDate as [WorkPlanOpenDate]
-		,@dt AS [CreatedDate]
+		,GETDATE() AS [CreatedDate]
 		,0 as [UpdateUserID]
 		,0 as [CreatedByUserId]
 		,0 as [IsCancelled]
 		,NULL as [Notes]
 		,o.SourceOrderId as [OrderSourceId]
 		,ss.[SourceId]
-	FROM [stg].[stg_Orders] as o
+		,o.PART
+		,o.PartName
+		,o.OrderLineCnt
+		,o.SourceOrderId
+		,o.KLINE
+		FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as ss ON o.[SourceSystem] = ss.SourceName
 	) AS source
 	ON dest.[OrderSourceId] = source.[OrderSourceId]
 	   AND dest.[OrderSourceId] = source.[OrderSourceId]
+	   AND COALESCE(dest.KLINE,0) = COALESCE(source.KLINE,0) 
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -41,6 +48,9 @@ WHEN NOT MATCHED BY TARGET
 			,[Notes]
 			,[OrderSourceId]
 			,[SourceId]
+			,[KLINE]
+			,[PART]
+			,[OrderLineCnt]
 			)
 		VALUES (
 			 source.[OrderNumber]
@@ -52,79 +62,91 @@ WHEN NOT MATCHED BY TARGET
 			,source.[Notes]
 			,source.[OrderSourceId]
 			,source.[SourceId]
-			);
+			,source.[KLINE]
+			,source.[PART]
+			,source.[OrderLineCnt]
+			)
+/*WHEN MATCHED AND 
+			(COALESCE(dest.[KLINE],0) <> COALESCE(source.[KLINE],0)
+			OR COALESCE(dest.[PART],0) <> COALESCE(source.[PART],0))
+	THEN UPDATE SET
+		    dest.[KLINE]  = source.[KLINE]
+			,dest.[PART]  = source.[PART]*/;
+
+	;WITH
+	ds
+	AS
+	(
+	SELECT CASE COUNT(*) OVER (
+				PARTITION BY wp.OrderSourceId ORDER BY wp.KLINE ROWS BETWEEN UNBOUNDED PRECEDING
+						AND UNBOUNDED FOLLOWING
+				)
+			WHEN 1
+				THEN wp.[OrderNumber]
+			ELSE CONCAT (
+					wp.[OrderNumber]
+					,'-'
+					,ROW_NUMBER() OVER (
+						PARTITION BY wp.OrderSourceId
+						,wp.SourceId ORDER BY wp.KLINE
+						)
+					)
+			END as OrderNumber
+		,wp.OrderWorkPlanId
+	FROM [dbo].[OrderWorkPlans] AS wp
+	WHERE wp.CreatedDate >= GETDATE() - 30
+	)
+	UPDATE wp
+	SET wp.OrderNumber = d.OrderNumber
+	FROM ds as d
+	JOIN [dbo].[OrderWorkPlans] AS wp ON wp.OrderWorkPlanId = d.OrderWorkPlanId
+	WHERE wp.OrderNumber NOT LIKE '%-%'
+
 
 MERGE INTO [dbo].[OrderDetails] AS dest
 USING (
 	SELECT 
-		wp.OrderWorkPlanId
-	  ,o.[CalibDate]
-      ,o.[SerialNumber]
-      ,o.[ManufacturerNumber]
-      ,o.[Devicemodel] as [DeviceModel]
-      ,o.[SpecialCareTypeId]
-      ,o.[InHouse] as IsInHouse
-	  ,o.[PART]
-      ,o.[PartName]
-      ,o.[DeviceType]
-      ,o.[MbaReportNumber]
-	  ,omc.OrdersMainCategoryId
-	  ,osc.OrdersSecondaryCategoryId
-	  ,dm.OrdersDeviceManufacturerId
-	  ,o.SecondCategorySourceId AS SecondCategory
-	  ,c.CustomerId
-	  ,o.KLINE
-	  ,o.SERN
-	  ,NULL AS [StatusId]
-	  ,0 as [CreatedByUserId]
-	  ,0 as [UpdateUserID]
-	  ,o.VPRICE	
-	  ,o.PRICE
-	  ,@dt AS [CreatedDate]
+	    wp.[OrderWorkPlanId]
+		,o.[SerialNumber]
+		,o.[ManufacturerNumber]
+		,o.[Devicemodel] as [DeviceModel]
+		,o.[SpecialCareTypeId]
+		,o.[InHouse] as [IsInHouse]
+		,o.[PartName]
+		,o.[MbaReportNumber]
+		,mc.[OrdersMainCategoryId]
+		,sc.[OrdersSecondaryCategoryId]
+		,mf.[OrdersDeviceManufacturerId]
+		,c.[CustomerId]
+		,o.[KLINE]
+		,o.[SERN]
+		,pt.OrdersProductTypeId
+	    ,o.[ProductLocation]
+		,NULL AS [StatusId]
+		,GETDATE() as [CreatedDate]
+		,GETDATE() as [UpdatedDate]
+		,0 as [CreatedByUserId]
+		,0 as [UpdateUserID]
 	FROM [stg].[stg_Orders] as o
-	JOIN [dbo].[Source] as ss ON o.[SourceSystem] = ss.SourceName
-	JOIN [dbo].[OrderWorkPlans] as wp ON wp.[SourceId] = ss.[SourceId] AND o.[SourceOrderId] = wp.OrderSourceId
-	LEFT JOIN [dbo].[OrdersMainCategories] as omc ON o.[MainCategorySourceId] = omc.OrdersMainCategoryIdFromSource AND omc.[SourceId] = ss.[SourceId]
-    LEFT JOIN [dbo].[OrdersSecondaryCategories] as osc ON o.[SecondCategorySourceId] = osc.[OrdersSecondaryCategoryName] AND osc.[SourceId] = ss.[SourceId]
-    LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON o.[DeviceManufacturerSourceId] = dm.OrdersDeviceManufacturersIdFromSource AND dm.[SourceId] = ss.[SourceId]
-    LEFT JOIN [dbo].[Customers] as c ON o.[CustomerSourceId] = c.CustomerIdFromSource AND c.[SourceId] = ss.[SourceId]
-
+	JOIN [dbo].[Source] as s ON o.SourceSystem = s.SourceName
+	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderSourceId = o.SourceOrderId AND wp.SourceId = s.SourceId AND wp.KLINE = o.KLINE
+	LEFT JOIN [dbo].[OrdersMainCategories] as mc ON o.MainCategorySourceId = mc.OrdersMainCategoryName
+	LEFT JOIN [dbo].[OrdersSecondaryCategories] as sc ON o.SecondCategorySourceId = sc.OrdersSecondaryCategoryName
+	LEFT JOIN [dbo].[OrdersProductTypes] as pt ON pt.OrdersProductTypeName = o.DeviceType
+	LEFT JOIN [dbo].[OrdersDeviceManufacturers] as mf ON mf.OrdersDeviceManufacturerName = o.ManufacturerNumber
+	LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = s.SourceId
+	WHERE o.[SERN] IS NOT NULL
 	) AS source
-	ON dest.OrderWorkPlanId = source.OrderWorkPlanId
-	   AND dest.KLINE = source.KLINE
-	   AND COALESCE(dest.SERN,-1) = CASE WHEN dest.SERN IS NULL THEN -1 ELSE source.SERN END
-WHEN MATCHED AND
-	(
-	       COALESCE(dest.[CalibDate],'') <> COALESCE(source.[CalibDate],'')
-		OR COALESCE(dest.[SerialNumber],'') <> COALESCE(source.[SerialNumber],'')
-		OR COALESCE(dest.[ManufacturerNumber],'') <> COALESCE(source.[ManufacturerNumber],'')
-		OR COALESCE(dest.[DeviceModel],'') <> COALESCE(source.[DeviceModel],'')
-		OR COALESCE(dest.[SpecialCareTypeId],'') <> COALESCE(source.[SpecialCareTypeId],'')
-		OR COALESCE(dest.[IsInHouse],'') <> COALESCE(source.[IsInHouse],'')
-		OR COALESCE(dest.[PartName],'') <> COALESCE(source.[PartName],'')
-		OR COALESCE(dest.[DeviceType],'') <> COALESCE(source.[DeviceType],'')
-		OR COALESCE(dest.[MbaReportNumber],'') <> COALESCE(source.[MbaReportNumber],'')
-		OR COALESCE(dest.[OrdersMainCategoryId],'') <> COALESCE(source.[OrdersMainCategoryId],'')
-		OR COALESCE(dest.[OrdersSecondaryCategoryId],'') <> COALESCE(source.[OrdersSecondaryCategoryId],'')
-		OR COALESCE(dest.[OrdersDeviceManufacturerId],'') <> COALESCE(source.[OrdersDeviceManufacturerId],'')
-		OR COALESCE(dest.[SecondCategory],'') <> COALESCE(source.[SecondCategory],'')
-		OR COALESCE(dest.[CustomerId],'') <> COALESCE(source.[CustomerId],'')
-		OR COALESCE(dest.[StatusId],'') <> COALESCE(source.[StatusId],'')
-		OR COALESCE(dest.[SERN],'') <> COALESCE(source.[SERN],'')
-		OR COALESCE(dest.VPRICE,0) <> COALESCE(source.VPRICE,0)
-		OR COALESCE(dest.PRICE,0) <> COALESCE(source.PRICE,0)
-		OR COALESCE(dest.PART,0) <> COALESCE(source.PART,0)
-	)
+	ON dest.[OrderWorkPlanId] = source.[OrderWorkPlanId] AND source.[KLINE] = dest.[KLINE] AND source.[SERN] = dest.[SERN]
+/*WHEN MATCHED
 	THEN
 		UPDATE
-		SET  dest.[CalibDate] = source.[CalibDate]
-			,dest.[SerialNumber] = source.[SerialNumber]
+		SET  dest.[SerialNumber] = source.[SerialNumber]
 			,dest.[ManufacturerNumber] = source.[ManufacturerNumber]
 			,dest.[DeviceModel] = source.[DeviceModel]
 			,dest.[SpecialCareTypeId] = source.[SpecialCareTypeId]
 			,dest.[IsInHouse] = source.[IsInHouse]
 			,dest.[PartName] = source.[PartName]
-			,dest.[DeviceType] = source.[DeviceType]
 			,dest.[MbaReportNumber] = source.[MbaReportNumber]
 			,dest.[OrdersMainCategoryId] = source.[OrdersMainCategoryId]
 			,dest.[OrdersSecondaryCategoryId] = source.[OrdersSecondaryCategoryId]
@@ -132,64 +154,55 @@ WHEN MATCHED AND
 			,dest.[SecondCategory] = source.[SecondCategory]
 			,dest.[CustomerId] = source.[CustomerId]
 			,dest.[StatusId] = source.[StatusId]
-			,dest.[SERN] = source.[SERN]
-			,dest.[UpdatedDate] = @dt
-			,dest.[UpdateUserID] = source.[UpdateUserID]
-		    ,dest.VPRICE = source.VPRICE
-		    ,dest.PRICE = source.PRICE
-			,dest.PART = source.PART
+			,dest.[OrdersProductTypeId] = source.[OrdersProductTypeId]
+			,dest.[CreatedDate] = source.[CreatedDate]
+			,dest.[UpdatedDate] = source.[UpdatedDate]
+			,dest.[UpdateUserID] = source.[UpdateUserID]*/
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
 			[OrderWorkPlanId]
-			,[CalibDate]
 			,[SerialNumber]
 			,[ManufacturerNumber]
 			,[DeviceModel]
 			,[SpecialCareTypeId]
 			,[IsInHouse]
 			,[PartName]
-			,[DeviceType]
 			,[MbaReportNumber]
 			,[OrdersMainCategoryId]
 			,[OrdersSecondaryCategoryId]
 			,[OrdersDeviceManufacturerId]
-			,[SecondCategory]
 			,[CustomerId]
 			,[StatusId]
 			,[KLINE]
 			,[SERN]
+			,[OrdersProductTypeId]
 			,[CreatedDate]
+			,[UpdatedDate]
 			,[CreatedByUserId]
-			,[VPRICE]
-			,[PRICE]
-			,[PART]
+			,[UpdateUserID]
 			)
 		VALUES (
-			source.[OrderWorkPlanId]
-			,source.[CalibDate]
+			 source.[OrderWorkPlanId]
 			,source.[SerialNumber]
 			,source.[ManufacturerNumber]
 			,source.[DeviceModel]
 			,source.[SpecialCareTypeId]
 			,source.[IsInHouse]
 			,source.[PartName]
-			,source.[DeviceType]
 			,source.[MbaReportNumber]
 			,source.[OrdersMainCategoryId]
 			,source.[OrdersSecondaryCategoryId]
 			,source.[OrdersDeviceManufacturerId]
-			,source.[SecondCategory]
 			,source.[CustomerId]
 			,source.[StatusId]
 			,source.[KLINE]
 			,source.[SERN]
+			,source.[OrdersProductTypeId]
 			,source.[CreatedDate]
+			,source.[UpdatedDate]
 			,source.[CreatedByUserId]
-			,source.[VPRICE]
-			,source.[PRICE]
-			,source.[PART]
+			,source.[UpdateUserID]
 			);
-
 
 END

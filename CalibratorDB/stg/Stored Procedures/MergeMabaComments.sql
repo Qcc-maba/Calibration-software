@@ -1,4 +1,5 @@
-﻿CREATE   PROCEDURE [stg].[MergeMabaComments]
+﻿
+CREATE    PROCEDURE [stg].[MergeMabaComments]
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 16/06/2025
@@ -13,7 +14,7 @@ SET NOCOUNT ON;
 MERGE INTO [dbo].[MabaComments] AS dest
 USING (
 	SELECT 
-		p.OrderDetailId
+		p.OrderWorkPlanId
 		,cr.CompresedText as [MabaComment]
 		,cr.HashText as [TextHash]
 		,0 as [UpdateUserID]
@@ -23,13 +24,12 @@ USING (
 	(
 		SELECT 
 		wp.SourceId,
-		od.OrderDetailId,
-		od.PART
+		wp.OrderWorkPlanId,
+		wp.PART
 		FROM [dbo].[OrderWorkPlans] as wp
-		JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
 	) as p ON p.PART = cr.PART AND p.SourceId = ss.SourceId
 	) AS source
-	ON 	dest.OrderDetailId = source.OrderDetailId
+	ON 	dest.OrderWorkPlanId = source.OrderWorkPlanId
 WHEN MATCHED
 	AND dest.[TextHash] <> source.[TextHash]
 	THEN
@@ -43,13 +43,13 @@ WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
 			 [MabaComment]
-			,[OrderDetailId]
+			,OrderWorkPlanId
 			,[TextHash]
 			,[UpdateUserID]
 			)
 		VALUES (
              source.[MabaComment]
-			,source.[OrderDetailId]
+			,source.OrderWorkPlanId
 			,source.[TextHash]
 			,source.[UpdateUserID]
 			);

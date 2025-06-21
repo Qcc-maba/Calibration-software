@@ -254,6 +254,14 @@
     <Build Include="dbo\Stored Procedures\GetMabaComments.sql" />
     <Build Include="dbo\Stored Procedures\GetCustomerRemarks.sql" />
     <Build Include="dbo\Stored Procedures\GetAllMeasurementUnits.sql" />
+    <Build Include="dbo\Tables\SpecificationReference.sql" />
+    <Build Include="dbo\Tables\OrdersProductTypes.sql" />
+    <Build Include="dbo\Tables\CalibrationProcessComments.sql" />
+    <Build Include="stg\Stored Procedures\MergeOrdersProductTypes.sql" />
+    <Build Include="dbo\Stored Procedures\GetCalibrationProcessComments.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllSpecificationReferences.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllOrdersProductTypes.sql" />
+    <Build Include="dbo\Stored Procedures\AssignProductIdentificationData.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

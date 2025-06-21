@@ -12,7 +12,7 @@
     [UpdatedDate]                          DATETIME2 (0) NULL,
     [UpdateUserID]                         INT           NULL,
     [IsDeleted]                            BIT           DEFAULT ((0)) NOT NULL,
-    CONSTRAINT [PK_CustomerContacts] PRIMARY KEY CLUSTERED ([CustomerId] ASC),
+    CONSTRAINT [PK_CustomerContacts] PRIMARY KEY CLUSTERED ([CustomerId] ASC, [CustomerContactId] ASC),
     CONSTRAINT [FK_CustomerContacts_CustomerId] FOREIGN KEY ([CustomerId]) REFERENCES [dbo].[Customers] ([CustomerId]),
     CONSTRAINT [FK_CustomerContacts_SourceId] FOREIGN KEY ([SourceId]) REFERENCES [dbo].[Source] ([SourceId]),
     CONSTRAINT [FK_CustomerContacts_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])

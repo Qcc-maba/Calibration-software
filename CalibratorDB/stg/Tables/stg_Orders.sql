@@ -8,12 +8,12 @@
     [Devicemodel]                NVARCHAR (30)   NULL,
     [SpecialCareTypeId]          INT             NULL,
     [InHouse]                    INT             NULL,
-    [MainCategorySourceId]       INT             NULL,
+    [MainCategorySourceId]       NVARCHAR (50)   NULL,
     [SecondCategorySourceId]     NVARCHAR (48)   NULL,
     [PartName]                   NVARCHAR (22)   NULL,
     [DeviceType]                 NVARCHAR (59)   NULL,
     [MbaReportNumber]            INT             NULL,
-    [DeviceManufacturerSourceId] INT             NULL,
+    [DeviceManufacturerSourceId] NVARCHAR (30)   NULL,
     [SourceSystem]               NVARCHAR (7)    NULL,
     [OrderLineCnt]               INT             NULL,
     [KLINE]                      INT             NULL,
@@ -21,6 +21,7 @@
     [CalibDate]                  DATETIME2 (0)   NULL,
     [VPRICE]                     DECIMAL (18, 2) NULL,
     [PRICE]                      DECIMAL (18, 2) NULL,
-    [PART]                       INT             NULL
+    [PART]                       INT             NULL,
+    [ProductLocation]            NVARCHAR (50)   NULL
 );
 

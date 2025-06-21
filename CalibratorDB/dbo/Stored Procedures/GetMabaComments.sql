@@ -5,15 +5,15 @@
 -- JiraLink: 
 -- =============================================
 CREATE   PROCEDURE [dbo].[GetMabaComments]
-@OrderDetailId INT
+@OrderWorkPlanId INT
 AS
 BEGIN
 
 SET NOCOUNT ON;
 
-SELECT [OrderDetailId]
+SELECT OrderWorkPlanId
       ,CAST(DECOMPRESS([MabaComment]) as NVARCHAR(MAX)) as [MabaComment]
   FROM [dbo].[MabaComments]
-  WHERE [IsDeleted] = 0 AND [OrderDetailId] = @OrderDetailId
+  WHERE [IsDeleted] = 0 AND OrderWorkPlanId = @OrderWorkPlanId
 
 END

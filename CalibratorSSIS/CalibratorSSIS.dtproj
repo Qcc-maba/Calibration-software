@@ -26,7 +26,7 @@
           <SSIS:Property SSIS:Name="CreatorComputerName">DESKTOP-50K623D</SSIS:Property>
           <SSIS:Property SSIS:Name="Description">
           </SSIS:Property>
-          <SSIS:Property SSIS:Name="PasswordVerifier" SSIS:Sensitive="1" SSIS:Salt="9D3ax3HRbwQ=" SSIS:IV="96AGcb9bgust6nzVG/hAJA==" SSIS:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc">AmjMU4yjJgwsCXxKEOoJMfdX+gpDBd8MuE7uIQKsl6Ud1VHWf2U/X1MmmMdMzkQitHOOmqszRR5UMpuNLWYZ/Pekk297wvEH/eFFeNZm1MeCfIILbmDcGLhmC5IuVd+rQaIBQ5GFFp8qmBiCLZyw+3HvYRRS8lxPh38D9IOkxqUMyA9AazFRdMcjB7DK5/lW</SSIS:Property>
+          <SSIS:Property SSIS:Name="PasswordVerifier" SSIS:Sensitive="1" SSIS:Salt="hjbKal2wUww=" SSIS:IV="2iG5tIsqqBCvPSMzB3DMBA==" SSIS:Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc">nYoxTYFXmnccSX9EKyeyu2r7WKWpoLdlei2rQCwnKPxg41mPv2Jh5fwWT5KVqal/fSW82PUTpISvfyzXkapnaJBGn9MHbaTKq/ShpzMSRS9tnb0oyAa6FW9gaFUG/PnVImatZjqALS50X/jDymJCtwqYR8auVz+KzmU7qDuylJ1kI+Omh7PxaiATNegYH+Tv</SSIS:Property>
           <SSIS:Property SSIS:Name="FormatVersion">1</SSIS:Property>
         </SSIS:Properties>
         <SSIS:Packages>
@@ -387,10 +387,10 @@
                 <SSIS:Property SSIS:Name="Name">OrdersSync</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionBuild">61</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">88</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionComments">
                 </SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionGUID">{44FEED58-D169-4175-A5FB-34E24F9D39CC}</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{20EA5DD8-8E80-49B0-92E4-9EE7D3F84C3F}</SSIS:Property>
                 <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
                 <SSIS:Property SSIS:Name="Description">
                 </SSIS:Property>
@@ -421,10 +421,10 @@
                 <SSIS:Property SSIS:Name="Name">OrdersSync</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionBuild">22</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionBuild">23</SSIS:Property>
                 <SSIS:Property SSIS:Name="VersionComments">
                 </SSIS:Property>
-                <SSIS:Property SSIS:Name="VersionGUID">{32F98DDB-E114-49F7-9679-8FD1D92D7F34}</SSIS:Property>
+                <SSIS:Property SSIS:Name="VersionGUID">{9B355C6F-0AFB-44D5-9421-B26E68BFC0A5}</SSIS:Property>
                 <SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property>
                 <SSIS:Property SSIS:Name="Description">
                 </SSIS:Property>
@@ -789,6 +789,8 @@
                     <SSIS:Property SSIS:Name="IncludeInDebugDump">0</SSIS:Property>
                     <SSIS:Property SSIS:Name="Required">0</SSIS:Property>
                     <SSIS:Property SSIS:Name="Sensitive">0</SSIS:Property>
+                    <SSIS:Property SSIS:Name="Value">
+                    </SSIS:Property>
                     <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
                   </SSIS:Properties>
                 </SSIS:Parameter>

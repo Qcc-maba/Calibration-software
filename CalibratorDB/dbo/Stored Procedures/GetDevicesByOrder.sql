@@ -53,15 +53,15 @@ CONCAT(
 'SELECT 
      op.OrderNumber
 	,od.OrderWorkPlanId as OrderId
-	,od.PartDescription AS DeviceType
-	,od.DepartmentId 
-	,od.MainCategory
-	,od.SecondCategory
+	,od.DeviceType AS DeviceType
+	,NULL AS DepartmentId --needs to be fixed
+	,NULL as MainCategory --needs to be fixed
+	,NULL AS SecondCategory--needs to be fixed
 	,od.SerialNumber
 	,od.DeviceModel
 	,od.MbaReportNumber
 	,od.OrderDetailId
-	,od.DeviceManufacturer
+	,NULL as DeviceManufacturer --needs to be fixed
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
 '

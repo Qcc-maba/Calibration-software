@@ -135,6 +135,7 @@ CONCAT(
 	    MAX(od.PRICE) as PRICE,
 		MAX(od.[PartName]) as PartName, 
 		MAX(od.[OrderDetailId]) as OrderDetailId,
+		MAX(od.[OrderLineCnt]) as OrderLineCnt,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
     ,IIF((SELECT COUNT(*) FROM #FilteredDetails) > 0,' JOIN #FilteredDetails as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId ',' ')
@@ -188,7 +189,7 @@ CONCAT(
 	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
 	WHERE od.IsInHouse = 0 AND wp.IsCancelled = 0'
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
-	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND od.CalibDate = '''+CAST(@Date as NVARCHAR(20)) +''' 'ELSE ' ' END
+	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND od.CalibDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @MainCategory IS NOT NULL THEN ' AND mc.MainCategory LIKE N''%'+ @MainCategory+'%'' 'ELSE ' ' END
 	,CASE WHEN @SecondCategory IS NOT NULL THEN ' AND od.SecondCategory LIKE N''%'+ @SecondCategory +'%'' 'ELSE ' ' END
 	,CASE WHEN @Location  IS NOT NULL THEN ' AND c.CustomerCity LIKE N''%'+@Location +'%'' 'ELSE ' ' END
@@ -214,12 +215,12 @@ CONCAT(
 	sp.StatusDescriptionHEB, 
 	wp.[IsCancelled]'
 	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL 
-		  THEN ' HAVING MAX(od.[CalibDate]) >= '''+CAST(@DateFrom AS NVARCHAR(20))+''' AND MAX(od.[CalibDate]) <= '''+CAST(@DateTo AS NVARCHAR(20))+''''
+		  THEN ' HAVING MAX(od.[CalibDate]) >= '''+CAST(@DateFrom AS NVARCHAR(MAX))+''' AND MAX(od.[CalibDate]) <= '''+CAST(@DateTo AS NVARCHAR(MAX))+''''
 	  ELSE ' ' END
   ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
-PRINT LEN(REPLACE(@sql, '    ', ' '))
-SET @sql = REPLACE(@sql, '    ', ' ')
+PRINT LEN(@sql)
 PRINT @sql
-EXEC sp_executesql @sql
+EXEC (@sql)
+--EXEC sp_executesql @sql
 
 END

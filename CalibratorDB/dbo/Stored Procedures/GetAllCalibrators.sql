@@ -21,7 +21,8 @@ OrderWorkPlanId INT
 )
 INSERT #SecondCategories(OrderWorkPlanId)
 SELECT DISTINCT od.OrderWorkPlanId FROM [dbo].[OrderDetails] as od
-JOIN dbo.ParseCSVToTable(@SecondCategories) as sc ON od.SecondCategory = sc.Value
+JOIN [dbo].[OrdersSecondaryCategories] as s ON od.OrdersSecondaryCategoryId = s.OrdersSecondaryCategoryId
+JOIN dbo.ParseCSVToTable(@SecondCategories) as sc ON s.OrdersSecondaryCategoryName = sc.Value
 END
 
 IF @Certifications IS NOT NULL
