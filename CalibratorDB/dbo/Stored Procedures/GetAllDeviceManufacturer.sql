@@ -8,7 +8,5 @@ CREATE    PROCEDURE [dbo].[GetAllDeviceManufacturer]
 AS
 SELECT 
 	odm.OrdersDeviceManufacturerId, 
-	odm.OrdersDeviceManufacturerDescription as DeviceManufacturer,
-	ss.SourceName
+	odm.OrdersDeviceManufacturerDescription as DeviceManufacturer
 FROM [dbo].[OrdersDeviceManufacturers] as odm
-JOIN [dbo].[Source] as ss ON odm.SourceId = ss.SourceId
