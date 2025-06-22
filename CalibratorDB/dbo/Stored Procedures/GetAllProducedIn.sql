@@ -10,11 +10,8 @@ AS
 BEGIN
 	SELECT DISTINCT
 	       mf.OrdersDeviceManufacturerId
+		  ,mf.OrdersDeviceManufacturerName
 		  ,mf.OrdersDeviceManufacturerDescription as ProducedIn
-		  ,ss.SourceName
-	  FROM [dbo].[OrderWorkPlans] as wp
-	  JOIN [dbo].[Source] as ss ON wp.[SourceId] = ss.[SourceId]
-	  JOIN [dbo].[OrderDetails] as od ON od.[OrderWorkPlanId] = wp.[OrderWorkPlanId]
-	  JOIN [dbo].[OrdersDeviceManufacturers] as mf ON od.OrdersDeviceManufacturerId = mf.OrdersDeviceManufacturerId
-	  WHERE od.[IsDeleted] = 0 and wp.[IsCancelled] = 0
+	  FROM [dbo].[OrdersDeviceManufacturers] as mf 
+	  WHERE mf.[IsDeleted] = 0
 END

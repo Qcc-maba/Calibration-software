@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="88"
-  DTS:VersionGUID="{20EA5DD8-8E80-49B0-92E4-9EE7D3F84C3F}">
+  DTS:VersionBuild="90"
+  DTS:VersionGUID="{EEE73709-FF99-4C86-8E6A-AA3DE8D0D6C3}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -84,7 +84,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Order Product Type"
-          DTS:ThreadHint="3">
+          DTS:ThreadHint="2">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -100,7 +100,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Device Manufacturers"
-          DTS:ThreadHint="4">
+          DTS:ThreadHint="3">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -116,7 +116,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Main Categories"
-          DTS:ThreadHint="5">
+          DTS:ThreadHint="4">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -132,7 +132,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Secondary Categories"
-          DTS:ThreadHint="2">
+          DTS:ThreadHint="5">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -1752,21 +1752,25 @@ GROUP BY c.PART</property>
                       description="Specifies the SQL statement used by the component to extract data."
                       expressionType="Notify"
                       name="SqlCommand"
-                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT DISTINCT mnf.MNF,mnf.MNFNAME,REVERSE(mnf.MNFDES) as MNFDES,'MABA' as SourceSystem
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">WITH cte
+as
+(
+SELECT DISTINCT mnf.MNFNAME,REVERSE(mnf.MNFDES) as MNFDES
 FROM amaba.dbo.SERNUMBERS AS sn
     INNER JOIN amaba.dbo.MBA_SERNORD AS ms ON ms.SERN = sn.SERN
 	JOIN amaba.dbo.MBA_SERNUMBERS as mbas ON sn.SERN = mbas.SERN
 	JOIN amaba.dbo.MNFCTR as mnf ON mbas.MNF = mnf.MNF
-	WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
-
-UNION ALL
-
-SELECT DISTINCT mnf.MNF,mnf.MNFNAME,REVERSE(mnf.MNFDES) as MNFDES,'SEPHARM' as SourceSystem
+	WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1, 1) AND mnf.MNF &gt; 0
+UNION 
+SELECT DISTINCT mnf.MNFNAME,REVERSE(mnf.MNFDES) as MNFDES
 FROM [sepharm].dbo.SERNUMBERS AS sn
     INNER JOIN [sepharm].dbo.MBA_SERNORD AS ms ON ms.SERN = sn.SERN
 	JOIN [sepharm].dbo.MBA_SERNUMBERS as mbas ON sn.SERN = mbas.SERN
 	JOIN [sepharm].dbo.MNFCTR as mnf ON mbas.MNF = mnf.MNF
-	WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1, 1)</property>
+	WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1, 1) AND mnf.MNF &gt; 0
+)
+SELECT MNFNAME,MNFDES
+FROM cte</property>
                     <property
                       dataType="System.Int32"
                       description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
@@ -1804,15 +1808,6 @@ FROM [sepharm].dbo.SERNUMBERS AS sn
                       name="ADO NET Source Output">
                       <outputColumns>
                         <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].Columns[MNF]"
-                          dataType="i4"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MNF]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].Columns[MNF]"
-                          name="MNF"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].Columns[MNFNAME]"
                           dataType="wstr"
                           errorOrTruncationOperation="Conversion"
@@ -1832,23 +1827,9 @@ FROM [sepharm].dbo.SERNUMBERS AS sn
                           lineageId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].Columns[MNFDES]"
                           name="MNFDES"
                           truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]"
-                          dataType="wstr"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceSystem]"
-                          length="7"
-                          lineageId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]"
-                          name="SourceSystem"
-                          truncationRowDisposition="FailComponent" />
                       </outputColumns>
                       <externalMetadataColumns
                         isUsed="True">
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MNF]"
-                          dataType="i4"
-                          name="MNF" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MNFNAME]"
                           dataType="wstr"
@@ -1859,11 +1840,6 @@ FROM [sepharm].dbo.SERNUMBERS AS sn
                           dataType="wstr"
                           length="32"
                           name="MNFDES" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceSystem]"
-                          dataType="wstr"
-                          length="7"
-                          name="SourceSystem" />
                       </externalMetadataColumns>
                     </output>
                     <output
@@ -1871,11 +1847,6 @@ FROM [sepharm].dbo.SERNUMBERS AS sn
                       isErrorOut="true"
                       name="ADO NET Source Error Output">
                       <outputColumns>
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Error Output].Columns[MNF]"
-                          dataType="i4"
-                          lineageId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Error Output].Columns[MNF]"
-                          name="MNF" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Error Output].Columns[MNFNAME]"
                           dataType="wstr"
@@ -1888,12 +1859,6 @@ FROM [sepharm].dbo.SERNUMBERS AS sn
                           length="32"
                           lineageId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Error Output].Columns[MNFDES]"
                           name="MNFDES" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceSystem]"
-                          dataType="wstr"
-                          length="7"
-                          lineageId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceSystem]"
-                          name="SourceSystem" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
                           dataType="i4"
@@ -1961,12 +1926,6 @@ FROM [sepharm].dbo.SERNUMBERS AS sn
                       name="ADO NET Destination Input">
                       <inputColumns>
                         <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table.Inputs[ADO NET Destination Input].Columns[MNF]"
-                          cachedDataType="i4"
-                          cachedName="MNF"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[MNF]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].Columns[MNF]" />
-                        <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table.Inputs[ADO NET Destination Input].Columns[MNFNAME]"
                           cachedDataType="wstr"
                           cachedLength="10"
@@ -1980,20 +1939,9 @@ FROM [sepharm].dbo.SERNUMBERS AS sn
                           cachedName="MNFDES"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[MNFDES]"
                           lineageId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].Columns[MNFDES]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table.Inputs[ADO NET Destination Input].Columns[SourceSystem]"
-                          cachedDataType="wstr"
-                          cachedLength="7"
-                          cachedName="SourceSystem"
-                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[SourceSystem]"
-                          lineageId="Package\Populate staging tables\Load data to stg_Manufacturers\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]" />
                       </inputColumns>
                       <externalMetadataColumns
                         isUsed="True">
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[MNF]"
-                          dataType="i4"
-                          name="MNF" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[MNFNAME]"
                           dataType="wstr"
@@ -2004,11 +1952,6 @@ FROM [sepharm].dbo.SERNUMBERS AS sn
                           dataType="wstr"
                           length="32"
                           name="MNFDES" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[SourceSystem]"
-                          dataType="wstr"
-                          length="7"
-                          name="SourceSystem" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>

@@ -262,6 +262,7 @@
     <Build Include="dbo\Stored Procedures\GetAllSpecificationReferences.sql" />
     <Build Include="dbo\Stored Procedures\GetAllOrdersProductTypes.sql" />
     <Build Include="dbo\Stored Procedures\AssignProductIdentificationData.sql" />
+    <Build Include="dbo\Stored Procedures\GetExternalWorkPlanData_orig.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

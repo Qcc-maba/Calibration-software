@@ -9,9 +9,7 @@ AS
 BEGIN
 	SELECT DISTINCT
 	       od.PartName as ProductType
-		  ,ss.SourceName
 	  FROM [dbo].[OrderWorkPlans] as wp
-	  JOIN [dbo].[Source] as ss ON wp.[SourceId] = ss.[SourceId]
 	  JOIN [dbo].[OrderDetails] as od ON od.[OrderWorkPlanId] = wp.[OrderWorkPlanId]
 	  WHERE od.[IsDeleted] = 0 and wp.[IsCancelled] = 0
 END

@@ -3,7 +3,7 @@
 -- Create date: 03/04/2025
 -- Description:	Get work plan data
 -- =============================================
-CREATE   PROCEDURE [dbo].[GetExternalWorkPlanData]
+CREATE   PROCEDURE [dbo].[GetExternalWorkPlanData_orig]
     @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
     @RowsOfPage AS INT = 1000,                 -- Result page size
     @OrderBy AS NVARCHAR(MAX) = 'Date',      -- OrderBy column

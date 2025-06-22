@@ -21,7 +21,7 @@ CREATE TABLE #MainCategories
 MainCategory NVARCHAR(50)
 )
 INSERT #MainCategories(MainCategory)
-SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@MainCategories) as v
+SELECT DISTINCT CAST(v.Value AS NVARCHAR(50)) FROM dbo.ParseCSVToTable(@MainCategories) as v
 
 
 DROP TABLE IF EXISTS #SecondaryCategories
@@ -53,21 +53,25 @@ CONCAT(
 'SELECT 
      op.OrderNumber
 	,od.OrderWorkPlanId as OrderId
-	,od.DeviceType AS DeviceType
-	,NULL AS DepartmentId --needs to be fixed
-	,NULL as MainCategory --needs to be fixed
-	,NULL AS SecondCategory--needs to be fixed
+	,opt.OrdersProductTypeName AS DeviceType
+	,mc.OrdersMainCategoryName AS DepartmentId
+	,mc.OrdersMainCategoryName as MainCategory
+	,sc.OrdersSecondaryCategoryName AS SecondCategory
 	,od.SerialNumber
 	,od.DeviceModel
 	,od.MbaReportNumber
 	,od.OrderDetailId
-	,NULL as DeviceManufacturer --needs to be fixed
+	,odm.OrdersDeviceManufacturerName as DeviceManufacturer
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
+LEFT JOIN [dbo].[OrdersMainCategories] as mc ON od.OrdersMainCategoryId = mc.OrdersMainCategoryId
+LEFT JOIN [dbo].[OrdersSecondaryCategories] sc ON od.OrdersSecondaryCategoryId = sc.OrdersSecondaryCategoryId
+LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
+LEFT JOIN [dbo].[OrdersDeviceManufacturers] as odm ON od.OrdersDeviceManufacturerId = odm.OrdersDeviceManufacturerId 
 '
-,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mc ON od.MainCategory COLLATE DATABASE_DEFAULT = mc.MainCategory COLLATE DATABASE_DEFAULT ',' ')
-,IIF(@SecondaryCategories IS NOT NULL,' JOIN #SecondaryCategories as sc ON od.SecondCategory COLLATE DATABASE_DEFAULT   = sc.SecondaryCategory COLLATE DATABASE_DEFAULT ',' ')
-,IIF(@DeviceManufacturer IS NOT NULL,' JOIN #DeviceManufacturer as dmf ON od.DeviceManufacturer COLLATE DATABASE_DEFAULT  = dmf.DeviceManufacturer COLLATE DATABASE_DEFAULT ',' ')
+,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mcf ON mc.OrdersMainCategoryName COLLATE DATABASE_DEFAULT = mcf.MainCategory COLLATE DATABASE_DEFAULT',' ')
+,IIF(@SecondaryCategories IS NOT NULL,' JOIN #SecondaryCategories as scf ON sc.OrdersSecondaryCategoryName COLLATE DATABASE_DEFAULT   = scf.SecondaryCategory COLLATE DATABASE_DEFAULT ',' ')
+,IIF(@DeviceManufacturer IS NOT NULL,' JOIN #DeviceManufacturer as dmf ON odm.OrdersDeviceManufacturerName COLLATE DATABASE_DEFAULT  = dmf.DeviceManufacturer COLLATE DATABASE_DEFAULT ',' ')
 ,IIF(@DeviceModels IS NOT NULL,' JOIN #DeviceModels as dm ON od.DeviceModel COLLATE DATABASE_DEFAULT = dm.DeviceModel COLLATE DATABASE_DEFAULT ',' ')
 ,'
 WHERE OrderNumber = TRIM(''',@OrderNumber,''')

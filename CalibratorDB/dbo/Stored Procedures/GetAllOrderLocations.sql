@@ -9,9 +9,7 @@ AS
 BEGIN
 	SELECT DISTINCT
 		   [CustomerCity] as CustomerLocation
-		  ,ss.SourceName
 	  FROM [dbo].[Customers] as c
-	  JOIN [dbo].[Source] as ss ON c.[SourceId] = ss.[SourceId]
 	  JOIN [dbo].[OrderDetails] as od ON od.[CustomerId] = c.[CustomerId]
 	  WHERE c.[IsDeleted] = 0 AND LEN([CustomerCity]) > 0
 END

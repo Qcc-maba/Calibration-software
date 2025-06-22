@@ -7,6 +7,6 @@
 -- =============================================
 CREATE  PROCEDURE [dbo].[GetAllSecondaryCategories]
 AS
-SELECT ce.ID, ce.Name as  SecondCategory
-FROM [dbo].[MeasurementDevicesSubClass] as ce
+SELECT OrdersSecondaryCategoryId as ID, ce.OrdersSecondaryCategoryName as  SecondCategory
+FROM [dbo].[OrdersSecondaryCategories] as ce
 WHERE ce.IsDeleted = 0

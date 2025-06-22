@@ -97,7 +97,7 @@ BEGIN
 			,[UpdatedDate] = GETDATE()
 			,[UpdateUserID] = @UserId
 	WHERE [OrderWorkPlanId] = @OrderWorkPlanId AND [OrderDetailId] = COALESCE(@OrderDetailId,@OrderDetailIdInserted)
-	SELECT COALESCE(@OrderDetailId,@OrderDetailIdInserted)
+
 	IF NOT EXISTS (SELECT 1 FROM [CalibrationProcessComments] WHERE [OrderDetailsId] = COALESCE(@OrderDetailId,@OrderDetailIdInserted))
 	  INSERT [CalibrationProcessComments]
 		(

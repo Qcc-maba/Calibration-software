@@ -14,21 +14,14 @@ USING (
 	SELECT 
 		 m.MNFNAME AS [OrdersDeviceManufacturerName]
 		,m.MNFDES AS [OrdersDeviceManufacturerDescription]
-		,m.MNF as [OrdersDeviceManufacturersIdFromSource]
-		,ss.SourceId
 		,0 as [UpdateUserID]
 	FROM [stg].[stg_Manufacturers] as m
-	JOIN dbo.Source as ss ON m.SourceSystem = ss.SourceName
 	) AS source
-	ON 	dest.[OrdersDeviceManufacturersIdFromSource] = source.[OrdersDeviceManufacturersIdFromSource]
-		AND dest.[SourceId] = source.[SourceId]
+	ON 	dest.[OrdersDeviceManufacturerName] = source.[OrdersDeviceManufacturerName]
 WHEN MATCHED
-	AND dest.[OrdersDeviceManufacturerName] <> source.[OrdersDeviceManufacturerName]
-	AND dest.[OrdersDeviceManufacturerDescription] <> source.[OrdersDeviceManufacturerDescription]
 	THEN
 		UPDATE
-		SET  dest.[OrdersDeviceManufacturerName] = source.[OrdersDeviceManufacturerName]
-			,dest.[OrdersDeviceManufacturerDescription] = source.[OrdersDeviceManufacturerDescription]
+		SET  dest.[OrdersDeviceManufacturerDescription] = source.[OrdersDeviceManufacturerDescription]
 			,dest.[UpdatedDate] = GETDATE()
 			,dest.[UpdateUserID] = source.[UpdateUserID]
 WHEN NOT MATCHED BY TARGET
@@ -36,16 +29,12 @@ WHEN NOT MATCHED BY TARGET
 		INSERT (
              [OrdersDeviceManufacturerName]
 			,[OrdersDeviceManufacturerDescription]
-			,[OrdersDeviceManufacturersIdFromSource]
-			,[SourceId]
 			,[UpdateUserID]
 
 			)
 		VALUES (
 			 source.[OrdersDeviceManufacturerName]
 			,source.[OrdersDeviceManufacturerDescription]
-			,source.[OrdersDeviceManufacturersIdFromSource]
-			,source.[SourceId]
 			,source.[UpdateUserID]
 			);
 END

@@ -10,9 +10,7 @@ BEGIN
 	SELECT DISTINCT
 	       omc.[OrdersMainCategoryId]
 		  ,omc.OrdersMainCategoryName as [OrderDeviceMainCategories]
-		  ,ss.SourceName
 	  FROM [dbo].[OrderWorkPlans] as wp
-	  JOIN [dbo].[Source] as ss ON wp.[SourceId] = ss.[SourceId]
 	  JOIN [dbo].[OrderDetails] as od ON od.[OrderWorkPlanId] = wp.[OrderWorkPlanId]
 	  JOIN [dbo].[OrdersMainCategories] as omc ON omc.[OrdersMainCategoryId] = od.[OrdersMainCategoryId]
 	  WHERE od.[IsDeleted] = 0 and wp.[IsCancelled] = 0
