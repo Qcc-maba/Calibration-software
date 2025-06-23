@@ -4,15 +4,23 @@
 -- Description:	
 -- JiraLink: 
 -- =============================================
-CREATE PROCEDURE stg.MergeMeasurementDeviceParentsData
+CREATE PROCEDURE [stg].[MergeMeasurementDeviceParentsData]
 AS
 BEGIN
 
 SET NOCOUNT ON;
 
+UPDATE pd
+SET UpdatedDate = GETDATE(),
+	UpdateUserID = 0,
+	IsDeleted = 0
+FROM [stg].[stg_MeasurementDeviceParents] as mdp
+LEFT JOIN  [dbo].[MeasurementDeviceParents] as pd ON mdp.[ID] = pd.[MeasurementDeviceParentsSourceId]
+WHERE mdp.[ID] IS NULL
+
 	MERGE INTO [dbo].[MeasurementDeviceParents] AS dest
 	USING (
-		SELECT
+		SELECT 
 		     dev.ID as [MeasurementDeviceId]
 			,par.ID as [MeasurementDeviceParentId]
 			,mdp.ID as [MeasurementDeviceParentsSourceId]
@@ -47,13 +55,7 @@ SET NOCOUNT ON;
 				,source.[MeasurementDeviceParentId]
 				,source.[MeasurementDeviceParentsSourceId]
 				,source.[UpdateUserID]
-				)
-	WHEN NOT MATCHED BY SOURCE
-		THEN UPDATE SET
-			 dest.IsDeleted = 1
-			,dest.[UpdatedDate] = GETDATE()
-			,dest.[UpdateUserID] = 0;
-
+				);
 
 
 END

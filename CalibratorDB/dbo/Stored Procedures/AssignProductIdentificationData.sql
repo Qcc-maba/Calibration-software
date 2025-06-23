@@ -4,10 +4,10 @@
 -- Description:	Procedure enrich data for calibrated device in orders
 -- JiraLink: 
 -- =============================================
-CREATE   PROCEDURE dbo.AssignProductIdentificationData
+CREATE   PROCEDURE [dbo].[AssignProductIdentificationData]
 @UserEmail NVARCHAR(50),
-@OrderWorkPlanId INT,	
-@OrderDetailId INT = NULL,
+@OrderDetailId INT,
+@OrderDetailsItemId INT = NULL,
 @ActualCalibrationDate DATETIME2(0)= NULL,	
 @NextCalibrationDate DATETIME2(0)= NULL,	
 @SerialNumber NVARCHAR(100)= NULL,
@@ -27,14 +27,14 @@ CREATE   PROCEDURE dbo.AssignProductIdentificationData
 AS
 BEGIN 
 
-	DECLARE @OrderDetailIdInserted INT
+	DECLARE @OrderDetailItemIdInserted INT
 	DECLARE @UserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @UserEmail) 
 
 	/*In some cases there are no information in order details and we need to insert it*/
-	IF NOT EXISTS (SELECT 1 FROM [dbo].[OrderDetails] WHERE OrderWorkPlanId = @OrderWorkPlanId AND OrderDetailId = @OrderDetailId)
+	IF NOT EXISTS (SELECT 1 FROM [dbo].[OrderDetailsItems] WHERE OrderDetailId = @OrderDetailId AND OrderDetailsItemId =@OrderDetailsItemId )
 		BEGIN
-			INSERT INTO [dbo].[OrderDetails]
-					   ([OrderWorkPlanId]
+			INSERT INTO [dbo].[OrderDetailsItems]
+					   ([OrderDetailId]
 					   ,[ActualCalibrationDate]
 					   ,[NextCalibrationDate]
 					   ,[SerialNumber]
@@ -44,7 +44,6 @@ BEGIN
 					   ,[OrdersMainCategoryId]
 					   ,[OrdersSecondaryCategoryId]
 					   ,[OrdersDeviceManufacturerId]
-					   ,[OrdersProductTypeId]
 					   ,[CalibrationSpecificationId]
 					   ,[SpecificationReferenceId]
 					   ,[MeasurementUnitId]
@@ -54,7 +53,7 @@ BEGIN
 					   ,[CreatedByUserId]
 					)
 				 SELECT
-					@OrderWorkPlanId,	
+					@OrderDetailId,	
 					@ActualCalibrationDate,	
 					@NextCalibrationDate,	
 					@SerialNumber,
@@ -64,7 +63,7 @@ BEGIN
 					@OrdersMainCategoryId,
 					@OrdersSecondaryCategoryId,
 					@OrdersDeviceManufacturerId,
-					@OrdersProductTypeId,
+
 					@CalibrationSpecificationId,
 					@SpecificationReferenceId,
 					@MeasurementUnitId,
@@ -73,11 +72,15 @@ BEGIN
 					GETDATE(),
 					@UserId
 
-				SELECT @OrderDetailIdInserted = SCOPE_IDENTITY()
+				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
 
 		END
 
-	UPDATE [dbo].[OrderDetails]
+	UPDATE [dbo].[OrderDetails] 
+	SET [OrdersProductTypeId] = @OrdersProductTypeId
+	WHERE OrderDetailId = @OrderDetailId AND [OrdersProductTypeId] <> @OrdersProductTypeId
+
+	UPDATE [dbo].[OrderDetailsItems]
 			SET 
 			 [ActualCalibrationDate] = @ActualCalibrationDate
 			,[NextCalibrationDate] = @NextCalibrationDate
@@ -88,7 +91,6 @@ BEGIN
 			,[OrdersMainCategoryId] = @OrdersMainCategoryId
 			,[OrdersSecondaryCategoryId] = @OrdersSecondaryCategoryId
 			,[OrdersDeviceManufacturerId] = @OrdersDeviceManufacturerId
-			,[OrdersProductTypeId] = @OrdersProductTypeId
 			,[CalibrationSpecificationId] = @CalibrationSpecificationId
 			,[SpecificationReferenceId] = @SpecificationReferenceId
 			,[MeasurementUnitId] = @MeasurementUnitId
@@ -96,12 +98,12 @@ BEGIN
 			,[MeasurementValueList] = @MeasurementValueList
 			,[UpdatedDate] = GETDATE()
 			,[UpdateUserID] = @UserId
-	WHERE [OrderWorkPlanId] = @OrderWorkPlanId AND [OrderDetailId] = COALESCE(@OrderDetailId,@OrderDetailIdInserted)
+	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
-	IF NOT EXISTS (SELECT 1 FROM [CalibrationProcessComments] WHERE [OrderDetailsId] = COALESCE(@OrderDetailId,@OrderDetailIdInserted))
+	IF NOT EXISTS (SELECT 1 FROM [CalibrationProcessComments] WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted))
 	  INSERT [CalibrationProcessComments]
 		(
-		   [OrderDetailsId]
+		   [OrderDetailsItemId]
 		  ,[CalibrationProcessCommentComment]
 		  ,[TextHash]
 		  ,[CreateDate]
@@ -109,7 +111,7 @@ BEGIN
 		  ,[IsDeleted]
 	   )
 	   SELECT
-		COALESCE(@OrderDetailId,@OrderDetailIdInserted),
+		COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted),
 		COMPRESS(@CalibrationProcessCommentComment),
 		BINARY_CHECKSUM(@CalibrationProcessCommentComment),
 		GETDATE(),
@@ -117,11 +119,11 @@ BEGIN
 		0
 
 		UPDATE [CalibrationProcessComments]
-			SET [OrderDetailsId] = COALESCE(@OrderDetailId,@OrderDetailIdInserted)
+			SET [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 			  ,[CalibrationProcessCommentComment] = COMPRESS(@CalibrationProcessCommentComment)
 			  ,[TextHash] = BINARY_CHECKSUM([CalibrationProcessCommentComment])
 			  ,[UpdatedDate] = GETDATE()
 			  ,[UpdateUserID] = @UserId
-		WHERE [OrderDetailsId] = COALESCE(@OrderDetailId,@OrderDetailIdInserted) AND [TextHash] <> BINARY_CHECKSUM(@CalibrationProcessCommentComment)
+		WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailId,@OrderDetailItemIdInserted) AND [TextHash] <> BINARY_CHECKSUM(@CalibrationProcessCommentComment)
 
 END

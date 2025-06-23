@@ -3,7 +3,7 @@
 -- Create date: 03/04/2025
 -- Description:	Get work plan data
 -- =============================================
-CREATE   PROCEDURE [dbo].[GetExternalWorkPlanData]
+CREATE  PROCEDURE [dbo].[GetExternalWorkPlanData]
     @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
     @RowsOfPage AS INT = 1000,                 -- Result page size
     @OrderBy AS NVARCHAR(MAX) = 'Date',      -- OrderBy column
@@ -115,8 +115,8 @@ CONCAT(
         MAX(od.[ActualCalibrationDate]) AS [Date],
 		MAX(od.[CustomerId]) as [CustomerId], 
         spc.[SpecialCares],
-        c.[CustomerName] as [ClientName],
-        c.[CustomerCity] as [Location],
+        REVERSE(c.[CustomerName]) as [ClientName],
+        REVERSE(c.[CustomerCity]) as [Location],
         wp.[WorkPlanOpenDate] as [WorkPlanOpenDate],
 		sp.StatusDescriptionENG AS SpecialCareENG,
 		sp.StatusDescriptionHEB AS SpecialCareHEB, 
@@ -141,8 +141,8 @@ CONCAT(
     ,IIF((SELECT COUNT(*) FROM #FilteredDetails) > 0,' JOIN #FilteredDetails as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId ',' ')
 	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
 	,IIF(@EquipmentIds IS NOT NULL,' JOIN #EquipmentId as eid ON wp.OrderWorkPlanId = eid.OrderWorkPlanId ',' ')
-	,'JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
-	  JOIN [dbo].[Customers] as c ON od.[CustomerId] = c.[CustomerId]
+	,'LEFT JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
+	  LEFT JOIN [dbo].[Customers] as c ON od.[CustomerId] = c.[CustomerId]
 	  LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON od.[OrdersDeviceManufacturerId] = dm.[OrdersDeviceManufacturerId]
 	',IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
 	,'LEFT JOIN 

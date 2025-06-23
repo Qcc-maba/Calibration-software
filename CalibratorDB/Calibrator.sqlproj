@@ -263,6 +263,8 @@
     <Build Include="dbo\Stored Procedures\GetAllOrdersProductTypes.sql" />
     <Build Include="dbo\Stored Procedures\AssignProductIdentificationData.sql" />
     <Build Include="dbo\Stored Procedures\GetExternalWorkPlanData_orig.sql" />
+    <Build Include="dbo\Tables\OrderDetailsItems.sql" />
+    <Build Include="dbo\Tables\MabaCommentsToOrderDetails.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

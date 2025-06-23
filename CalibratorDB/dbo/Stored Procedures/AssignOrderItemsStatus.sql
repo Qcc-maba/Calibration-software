@@ -32,7 +32,7 @@ WHERE u.ID = @UserId /*AND ur.UserRoleName = 'Calibrator'*/ and u.IsActive = 1
 THROW 51000, 'Provided user is not active', 1;
 
 IF NOT EXISTS (
-SELECT 1 FROM [dbo].[OrderDetails] as od WHERE od.MbaReportNumber = @MbaReportNumber
+SELECT 1 FROM [dbo].[OrderDetailsItems] as od WHERE od.MbaReportNumber = @MbaReportNumber
 )
 THROW 51000, 'Provided MbaReportNumber not exists', 1;
 

@@ -9,7 +9,7 @@ CREATE   PROCEDURE [dbo].[GetMabaContactInfoByOrder]
 
 /*
 EXEC [dbo].[GetMabaContactInfoByOrder] 
-@OrderID = ''
+@OrderID = 'LA25102778'
 */
 
 AS
@@ -26,7 +26,7 @@ wp.OrderNumber
 ,cc.CustomerContactEmail as Email
 FROM [dbo].[OrderWorkPlans] as wp
 JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
-JOIN [dbo].[CustomerContacts] as cc ON od.CustomerId = cc.CustomerId
+JOIN [dbo].[CustomerContacts] as cc ON wp.CustomerId = cc.CustomerId
 WHERE wp.OrderNumber = @OrderID and wp.IsCancelled = 0
 
 

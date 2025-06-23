@@ -5,15 +5,15 @@
 -- JiraLink: 
 -- =============================================
 CREATE     PROCEDURE [dbo].[GetCalibrationProcessComments]
-@OrderDetailsId INT
+@OrderDetailsItemId INT
 AS
 BEGIN
 
 SET NOCOUNT ON;
 
-SELECT OrderDetailsId
+SELECT OrderDetailsItemId
       ,CAST(DECOMPRESS([CalibrationProcessCommentComment]) as NVARCHAR(MAX)) as [CalibrationProcessCommentComment]
   FROM [dbo].[CalibrationProcessComments]
-  WHERE [IsDeleted] = 0 AND OrderDetailsId = @OrderDetailsId
+  WHERE [IsDeleted] = 0 AND OrderDetailsItemId = @OrderDetailsItemId
 
 END

@@ -7,4 +7,4 @@
 CREATE    PROCEDURE [dbo].[GetAllDeviceModels]
 AS
 SELECT DISTINCT DeviceModel
-FROM [dbo].[OrderDetails]
+FROM [dbo].[OrderDetailsItems]

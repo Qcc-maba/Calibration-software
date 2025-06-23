@@ -12,6 +12,7 @@ BEGIN
 		  ,omc.OrdersMainCategoryName as [OrderDeviceMainCategories]
 	  FROM [dbo].[OrderWorkPlans] as wp
 	  JOIN [dbo].[OrderDetails] as od ON od.[OrderWorkPlanId] = wp.[OrderWorkPlanId]
-	  JOIN [dbo].[OrdersMainCategories] as omc ON omc.[OrdersMainCategoryId] = od.[OrdersMainCategoryId]
+	  JOIN [dbo].[OrderDetailsItems] as odi ON odi.[OrderDetailId] = od.[OrderDetailId]
+	  JOIN [dbo].[OrdersMainCategories] as omc ON omc.[OrdersMainCategoryId] = odi.[OrdersMainCategoryId]
 	  WHERE od.[IsDeleted] = 0 and wp.[IsCancelled] = 0
 END

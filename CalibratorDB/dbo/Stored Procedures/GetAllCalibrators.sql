@@ -20,8 +20,9 @@ CREATE TABLE #SecondCategories
 OrderWorkPlanId INT
 )
 INSERT #SecondCategories(OrderWorkPlanId)
-SELECT DISTINCT od.OrderWorkPlanId FROM [dbo].[OrderDetails] as od
-JOIN [dbo].[OrdersSecondaryCategories] as s ON od.OrdersSecondaryCategoryId = s.OrdersSecondaryCategoryId
+SELECT DISTINCT od.OrderWorkPlanId FROM [dbo].[OrderDetailsItems] as odi
+JOIN [dbo].[OrderDetails] as od ON odi.OrderDetailId = od.OrderDetailId
+JOIN [dbo].[OrdersSecondaryCategories] as s ON odi.OrdersSecondaryCategoryId = s.OrdersSecondaryCategoryId
 JOIN dbo.ParseCSVToTable(@SecondCategories) as sc ON s.OrdersSecondaryCategoryName = sc.Value
 END
 

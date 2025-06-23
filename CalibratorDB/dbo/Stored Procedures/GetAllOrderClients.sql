@@ -16,6 +16,6 @@ BEGIN
 		  ,ss.SourceName
 	  FROM [dbo].[Customers] as c
 	  JOIN [dbo].[Source] as ss ON c.[SourceId] = ss.[SourceId]
-	  JOIN [dbo].[OrderDetails] as od ON od.[CustomerId] = c.[CustomerId]
+	  JOIN [dbo].[OrderWorkPlans] as od ON od.[CustomerId] = c.[CustomerId]
 	  WHERE c.[IsDeleted] = 0
 END
