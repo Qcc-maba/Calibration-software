@@ -1,5 +1,5 @@
 ﻿CREATE TABLE [dbo].[CustomerRemarks] (
-    [CustomerId]           INT             IDENTITY (1, 1) NOT NULL,
+    [CustomerId]           INT             NOT NULL,
     [CustomerRemark]       VARBINARY (MAX) NULL,
     [CustomerIdFromSource] INT             NULL,
     [SourceId]             TINYINT         NULL,

@@ -13,7 +13,8 @@ SET NOCOUNT ON;
 MERGE INTO [dbo].[CustomerRemarks] AS dest
 USING (
 	SELECT 
-		 cr.CompresedText as [CustomerRemark]
+	     c.CustomerId
+		,cr.CompresedText as [CustomerRemark]
 		,cr.CUST as [CustomerIdFromSource]
 		,ss.[SourceId]
 		,cr.HashText as [TextHash]
@@ -36,14 +37,16 @@ WHEN MATCHED
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
-			 [CustomerRemark]
+		     [CustomerId]
+			,[CustomerRemark]
 			,[CustomerIdFromSource]
 			,[SourceId]
 			,[TextHash]
 			,[UpdateUserID]
 			)
 		VALUES (
-             source.[CustomerRemark]
+             source.CustomerId
+			,source.[CustomerRemark]
 			,source.[CustomerIdFromSource]
 			,source.[SourceId]
 			,source.[TextHash]

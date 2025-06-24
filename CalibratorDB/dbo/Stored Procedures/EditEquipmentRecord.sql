@@ -19,10 +19,10 @@ CREATE   PROCEDURE [dbo].[EditEquipmentRecord]
 
 /*
 EXEC dbo.EditEquipmentRecord
-@ID = 2518
+@ID = 2526
 ,@DepartmentId = 1
-,@StatusId = 38
-,@EquipmentName = 'Test'
+,@StatusId = 39
+,@EquipmentName = 'Test-update'
 ,@SerialNumber = '00-00-11'
 ,@CalibratorId = 107
 ,@MainCategoryId = 2
@@ -110,6 +110,6 @@ BEGIN TRY
 END TRY
 
 BEGIN CATCH
-	ROLLBACK
+	ROLLBACK SELECT ERROR_MESSAGE()
 END CATCH
 END

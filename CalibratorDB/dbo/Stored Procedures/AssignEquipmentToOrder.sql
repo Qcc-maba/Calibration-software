@@ -9,7 +9,7 @@ CREATE   PROCEDURE [dbo].[AssignEquipmentToOrder]
 @EquipmentIDs NVARCHAR(MAX)=''
 
 /*
-EXEC dbo.AssignEquipmentToOrder @OrderID = 'LA25100036', @EquipmentIDs = '578,579'
+EXEC dbo.AssignEquipmentToOrder @OrderID = 'SO25000153', @EquipmentIDs = '578,579'
 */
 AS
 BEGIN
@@ -28,8 +28,8 @@ SELECT Value FROM dbo.ParseCSVToTable(@EquipmentIDs)
 --- Check equipment id's is valid
 if @EquipmentIDs IS NOT NULL AND EXISTS (
 SELECT 1 FROM #AssociatedEquipmentIDs as t
-JOIN [dbo].[CalibEquipments] as e ON e.ID = t.EquipmentId
-JOIN [dbo].[Statuses] as s ON e.StatusId = s.StatusId
+JOIN [dbo].[MeasurementDevices] as e ON e.ID = t.EquipmentId
+JOIN [dbo].[Statuses] as s ON e.MeasurementDeviceStatusId = s.StatusId
 WHERE  s.StatusDescriptionENG <> 'Available'
 ) 
 THROW 51000, 'Incorrect or inactive equipment were found in list or equipment not in available state.', 1;
@@ -38,16 +38,16 @@ DECLARE @OrderWorkPlanId INT
 SELECT @OrderWorkPlanId = OrderWorkPlanId FROM [dbo].[OrderWorkPlans] WHERE OrderNumber= @OrderID
 
 
-UPDATE [dbo].[CalibEquipmentsToOrderHeaders]
+UPDATE [dbo].[MeasurementDevicesToOrderHeaders]
 SET IsDeleted = 1
 WHERE OrderWorkPlanId = @OrderWorkPlanId
 
 IF (SELECT COUNT(*) FROM #AssociatedEquipmentIDs WHERE EquipmentId > 0) >= 1
 
-INSERT [dbo].[CalibEquipmentsToOrderHeaders]
+INSERT [dbo].[MeasurementDevicesToOrderHeaders]
 (
 OrderWorkPlanId,
-CalibEquipmentId
+MeasurementDeviceId
 )
 SELECT 
     @OrderWorkPlanId,
