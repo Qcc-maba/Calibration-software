@@ -6,7 +6,7 @@
 CREATE  PROCEDURE [dbo].[GetExternalWorkPlanData]
     @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
     @RowsOfPage AS INT = 1000,                 -- Result page size
-    @OrderBy AS NVARCHAR(MAX) = 'Date',      -- OrderBy column
+    @OrderBy AS NVARCHAR(MAX) = 'OrderNumber',      -- OrderBy column
     @OrderByAsc AS BIT = 1,                  -- OrderBy direction (ASC/DESC)
     -- Filter parameters (all nullable)
 	@ClientName NVARCHAR(255) = NULL,
@@ -112,8 +112,8 @@ BEGIN
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 'SELECT wp.[OrderNumber] AS [OrderNumber],
-        MAX(od.[ActualCalibrationDate]) AS [Date],
-		MAX(od.[CustomerId]) as [CustomerId], 
+        --MAX(od.[ActualCalibrationDate]) AS [Date],
+		MAX(wp.[CustomerId]) as [CustomerId], 
         spc.[SpecialCares],
         REVERSE(c.[CustomerName]) as [ClientName],
         REVERSE(c.[CustomerCity]) as [Location],
@@ -125,25 +125,21 @@ CONCAT(
 		coh.EquipmentNames,
 		cwp.Calibrators,
         NULL as Notes,
-		mc.MainCategory,
+		--mc.MainCategory,
 		NULL AS SecondCategory,
 		wp.[IsCancelled],
-		STRING_AGG(od.SerialNumber,'','') AS DeviceNumber,
-		STRING_AGG(dm.OrdersDeviceManufacturerDescription,'','') AS DeviceManufacturer,
-		STRING_AGG(od.DeviceModel,'','') AS DeviceModel,
-	    MAX(wp.VPRICE) as VPRICE,
-	    MAX(wp.PRICE) as PRICE,
-		MAX(od.[PartName]) as PartName, 
-		MAX(od.[OrderDetailId]) as OrderDetailId,
-		MAX(wp.[OrderLineCnt]) as OrderLineCnt,
+	--	STRING_AGG(od.SerialNumber,'','') AS DeviceNumber,
+	--	STRING_AGG(dm.OrdersDeviceManufacturerDescription,'','') AS DeviceManufacturer,
+	--	STRING_AGG(od.DeviceModel,'','') AS DeviceModel,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
     ,IIF((SELECT COUNT(*) FROM #FilteredDetails) > 0,' JOIN #FilteredDetails as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId ',' ')
 	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
 	,IIF(@EquipmentIds IS NOT NULL,' JOIN #EquipmentId as eid ON wp.OrderWorkPlanId = eid.OrderWorkPlanId ',' ')
 	,'LEFT JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
-	  LEFT JOIN [dbo].[Customers] as c ON od.[CustomerId] = c.[CustomerId]
-	  LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON od.[OrdersDeviceManufacturerId] = dm.[OrdersDeviceManufacturerId]
+	  LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
+	  LEFT JOIN [dbo].[Customers] as c ON wp.[CustomerId] = c.[CustomerId]
+	  LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON itm.[OrdersDeviceManufacturerId] = dm.[OrdersDeviceManufacturerId]
 	',IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
 	,'LEFT JOIN 
 	(  SELECT co.OrderWorkPlanId,STRING_AGG(co.CarId,'','') as [Cars]
@@ -157,15 +153,15 @@ CONCAT(
 		JOIN [dbo].[Users] as u ON cwp.CalibratorId = u.ID
 		WHERE cwp.IsDeleted = 0	GROUP BY cwp.OrderWorkPlanId
 	 ) as cwp ON wp.OrderWorkPlanId = cwp.OrderWorkPlanId
-	LEFT JOIN 
-	(SELECT OrderWorkPlanId, STRING_AGG(MainCategory,'','') AS MainCategory
-	 FROM ( SELECT DISTINCT od.OrderWorkPlanId,omc.OrdersMainCategoryName as MainCategory
-	 FROM [dbo].[OrderDetails] as od
-	 JOIN [dbo].[OrderWorkPlans] as wp ON od.OrderWorkPlanId = wp.OrderWorkPlanId
-	 JOIN [dbo].[OrdersMainCategories] as omc ON od.OrdersMainCategoryId = omc.OrdersMainCategoryId
-	 WHERE od.IsInHouse = 0 and wp.IsCancelled = 0
-	 ) ds GROUP BY OrderWorkPlanId
-	) as mc ON wp.OrderWorkPlanId = mc.OrderWorkPlanId
+	--LEFT JOIN 
+	--(SELECT OrderWorkPlanId, STRING_AGG(MainCategory,'','') AS MainCategory
+	-- FROM ( SELECT DISTINCT od.OrderWorkPlanId,omc.OrdersMainCategoryName as MainCategory
+	-- FROM [dbo].[OrderDetails] as od
+	-- JOIN [dbo].[OrderWorkPlans] as wp ON od.OrderWorkPlanId = wp.OrderWorkPlanId
+	-- JOIN [dbo].[OrdersMainCategories] as omc ON od.OrdersMainCategoryId = omc.OrdersMainCategoryId
+	-- WHERE od.IsInHouse = 0 and wp.IsCancelled = 0
+	-- ) ds GROUP BY OrderWorkPlanId
+	--) as mc ON wp.OrderWorkPlanId = mc.OrderWorkPlanId
 	LEFT JOIN 
 	( SELECT OrderWorkPlanId,STRING_AGG(StatusDescriptionENG,'','') AS StatusDescriptionENG,
 	 STRING_AGG(StatusDescriptionHEB,'','') AS StatusDescriptionHEB
@@ -206,7 +202,7 @@ CONCAT(
 	c.[CustomerCity],
 	wp.[WorkPlanOpenDate],
 	co.[Cars],
-	mc.MainCategory,
+--	mc.MainCategory,
 	--od.SecondCategory,
     coh.EquipmentIds,
 	coh.EquipmentNames,

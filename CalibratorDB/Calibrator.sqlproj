@@ -265,6 +265,7 @@
     <Build Include="dbo\Stored Procedures\GetExternalWorkPlanData_orig.sql" />
     <Build Include="dbo\Tables\OrderDetailsItems.sql" />
     <Build Include="dbo\Tables\MabaCommentsToOrderDetails.sql" />
+    <Build Include="dbo\Stored Procedures\GetOrderDetailsDevices.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
