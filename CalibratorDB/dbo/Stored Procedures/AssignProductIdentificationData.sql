@@ -23,7 +23,8 @@ CREATE   PROCEDURE [dbo].[AssignProductIdentificationData]
 @MeasurementUnitId INT= NULL,
 @MeasurementPoints INT= NULL,
 @MeasurementValueList NVARCHAR(200) = NULL,
-@CalibrationProcessCommentComment NVARCHAR(MAX) = NULL
+@CalibrationProcessCommentComment NVARCHAR(MAX) = NULL,
+@OrderLineCnt_new INT = NULL
 AS
 BEGIN 
 
@@ -79,6 +80,10 @@ BEGIN
 	UPDATE [dbo].[OrderDetails] 
 	SET [OrdersProductTypeId] = @OrdersProductTypeId
 	WHERE OrderDetailId = @OrderDetailId AND [OrdersProductTypeId] <> @OrdersProductTypeId
+
+	UPDATE [dbo].[OrderDetails] 
+	SET [OrderLineCnt] = @OrderLineCnt_new
+	WHERE OrderDetailId = @OrderDetailId AND [OrderLineCnt] <> @OrderLineCnt_new
 
 	UPDATE [dbo].[OrderDetailsItems]
 			SET 
