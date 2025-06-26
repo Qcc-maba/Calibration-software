@@ -12,7 +12,7 @@ BEGIN
 SET NOCOUNT ON;
 
 SELECT OrderDetailsItemId
-      ,CAST(DECOMPRESS([CalibrationProcessCommentComment]) as NVARCHAR(MAX)) as [CalibrationProcessCommentComment]
+      ,CAST(DECOMPRESS([CalibrationProcessComment]) as NVARCHAR(MAX)) as [CalibrationProcessComment]
   FROM [dbo].[CalibrationProcessComments]
   WHERE [IsDeleted] = 0 AND OrderDetailsItemId = @OrderDetailsItemId
 

@@ -76,7 +76,7 @@ GROUP BY mdt.[OrderWorkPlanId]
 ) as e ON e.[OrderWorkPlanId] = wp.[OrderWorkPlanId]
 WHERE od.[OrderDetailId] = @OrderDetailId
 )
-SELECT DISTINCT
+SELECT
 COALESCE(r.[OrderWorkPlanId],@OrderWorkPlanId) as [OrderWorkPlanId],
 r.[CustomerId],
 COALESCE(r.[OrderDetailId],@OrderDetailId) as [OrderDetailId],

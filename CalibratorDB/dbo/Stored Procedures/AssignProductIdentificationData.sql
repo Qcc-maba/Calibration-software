@@ -23,7 +23,7 @@ CREATE   PROCEDURE [dbo].[AssignProductIdentificationData]
 @MeasurementUnitId INT= NULL,
 @MeasurementPoints INT= NULL,
 @MeasurementValueList NVARCHAR(200) = NULL,
-@CalibrationProcessCommentComment NVARCHAR(MAX) = NULL,
+@CalibrationProcessComment NVARCHAR(MAX) = NULL,
 @OrderLineCnt_new INT = NULL
 AS
 BEGIN 
@@ -83,7 +83,7 @@ BEGIN
 
 	UPDATE [dbo].[OrderDetails] 
 	SET [OrderLineCnt] = @OrderLineCnt_new
-	WHERE OrderDetailId = @OrderDetailId AND [OrderLineCnt] <> @OrderLineCnt_new
+	WHERE OrderDetailId = @OrderDetailId AND [OrderLineCnt] <> COALESCE(@OrderLineCnt_new,[OrderLineCnt])
 
 	UPDATE [dbo].[OrderDetailsItems]
 			SET 
@@ -105,11 +105,11 @@ BEGIN
 			,[UpdateUserID] = @UserId
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
-	IF NOT EXISTS (SELECT 1 FROM [CalibrationProcessComments] WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted))
-	  INSERT [CalibrationProcessComments]
+	IF NOT EXISTS (SELECT 1 FROM [dbo].[CalibrationProcessComments] WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted))
+	  INSERT [dbo].[CalibrationProcessComments]
 		(
 		   [OrderDetailsItemId]
-		  ,[CalibrationProcessCommentComment]
+		  ,[CalibrationProcessComment]
 		  ,[TextHash]
 		  ,[CreateDate]
 		  ,[UpdateUserID]
@@ -117,18 +117,19 @@ BEGIN
 	   )
 	   SELECT
 		COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted),
-		COMPRESS(@CalibrationProcessCommentComment),
-		BINARY_CHECKSUM(@CalibrationProcessCommentComment),
+		COMPRESS(@CalibrationProcessComment),
+		BINARY_CHECKSUM(@CalibrationProcessComment),
 		GETDATE(),
 		@UserId,
 		0
 
 		UPDATE [CalibrationProcessComments]
 			SET [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
-			  ,[CalibrationProcessCommentComment] = COMPRESS(@CalibrationProcessCommentComment)
-			  ,[TextHash] = BINARY_CHECKSUM([CalibrationProcessCommentComment])
+			  ,[CalibrationProcessComment] = COMPRESS(@CalibrationProcessComment)
+			  ,[TextHash] = BINARY_CHECKSUM([CalibrationProcessComment])
 			  ,[UpdatedDate] = GETDATE()
 			  ,[UpdateUserID] = @UserId
-		WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailId,@OrderDetailItemIdInserted) AND [TextHash] <> BINARY_CHECKSUM(@CalibrationProcessCommentComment)
+		WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailId,@OrderDetailItemIdInserted) AND [TextHash] <> BINARY_CHECKSUM(@CalibrationProcessComment)
 
+		SELECT COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) as OrderDetailsItemId
 END
