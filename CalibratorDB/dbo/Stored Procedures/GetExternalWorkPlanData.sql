@@ -112,7 +112,7 @@ BEGIN
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 'SELECT wp.[OrderNumber] AS [OrderNumber],
-        --MAX(od.[ActualCalibrationDate]) AS [Date],
+        MAX(itm.[ActualCalibrationDate]) AS [CalibDate],
 		MAX(wp.[CustomerId]) as [CustomerId], 
         spc.[SpecialCares],
         REVERSE(c.[CustomerName]) as [ClientName],
@@ -185,7 +185,7 @@ CONCAT(
 	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
 	WHERE od.IsInHouse = 0 AND wp.IsCancelled = 0'
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
-	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND od.CalibDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
+	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND itm.ActualCalibrationDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @MainCategory IS NOT NULL THEN ' AND mc.MainCategory LIKE N''%'+ @MainCategory+'%'' 'ELSE ' ' END
 	,CASE WHEN @SecondCategory IS NOT NULL THEN ' AND od.SecondCategory LIKE N''%'+ @SecondCategory +'%'' 'ELSE ' ' END
 	,CASE WHEN @Location  IS NOT NULL THEN ' AND c.CustomerCity LIKE N''%'+@Location +'%'' 'ELSE ' ' END
@@ -211,7 +211,7 @@ CONCAT(
 	sp.StatusDescriptionHEB, 
 	wp.[IsCancelled]'
 	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL 
-		  THEN ' HAVING MAX(od.[CalibDate]) >= '''+CAST(@DateFrom AS NVARCHAR(MAX))+''' AND MAX(od.[CalibDate]) <= '''+CAST(@DateTo AS NVARCHAR(MAX))+''''
+		  THEN ' HAVING MAX(itm.ActualCalibrationDate) >= '''+CAST(@DateFrom AS NVARCHAR(MAX))+''' AND MAX(itm.ActualCalibrationDate) <= '''+CAST(@DateTo AS NVARCHAR(MAX))+''''
 	  ELSE ' ' END
   ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT LEN(@sql)

@@ -53,6 +53,7 @@ CONCAT(
 'SELECT DISTINCT
      op.OrderNumber
 	,od.OrderWorkPlanId as OrderId
+	,od.OrderDetailId
 	,opt.OrdersProductTypeName AS DeviceType
 	,mc.OrdersMainCategoryName AS DepartmentId
 	,mc.OrdersMainCategoryName as MainCategory

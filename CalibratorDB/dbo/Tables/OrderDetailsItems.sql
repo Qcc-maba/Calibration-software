@@ -16,7 +16,7 @@
     [SpecificationReferenceId]   INT            NULL,
     [MeasurementUnitId]          INT            NULL,
     [MeasurementPoints]          INT            NULL,
-    [MeasurementValueList]       NVARCHAR (200) NULL,
+    [MeasurementValueList]       NVARCHAR (MAX) NULL,
     [ProductLocation]            NVARCHAR (50)  NULL,
     [CreatedDate]                DATETIME2 (0)  DEFAULT (getdate()) NOT NULL,
     [UpdatedDate]                DATETIME2 (0)  NULL,
