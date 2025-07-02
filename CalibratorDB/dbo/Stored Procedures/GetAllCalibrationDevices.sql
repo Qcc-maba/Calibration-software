@@ -30,7 +30,10 @@ THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
 		  ,NULL AS [Status]
 		  ,mc.NameHebrew
 		  ,mc.NameEnglish
+		  ,md.UnitId
 		  ,u.ShortNameHe AS UnitName
+		  ,md.WorkRangeUnitId
+		  ,u2.ShortNameHe as WorkRangeUnitName
 		  ,md.WorkRangeMin	as LowerDomainBorder
 		  ,md.WorkRangeMax as UpperDomainBorder 
 		  ,m.NameHe as MeasurmentName
@@ -51,6 +54,7 @@ THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
 	  ,'
 	  JOIN [dbo].[MeasurementDevicesMainClasses] as mc ON md.MainClassId = mc.Id
 	  LEFT JOIN [dbo].[MeasurementDeviceUnits] as u ON md.UnitId = u.MeasurementDeviceUnitId
+	  LEFT JOIN [dbo].[MeasurementDeviceUnits] as u2 ON md.WorkRangeUnitId = u2.MeasurementDeviceUnitId
 	  LEFT JOIN [dbo].[Measurements] as m ON md.MeasurementId = m.ID
 	  LEFT JOIN [dbo].[Departments] as d ON md.DepartmentId = d.ID
 	  WHERE md.RemoveDate IS NULL AND md.IsDeleted = 0

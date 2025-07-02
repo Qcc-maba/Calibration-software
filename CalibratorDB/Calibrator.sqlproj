@@ -266,6 +266,10 @@
     <Build Include="dbo\Tables\OrderDetailsItems.sql" />
     <Build Include="dbo\Tables\MabaCommentsToOrderDetails.sql" />
     <Build Include="dbo\Stored Procedures\GetOrderDetailsDevices.sql" />
+    <Build Include="dbo\Tables\SensorToLoggerToCalibrator.sql" />
+    <Build Include="dbo\Tables\LoggerToCalibrator.sql" />
+    <Build Include="dbo\Tables\ChannelsToSensorForCalibratoration.sql" />
+    <Build Include="dbo\Stored Procedures\AssignMeasurmentDevicesToCalibrator.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
