@@ -14,7 +14,7 @@ CREATE     PROCEDURE [dbo].[CreateUserRecord]
 ,@UserRoleId INT
 ,@UserStatusId INT
 ,@Email NVARCHAR(50)
-,@DepartmentIdsList NVARCHAR(max) 
+,@DepartmentIdsList NVARCHAR(max) = NULL
 ,@CertificationIdsList NVARCHAR(max) = NULL
 ,@LoggedInUserEmail NVARCHAR(50)
 ,@Stamp NVARCHAR(200) = NULL
@@ -69,16 +69,16 @@ SELECT @IsActive = IIF(StatusDescriptionENG='Active',1,0)
   FROM [Calibrator].[dbo].[Statuses] as s
 WHERE s.StatusId = @UserStatusId
 
-IF @DepartmentIdsList IS NOT NULL
-BEGIN
 DROP TABLE IF EXISTS #DepartmentIdsList
 CREATE TABLE #DepartmentIdsList
 (
 DepartmentId INT
 )
 
-INSERT #DepartmentIdsList(DepartmentId)
-SELECT Value FROM dbo.ParseCSVToTable(@DepartmentIdsList)
+IF @DepartmentIdsList IS NOT NULL
+BEGIN
+	INSERT #DepartmentIdsList(DepartmentId)
+	SELECT Value FROM dbo.ParseCSVToTable(@DepartmentIdsList)
 END
 
 BEGIN TRY
@@ -130,6 +130,7 @@ BEGIN TRY
 END TRY
 
 BEGIN CATCH
+SELECT ERROR_MESSAGE() as error
 ROLLBACK
 END CATCH
 

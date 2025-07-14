@@ -106,18 +106,23 @@ BEGIN TRY
 
 	IF @DepartmentIdsList IS NOT NULL
 	BEGIN
-	UPDATE ud
-	SET IsDeleted = 1,UpdateUserID = @LoggedInUserId
-	FROM [dbo].[UsersToDepartments] as ud
-	LEFT JOIN #DepartmentIdsList as di ON ud.UserId = @UserId and di.DepartmentId = ud.DepartmentId
-	WHERE ud.UserId = @UserId  AND di.DepartmentId IS NULL
+		UPDATE ud
+		SET IsDeleted = 1,UpdateUserID = @LoggedInUserId
+		FROM [dbo].[UsersToDepartments] as ud
+		LEFT JOIN #DepartmentIdsList as di ON ud.UserId = @UserId and di.DepartmentId = ud.DepartmentId
+		WHERE ud.UserId = @UserId  AND di.DepartmentId IS NULL
 
-	INSERT [dbo].[UsersToDepartments](UserId,DepartmentId,UpdateUserID)
-	SELECT @UserId,di.DepartmentId, @LoggedInUserId
-	FROM #DepartmentIdsList as di
-	LEFT JOIN [dbo].[UsersToDepartments] as ud ON ud.UserId = @UserId and di.DepartmentId = ud.DepartmentId AND ud.IsDeleted = 0
-	WHERE ud.DepartmentId IS NULL
+		INSERT [dbo].[UsersToDepartments](UserId,DepartmentId,UpdateUserID)
+		SELECT @UserId,di.DepartmentId, @LoggedInUserId
+		FROM #DepartmentIdsList as di
+		LEFT JOIN [dbo].[UsersToDepartments] as ud ON ud.UserId = @UserId and di.DepartmentId = ud.DepartmentId AND ud.IsDeleted = 0
+		WHERE ud.DepartmentId IS NULL
 	END
+	ELSE 
+		UPDATE ud
+		SET IsDeleted = 1,UpdateUserID = @LoggedInUserId
+		FROM [dbo].[UsersToDepartments] as ud
+		WHERE ud.UserId = @UserId 
 
 	IF @CertificationIdsList IS NOT NULL
 	BEGIN
