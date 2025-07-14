@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="93"
-  DTS:VersionGUID="{074A2308-36AF-4277-990C-9C3158C1FA40}">
+  DTS:VersionBuild="95"
+  DTS:VersionGUID="{BE820F68-599F-4B44-A773-81D599365A51}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -36,7 +36,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customer Remarks"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -52,7 +52,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Contacts Data"
-          DTS:ThreadHint="2">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -68,7 +68,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Data"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -84,7 +84,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Order Product Type"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="2">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -2043,6 +2043,7 @@ FROM cte</property>
 	  ,[PRICE]
 	  ,[ProductLocation] 
 	  ,'MABA' as SourceSystem
+	  ,[ORDSTATUS]
   FROM [amaba].[dbo].[vwGetOrders_WorkPlan_Full_new]
   WHERE InHouse IS NOT NULL
 UNION ALl
@@ -2070,6 +2071,7 @@ SELECT [SourceOrderId]
 	  ,[PRICE]
 	  ,[ProductLocation]
 	  ,'SEPHARM' as SourceSystem
+	  ,[ORDSTATUS]
   FROM [sepharm].[dbo].[vwGetOrders_WorkPlan_Full_new]
   WHERE InHouse IS NOT NULL</property>
                     <property
@@ -2335,6 +2337,15 @@ SELECT [SourceOrderId]
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]"
                           name="SourceSystem"
                           truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ORDSTATUS]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ORDSTATUS]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ORDSTATUS]"
+                          name="ORDSTATUS"
+                          truncationRowDisposition="FailComponent" />
                       </outputColumns>
                       <externalMetadataColumns
                         isUsed="True">
@@ -2445,6 +2456,10 @@ SELECT [SourceOrderId]
                           dataType="wstr"
                           length="7"
                           name="SourceSystem" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ORDSTATUS]"
+                          dataType="i4"
+                          name="ORDSTATUS" />
                       </externalMetadataColumns>
                     </output>
                     <output
@@ -2583,6 +2598,11 @@ SELECT [SourceOrderId]
                           length="7"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceSystem]"
                           name="SourceSystem" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ORDSTATUS]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ORDSTATUS]"
+                          name="ORDSTATUS" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
                           dataType="i4"
@@ -2804,6 +2824,12 @@ SELECT [SourceOrderId]
                           cachedName="SourceSystem"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SourceSystem]"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[ORDSTATUS]"
+                          cachedDataType="i4"
+                          cachedName="ORDSTATUS"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ORDSTATUS]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ORDSTATUS]" />
                       </inputColumns>
                       <externalMetadataColumns
                         isUsed="True">
@@ -2918,6 +2944,10 @@ SELECT [SourceOrderId]
                           dataType="wstr"
                           length="50"
                           name="ProductLocation" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ORDSTATUS]"
+                          dataType="i4"
+                          name="ORDSTATUS" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -4011,7 +4041,7 @@ WHERE ds.DeviceDescription IS NOT NULL</property>
     design-time-name="Package\Populate staging tables\Load data to stg_Orders">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="223.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging"
@@ -4039,9 +4069,7 @@ WHERE ds.DeviceDescription IS NOT NULL</property>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>

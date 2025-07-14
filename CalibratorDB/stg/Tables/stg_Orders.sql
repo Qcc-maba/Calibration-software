@@ -22,6 +22,7 @@
     [VPRICE]                     DECIMAL (18, 2) NULL,
     [PRICE]                      DECIMAL (18, 2) NULL,
     [PART]                       INT             NULL,
-    [ProductLocation]            NVARCHAR (50)   NULL
+    [ProductLocation]            NVARCHAR (50)   NULL,
+    [ORDSTATUS]                  INT             NULL
 );
 

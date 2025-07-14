@@ -11,6 +11,18 @@ BEGIN
 
 SET NOCOUNT ON;
 
+DROP TABLE IF EXISTS #OrderStatus
+CREATE TABLE #OrderStatus
+(
+StatusId INT NOT NULL,
+Code INT
+)
+INSERT #OrderStatus (StatusId,Code)
+SELECT s.StatusId, TRY_CAST(s.Code AS INT) as Code
+FROM [Calibrator].[dbo].[Statuses] as s
+JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
+WHERE sc.StatusDescriptionENG = 'OrderStatus' AND TRY_CAST(s.Code AS INT) <> 0
+
 DECLARE @dt DATETIME2(0) = GETDATE()
 
 MERGE INTO [dbo].[OrderWorkPlans] AS dest
@@ -27,9 +39,11 @@ SELECT DISTINCT
 		,o.SourceOrderId as [OrderSourceId]
 		,ss.[SourceId]
 		,o.SourceOrderId
+		,os.StatusId as OrderOverallStatusId
 		FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as ss ON o.[SourceSystem] = ss.SourceName
     LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = ss.SourceId and c.IsDeleted = 0
+	LEFT JOIN #OrderStatus AS os ON o.ORDSTATUS = os.Code
 	) AS source
 	ON dest.[OrderSourceId] = source.[OrderSourceId]
 	   AND dest.[OrderSourceId] = source.[OrderSourceId]
@@ -46,6 +60,7 @@ WHEN NOT MATCHED BY TARGET
 			,[OrderSourceId]
 			,[SourceId]
 			,[CustomerId]
+			,[OrderOverallStatusId]
 			)
 		VALUES (
 			 source.[OrderNumber]
@@ -58,7 +73,16 @@ WHEN NOT MATCHED BY TARGET
 			,source.[OrderSourceId]
 			,source.[SourceId]
 			,source.[CustomerId]
-			);
+			,source.[OrderOverallStatusId]
+			)
+WHEN MATCHED AND
+	(
+		  COALESCE(dest.[OrderOverallStatusId],0) <> COALESCE(source.[OrderOverallStatusId],0)
+	)
+	THEN
+		UPDATE
+		SET dest.[OrderOverallStatusId] = source.[OrderOverallStatusId],
+		    dest.[UpdateUserID] = source.[UpdateUserID];
 
 	
 MERGE INTO [dbo].[OrderDetails] AS dest
