@@ -54,7 +54,7 @@ WHEN NOT MATCHED BY TARGET
 		SELECT 
 			od.OrderDetailId, od.PART, wp.SourceId , mc.MabaCommentId
 		FROM [dbo].[OrderDetails] as od
-		JOIN [dbo].[OrderWorkPlans] as wp ON od.OrderWorkPlanId = od.OrderWorkPlanId
+		JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderWorkPlanId = od.OrderWorkPlanId
 		JOIN [dbo].[MabaComments] as mc ON od.PART = mc.PART AND wp.SourceId = mc.SourceId
 		) AS source
 		ON dest.OrderDetailId = source.OrderDetailId AND dest.MabaCommentId = source.MabaCommentId 
