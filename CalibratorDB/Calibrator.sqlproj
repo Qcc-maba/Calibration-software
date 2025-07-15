@@ -88,7 +88,6 @@
     <Build Include="dbo\Tables\Measurements.sql" />
     <Build Include="dbo\Tables\MeasurementDevicesMainClasses.sql" />
     <Build Include="dbo\Tables\CarsToOrder.sql" />
-    <Build Include="dbo\Tables\CalibratorsCertifications.sql" />
     <Build Include="dbo\Tables\Users.sql" />
     <Build Include="dbo\Tables\StatusesCategories.sql" />
     <Build Include="dbo\Tables\Statuses.sql" />

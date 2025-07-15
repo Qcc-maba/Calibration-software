@@ -37,8 +37,8 @@ INSERT #Certifications(CalibratorId)
 SELECT DISTINCT wp.CalibratorId
 FROM [dbo].[CalibratorsToWorkPlan] as wp 
 JOIN [dbo].[CalibratorsToCertification] as cts ON wp.CalibratorId = cts.CalibratorId and cts.IsDeleted = 0
-JOIN [dbo].[CalibratorsCertifications] as s ON cts.CertificationId = s.ID and s.IsDeleted = 0
-JOIN dbo.ParseCSVToTable(@Certifications) as sc ON s.[Certificate] = sc.[Value]
+JOIN [dbo].[MeasurementsSpecifications] as s ON cts.CertificationId = s.ID and s.IsDeleted = 0
+JOIN dbo.ParseCSVToTable(@Certifications) as sc ON s.[Name] = sc.[Value]
 END
 
 DECLARE @AvailableStatus INT
@@ -58,7 +58,7 @@ SELECT DISTINCT
 	MAX(st.StatusDescriptionENG)	as [StatusENG],
 	MAX(st.StatusDescriptionHEB) as [StatusHEB],
 	wp.[OrderNumber] as [AssignedToOrderNumber],
-	STRING_AGG(cc.Certificate,'', '') as Certification,
+	STRING_AGG(cc.[Name],'', '') as Certification,
 	u.LocationArea,
 	ud.DepartmentName
   FROM [dbo].[Users] as u
@@ -77,7 +77,7 @@ SELECT DISTINCT
 	) as st ON u.ID =  st.UserId AND st.rn = 1
   LEFT JOIN [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId AND od.IsCancelled = 0
   LEFT JOIN [dbo].[CalibratorsToCertification] as ctc ON u.ID = ctc.CalibratorId
-  LEFT JOIN [dbo].[CalibratorsCertifications] as cc ON ctc.CertificationId = cc.ID'
+  LEFT JOIN [dbo].[MeasurementsSpecifications] as cc ON ctc.CertificationId = cc.ID'
   ,CASE WHEN @SecondCategories IS NOT NULL THEN ' JOIN #SecondCategories as sc ON cp.OrderWorkPlanId = sc.OrderWorkPlanId ' ELSE ' ' END
   ,CASE WHEN @Certifications IS NOT NULL THEN ' JOIN #Certifications as s ON u.ID = s.CalibratorId ' ELSE ' ' END
    ,' WHERE u.IsActive = 1 AND u.ID > 0'

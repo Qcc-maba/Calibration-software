@@ -1,4 +1,5 @@
-﻿-- =============================================
+﻿
+-- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 17/03/2025
 -- Description:	This SP should return a list of all company employees
@@ -191,9 +192,9 @@ LEFT JOIN [dbo].[UserRoles] as ur ON u.UserRoleId = ur.UserRoleId
 (
 SELECT ctc.CalibratorId as UserId,
 	   STRING_AGG(cc.ID,'','') as CertificationIds,
-	   STRING_AGG(cc.Certificate,'','') as Certification
+	   STRING_AGG(cc.Name,'','') as Certification
 FROM [dbo].[CalibratorsToCertification] as ctc
-JOIN [dbo].[CalibratorsCertifications] as cc ON ctc.CertificationId = cc.ID AND cc.IsDeleted = 0
+JOIN [dbo].[MeasurementsSpecifications] as cc ON ctc.CertificationId = cc.ID AND cc.IsDeleted = 0
 WHERE ctc.IsDeleted = 0
 GROUP BY ctc.CalibratorId
 ) as cc ON u.ID = cc.UserId
