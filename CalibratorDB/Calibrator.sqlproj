@@ -271,6 +271,8 @@
     <Build Include="dbo\Stored Procedures\AssignMeasurmentDevicesToCalibrator.sql" />
     <Build Include="dbo\Stored Procedures\GetSensorsConfiguredByCalibrator.sql" />
     <Build Include="dbo\Stored Procedures\GetLogersConfiguredByCalibrator.sql" />
+    <Build Include="dbo\Tables\SensorToOrderDetailsItems.sql" />
+    <Build Include="dbo\Stored Procedures\AssignSensorDetailsToOrderDetailsItems.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
