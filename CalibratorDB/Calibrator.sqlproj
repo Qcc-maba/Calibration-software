@@ -273,6 +273,7 @@
     <Build Include="dbo\Stored Procedures\GetLogersConfiguredByCalibrator.sql" />
     <Build Include="dbo\Tables\SensorToOrderDetailsItems.sql" />
     <Build Include="dbo\Stored Procedures\AssignSensorDetailsToOrderDetailsItems.sql" />
+    <Build Include="dbo\Stored Procedures\GetSensorDetailsToOrderDetailsItems.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
