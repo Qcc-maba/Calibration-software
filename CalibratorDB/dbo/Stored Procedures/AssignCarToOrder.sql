@@ -91,8 +91,10 @@ SET AssignQuater0 = @part0db,
 WHERE CarId = @CarID AND OrderWorkPlanId = @OrderWorkPlanId 
 		AND AssignDate = @Date
 
-UPDATE [dbo].[OrderWorkPlans] 
-SET WorkPlanOpenDate = GETDATE()
-WHERE OrderWorkPlanId = @OrderWorkPlanId AND IsCancelled = 0
+UPDATE itm
+SET [ActualCalibrationDate] = @Date
+FROM [dbo].[OrderDetailsItems] as itm
+JOIN [dbo].[OrderDetails] as od ON itm.OrderDetailId = od.OrderDetailId
+WHERE od.OrderWorkPlanId = @OrderWorkPlanId AND od.IsCancelled = 0
 
 END
