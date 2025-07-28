@@ -4,7 +4,7 @@
 -- Description:	
 -- JiraLink: 
 -- =============================================
-CREATE PROCEDURE stg.MergeMeasurementsData
+CREATE PROCEDURE [stg].[MergeMeasurementsData]
 AS
 BEGIN
 
@@ -17,12 +17,12 @@ USING (
 		,m.[NameHe]
 		,m.[NoteEn]
 		,m.[NoteHe]
-		,d.ID as [DepartmentId]
+		,d.ID as [MainCategoryId]
 		,GETDATE() AS [UpdatedDate]
 		,0 AS [UpdateUserID]
 		,m.[MeasurementIdFromSource]
 	FROM [stg].[stg_Measurements] as m
-	JOIN [dbo].[Departments] as d ON m.[Department] = d.[DepartmentName]
+	JOIN [dbo].[MainCategories] as d ON m.[Department] = d.[MainCategoryName]
 	) AS source
 	ON dest.[MeasurementIdFromSource] = source.[MeasurementIdFromSource]
 WHEN MATCHED AND 
@@ -31,7 +31,7 @@ WHEN MATCHED AND
 	OR COALESCE(dest.[NameHe],'') <> COALESCE(source.[NameHe],'')
 	OR COALESCE(dest.[NoteEn],'') <> COALESCE(source.[NoteEn],'')
 	OR COALESCE(dest.[NoteHe],'') <> COALESCE(source.[NoteHe],'')
-	OR dest.[DepartmentId] <> source.[DepartmentId]
+	OR dest.[MainCategoryId] <> source.[MainCategoryId]
 	)
 	THEN
 		UPDATE
@@ -39,7 +39,7 @@ WHEN MATCHED AND
 			,dest.[NameHe] = source.[NameHe]
 			,dest.[NoteEn] = source.[NoteEn]
 			,dest.[NoteHe] = source.[NoteHe]
-			,dest.[DepartmentId] = source.[DepartmentId]
+			,dest.[MainCategoryId] = source.[MainCategoryId]
 			,dest.[UpdatedDate] = source.[UpdatedDate]
 			,dest.[UpdateUserID] = source.[UpdateUserID]
 WHEN NOT MATCHED BY TARGET
@@ -49,7 +49,7 @@ WHEN NOT MATCHED BY TARGET
 			,[NameHe]
 			,[NoteEn]
 			,[NoteHe]
-			,[DepartmentId]
+			,[MainCategoryId]
 			,[UpdateUserID]
 			,[MeasurementIdFromSource]
 			)
@@ -58,7 +58,7 @@ WHEN NOT MATCHED BY TARGET
 			,source.[NameHe]
 			,source.[NoteEn]
 			,source.[NoteHe]
-			,source.[DepartmentId]
+			,source.[MainCategoryId]
 			,source.[UpdateUserID]
 			,source.[MeasurementIdFromSource]
 			);
