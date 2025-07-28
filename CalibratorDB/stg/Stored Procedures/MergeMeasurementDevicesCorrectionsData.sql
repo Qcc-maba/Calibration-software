@@ -4,7 +4,7 @@
 -- Description:	
 -- JiraLink: 
 -- =============================================
-CREATE   PROCEDURE stg.MergeMeasurementDevicesCorrectionsData
+CREATE   PROCEDURE [stg].[MergeMeasurementDevicesCorrectionsData]
 AS
 BEGIN
 
@@ -21,7 +21,7 @@ SET NOCOUNT ON;
 			,m.[ID] as [MeasurementId]
 			,mu.MeasurementDeviceUnitId AS [UnitID]
 			,c.[CorVersion]
-			,d.[ID] as [DepartmentId]
+			,d.[ID] as [MainCategoryId]
 			,c.[Equation]
 			,GETDATE () as [UpdatedDate]
 			,0 as [UpdateUserID]
@@ -30,7 +30,7 @@ SET NOCOUNT ON;
 		LEFT JOIN [dbo].[Measurements] as m ON c.[MeasurementId] = m.MeasurementIdFromSource
 		LEFT JOIN [dbo].[MeasurementDevices] as md ON c.[MeasurementDevicesId] = md.[MeasurementDeviceSourceId]
 		LEFT JOIN [dbo].[MeasurementDeviceUnits] as mu ON c.[UnitID] = mu.MeasurementDeviceUnitSourceId
-		LEFT JOIN [dbo].[Departments] as d ON c.[Department] = d.[DepartmentName]
+		LEFT JOIN [dbo].[MainCategories] as d ON c.[Department] = d.[MainCategoryName]
 		) AS source
 		ON dest.[MeasurementDevicesCorrectionsSourceId] = source.[MeasurementDevicesCorrectionsSourceId]
 	WHEN MATCHED AND
@@ -42,7 +42,7 @@ SET NOCOUNT ON;
 			OR dest.[MeasurementId] <> source.[MeasurementId]
 			OR dest.[UnitID] <> source.[UnitID]
 			OR dest.[CorVersion] <> source.[CorVersion]
-			OR dest.[DepartmentId] <> source.[DepartmentId]
+			OR dest.[MainCategoryId] <> source.[MainCategoryId]
 			OR dest.[Equation] <> source.[Equation]
 		)
 		THEN
@@ -54,7 +54,7 @@ SET NOCOUNT ON;
 				,dest.[MeasurementId] = source.[MeasurementId]
 				,dest.[UnitID] = source.[UnitID]
 				,dest.[CorVersion] = source.[CorVersion]
-				,dest.[DepartmentId] = source.[DepartmentId]
+				,dest.[MainCategoryId] = source.[MainCategoryId]
 				,dest.[Equation] = source.[Equation]
 				,dest.[UpdatedDate] = source.[UpdatedDate]
 				,dest.[UpdateUserID] = source.[UpdateUserID]
@@ -69,7 +69,7 @@ SET NOCOUNT ON;
 				,[MeasurementId]
 				,[UnitID]
 				,[CorVersion]
-				,[DepartmentId]
+				,[MainCategoryId]
 				,[Equation]
 				,[UpdateUserID]
 				,[MeasurementDevicesCorrectionsSourceId]
@@ -82,7 +82,7 @@ SET NOCOUNT ON;
 				,source.[MeasurementId]
 				,source.[UnitID]
 				,source.[CorVersion]
-				,source.[DepartmentId]
+				,source.[MainCategoryId]
 				,source.[Equation]
 				,source.[UpdateUserID]
 				,source.[MeasurementDevicesCorrectionsSourceId]

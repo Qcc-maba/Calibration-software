@@ -12,7 +12,7 @@ SELECT c.[ID]
       ,COALESCE(c.[Description],'N/A') AS Title
 	  ,c.[MainClassId]
 	  ,c.[SubClassId]
-	  ,c.[DepartmentId]
+	  ,c.[MainCategoryId] as [DepartmentId]
       ,s.[StatusId]
 	  ,s.[StatusDescriptionENG]	
 	  ,s.[StatusDescriptionHEB] 

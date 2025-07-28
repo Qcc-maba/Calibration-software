@@ -94,7 +94,6 @@
     <Build Include="dbo\Tables\Cars.sql" />
     <Build Include="dbo\Tables\MeasurementDevicesCorrections.sql" />
     <Build Include="dbo\Tables\CarsToEquipment.sql" />
-    <Build Include="dbo\Tables\Departments.sql" />
     <Build Include="dbo\Views\vwGetDepartmentOrdersByUserId.sql" />
     <Build Include="dbo\Views\vwGetCustomersRemarks.sql" />
     <Build Include="dbo\Views\vwGetOrdersData.sql" />
@@ -274,10 +273,12 @@
     <Build Include="dbo\Tables\SensorToOrderDetailsItems.sql" />
     <Build Include="dbo\Stored Procedures\AssignSensorDetailsToOrderDetailsItems.sql" />
     <Build Include="dbo\Stored Procedures\GetSensorDetailsToOrderDetailsItems.sql" />
+    <None Include="AddMeasurmentSpec.sql" />
+    <Build Include="dbo\Tables\MainCategories.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
-    <None Include="5_PopulateDepartments.sql" />
+    <None Include="5_PopulateMainCategories.sql" />
     <None Include="3_Add_UserMessages.sql" />
     <None Include="PostDeployScripts_InitialDeploy_.sql" />
   </ItemGroup>

@@ -60,11 +60,11 @@ SELECT DISTINCT
 	wp.[OrderNumber] as [AssignedToOrderNumber],
 	STRING_AGG(cc.[Name],'', '') as Certification,
 	u.LocationArea,
-	ud.DepartmentName
+	ud.[MainCategoryName] as DepartmentName
   FROM [dbo].[Users] as u
   JOIN [dbo].[UserRoles] as ur ON  u.UserRoleId = ur.UserRoleId AND ur.UserRoleDescriptionENG = ''Calibrator''
   LEFT JOIN [dbo].[UsersToDepartments] as utd ON u.ID = utd.UserId
-  LEFT JOIN [dbo].[Departments] as ud ON ud.ID = utd.DepartmentId
+  LEFT JOIN [dbo].[MainCategories] as ud ON ud.ID = utd.MainCategoryId
   LEFT JOIN [dbo].[CalibratorsToWorkPlan] cp ON u.[ID] = cp.CalibratorId AND cp.IsDeleted = 0
   LEFT JOIN [dbo].[OrderWorkPlans] as wp ON cp.OrderWorkPlanId = wp.OrderWorkPlanId AND wp.IsCancelled = 0
   LEFT JOIN
@@ -88,7 +88,7 @@ SELECT DISTINCT
 	u.[LastName],
 	wp.[OrderNumber],
 	u.LocationArea,
-	ud.DepartmentName
+	ud.[MainCategoryName]
    '
   ,CASE WHEN @MainCategory IS NOT NULL THEN' AND od.[MainCategory] = '''+ @MainCategory+''' 'ELSE ' ' END
 )

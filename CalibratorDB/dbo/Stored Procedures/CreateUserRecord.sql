@@ -14,7 +14,7 @@ CREATE     PROCEDURE [dbo].[CreateUserRecord]
 ,@UserRoleId INT
 ,@UserStatusId INT
 ,@Email NVARCHAR(50)
-,@DepartmentIdsList NVARCHAR(max) = NULL
+,@DepartmentIdsList NVARCHAR(max) = NULL -- mapped to MainCategories
 ,@CertificationIdsList NVARCHAR(max) = NULL
 ,@LoggedInUserEmail NVARCHAR(50)
 ,@Stamp NVARCHAR(200) = NULL
@@ -31,8 +31,8 @@ EXEC [dbo].[CreateUserRecord]
 ,@UserRoleId ='1'
 ,@UserStatusId = 56
 ,@Email ='tes2t@test.com12333'
-,@DepartmentIdsList = '1,2,3'
-,@CertificationIdsList ='1,2,3'
+,@DepartmentIdsList = '1,4,3'
+--,@CertificationIdsList ='1,2,3'
 ,@LoggedInUserEmail = 'sinova_super_admin@gmail.com'
 ,@Stamp =''
 */
@@ -122,7 +122,7 @@ BEGIN TRY
 	SELECT DISTINCT CertificationId,@Userid,@LoggedInUserId
 	FROM #CertificationIds
 
-	INSERT [dbo].[UsersToDepartments](UserId,DepartmentId,UpdateUserID)
+	INSERT [dbo].[UsersToDepartments](UserId,[MainCategoryId],UpdateUserID)
 	SELECT DISTINCT @Userid, DepartmentId,@LoggedInUserId
 	FROM #DepartmentIdsList
 

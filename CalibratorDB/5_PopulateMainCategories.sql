@@ -1,6 +1,6 @@
-﻿MERGE INTO [dbo].[Departments] AS dest
+﻿MERGE INTO [dbo].[MainCategories] AS dest
 USING (
-	SELECT [DepartmentName]
+	SELECT [MainCategoryName]
 		,[AddedByUserId]
 		,[CreatedAt]
 		,[UpdatedAt]
@@ -22,20 +22,20 @@ USING (
 		('מהירות אוויר',0,'2025-03-31 13:00:56','',0),
 		('קשיות',0,'2025-03-31 13:00:56','',0),
 		('רדיומטריה',0,'2025-03-31 13:00:56','',0)
-		) ds([DepartmentName],[AddedByUserId],[CreatedAt],[UpdatedAt],[IsDeleted])
+		) ds([MainCategoryName],[AddedByUserId],[CreatedAt],[UpdatedAt],[IsDeleted])
 	) AS source
-	ON dest.[DepartmentName] = source.[DepartmentName]
+	ON dest.[MainCategoryName] = source.[MainCategoryName]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
-			 [DepartmentName]
+			 [MainCategoryName]
 			,[AddedByUserId]
 			,[CreatedAt]
 			,[UpdatedAt]
 			,[IsDeleted]
 			)
 		VALUES (
-			 source.[DepartmentName]
+			 source.[MainCategoryName]
 			,source.[AddedByUserId]
 			,source.[CreatedAt]
 			,source.[UpdatedAt]

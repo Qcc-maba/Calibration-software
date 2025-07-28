@@ -14,7 +14,7 @@ CREATE    PROCEDURE [dbo].[CreateMeasurementDevicesCorrectionsRecord]
 	@UnitID [int] = NULL,
 	@DateAdded [datetime] = NULL,
 	@CorVersion [int] = NULL,
-	@DepartmentId [int] = NULL,
+	@DepartmentId [int] = NULL, -- was remapped to MainCategoryId
 	@Equation [NVARCHAR](300) = NULL
 
 /*
@@ -56,7 +56,7 @@ SELECT 1 FROM [dbo].[MeasurementDeviceUnits] WHERE MeasurementDeviceUnitId = @Un
 THROW 51000, 'Incorrect UnitID value provided.', 1;
 
 IF NOT EXISTS(
-SELECT 1 FROM dbo.Departments WHERE ID = @DepartmentId
+SELECT 1 FROM [dbo].[MainCategories] WHERE ID = @DepartmentId
 )AND @DepartmentId IS NOT NULL
 THROW 51000, 'Incorrect DepartmentId value provided.', 1;
 
@@ -79,7 +79,7 @@ INSERT INTO [dbo].[MeasurementDevicesCorrections]
            ,[UnitID]
            ,[CreatedDate]
            ,[CorVersion]
-           ,[DepartmentId]
+           ,[MainCategoryId]
            ,[Equation])
      VALUES
            (@Value1

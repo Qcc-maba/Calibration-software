@@ -25,7 +25,7 @@ SELECT mdc.[ID]
       ,mdc.[UnitID]
       ,mdc.[CreatedDate]
       ,mdc.[CorVersion]
-      ,mdc.[DepartmentId]
+      ,mdc.[MainCategoryId] as  [DepartmentId]
       ,mdc.[Equation]
   FROM [dbo].[MeasurementDevicesCorrections] as mdc
   WHERE mdc.IsDeleted = 0

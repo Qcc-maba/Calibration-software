@@ -10,7 +10,7 @@ CREATE  PROCEDURE [dbo].[GetEquipmentManagementTableData]
 @PageNumber INT = 1,
 @OrderBy NVARCHAR(30) = N'DepartmentName',
 @OrderByAsc BIT = 1,
-@DepartmentId INT = NULL,
+@DepartmentId INT = NULL, -- mapped to Main category
 @EquipmentName NVARCHAR(255)= NULL,
 @SerialNumber NVARCHAR(100)= NULL,
 @StatusId INT = NULL,
@@ -28,7 +28,7 @@ EXEC dbo.GetEquipmentManagementTableData
 @DepartmentId  = 1,
 @EquipmentName = 'Test',
 @SerialNumber = '00-00-11',
-@StatusId  = 43,
+--@StatusId  = 43,
 @CalibratorId  = 107,
 @CarId  = 1,
 @MainCategory = 'Test category',
@@ -44,7 +44,7 @@ THROW 51000, 'Incorrect value for parameter @OrderBy.', 1;
 
 
 if @DepartmentId > 0 AND NOT EXISTS (
-SELECT 1 FROM dbo.Departments
+SELECT 1 FROM [dbo].[MainCategories]
 WHERE ID = @DepartmentId
 )
 THROW 51000, 'Incorrect @DepartmentId', 1;
@@ -109,8 +109,8 @@ END
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 'SELECT ce.[ID] AS EquipmentId
-      ,ce.[DepartmentId]
-	  ,d.[DepartmentName]
+      ,d.ID as [DepartmentId]
+	  ,d.[MainCategoryName] as [DepartmentName]
       ,ce.MeasurementDeviceStatusId as [StatusId]
 	  ,s.StatusDescriptionENG	
 	  ,s.StatusDescriptionHEB
@@ -128,7 +128,7 @@ CONCAT(
 	  ,c.LicenseNumber
 	  ,COUNT(1) OVER(PARTITION BY 1 ORDER BY ce.[ID] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
   FROM [dbo].[MeasurementDevices] as ce
-  JOIN [dbo].[Departments] as d ON ce.DepartmentId = d.ID AND d.IsDeleted = 0
+  JOIN [dbo].[MainCategories] as d ON ce.[MainCategoryId] = d.ID AND d.IsDeleted = 0
   LEFT JOIN [dbo].[Statuses] as s ON s.StatusId = ce.[MeasurementDeviceStatusId]
   LEFT JOIN [dbo].[Users] as u ON ce.[CalibratorId] = u.ID AND u.IsActive = 1 
   LEFT JOIN [dbo].[CarsToEquipment] as cte ON cte.MeasurementDeviceId = ce.ID AND cte.IsDeleted=0
@@ -146,7 +146,7 @@ CONCAT(
   ,CASE WHEN @MainCategory IS NOT NULL THEN' AND mc.NameHebrew LIKE ''%'+ @MainCategory+'%'' 'ELSE ' ' END
   ,CASE WHEN @StatusId IS NOT NULL THEN' AND ce.[MeasurementDeviceStatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @CalibratorId IS NOT NULL THEN' AND ce.[CalibratorId] = '+CAST(@CalibratorId as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @DepartmentId IS NOT NULL THEN' AND ce.[DepartmentId] = '+CAST(@DepartmentId as NVARCHAR(50))+' 'ELSE ' ' END
+  ,CASE WHEN @DepartmentId IS NOT NULL THEN' AND ce.[MainCategoryId] = '+CAST(@DepartmentId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @CarId IS NOT NULL THEN' AND c.[CarId] = '+CAST(@CarId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @NextCalibrationDate IS NOT NULL AND @NextCalibrationDate > '1900-01-01' THEN' AND ce.[NextCalibration] = '''+CAST(@NextCalibrationDate as NVARCHAR(50))+''' 'ELSE ' ' END
   ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ce.[Description],ce.[SerialNumber],s.StatusDescriptionHEB,u.FirstName,u.LastName,c.LicenseNumber,mc.NameHebrew,d.[DepartmentName])  LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END

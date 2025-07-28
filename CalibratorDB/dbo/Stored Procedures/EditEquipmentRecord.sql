@@ -6,7 +6,7 @@
 -- =============================================
 CREATE   PROCEDURE [dbo].[EditEquipmentRecord]
  @ID INT
-,@DepartmentId INT
+,@DepartmentId INT -- mapped to main category
 ,@StatusId INT
 ,@EquipmentName NVARCHAR(255)
 ,@SerialNumber NVARCHAR(100) = NULL
@@ -19,13 +19,13 @@ CREATE   PROCEDURE [dbo].[EditEquipmentRecord]
 
 /*
 EXEC dbo.EditEquipmentRecord
-@ID = 2526
+@ID = 1
 ,@DepartmentId = 1
 ,@StatusId = 39
 ,@EquipmentName = 'Test-update'
 ,@SerialNumber = '00-00-11'
-,@CalibratorId = 107
-,@MainCategoryId = 2
+,@CalibratorId = 1
+,@MainCategoryId = 1
 ,@NextCalibrationDate = '2026-03-24'
 ,@CarId = '1'
 */
@@ -46,13 +46,13 @@ WHERE ID = @ID
 THROW 51000, 'Incorrect @ID', 1;
 
 if NOT EXISTS (
-SELECT 1 FROM dbo.Departments
+SELECT 1 FROM [dbo].[MainCategories]
 WHERE ID = @DepartmentId
 )
 THROW 51000, 'Incorrect @DepartmentId', 1;
 
 if NOT EXISTS (
-SELECT 1 FROM dbo.Departments
+SELECT 1 FROM [dbo].[MainCategories]
 WHERE ID = @DepartmentId
 )
 THROW 51000, 'Incorrect @StatusId', 1;
@@ -81,7 +81,7 @@ BEGIN TRY
 		DECLARE @PrevCarId INT = (SELECT TOP 1 CarId FROM [dbo].[CarsToEquipment] WHERE IsDeleted = 0 AND [MeasurementDeviceId] = @ID ORDER BY CreatedDate DESC)
 
 		UPDATE [dbo].[MeasurementDevices]
-		   SET [DepartmentId] = @DepartmentId
+		   SET [MainCategoryId] = @DepartmentId
 			  ,[MeasurementDeviceStatusId] = @StatusId
 			  ,[Description] = @EquipmentName
 			  ,[SerialNumber] = @SerialNumber

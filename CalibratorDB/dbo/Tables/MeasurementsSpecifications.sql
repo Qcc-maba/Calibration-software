@@ -1,7 +1,7 @@
 ﻿CREATE TABLE [dbo].[MeasurementsSpecifications] (
     [ID]                                INT           IDENTITY (1, 1) NOT NULL,
     [Name]                              VARCHAR (50)  NOT NULL,
-    [DepartmentId]                      INT           NOT NULL,
+    [MainCategoryId]                    INT           NOT NULL,
     [DescriptionHeb]                    VARCHAR (100) NULL,
     [DescriptionEng]                    VARCHAR (100) NULL,
     [Version]                           INT           NULL,
@@ -12,6 +12,7 @@
     [UpdateUserID]                      INT           NULL,
     [MeasurementsSpecificationSourceId] INT           NULL,
     CONSTRAINT [PK_MeasurementsSpecifications] PRIMARY KEY CLUSTERED ([ID] ASC),
+    CONSTRAINT [FK_MeasurementsSpecifications_MainCategoryId] FOREIGN KEY ([MainCategoryId]) REFERENCES [dbo].[MainCategories] ([ID]),
     CONSTRAINT [FK_MeasurementsSpecifications_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
 

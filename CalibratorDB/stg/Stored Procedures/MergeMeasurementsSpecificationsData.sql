@@ -4,7 +4,7 @@
 -- Description:	
 -- JiraLink: 
 -- =============================================
-CREATE PROCEDURE stg.MergeMeasurementsSpecificationsData
+CREATE PROCEDURE [stg].[MergeMeasurementsSpecificationsData]
 AS
 BEGIN
 
@@ -14,7 +14,7 @@ SET NOCOUNT ON;
 	USING (
 		SELECT 
 			 s.[Name]
-			,d.ID as [DepartmentId]
+			,d.ID as [MainCategoryId]
 			,s.[DescriptionHeb]
 			,s.[DescriptionEng]
 			,s.[Version]
@@ -23,13 +23,13 @@ SET NOCOUNT ON;
 			,0 as [UpdateUserID]
 			,s.[MeasurementsSpecificationSourceId]
 		FROM [stg].[stg_MeasurementsSpecifications] as s
-		JOIN [dbo].[Departments] as d ON s.[Department] = d.DepartmentName
+		JOIN [dbo].[MainCategories] as d ON s.[Department] = d.[MainCategoryName]
 		) AS source
 		ON dest.[MeasurementsSpecificationSourceId] = source.[MeasurementsSpecificationSourceId]
 	WHEN MATCHED AND
 		(
 			   dest.[Name] <> source.[Name]
-			OR dest.[DepartmentId] <> source.[DepartmentId]
+			OR dest.[MainCategoryId] <> source.[MainCategoryId]
 			OR COALESCE(dest.[DescriptionHeb],'') <> COALESCE(source.[DescriptionHeb],'')
 			OR COALESCE(dest.[DescriptionEng],'') <> COALESCE(source.[DescriptionEng],'')
 			OR dest.[Version] <> source.[Version]
@@ -38,7 +38,7 @@ SET NOCOUNT ON;
 		THEN
 			UPDATE
 			SET  dest.[Name] = source.[Name]
-				,dest.[DepartmentId] = source.[DepartmentId]
+				,dest.[MainCategoryId] = source.[MainCategoryId]
 				,dest.[DescriptionHeb] = source.[DescriptionHeb]
 				,dest.[DescriptionEng] = source.[DescriptionEng]
 				,dest.[Version] = source.[Version]
@@ -48,7 +48,7 @@ SET NOCOUNT ON;
 		THEN
 			INSERT (
 				 [Name]
-				,[DepartmentId]
+				,[MainCategoryId]
 				,[DescriptionHeb]
 				,[DescriptionEng]
 				,[Version]
@@ -58,7 +58,7 @@ SET NOCOUNT ON;
 				)
 			VALUES (
 				 source.[Name]
-				,source.[DepartmentId]
+				,source.[MainCategoryId]
 				,source.[DescriptionHeb]
 				,source.[DescriptionEng]
 				,source.[Version]

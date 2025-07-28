@@ -6,10 +6,10 @@
 -- =============================================
 CREATE    PROCEDURE [dbo].[GetMeasurementsSpecifications]
 AS
-SELECT [ID]
-      ,[Name]--CONCAT([Name],IIF(LEN(DescriptionHeb) > 0,'-',''),DescriptionHeb) as [Name]
-      ,[DepartmentId]
-      ,[DescriptionHeb]
-      ,[DescriptionEng]
-  FROM [dbo].[MeasurementsSpecifications]
-  WHERE [IsDeleted] = 0-- and 0 =1
+SELECT mc.[ID]
+      ,mc.[Name]--CONCAT([Name],IIF(LEN(DescriptionHeb) > 0,'-',''),DescriptionHeb) as [Name]
+      ,mc.MainCategoryId as  [DepartmentId]
+      ,mc.[DescriptionHeb]
+      ,mc.[DescriptionEng]
+  FROM [dbo].[MeasurementsSpecifications] as mc
+  WHERE [IsDeleted] = 0

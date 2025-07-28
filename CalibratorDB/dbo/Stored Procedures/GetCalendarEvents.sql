@@ -44,9 +44,9 @@ BEGIN
 	JOIN [dbo].[CalendarEventsToParticipants] as cetp ON ce.CalendarEventId = cetp.CalendarEventId and cetp.IsDeleted = 0
 	JOIN [dbo].[Users] as u ON cetp.UserId = u.ID AND u.IsActive = 1
 	JOIN [dbo].[UsersToDepartments] as ud ON u.ID = ud.UserId and cetp.IsDeleted = 0
-	WHERE ce.IsDeleted = 0 AND ud.DepartmentId IN
+	WHERE ce.IsDeleted = 0 AND ud.MainCategoryId IN
 	(
-	SELECT d.DepartmentId FROM [dbo].[UsersToDepartments] as d
+	SELECT d.MainCategoryId FROM [dbo].[UsersToDepartments] as d
 	WHERE d.UserId = @Userid
 	)
 END

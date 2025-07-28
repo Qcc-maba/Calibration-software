@@ -37,7 +37,7 @@ THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
 		  ,md.WorkRangeMin	as LowerDomainBorder
 		  ,md.WorkRangeMax as UpperDomainBorder 
 		  ,m.NameHe as MeasurmentName
-		  ,d.DepartmentName
+		  ,d.[MainCategoryName] as DepartmentName
 		  ,COALESCE(md.[IP],''0.0.0.0:0000'') as [IP]
 		  ,COALESCE(md.Resolution,60) as Resolution
 		  ,CASE WHEN mc.NameEnglish = ''Sensor'' THEN 60 ELSE 30 END as ChannelsNumber
@@ -56,7 +56,7 @@ THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
 	  LEFT JOIN [dbo].[MeasurementDeviceUnits] as u ON md.UnitId = u.MeasurementDeviceUnitId
 	  LEFT JOIN [dbo].[MeasurementDeviceUnits] as u2 ON md.WorkRangeUnitId = u2.MeasurementDeviceUnitId
 	  LEFT JOIN [dbo].[Measurements] as m ON md.MeasurementId = m.ID
-	  LEFT JOIN [dbo].[Departments] as d ON md.DepartmentId = d.ID
+	  LEFT JOIN [dbo].[MainCategories] as d ON md.MainCategoryId = d.ID
 	  WHERE md.RemoveDate IS NULL AND md.IsDeleted = 0
 	  '
 	  ,CASE WHEN @MeasurementDevicesMainClassId IS NOT NULL AND @ApplyFilterByDevicesParents = 0 THEN' AND md.MainClassId = '+ +CAST(@MeasurementDevicesMainClassId as NVARCHAR(50))+' 'ELSE ' ' END

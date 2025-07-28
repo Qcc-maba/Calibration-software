@@ -14,7 +14,7 @@ CREATE     PROCEDURE [dbo].[EditUserRecord]
 ,@UserRoleId int = NULL
 ,@UserStatusId INT
 ,@Email NVARCHAR(50) = NULL
-,@DepartmentIdsList NVARCHAR(max) = NULL
+,@DepartmentIdsList NVARCHAR(max) = NULL -- mapped to main category
 ,@CertificationIdsList NVARCHAR(max) = NULL
 ,@LoggedInUserEmail NVARCHAR(50)
 ,@UserId INT
@@ -34,7 +34,7 @@ EXEC [dbo].[EditUserRecord]
 ,@DepartmentIdsList = '1'
 ,@CertificationIdsList ='1,2,3'
 ,@LoggedInUserEmail = 'sinova_super_admin@gmail.com'
-,@UserId =178
+,@UserId =18
 */
 
 AS
@@ -109,14 +109,14 @@ BEGIN TRY
 		UPDATE ud
 		SET IsDeleted = 1,UpdateUserID = @LoggedInUserId
 		FROM [dbo].[UsersToDepartments] as ud
-		LEFT JOIN #DepartmentIdsList as di ON ud.UserId = @UserId and di.DepartmentId = ud.DepartmentId
+		LEFT JOIN #DepartmentIdsList as di ON ud.UserId = @UserId and di.DepartmentId = ud.MainCategoryId
 		WHERE ud.UserId = @UserId  AND di.DepartmentId IS NULL
 
-		INSERT [dbo].[UsersToDepartments](UserId,DepartmentId,UpdateUserID)
+		INSERT [dbo].[UsersToDepartments](UserId,MainCategoryId,UpdateUserID)
 		SELECT @UserId,di.DepartmentId, @LoggedInUserId
 		FROM #DepartmentIdsList as di
-		LEFT JOIN [dbo].[UsersToDepartments] as ud ON ud.UserId = @UserId and di.DepartmentId = ud.DepartmentId AND ud.IsDeleted = 0
-		WHERE ud.DepartmentId IS NULL
+		LEFT JOIN [dbo].[UsersToDepartments] as ud ON ud.UserId = @UserId and di.DepartmentId = ud.MainCategoryId AND ud.IsDeleted = 0
+		WHERE ud.MainCategoryId IS NULL
 	END
 	ELSE 
 		UPDATE ud

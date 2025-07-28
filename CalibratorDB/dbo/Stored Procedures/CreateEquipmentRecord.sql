@@ -5,7 +5,7 @@
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-173
 -- =============================================
 CREATE   PROCEDURE [dbo].[CreateEquipmentRecord]
- @DepartmentId INT
+ @DepartmentId INT -- was renamed to MainCategoryId 
 ,@StatusId INT
 ,@EquipmentName NVARCHAR(255)
 ,@SerialNumber NVARCHAR(100) = NULL
@@ -19,7 +19,7 @@ CREATE   PROCEDURE [dbo].[CreateEquipmentRecord]
 /*
 EXEC dbo.CreateEquipmentRecord
  @DepartmentId = 1
-,@StatusId = 38
+,@StatusId = 39
 ,@EquipmentName = 'Test2'
 ,@SerialNumber = '00-00-11'
 ,@CalibratorId = 38
@@ -38,13 +38,13 @@ IF @LoggedInUserEmail IS NOT NULL
 SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
 
 if NOT EXISTS (
-SELECT 1 FROM dbo.Departments
+SELECT 1 FROM [dbo].[MainCategories]
 WHERE ID = @DepartmentId
 )
 THROW 51000, 'Incorrect @DepartmentId', 1;
 
 if NOT EXISTS (
-SELECT 1 FROM dbo.Departments
+SELECT 1 FROM [dbo].[MainCategories]
 WHERE ID = @DepartmentId
 )
 THROW 51000, 'Incorrect @StatusId', 1;
@@ -72,7 +72,7 @@ BEGIN TRY
 
 		INSERT INTO [dbo].[MeasurementDevices]
 				   ([MabaID]
-				   ,[DepartmentId]
+				   ,[MainCategoryId]
 				   ,[MeasurementDeviceStatusId]
 				   ,[Description]
 				   ,[SerialNumber]

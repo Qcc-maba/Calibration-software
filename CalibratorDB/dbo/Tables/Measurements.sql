@@ -11,7 +11,7 @@
     [UpdateUserID]            INT           NULL,
     [MeasurementIdFromSource] INT           NULL,
     CONSTRAINT [PK_Measurements] PRIMARY KEY CLUSTERED ([ID] ASC),
-    CONSTRAINT [FK_Department] FOREIGN KEY ([DepartmentId]) REFERENCES [dbo].[Departments] ([ID]),
+    CONSTRAINT [FK_Department] FOREIGN KEY ([DepartmentId]) REFERENCES [dbo].[MainCategories] ([ID]),
     CONSTRAINT [FK_Measurements_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
 

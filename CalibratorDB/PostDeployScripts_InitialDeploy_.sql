@@ -6,10 +6,12 @@ GO
 GO 
 :r".\4_AddSourceSystems.sql"
 GO 
-:r".\5_PopulateDepartments.sql"
+:r".\5_PopulateMainCategories.sql"
 GO 
 :r".\6_CustomerSupportDepartmentParts.sql"
 GO 
 :r".\7_PopulateDataForStatusesCategories.sql"
 GO 
 :r".\8_PopulateDataStatuses.sql"
+GO 
+:r".\AddMeasurmentSpec.sql"

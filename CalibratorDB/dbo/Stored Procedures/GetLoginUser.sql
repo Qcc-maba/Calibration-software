@@ -56,7 +56,7 @@ BEGIN
 	FROM dbo.Users as u
 	LEFT JOIN 
 	(
-		SELECT ud.UserId, STRING_AGG(ud.DepartmentId,',') as DepartmentId
+		SELECT ud.UserId, STRING_AGG(ud.MainCategoryId,',') as DepartmentId
 		FROM [dbo].[UsersToDepartments] as ud 
 		WHERE ud.IsDeleted = 0
 		GROUP BY ud.UserId

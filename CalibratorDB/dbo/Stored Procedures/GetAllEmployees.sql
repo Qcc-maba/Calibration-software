@@ -19,7 +19,7 @@ CREATE    PROCEDURE [dbo].[GetAllEmployees]
 	@Email NVARCHAR(50) = NULL,
     @UserRoleId INT  = NULL,
 	@UserStatusIds NVARCHAR(50) = NULL,
-	@DepartmentIdsList NVARCHAR(max) = NULL,
+	@DepartmentIdsList NVARCHAR(max) = NULL, -- mapped to main category
 	@CertificationIds NVARCHAR(MAX) = NULL,
 	@EventStartDate DATETIME2(0) = NULL,
     @EventEndDate DATETIME2(0) = NULL,
@@ -97,7 +97,7 @@ INSERT #DepartmentUserIds(UserId)
 --Insert users filtered by provided @DepartmentIdsList
 SELECT DISTINCT ud.UserId 
 FROM dbo.ParseCSVToTable(@DepartmentIdsList) as v
-JOIN dbo.UsersToDepartments as ud ON v.Value = ud.DepartmentId
+JOIN dbo.UsersToDepartments as ud ON v.Value = ud.MainCategoryId
 WHERE ud.IsDeleted = 0
 --Insert users filtered by provided @CertificationIds
 
@@ -201,10 +201,10 @@ GROUP BY ctc.CalibratorId
 LEFT JOIN
 (
 SELECT ud.UserId, 
-STRING_AGG(ud.DepartmentId,'','') as DepartmentIds,
-STRING_AGG(d.DepartmentName,'','') as DepartmentNames
+STRING_AGG(ud.MainCategoryId,'','') as DepartmentIds,
+STRING_AGG(d.MainCategoryName,'','') as DepartmentNames
 FROM [dbo].[UsersToDepartments] as ud
-LEFT JOIN [dbo].[Departments] as d ON ud.DepartmentId = d.ID
+LEFT JOIN [dbo].[MainCategories] as d ON ud.MainCategoryId = d.ID
 WHERE ud.IsDeleted = 0
 GROUP BY ud.UserId
 ) as dep ON u.ID = dep.UserId

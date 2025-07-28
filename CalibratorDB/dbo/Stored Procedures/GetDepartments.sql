@@ -7,7 +7,7 @@
 CREATE   PROCEDURE [dbo].[GetDepartments]
 AS
 SELECT 
-	ID,
-	DepartmentName
-FROM dbo.Departments
+	mc.ID,
+	mc.MainCategoryName as DepartmentName
+FROM [dbo].[MainCategories] as mc
 WHERE IsDeleted = 0
