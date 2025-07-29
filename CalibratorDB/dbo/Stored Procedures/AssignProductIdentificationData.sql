@@ -42,7 +42,7 @@ BEGIN
 					   ,[ManufacturerNumber]
 					   ,[DeviceModel]
 					   ,[AdditionalDeviceNumber]
-					   ,[OrdersMainCategoryId]
+					   ,[MainCategoryId]
 					   ,[OrdersSecondaryCategoryId]
 					   ,[OrdersDeviceManufacturerId]
 					   ,[CalibrationSpecificationId]
@@ -93,7 +93,7 @@ BEGIN
 			,[ManufacturerNumber] = @ManufacturerNumber
 			,[DeviceModel] = @DeviceModel
 			,[AdditionalDeviceNumber] = @AdditionalDeviceNumber
-			,[OrdersMainCategoryId] = @OrdersMainCategoryId
+			,[MainCategoryId] = @OrdersMainCategoryId
 			,[OrdersSecondaryCategoryId] = @OrdersSecondaryCategoryId
 			,[OrdersDeviceManufacturerId] = @OrdersDeviceManufacturerId
 			,[CalibrationSpecificationId] = @CalibrationSpecificationId

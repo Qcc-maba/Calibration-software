@@ -167,7 +167,7 @@ USING (
 		,o.[InHouse] as [IsInHouse]
 		,o.[PartName]
 		,o.[MbaReportNumber]
-		,mc.[OrdersMainCategoryId]
+		,mc.[ID] as [MainCategoryId]
 		,sc.[OrdersSecondaryCategoryId]
 		,mf.[OrdersDeviceManufacturerId]
 		,c.[CustomerId]
@@ -183,7 +183,7 @@ USING (
 	JOIN [dbo].[Source] as s ON o.SourceSystem = s.SourceName
 	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderSourceId = o.SourceOrderId AND wp.SourceId = s.SourceId
 	JOIN [dbo].[OrderDetails] as od ON wp.[OrderWorkPlanId] = od.[OrderWorkPlanId] AND o.[KLINE] = od.[KLINE] 
-	LEFT JOIN [dbo].[OrdersMainCategories] as mc ON o.MainCategorySourceId = mc.OrdersMainCategoryName and mc.IsDeleted = 0
+	LEFT JOIN [dbo].[MainCategories] as mc ON o.MainCategorySourceId = mc.MainCategoryName and mc.IsDeleted = 0
 	LEFT JOIN [dbo].[OrdersSecondaryCategories] as sc ON o.SecondCategorySourceId = sc.OrdersSecondaryCategoryName and sc.IsDeleted = 0
 	LEFT JOIN [dbo].[OrdersDeviceManufacturers] as mf ON mf.OrdersDeviceManufacturerName = o.ManufacturerNumber and mf.IsDeleted = 0
 	LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = s.SourceId and c.IsDeleted = 0
@@ -211,7 +211,7 @@ WHEN NOT MATCHED BY TARGET
 			,[ManufacturerNumber]
 			,[DeviceModel]
 			,[MbaReportNumber]
-			,[OrdersMainCategoryId]
+			,[MainCategoryId]
 			,[OrdersSecondaryCategoryId]
 			,[OrdersDeviceManufacturerId]
 			,[CreatedDate]
@@ -226,7 +226,7 @@ WHEN NOT MATCHED BY TARGET
 			,source.[ManufacturerNumber]
 			,source.[DeviceModel]
 			,source.[MbaReportNumber]
-			,source.[OrdersMainCategoryId]
+			,source.[MainCategoryId]
 			,source.[OrdersSecondaryCategoryId]
 			,source.[OrdersDeviceManufacturerId]
 			,source.[CreatedDate]

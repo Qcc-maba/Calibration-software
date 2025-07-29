@@ -7,12 +7,8 @@
 CREATE   PROCEDURE [dbo].[GetAllOrderDeviceMainCategories]
 AS
 BEGIN
-	SELECT DISTINCT
-	       omc.[OrdersMainCategoryId]
-		  ,omc.OrdersMainCategoryName as [OrderDeviceMainCategories]
-	  FROM [dbo].[OrderWorkPlans] as wp
-	  JOIN [dbo].[OrderDetails] as od ON od.[OrderWorkPlanId] = wp.[OrderWorkPlanId]
-	  JOIN [dbo].[OrderDetailsItems] as odi ON odi.[OrderDetailId] = od.[OrderDetailId]
-	  JOIN [dbo].[OrdersMainCategories] as omc ON omc.[OrdersMainCategoryId] = odi.[OrdersMainCategoryId]
-	  WHERE od.[IsDeleted] = 0 and wp.[IsCancelled] = 0
+	SELECT mc.ID as [OrdersMainCategoryId], 
+		   mc.MainCategoryName as [OrderDeviceMainCategories]
+	FROM [dbo].[MainCategories] as mc
+	WHERE mc.IsDeleted = 0
 END

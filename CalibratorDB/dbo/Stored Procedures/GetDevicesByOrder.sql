@@ -55,8 +55,8 @@ CONCAT(
 	,od.OrderWorkPlanId as OrderId
 	,od.OrderDetailId
 	,opt.OrdersProductTypeName AS DeviceType
-	,mc.OrdersMainCategoryName AS DepartmentId
-	,mc.OrdersMainCategoryName as MainCategory
+	,mc.ID AS DepartmentId
+	,mc.MainCategoryName as MainCategory
 	,sc.OrdersSecondaryCategoryName AS SecondCategory
 	--,itm.SerialNumber
 	--,itm.DeviceModel
@@ -68,12 +68,12 @@ CONCAT(
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
 LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
-LEFT JOIN [dbo].[OrdersMainCategories] as mc ON itm.OrdersMainCategoryId = mc.OrdersMainCategoryId
+LEFT JOIN [dbo].[MainCategories] as mc ON itm.MainCategoryId = mc.ID
 LEFT JOIN [dbo].[OrdersSecondaryCategories] sc ON itm.OrdersSecondaryCategoryId = sc.OrdersSecondaryCategoryId
 LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
 LEFT JOIN [dbo].[OrdersDeviceManufacturers] as odm ON itm.OrdersDeviceManufacturerId = odm.OrdersDeviceManufacturerId 
 '
-,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mcf ON mc.OrdersMainCategoryName COLLATE DATABASE_DEFAULT = mcf.MainCategory COLLATE DATABASE_DEFAULT',' ')
+,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mcf ON mc.MainCategoryName COLLATE DATABASE_DEFAULT = mcf.MainCategory COLLATE DATABASE_DEFAULT',' ')
 ,IIF(@SecondaryCategories IS NOT NULL,' JOIN #SecondaryCategories as scf ON sc.OrdersSecondaryCategoryName COLLATE DATABASE_DEFAULT   = scf.SecondaryCategory COLLATE DATABASE_DEFAULT ',' ')
 ,IIF(@DeviceManufacturer IS NOT NULL,' JOIN #DeviceManufacturer as dmf ON odm.OrdersDeviceManufacturerName COLLATE DATABASE_DEFAULT  = dmf.DeviceManufacturer COLLATE DATABASE_DEFAULT ',' ')
 ,IIF(@DeviceModels IS NOT NULL,' JOIN #DeviceModels as dm ON itm.DeviceModel COLLATE DATABASE_DEFAULT = dm.DeviceModel COLLATE DATABASE_DEFAULT ',' ')
