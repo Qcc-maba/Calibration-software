@@ -7,6 +7,6 @@
 -- =============================================
 CREATE  PROCEDURE [dbo].[GetAllSecondaryCategories]
 AS
-SELECT OrdersSecondaryCategoryId as ID, ce.OrdersSecondaryCategoryName as  SecondCategory
-FROM [dbo].[OrdersSecondaryCategories] as ce
+SELECT ce.ID, ce.SecondaryCategoryName as SecondCategory
+FROM [dbo].[SecondaryCategories] as ce
 WHERE ce.IsDeleted = 0

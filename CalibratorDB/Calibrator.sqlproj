@@ -196,12 +196,8 @@
     <Build Include="dbo\Tables\CustomerContacts.sql" />
     <Build Include="stg\Stored Procedures\MergeCustomersData.sql" />
     <Build Include="stg\Stored Procedures\MergeCustomersContactsData.sql" />
-    <Build Include="dbo\Tables\OrdersMainCategories.sql" />
-    <Build Include="stg\Tables\stg_OrdersSecondaryCategories.sql" />
     <Build Include="stg\Tables\stg_Manufacturers.sql" />
-    <Build Include="dbo\Tables\OrdersSecondaryCategories.sql" />
     <Build Include="dbo\Tables\OrdersDeviceManufacturers.sql" />
-    <Build Include="stg\Stored Procedures\MergeOrdersSecondaryCategories.sql" />
     <Build Include="stg\Stored Procedures\MergeOrdersDeviceManufacturers.sql" />
     <Build Include="stg\Tables\stg_CustomerRemarks.sql" />
     <Build Include="dbo\Tables\CustomerRemarks.sql" />
@@ -273,6 +269,8 @@
     <Build Include="dbo\Stored Procedures\GetSensorDetailsToOrderDetailsItems.sql" />
     <None Include="AddMeasurmentSpec.sql" />
     <Build Include="dbo\Tables\MainCategories.sql" />
+    <Build Include="dbo\Tables\SecondaryCategories_1.sql" />
+    <Build Include="dbo\Tables\MainToSecondaryCategories_1.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

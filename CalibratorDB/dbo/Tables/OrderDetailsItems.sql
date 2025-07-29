@@ -9,7 +9,7 @@
     [AdditionalDeviceNumber]     NVARCHAR (100) NULL,
     [MbaReportNumber]            NVARCHAR (100) NULL,
     [MainCategoryId]             INT            NULL,
-    [OrdersSecondaryCategoryId]  INT            NULL,
+    [SecondaryCategoryId]        INT            NULL,
     [OrdersDeviceManufacturerId] INT            NULL,
     [SERN]                       INT            NULL,
     [CalibrationSpecificationId] INT            NULL,
@@ -30,7 +30,7 @@
     CONSTRAINT [FK_OrderDetailsItems_MeasurementUnitId] FOREIGN KEY ([MeasurementUnitId]) REFERENCES [dbo].[MeasurementDeviceUnits] ([MeasurementDeviceUnitId]),
     CONSTRAINT [FK_OrderDetailsItems_OrdersDeviceManufacturerId] FOREIGN KEY ([OrdersDeviceManufacturerId]) REFERENCES [dbo].[OrdersDeviceManufacturers] ([OrdersDeviceManufacturerId]),
     CONSTRAINT [FK_OrderDetailsItems_OrdersMainCategoryId] FOREIGN KEY ([MainCategoryId]) REFERENCES [dbo].[MainCategories] ([ID]),
-    CONSTRAINT [FK_OrderDetailsItems_OrdersSecondaryCategoryId] FOREIGN KEY ([OrdersSecondaryCategoryId]) REFERENCES [dbo].[OrdersSecondaryCategories] ([OrdersSecondaryCategoryId]),
+    CONSTRAINT [FK_OrderDetailsItems_OrdersSecondaryCategoryId] FOREIGN KEY ([SecondaryCategoryId]) REFERENCES [dbo].[SecondaryCategories] ([ID]),
     CONSTRAINT [FK_OrderDetailsItems_SpecificationReferenceId] FOREIGN KEY ([SpecificationReferenceId]) REFERENCES [dbo].[SpecificationReference] ([ID]),
     CONSTRAINT [FK_OrderDetailsItems_UpdatedByUserId] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );

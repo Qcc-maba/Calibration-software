@@ -168,7 +168,7 @@ USING (
 		,o.[PartName]
 		,o.[MbaReportNumber]
 		,mc.[ID] as [MainCategoryId]
-		,sc.[OrdersSecondaryCategoryId]
+		,sc.ID as [SecondaryCategoryId]
 		,mf.[OrdersDeviceManufacturerId]
 		,c.[CustomerId]
 		,o.[KLINE]
@@ -184,7 +184,7 @@ USING (
 	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderSourceId = o.SourceOrderId AND wp.SourceId = s.SourceId
 	JOIN [dbo].[OrderDetails] as od ON wp.[OrderWorkPlanId] = od.[OrderWorkPlanId] AND o.[KLINE] = od.[KLINE] 
 	LEFT JOIN [dbo].[MainCategories] as mc ON o.MainCategorySourceId = mc.MainCategoryName and mc.IsDeleted = 0
-	LEFT JOIN [dbo].[OrdersSecondaryCategories] as sc ON o.SecondCategorySourceId = sc.OrdersSecondaryCategoryName and sc.IsDeleted = 0
+	LEFT JOIN [dbo].[SecondaryCategories] as sc ON o.SecondCategorySourceId = sc.SecondaryCategoryName and sc.IsDeleted = 0
 	LEFT JOIN [dbo].[OrdersDeviceManufacturers] as mf ON mf.OrdersDeviceManufacturerName = o.ManufacturerNumber and mf.IsDeleted = 0
 	LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = s.SourceId and c.IsDeleted = 0
 	WHERE o.[SERN] IS NOT NULL
@@ -212,7 +212,7 @@ WHEN NOT MATCHED BY TARGET
 			,[DeviceModel]
 			,[MbaReportNumber]
 			,[MainCategoryId]
-			,[OrdersSecondaryCategoryId]
+			,[SecondaryCategoryId]
 			,[OrdersDeviceManufacturerId]
 			,[CreatedDate]
 			,[UpdatedDate]
@@ -227,7 +227,7 @@ WHEN NOT MATCHED BY TARGET
 			,source.[DeviceModel]
 			,source.[MbaReportNumber]
 			,source.[MainCategoryId]
-			,source.[OrdersSecondaryCategoryId]
+			,source.[SecondaryCategoryId]
 			,source.[OrdersDeviceManufacturerId]
 			,source.[CreatedDate]
 			,source.[UpdatedDate]
