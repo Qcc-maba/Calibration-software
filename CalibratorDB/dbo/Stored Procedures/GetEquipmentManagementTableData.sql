@@ -128,7 +128,7 @@ CONCAT(
 	  ,c.LicenseNumber
 	  ,COUNT(1) OVER(PARTITION BY 1 ORDER BY ce.[ID] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
   FROM [dbo].[MeasurementDevices] as ce
-  JOIN [dbo].[MainCategories] as d ON ce.[MainCategoryId] = d.ID AND d.IsDeleted = 0
+  LEFT JOIN [dbo].[MainCategories] as d ON ce.[MainCategoryId] = d.ID AND d.IsDeleted = 0
   LEFT JOIN [dbo].[Statuses] as s ON s.StatusId = ce.[MeasurementDeviceStatusId]
   LEFT JOIN [dbo].[Users] as u ON ce.[CalibratorId] = u.ID AND u.IsActive = 1 
   LEFT JOIN [dbo].[CarsToEquipment] as cte ON cte.MeasurementDeviceId = ce.ID AND cte.IsDeleted=0
@@ -141,7 +141,7 @@ CONCAT(
   WHERE ce.IsDeleted = 0'
   ,CASE WHEN @EquipmentName IS NOT NULL THEN' AND ce.[Description] = '''+ @EquipmentName+''' 'ELSE ' ' END
   ,CASE WHEN @SerialNumber IS NOT NULL THEN' AND ce.[SerialNumber] LIKE ''%'+ @SerialNumber+'%'' 'ELSE ' ' END
-  ,CASE WHEN @DepartmentName IS NOT NULL THEN' AND d.[DepartmentName] LIKE ''%'+ @DepartmentName+'%'' 'ELSE ' ' END
+  ,CASE WHEN @DepartmentName IS NOT NULL THEN' AND d.[MainCategoryName] LIKE ''%'+ @DepartmentName+'%'' 'ELSE ' ' END
   ,CASE WHEN @CarLicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] LIKE ''%'+ @CarLicenseNumber+'%'' 'ELSE ' ' END
   ,CASE WHEN @MainCategory IS NOT NULL THEN' AND mc.NameHebrew LIKE ''%'+ @MainCategory+'%'' 'ELSE ' ' END
   ,CASE WHEN @StatusId IS NOT NULL THEN' AND ce.[MeasurementDeviceStatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
@@ -149,7 +149,7 @@ CONCAT(
   ,CASE WHEN @DepartmentId IS NOT NULL THEN' AND ce.[MainCategoryId] = '+CAST(@DepartmentId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @CarId IS NOT NULL THEN' AND c.[CarId] = '+CAST(@CarId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @NextCalibrationDate IS NOT NULL AND @NextCalibrationDate > '1900-01-01' THEN' AND ce.[NextCalibration] = '''+CAST(@NextCalibrationDate as NVARCHAR(50))+''' 'ELSE ' ' END
-  ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ce.[Description],ce.[SerialNumber],s.StatusDescriptionHEB,u.FirstName,u.LastName,c.LicenseNumber,mc.NameHebrew,d.[DepartmentName])  LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
+  ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ce.[Description],ce.[SerialNumber],s.StatusDescriptionHEB,u.FirstName,u.LastName,c.LicenseNumber,mc.NameHebrew,d.[MainCategoryName])  LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql

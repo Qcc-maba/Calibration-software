@@ -264,13 +264,13 @@
     <Build Include="dbo\Stored Procedures\AssignMeasurmentDevicesToCalibrator.sql" />
     <Build Include="dbo\Stored Procedures\GetSensorsConfiguredByCalibrator.sql" />
     <Build Include="dbo\Stored Procedures\GetLogersConfiguredByCalibrator.sql" />
-    <Build Include="dbo\Tables\SensorToOrderDetailsItems.sql" />
-    <Build Include="dbo\Stored Procedures\AssignSensorDetailsToOrderDetailsItems.sql" />
     <Build Include="dbo\Stored Procedures\GetSensorDetailsToOrderDetailsItems.sql" />
     <None Include="AddMeasurmentSpec.sql" />
     <Build Include="dbo\Tables\MainCategories.sql" />
     <Build Include="dbo\Tables\SecondaryCategories_1.sql" />
     <Build Include="dbo\Tables\MainToSecondaryCategories_1.sql" />
+    <Build Include="dbo\Tables\MeasurmentDeviceToOrderDetailsItems.sql" />
+    <Build Include="dbo\Stored Procedures\AssignMeasurmentDeviceToOrderDetailsItems.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

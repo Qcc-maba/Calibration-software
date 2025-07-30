@@ -57,7 +57,7 @@ CONCAT(
 	,opt.OrdersProductTypeName AS DeviceType
 	,mc.ID AS DepartmentId
 	,mc.MainCategoryName as MainCategory
-	,sc.OrdersSecondaryCategoryName AS SecondCategory
+	,sc.SecondaryCategoryName AS SecondCategory
 	--,itm.SerialNumber
 	--,itm.DeviceModel
 	--,itm.MbaReportNumber
@@ -69,7 +69,7 @@ FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
 LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
 LEFT JOIN [dbo].[MainCategories] as mc ON itm.MainCategoryId = mc.ID
-LEFT JOIN [dbo].[OrdersSecondaryCategories] sc ON itm.OrdersSecondaryCategoryId = sc.OrdersSecondaryCategoryId
+LEFT JOIN [dbo].[SecondaryCategories] sc ON itm.SecondaryCategoryId = sc.ID
 LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
 LEFT JOIN [dbo].[OrdersDeviceManufacturers] as odm ON itm.OrdersDeviceManufacturerId = odm.OrdersDeviceManufacturerId 
 '

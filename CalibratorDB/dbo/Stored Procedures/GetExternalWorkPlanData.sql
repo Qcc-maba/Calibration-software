@@ -109,6 +109,29 @@ BEGIN
 	INSERT #SpecialCareTypes([SpecialCareTypeId])
 	SELECT DISTINCT f.Value FROM dbo.ParseCSVToTable(@SpecialCareTypeIds) as f
 
+	IF @MainCategory IS NOT NULL
+	BEGIN
+	DROP TABLE IF EXISTS #MainCategory
+	CREATE TABLE #MainCategory
+	(
+	[ID] INT
+	)
+	INSERT #MainCategory([ID])
+	SELECT ID FROM [dbo].[MainCategories] as mc WHERE mc.MainCategoryName LIKE CONCAT('%',@MainCategory,'%')
+	END
+
+	IF @SecondCategory IS NOT NULL
+	BEGIN
+	DROP TABLE IF EXISTS #SecondCategory
+	CREATE TABLE #SecondCategory
+	(
+	[ID] INT
+	)
+	INSERT #SecondCategory([ID])
+	SELECT ID FROM [dbo].[SecondaryCategories] as sc WHERE sc.SecondaryCategoryName LIKE CONCAT('%',@SecondCategory,'%')
+	END
+
+
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 'SELECT wp.[OrderNumber] AS [OrderNumber],
@@ -125,8 +148,8 @@ CONCAT(
 		coh.EquipmentNames,
 		cwp.Calibrators,
         NULL as Notes,
-		--mc.MainCategory,
-		NULL AS SecondCategory,
+		--STRING_AGG(mcf.[MainCategoryName],'','') as MainCategory,
+		--STRING_AGG(scf.[SecondaryCategoryName],'','')  AS SecondCategory,
 		wp.[IsCancelled],
 	--	STRING_AGG(od.SerialNumber,'','') AS DeviceNumber,
 	--	STRING_AGG(dm.OrdersDeviceManufacturerDescription,'','') AS DeviceManufacturer,
@@ -139,8 +162,12 @@ CONCAT(
 	,'LEFT JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
 	  LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
 	  LEFT JOIN [dbo].[Customers] as c ON wp.[CustomerId] = c.[CustomerId]
+	  LEFT JOIN [dbo].[MainCategories] as mcf ON itm.MainCategoryId	= mcf.ID
+	  LEFT JOIN [dbo].[SecondaryCategories] as scf ON itm.SecondaryCategoryId = scf.ID
 	  LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON itm.[OrdersDeviceManufacturerId] = dm.[OrdersDeviceManufacturerId]
 	',IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
+	 ,IIF(@MainCategory IS NOT NULL,' JOIN #MainCategory as mainc ON itm.MainCategoryId = mainc.ID ',' ')
+	 ,IIF(@SecondCategory IS NOT NULL,' JOIN #SecondCategory as secc ON itm.SecondaryCategoryId = secc.ID ',' ')
 	,'LEFT JOIN 
 	(  SELECT co.OrderWorkPlanId,STRING_AGG(co.CarId,'','') as [Cars]
 		FROM [dbo].[CarsToOrder] as co 
@@ -186,16 +213,14 @@ CONCAT(
 	WHERE od.IsInHouse = 0 AND wp.IsCancelled = 0'
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
 	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND itm.ActualCalibrationDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
-	,CASE WHEN @MainCategory IS NOT NULL THEN ' AND mc.MainCategory LIKE N''%'+ @MainCategory+'%'' 'ELSE ' ' END
-	,CASE WHEN @SecondCategory IS NOT NULL THEN ' AND od.SecondCategory LIKE N''%'+ @SecondCategory +'%'' 'ELSE ' ' END
 	,CASE WHEN @Location  IS NOT NULL THEN ' AND c.CustomerCity LIKE N''%'+@Location +'%'' 'ELSE ' ' END
 	,CASE WHEN @ProductType IS NOT NULL THEN ' AND od.PartName LIKE N''%'+ @ProductType +'%'' 'ELSE ' ' END
 	,CASE WHEN @ProducedIn IS NOT NULL THEN ' AND dm.OrdersDeviceManufacturerDescription LIKE N''%'+ @ProducedIn +'%'' 'ELSE ' ' END
-	,CASE WHEN @DeviceModel IS NOT NULL THEN ' AND od.DeviceModel LIKE N''%'+ @DeviceModel +'%'' 'ELSE ' ' END
-	,CASE WHEN @DeviceNumber IS NOT NULL THEN ' AND od.SerialNumber LIKE N''%'+ @DeviceNumber +'%'' 'ELSE ' ' END
+	,CASE WHEN @DeviceModel IS NOT NULL THEN ' AND itm.DeviceModel LIKE N''%'+ @DeviceModel +'%'' 'ELSE ' ' END
+	,CASE WHEN @DeviceNumber IS NOT NULL THEN ' AND itm.SerialNumber LIKE N''%'+ @DeviceNumber +'%'' 'ELSE ' ' END
 	,CASE WHEN @DeviceManufacturer IS NOT NULL THEN ' AND dm.OrdersDeviceManufacturerDescription LIKE N''%'+ @DeviceManufacturer +'%'''ELSE ' ' END
     ,CASE WHEN @OrderNumber IS NOT NULL THEN ' AND wp.OrderNumber LIKE N''%'+ @OrderNumber +'%'''ELSE ' ' END
-    ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(cwp.[Calibrators],mc.[MainCategory],c.[CustomerCity],c.[CustomerName],od.[SecondCategory],sp.[StatusDescriptionENG],wp.[OrderNumber]) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
+    ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(cwp.[Calibrators],mcf.[MainCategoryName],c.[CustomerCity],c.[CustomerName],scf.[SecondaryCategoryName],sp.[StatusDescriptionENG],wp.[OrderNumber]) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
 	,'GROUP BY wp.[OrderNumber], 
 	spc.[SpecialCares],
 	c.[CustomerName], 
