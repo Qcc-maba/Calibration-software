@@ -1,6 +1,7 @@
 ﻿
 CREATE    PROCEDURE [dbo].[GetAllMeasurementUnits]
-@MeasurementDeviceUnitGroupId INT = NULL
+@MeasurementDeviceUnitGroupId INT = NULL,
+@MainCategoryId INT = NULL
 AS
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -18,4 +19,5 @@ u.MeasurementDeviceUnitGroupId
 ,ug.Symbol
 FROM [dbo].[MeasurementDeviceUnits] as u
 JOIN [dbo].[MeasurementDeviceUnitGroups] as ug ON u.MeasurementDeviceUnitGroupId = ug.MeasurementDeviceUnitGroupId
-WHERE @MeasurementDeviceUnitGroupId IS NULL OR u.MeasurementDeviceUnitGroupId = @MeasurementDeviceUnitGroupId
+WHERE (@MeasurementDeviceUnitGroupId IS NULL OR u.MeasurementDeviceUnitGroupId = @MeasurementDeviceUnitGroupId)
+AND (@MainCategoryId IS NULL OR ug.MainCategoryId = @MainCategoryId)

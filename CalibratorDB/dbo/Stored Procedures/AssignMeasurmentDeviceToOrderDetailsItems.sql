@@ -1,4 +1,4 @@
-﻿CREATE   PROCEDURE dbo.AssignMeasurmentDeviceToOrderDetailsItems
+﻿CREATE   PROCEDURE [dbo].[AssignMeasurmentDeviceToOrderDetailsItems]
 @LoggedInUserEmail NVARCHAR(100),
 @Data NVARCHAR(MAX)
 -- =============================================
@@ -124,6 +124,7 @@ LEFT JOIN #parsedData as pd
 	   AND pd.LoggerMeasurementDeviceId = dest.LoggerMeasurementDeviceId
 	   AND pd.SensorMeasurementDeviceId = dest.SensorMeasurementDeviceId
 WHERE dest.IsDeleted = 0 AND pd.LoggerMeasurementDeviceId IS NULL
+AND dest.OrderDetailsItemId IN (SELECT OrderDetailsItemId FROM #parsedData)
 
 /*Insert new data or updating existing*/
 MERGE INTO [dbo].[MeasurmentDeviceToOrderDetailsItems] AS dest

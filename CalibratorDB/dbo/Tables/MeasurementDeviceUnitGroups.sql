@@ -10,7 +10,9 @@
     [IsDeleted]                           BIT            DEFAULT ((0)) NOT NULL,
     [UpdateUserID]                        INT            NULL,
     [MeasurementDevicesUnitGroupSourceId] INT            NULL,
+    [MainCategoryId]                      INT            NULL,
     CONSTRAINT [PK_MeasurementDeviceUnitGroups] PRIMARY KEY CLUSTERED ([MeasurementDeviceUnitGroupId] ASC),
+    CONSTRAINT [FK_MeasurementDeviceUnitGroups_MainCategoryId] FOREIGN KEY ([MainCategoryId]) REFERENCES [dbo].[MainCategories] ([ID]),
     CONSTRAINT [FK_MeasurementDeviceUnitGroups_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
 

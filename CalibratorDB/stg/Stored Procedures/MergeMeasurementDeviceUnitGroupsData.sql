@@ -60,4 +60,44 @@ SET NOCOUNT ON;
 				,source.[UpdateUserID]
 				,source.[MeasurementDevicesUnitGroupSourceId]
 				);
+UPDATE u
+SET u.MainCategoryId = mc.ID
+FROM (VALUES
+    (N'אורך', N'אורך וזווית'),
+    (N'מסה', N'מסה'),
+    (N'זמן', N'זמן'),
+    (N'זרם', N'אלקטרוניקה'),
+    (N'כמות חלקיקים', N'רדיומטריה'),
+    (N'עוצמת האור', N'רדיומטריה'),
+    (N'תאוצה', N'כוח'),
+    (N'זווית', N'אורך וזווית'),
+    (N'תאוצה זוויתית', N'מומנט'),
+    (N'מהירות זוויתית', N'מומנט'),
+    (N'תנע זוויתית', N'מומנט'),
+    (N'שטח', N'אורך וזווית'),
+    (N'צפיפות משטחית', N'כללי'),
+    (N'צפיפות', N'כללי'),
+    (N'מטען חשמלי', N'אלקטרוניקה'),
+    (N'ההתנגדות חשמלית', N'אלקטרוניקה'),
+    (N'אנרגיה', N'כללי'),
+    (N'כח', N'כוח'),
+    (N'תדירות', N'אלקטרוניקה'),
+    (N'צפיפות קווית', N'כללי'),
+    (N'שטף מגנטי', N'אלקטרוניקה'),
+    (N'תנע', N'כוח'),
+    (N'הספק', N'אלקטרוניקה'),
+    (N'לחץ', N'לחץ'),
+    (N'Solid angle', N'כללי'),
+    (N'מהירות', N'מהירות אוויר'),
+    (N'מומנט סיבוב', N'מומנט'),
+    (N'מתח', N'אלקטרוניקה'),
+    (N'נפח', N'נפח'),
+    (N'עבודה', N'כללי'),
+    (N'טמפרטורה', N'טמפרטורה ולחות'),
+    (N'ריכוז', N'תמיסות'),
+    (N'לחץ אבסולוטי', N'לחץ')
+) AS ugd (UnitGroup, Department)
+JOIN [dbo].[MainCategories] as mc ON ugd.Department = mc.MainCategoryName
+JOIN [dbo].[MeasurementDeviceUnitGroups] as u ON ugd.UnitGroup = u.[NameHe]
+WHERE u.MainCategoryId IS NULL
 END
