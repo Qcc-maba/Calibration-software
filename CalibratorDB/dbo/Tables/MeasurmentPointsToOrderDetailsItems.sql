@@ -1,0 +1,17 @@
+﻿CREATE TABLE [dbo].[MeasurmentPointsToOrderDetailsItems] (
+    [MeasurmentPointsToOrderDetailsItemId] INT             IDENTITY (1, 1) NOT NULL,
+    [OrderDetailsItemId]                   INT             NOT NULL,
+    [SensorMeasurementDeviceId]            INT             NOT NULL,
+    [MeasurmentPointName]                  NVARCHAR (100)  NOT NULL,
+    [MeasurmentPointCoordX]                DECIMAL (10, 4) NOT NULL,
+    [MeasurmentPointCoordY]                DECIMAL (10, 4) NOT NULL,
+    [ChannelNumber]                        INT             NOT NULL,
+    [CreateDate]                           DATETIME2 (0)   DEFAULT (getdate()) NOT NULL,
+    [UpdatedDate]                          DATETIME2 (0)   NULL,
+    [UpdateUserID]                         INT             NULL,
+    [IsDeleted]                            BIT             DEFAULT ((0)) NOT NULL,
+    CONSTRAINT [PK_MeasurmentPointsToOrderDetailsItems] PRIMARY KEY CLUSTERED ([OrderDetailsItemId] ASC, [SensorMeasurementDeviceId] ASC, [ChannelNumber] ASC, [MeasurmentPointsToOrderDetailsItemId] ASC),
+    CONSTRAINT [FK_MeasurmentPointsToOrderDetailsItems_SensorMeasurementDeviceId] FOREIGN KEY ([SensorMeasurementDeviceId]) REFERENCES [dbo].[MeasurementDevices] ([ID]),
+    CONSTRAINT [FK_MeasurmentPointsToOrderDetailsItems_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
+);
+
