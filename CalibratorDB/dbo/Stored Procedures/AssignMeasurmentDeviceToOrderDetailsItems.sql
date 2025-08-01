@@ -136,6 +136,7 @@ USING (
 		d.PrimaryMeasurmentUnitId,
 		d.SecondaryMeasurmentUnitId
 	FROM #parsedData as d
+	WHERE d.OrderDetailsItemId IS NOT NULL AND d.LoggerMeasurementDeviceId IS NOT NULL AND d.SensorMeasurementDeviceId IS NOT NULL
 	) AS source
 	ON   dest.[OrderDetailsItemId] = source.[OrderDetailsItemId]
 		 AND dest.[LoggerMeasurementDeviceId] = source.[LoggerMeasurementDeviceId]

@@ -1,4 +1,4 @@
-﻿CREATE   PROCEDURE dbo.GetMeasurmentDevicesForOrderDetail
+﻿CREATE   PROCEDURE [dbo].[GetMeasurmentDevicesForOrderDetail]
 @OrderDetailsItemId INT
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -18,6 +18,6 @@ SELECT
       ,md.[PrimaryMeasurmentUnitId]
       ,md.[SecondaryMeasurmentUnitId]
   FROM [dbo].[MeasurmentDeviceToOrderDetailsItems] as md
-  WHERE md.[IsDeleted] = 1 AND md.[OrderDetailsItemId] = @OrderDetailsItemId
+  WHERE md.[IsDeleted] = 0 AND md.[OrderDetailsItemId] = @OrderDetailsItemId
 
 END

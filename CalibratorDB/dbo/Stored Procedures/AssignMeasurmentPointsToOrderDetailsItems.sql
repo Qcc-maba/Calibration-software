@@ -111,6 +111,7 @@ USING (
 		d.MeasurmentPointCoordY,
 		d.ChannelNumber
 	FROM #parsedData as d
+	WHERE d.OrderDetailsItemId IS NOT NULL AND d.ChannelNumber IS NOT NULL AND d.SensorMeasurementDeviceId IS NOT NULL
 	) AS source
 	ON   dest.[OrderDetailsItemId] = source.[OrderDetailsItemId]
 		 AND dest.[SensorMeasurementDeviceId] = source.[SensorMeasurementDeviceId]
