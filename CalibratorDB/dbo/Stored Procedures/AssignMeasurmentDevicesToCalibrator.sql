@@ -156,8 +156,19 @@ BEGIN TRY
 
 	DECLARE @SensorToLoggerToCalibratorId INT = 0
 	SELECT @SensorToLoggerToCalibratorId = sl.SensorToLoggerToCalibratorId FROM [dbo].[SensorToLoggerToCalibrator] as sl
-	WHERE sl.LoggerToCalibratorId = @LoggerToCalibratorId AND sl.SensorMeasurementDeviceId = @SensorMeasurementDeviceId
+	WHERE sl.LoggerToCalibratorId = @LoggerToCalibratorId AND sl.SensorMeasurementDeviceId = @SensorMeasurementDeviceId AND sl.IsDeleted = 0
 
+	UPDATE dest
+	SET  dest.[UpdatedDate] = GETDATE()
+		,dest.[UpdateUserID] = @Userid
+		,dest.[IsDeleted] = 1
+	FROM [dbo].[ChannelsToSensorForCalibratoration] as dest
+	LEFT JOIN #Channels as c ON dest.[SensorToLoggerToCalibratorId] = @SensorToLoggerToCalibratorId
+	                            AND dest.[ChannelNumber] = c.ChannelNumber
+								AND dest.IsDeleted = 0
+	WHERE c.ChannelNumber IS NULL AND dest.[SensorToLoggerToCalibratorId] = @SensorToLoggerToCalibratorId
+  
+	
 	MERGE INTO [dbo].[ChannelsToSensorForCalibratoration] AS dest
 	USING (
 		SELECT 
@@ -169,12 +180,6 @@ BEGIN TRY
 		ON dest.[SensorToLoggerToCalibratorId] = source.[SensorToLoggerToCalibratorId]
 		   AND dest.[ChannelNumber] = source.[ChannelNumber]
 		   AND dest.IsDeleted = 0
-	WHEN NOT MATCHED BY Source
-		THEN
-			UPDATE
-			SET  dest.[UpdatedDate] = GETDATE()
-				,dest.[UpdateUserID] = @Userid
-				,dest.[IsDeleted] = 1
 	WHEN NOT MATCHED BY TARGET
 		THEN
 			INSERT (
