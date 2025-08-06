@@ -13,6 +13,8 @@ BEGIN
 	SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
 
 	SELECT ltc.LoggerMeasurementDeviceId,
+	       ltc.CommunicationDetails,
+		   ltc.CommunicationProtocol,
 	       stc.SensorMeasurementDeviceId,	
 	       stc.UnitId,
 		   stc.WorkRangeUnitId,
@@ -24,6 +26,8 @@ BEGIN
 		  AND (stc.SensorMeasurementDeviceId = @SensorMeasurementDeviceId OR @SensorMeasurementDeviceId IS NULL)
 	GROUP BY
 		   ltc.LoggerMeasurementDeviceId,
+	       ltc.CommunicationDetails,
+		   ltc.CommunicationProtocol,
 		   stc.SensorMeasurementDeviceId,	
 	       stc.UnitId,
 		   stc.WorkRangeUnitId

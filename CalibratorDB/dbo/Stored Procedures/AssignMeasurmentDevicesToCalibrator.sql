@@ -52,9 +52,9 @@ ChannelNumber INT
 )
 
 INSERT #Channels(ChannelNumber)
-SELECT value
+SELECT CAST(value AS INT)
 FROM STRING_SPLIT(@ChannelNumbers,',')
-WHERE value > 0
+WHERE value >= 0
 
 BEGIN TRY
 	

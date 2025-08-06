@@ -58,14 +58,6 @@ INSERT #AssociatedEquipmentIDs(EquipmentId)
 SELECT Value FROM dbo.ParseCSVToTable(@AssociatedEquipmentId)
 
 if EXISTS (
-SELECT 1 FROM #AssociatedEquipmentIDs as t
-JOIN [dbo].[CalibEquipments] as e ON e.ID = t.EquipmentId
-JOIN [dbo].[Statuses] as s ON s.StatusId = e.StatusId
-WHERE  s.StatusDescriptionENG <> 'Available'
-)
-THROW 51000, 'Incorrect or inactive equipment were found in list.', 1;
-
-if EXISTS (
 SELECT 1 FROM [dbo].[Users] as u
 WHERE (u.ID = @OwnerId)  AND u.IsActive = 0
 )

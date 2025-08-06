@@ -47,13 +47,13 @@ if EXISTS (
 SELECT 1 FROM #AssociatedEquipmentIDs as t
 JOIN [dbo].[MeasurementDevices] as e ON e.ID = t.EquipmentId
 JOIN [dbo].[Statuses] as s ON s.StatusId = e.MeasurementDeviceStatusId
-WHERE  s.StatusDescriptionENG <> 'Available'
+WHERE  COALESCE(s.StatusDescriptionENG,'Available') <> 'Available'
 )
 THROW 51000, 'Incorrect or inactive equipment were found in list or equipment not in available state.', 1;
 
 if EXISTS (
 SELECT 1 FROM [dbo].[Cars] as c
-WHERE c.Model = @Model AND c.LicenseNumber = @LicenseNumber
+WHERE c.Model = @Model AND c.LicenseNumber = @LicenseNumber AND c.IsDeleted = 0
 )
 THROW 51000, 'Car already exists', 1;
 
