@@ -10,7 +10,7 @@ CREATE    PROCEDURE [dbo].[GetMeasurementsSpecifications]
 AS
 SELECT DISTINCT
        mc.[ID]
-      ,mc.[Name]
+      ,mc.[MeasurementsSpecificationDescription] as [Name]
       ,mc.MainCategoryId as  [DepartmentId]
   FROM [dbo].[MeasurementsSpecifications] as mc
   JOIN [dbo].[MeasurementsSpecificationsToSecondCategory] as sc ON mc.ID = sc.MeasurementsSpecificationId AND sc.[IsDeleted] = 0
