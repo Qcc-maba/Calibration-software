@@ -9,13 +9,18 @@ CREATE   PROCEDURE [dbo].[AssignCalibratorsToOrder]
 @OrderNumber NCHAR(12),
 @StartDate DATETIME2(0),
 @CalibratorIDs NVARCHAR(300),
-@Note NVARCHAR(255)
+@Note NVARCHAR(255),
+@LoggedInUserEmail NVARCHAR(100) = NULL
 
 --exec dbo.AssignCalibratorsToOrder @OrderNumber = N'LA25100557', @StartDate = '2025-03-17 16:23:00', @CalibratorIDs = '2,6,7,8', @Note = N'test record'
 AS
 BEGIN
 
 SET NOCOUNT ON;
+
+
+DECLARE @Userid INT = 0
+SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
 
 DROP TABLE IF EXISTS #CalibratorIDs
 CREATE TABLE #CalibratorIDs
@@ -44,11 +49,14 @@ UPDATE [dbo].[OrderWorkPlans]
 SET Notes = @Note
 WHERE OrderWorkPlanId = @WorkPlanId
 
-DELETE FROM dbo.CalibratorsToWorkPlan
-WHERE OrderWorkPlanId = @WorkPlanId
+UPDATE dbo.CalibratorsToWorkPlan
+SET UpdatedDate = GETDATE(),
+    UpdateUserID = @Userid,
+    IsDeleted = 0
+WHERE OrderWorkPlanId = @WorkPlanId and IsDeleted = 1
 
-INSERT dbo.CalibratorsToWorkPlan(OrderWorkPlanId,CalibratorId)
-SELECT DISTINCT @WorkPlanId, CalibratorID
+INSERT dbo.CalibratorsToWorkPlan(OrderWorkPlanId,CalibratorId,AssigmentDate,UpdateUserID)
+SELECT DISTINCT @WorkPlanId, CalibratorID, @StartDate,@Userid
 FROM #CalibratorIDs as c 
 LEFT JOIN dbo.CalibratorsToWorkPlan as wp ON c.CalibratorID = wp.CalibratorId AND wp.OrderWorkPlanId = @WorkPlanId
 WHERE wp.CalibratorId IS NULL

@@ -7,10 +7,13 @@
 CREATE   PROCEDURE [dbo].[GetAllCalibrators]
 @MainCategory NVARCHAR(100) = NULL,
 @SecondCategories NVARCHAR(MAX) = NULL, 
-@Certifications NVARCHAR(100) = NULL
+@Certifications NVARCHAR(100) = NULL,
+@CheckDate DATE = NULL
 --EXEC dbo.GetAllCalibrators
 
 AS 	
+
+IF @CheckDate IS NULL SET @CheckDate = GETDATE()
 
 IF @SecondCategories IS NOT NULL
 BEGIN
@@ -39,6 +42,7 @@ FROM [dbo].[CalibratorsToWorkPlan] as wp
 JOIN [dbo].[CalibratorsToCertification] as cts ON wp.CalibratorId = cts.CalibratorId and cts.IsDeleted = 0
 JOIN [dbo].[MeasurementsSpecifications] as s ON cts.CertificationId = s.ID and s.IsDeleted = 0
 JOIN dbo.ParseCSVToTable(@Certifications) as sc ON s.[Name] = sc.[Value]
+WHERE wp.IsDeleted = 0
 END
 
 DECLARE @AvailableStatus INT
@@ -65,14 +69,14 @@ SELECT DISTINCT
   JOIN [dbo].[UserRoles] as ur ON  u.UserRoleId = ur.UserRoleId AND ur.UserRoleDescriptionENG = ''Calibrator''
   LEFT JOIN [dbo].[UsersToDepartments] as utd ON u.ID = utd.UserId
   LEFT JOIN [dbo].[MainCategories] as ud ON ud.ID = utd.MainCategoryId
-  LEFT JOIN [dbo].[CalibratorsToWorkPlan] cp ON u.[ID] = cp.CalibratorId AND cp.IsDeleted = 0
+  LEFT JOIN [dbo].[CalibratorsToWorkPlan] cp ON u.[ID] = cp.CalibratorId AND cp.IsDeleted = 0 AND cp.AssigmentDate = ''',@CheckDate,'''
   LEFT JOIN [dbo].[OrderWorkPlans] as wp ON cp.OrderWorkPlanId = wp.OrderWorkPlanId AND wp.IsCancelled = 0
   LEFT JOIN
     (SELECT  u.ID as UserId, COALESCE(ca.AvailabilityStatusId,',@AvailableStatus,') as AvailabilityStatusId,st.StatusDescriptionENG,st.StatusDescriptionHEB, ROW_NUMBER() OVER( PARTITION BY u.ID ORDER BY ca.AvailbilityDateTo) AS rn   
 	FROM [dbo].[Users] as u
 	LEFT JOIN [dbo].[CalibratorsAvailability] as ca ON u.ID = ca.UserId 
-			  AND ca.AvailbilityDateFrom >= CAST(GETDATE() AS DATE) 
-			  AND ca.AvailbilityDateTo <= CAST(GETDATE() AS DATE) 
+			  AND ca.AvailbilityDateFrom >= ''',@CheckDate,'''
+			  AND ca.AvailbilityDateTo <= ''',@CheckDate,'''
 	LEFT JOIN [dbo].[Statuses] as st ON COALESCE(ca.AvailabilityStatusId,',@AvailableStatus,')  = st.StatusId
 	) as st ON u.ID =  st.UserId AND st.rn = 1
   LEFT JOIN [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId AND od.IsCancelled = 0
