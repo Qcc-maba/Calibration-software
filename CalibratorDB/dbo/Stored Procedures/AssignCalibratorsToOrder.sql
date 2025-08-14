@@ -56,7 +56,7 @@ SET UpdatedDate = GETDATE(),
 WHERE OrderWorkPlanId = @WorkPlanId and IsDeleted = 1
 
 INSERT dbo.CalibratorsToWorkPlan(OrderWorkPlanId,CalibratorId,AssigmentDate,UpdateUserID)
-SELECT DISTINCT @WorkPlanId, CalibratorID, @StartDate,@Userid
+SELECT DISTINCT @WorkPlanId, c.CalibratorID, @StartDate,@Userid
 FROM #CalibratorIDs as c 
 LEFT JOIN dbo.CalibratorsToWorkPlan as wp ON c.CalibratorID = wp.CalibratorId AND wp.OrderWorkPlanId = @WorkPlanId
 WHERE wp.CalibratorId IS NULL

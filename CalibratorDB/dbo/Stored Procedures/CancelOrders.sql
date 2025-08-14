@@ -17,7 +17,7 @@ SET NOCOUNT ON;
 DROP TABLE IF EXISTS #OrderIDs 
 CREATE TABLE #OrderIDs
 (
-OrderNumber NCHAR(12)
+OrderNumber NVARCHAR(20) COLLATE Latin1_General_100_CI_AI_SC
 )
 
 INSERT #OrderIDs(OrderNumber)
@@ -26,6 +26,6 @@ SELECT Value FROM dbo.ParseCSVToTable(@OrderIDs)
 UPDATE o
 SET o.IsCancelled = 1
 FROM [dbo].[OrderWorkPlans] as o
-JOIN #OrderIDs as upd ON o.OrderNumber = upd.OrderNumber COLLATE Hebrew_BIN
+JOIN #OrderIDs as upd ON o.OrderNumber = upd.OrderNumber
 
 END

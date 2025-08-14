@@ -1,7 +1,6 @@
 ﻿CREATE TABLE [dbo].[OrderDetailsItems] (
     [OrderDetailId]              INT            NOT NULL,
     [OrderDetailsItemId]         INT            IDENTITY (1, 1) NOT NULL,
-    [ActualCalibrationDate]      DATETIME2 (0)  NULL,
     [NextCalibrationDate]        DATETIME2 (0)  NULL,
     [SerialNumber]               NVARCHAR (100) NULL,
     [ManufacturerNumber]         NVARCHAR (100) NULL,
@@ -26,6 +25,7 @@
     [IsCancelled]                BIT            DEFAULT ((0)) NOT NULL,
     [CalibrationStatusId]        INT            NULL,
     [CalibrationReportStatusId]  INT            NULL,
+    [ActualCalibrationDate]      DATETIME2 (0)  NULL,
     CONSTRAINT [PK_OrderDetailsItems] PRIMARY KEY CLUSTERED ([OrderDetailId] ASC, [OrderDetailsItemId] ASC),
     CONSTRAINT [FK_OrderDetailsItems_CalibrationReportStatusId] FOREIGN KEY ([CalibrationReportStatusId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_OrderDetailsItems_CalibrationSpecificationId] FOREIGN KEY ([CalibrationSpecificationId]) REFERENCES [dbo].[MeasurementsSpecifications] ([ID]),

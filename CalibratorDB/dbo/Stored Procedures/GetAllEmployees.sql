@@ -63,7 +63,7 @@ CREATE TABLE #Status
 (
 StatusId INT,
 IsActive BIT,
-AvailabilityStatusDescriptionHEB NVARCHAR(100)
+AvailabilityStatusDescriptionHEB NVARCHAR(100) COLLATE Latin1_General_100_CI_AI_SC
 )
 INSERT #Status(StatusId,IsActive,AvailabilityStatusDescriptionHEB)
 SELECT 
@@ -123,8 +123,8 @@ BEGIN
 	(
 	UserId INT,
 	EventTypeId INT,
-	StatusDescriptionHEB NVARCHAR(255),
-	StatusDescriptionENG NVARCHAR(255)
+	StatusDescriptionHEB NVARCHAR(255) COLLATE Latin1_General_100_CI_AI_SC,
+	StatusDescriptionENG NVARCHAR(255) COLLATE Latin1_General_100_CI_AI_SC
 	)
 	
 	;WITH LastEvent

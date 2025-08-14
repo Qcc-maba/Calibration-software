@@ -1,4 +1,5 @@
-﻿SET IDENTITY_INSERT [dbo].[Users] ON 
+﻿DELETE FROM [dbo].[Users] WHERE ID =0
+SET IDENTITY_INSERT [dbo].[Users] ON 
 
 INSERT INTO [dbo].[Users]
            (

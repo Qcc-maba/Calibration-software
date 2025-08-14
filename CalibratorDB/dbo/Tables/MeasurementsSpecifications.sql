@@ -1,6 +1,6 @@
 ﻿CREATE TABLE [dbo].[MeasurementsSpecifications] (
     [ID]                                   INT            IDENTITY (1, 1) NOT NULL,
-    [Name]                                 VARCHAR (50)   NOT NULL,
+    [Name]                                 NVARCHAR (50)   NOT NULL,
     [MainCategoryId]                       INT            NOT NULL,
     [CreatedDate]                          DATETIME2 (0)  DEFAULT (getdate()) NOT NULL,
     [UpdatedDate]                          DATETIME2 (0)  NULL,

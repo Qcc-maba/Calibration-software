@@ -3,8 +3,8 @@ DROP TABLE IF EXISTS #data
 
 CREATE TABLE #data
 (
-Name NVARCHAR(100) COLLATE Hebrew_BIN,
-MeasurementsSpecificationDescription NVARCHAR(100) COLLATE Hebrew_BIN,
+Name NVARCHAR(100) COLLATE Latin1_General_100_CI_AI_SC,
+MeasurementsSpecificationDescription NVARCHAR(100) COLLATE Latin1_General_100_CI_AI_SC,
 SecondaryCategoryId	INT,
 MainCategoryId INT
 )
@@ -22,24 +22,24 @@ SELECT
 	MainCategoryId
 	FROM (
 	VALUES
-	('WI-C065',N'רגש התנגדות רגש צמד תרמי', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'רגשים'),(SELECT TOP 1 ID FROM dbo.[MainCategories] WHERE [MainCategoryName] = 'טמפרטורה ולחות') ),
-	('WI-C062',N'כיול תנורים', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'תאים'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = 'טמפרטורה ולחות') ),
-	('WI-C080',N'טמפרטורה ללא מגע', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'ללא מגע'),(SELECT TOP 1 ID FROM dbo.[MainCategories] WHERE [MainCategoryName] = 'טמפרטורה ולחות') ),
-	('WI-C080',N'טמפרטורה ללא מגע', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'גופים שחורים'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = 'טמפרטורה ולחות') ),
-	('WI-C046',N'כיול לחות', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'לחות'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = 'טמפרטורה ולחות') ),
-	('WI-C063',N'מד חום זכוכית מד חום חוגה', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'נוזל בזכוכית'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = 'טמפרטורה ולחות') ),
-	('WI-C067',N'הדמיה חשמלית- צג, בקר,רשם', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'סימולציה'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = 'טמפרטורה ולחות') ),
-	('WI-C077',N'סימולציה PH', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'סימולציה'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = 'טמפרטורה ולחות') ),
-	('WI-C065',N'רגש התנגדות רגש צמד תרמי', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'מלחמים'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = 'טמפרטורה ולחות') ),
-	('WI-C065',N'רגש התנגדות רגש צמד תרמי', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'משאיות קירור'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = 'טמפרטורה ולחות')) 
+	('WI-C065',N'רגש התנגדות רגש צמד תרמי', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'רגשים'),(SELECT TOP 1 ID FROM dbo.[MainCategories] WHERE [MainCategoryName] = N'טמפרטורה ולחות') ),
+	('WI-C062',N'כיול תנורים', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'תאים'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = N'טמפרטורה ולחות') ),
+	('WI-C080',N'טמפרטורה ללא מגע', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'ללא מגע'),(SELECT TOP 1 ID FROM dbo.[MainCategories] WHERE [MainCategoryName] = N'טמפרטורה ולחות') ),
+	('WI-C080',N'טמפרטורה ללא מגע', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'גופים שחורים'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = N'טמפרטורה ולחות') ),
+	('WI-C046',N'כיול לחות', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'לחות'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = N'טמפרטורה ולחות') ),
+	('WI-C063',N'מד חום זכוכית מד חום חוגה', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'נוזל בזכוכית'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = N'טמפרטורה ולחות') ),
+	('WI-C067',N'הדמיה חשמלית- צג, בקר,רשם', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'סימולציה'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = N'טמפרטורה ולחות') ),
+	('WI-C077',N'סימולציה PH', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'סימולציה'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = N'טמפרטורה ולחות') ),
+	('WI-C065',N'רגש התנגדות רגש צמד תרמי', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'מלחמים'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = N'טמפרטורה ולחות') ),
+	('WI-C065',N'רגש התנגדות רגש צמד תרמי', (SELECT TOP 1 ID FROM dbo.[SecondaryCategories] WHERE SecondaryCategoryName = N'משאיות קירור'),(SELECT TOP 1 ID  FROM dbo.[MainCategories] WHERE [MainCategoryName] = N'טמפרטורה ולחות')) 
 	) ds (Name,MeasurementsSpecificationDescription,SecondaryCategoryId,MainCategoryId)
 
 
 MERGE INTO [dbo].[MeasurementsSpecifications] AS dest
 USING (
 	SELECT DISTINCT
-		Name COLLATE Hebrew_BIN as Name,
-		MeasurementsSpecificationDescription COLLATE Hebrew_BIN as MeasurementsSpecificationDescription,
+		Name as Name,
+		MeasurementsSpecificationDescription as MeasurementsSpecificationDescription,
 		MainCategoryId
 		FROM #data
 	) AS source

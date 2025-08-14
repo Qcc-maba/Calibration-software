@@ -18,7 +18,7 @@ BEGIN
 DROP TABLE IF EXISTS #MainCategories
 CREATE TABLE #MainCategories
 (
-MainCategory NVARCHAR(50)
+MainCategory NVARCHAR(50) COLLATE Latin1_General_100_CI_AI_SC
 )
 INSERT #MainCategories(MainCategory)
 SELECT DISTINCT CAST(v.Value AS NVARCHAR(50)) FROM dbo.ParseCSVToTable(@MainCategories) as v
@@ -27,7 +27,7 @@ SELECT DISTINCT CAST(v.Value AS NVARCHAR(50)) FROM dbo.ParseCSVToTable(@MainCate
 DROP TABLE IF EXISTS #SecondaryCategories
 CREATE TABLE #SecondaryCategories
 (
-SecondaryCategory NVARCHAR(50)
+SecondaryCategory NVARCHAR(50) COLLATE Latin1_General_100_CI_AI_SC
 )
 INSERT #SecondaryCategories(SecondaryCategory)
 SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@SecondaryCategories) as v
@@ -35,7 +35,7 @@ SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@SecondaryCategories) as v
 DROP TABLE IF EXISTS #DeviceManufacturer
 CREATE TABLE #DeviceManufacturer
 (
-DeviceManufacturer NVARCHAR(255)
+DeviceManufacturer NVARCHAR(255) COLLATE Latin1_General_100_CI_AI_SC
 )
 INSERT #DeviceManufacturer(DeviceManufacturer)
 SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceManufacturer) as v
@@ -43,7 +43,7 @@ SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceManufacturer) as v
 DROP TABLE IF EXISTS #DeviceModels
 CREATE TABLE #DeviceModels
 (
-DeviceModel NVARCHAR(30)
+DeviceModel NVARCHAR(30) COLLATE Latin1_General_100_CI_AI_SC
 )
 INSERT #DeviceModels(DeviceModel)
 SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceModels) as v

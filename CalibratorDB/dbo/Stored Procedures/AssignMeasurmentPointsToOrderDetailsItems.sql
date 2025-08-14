@@ -51,7 +51,7 @@ DROP TABLE IF EXISTS #parsedData
 CREATE TABLE #parsedData
 (
 	OrderDetailsItemId INT,
-    MeasurmentPointName NVARCHAR(100) COLLATE Hebrew_BIN,
+    MeasurmentPointName NVARCHAR(100) COLLATE Latin1_General_100_CI_AI_SC,
     SensorMeasurementDeviceId INT,
     MeasurmentPointCoordX DECIMAL(10,4),
     MeasurmentPointCoordY DECIMAL(10,4),
@@ -70,7 +70,7 @@ INSERT #parsedData
 
 SELECT 
     d.OrderDetailsItemId,
-    c.MeasurmentPointName COLLATE Hebrew_BIN,
+    c.MeasurmentPointName,
     c.SensorMeasurementDeviceId,
     c.MeasurmentPointCoordX,
     c.MeasurmentPointCoordY,
@@ -118,12 +118,12 @@ USING (
 		 AND dest.[ChannelNumber] = source.[ChannelNumber]
 		 AND dest.[IsDeleted] = 0
 WHEN MATCHED AND ( 
-	           dest.[MeasurmentPointName] <> source.[MeasurmentPointName] COLLATE Hebrew_BIN
+	           dest.[MeasurmentPointName] <> source.[MeasurmentPointName]
 			OR dest.[MeasurmentPointCoordX] <> source.[MeasurmentPointCoordX]
 			OR dest.[MeasurmentPointCoordY] <> source.[MeasurmentPointCoordY])
 	THEN
 		UPDATE
-		SET  dest.[MeasurmentPointName] = source.[MeasurmentPointName] COLLATE Hebrew_BIN
+		SET  dest.[MeasurmentPointName] = source.[MeasurmentPointName]
 			,dest.[MeasurmentPointCoordX] = source.[MeasurmentPointCoordX]
 			,dest.[MeasurmentPointCoordY] = source.[MeasurmentPointCoordY]
 			,dest.[UpdatedDate] = GETDATE()

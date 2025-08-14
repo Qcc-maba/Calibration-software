@@ -4,18 +4,18 @@ SELECT
 [StatusDescriptionENG],[StatusDescriptionHEB]
 FROM (
 	VALUES
-	('ReportStatus',''),
-	('CalibrationStatuses',''),
-	('CalibratedUnitsStatus',''),
-	('SpecialCare',''),
-	('CarStatus',''),
-	('CalibrationEquipmentStatus',''),
-	('UserAvailabilityStatus',''),
-	('MeasurementDeviceStatus',''),
-	('OrderStatus',''),
-	('EventTypes',''),
-	('UserStatus',''),
-	('Position','')
+	(N'ReportStatus',''),
+	(N'CalibrationStatuses',''),
+	(N'CalibratedUnitsStatus',''),
+	(N'SpecialCare',''),
+	(N'CarStatus',''),
+	(N'CalibrationEquipmentStatus',''),
+	(N'UserAvailabilityStatus',''),
+	(N'MeasurementDeviceStatus',''),
+	(N'OrderStatus',''),
+	(N'EventTypes',''),
+	(N'UserStatus',''),
+	(N'Position','')
 	) ds ([StatusDescriptionENG],[StatusDescriptionHEB])
 	) AS source
 	ON dest.[StatusDescriptionENG] = source.[StatusDescriptionENG]

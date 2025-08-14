@@ -1,5 +1,5 @@
 ﻿
 INSERT  dbo.Source (SourceName)
 VALUES
-('MABA'),
-('SEPHARM')
+(N'MABA'),
+(N'SEPHARM')
