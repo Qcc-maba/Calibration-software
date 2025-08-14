@@ -48,18 +48,19 @@ USING (
 		,CAST([AddedByUserId] AS INT) as [AddedByUserId]
 		,[CreatedAt]
 		,[IsDeleted]
+		,[MainCategoryId]
 		FROM (
 		VALUES
-		(N'רגשים',0,GETDATE(),0),
-		(N'תאים',0,GETDATE(),0),
-		(N'ללא מגע',0,GETDATE(),0),
-		(N'גופים שחורים',0,GETDATE(),0),
-		(N'לחות',0,GETDATE(),0),
-		(N'נוזל בזכוכית',0,GETDATE(),0),
-		(N'סימולציה',0,GETDATE(),0),
-		(N'מלחמים',0,GETDATE(),0),
-		(N'משאיות קירור',0,GETDATE(),0)
-		) ds([SecondaryCategoryName],[AddedByUserId],[CreatedAt],[IsDeleted])
+		(N'רגשים',0,GETDATE(),0,(SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות')),
+		(N'תאים',0,GETDATE(),0,(SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות')),
+		(N'ללא מגע',0,GETDATE(),0,(SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות')),
+		(N'גופים שחורים',0,GETDATE(),0,(SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות')),
+		(N'לחות',0,GETDATE(),0,(SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות')),
+		(N'נוזל בזכוכית',0,GETDATE(),0,(SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות')),
+		(N'סימולציה',0,GETDATE(),0,(SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות')),
+		(N'מלחמים',0,GETDATE(),0,(SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות')),
+		(N'משאיות קירור',0,GETDATE(),0,(SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות'))
+		) ds([SecondaryCategoryName],[AddedByUserId],[CreatedAt],[IsDeleted],[MainCategoryId])
 	) AS source
 	ON dest.[SecondaryCategoryName] = source.[SecondaryCategoryName]
 WHEN NOT MATCHED BY TARGET
@@ -69,43 +70,19 @@ WHEN NOT MATCHED BY TARGET
 			,[AddedByUserId]
 			,[CreatedAt]
 			,[IsDeleted]
+			,[MainCategoryId]
 			)
 		VALUES (
 			 source.[SecondaryCategoryName]
 			,source.[AddedByUserId]
 			,source.[CreatedAt]
 			,source.[IsDeleted]
-			);
-/*Add relation between categories*/
-MERGE INTO [dbo].[MainToSecondaryCategories] AS dest
-USING (
-	SELECT 
-		[MainCategoryId],
-		[SecondaryCategoryId]
-		FROM (
-		VALUES
-		((SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות'),(SELECT ID FROM [dbo].[SecondaryCategories] WHERE IsDeleted = 0 AND [SecondaryCategoryName]=N'רגשים')),
-		((SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות'),(SELECT ID FROM [dbo].[SecondaryCategories] WHERE IsDeleted = 0 AND [SecondaryCategoryName]=N'תאים')),
-		((SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות'),(SELECT ID FROM [dbo].[SecondaryCategories] WHERE IsDeleted = 0 AND [SecondaryCategoryName]=N'ללא מגע')),
-		((SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות'),(SELECT ID FROM [dbo].[SecondaryCategories] WHERE IsDeleted = 0 AND [SecondaryCategoryName]=N'גופים שחורים')),
-		((SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות'),(SELECT ID FROM [dbo].[SecondaryCategories] WHERE IsDeleted = 0 AND [SecondaryCategoryName]=N'לחות')),
-		((SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות'),(SELECT ID FROM [dbo].[SecondaryCategories] WHERE IsDeleted = 0 AND [SecondaryCategoryName]=N'נוזל בזכוכית')),
-		((SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות'),(SELECT ID FROM [dbo].[SecondaryCategories] WHERE IsDeleted = 0 AND [SecondaryCategoryName]=N'סימולציה')),
-		((SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות'),(SELECT ID FROM [dbo].[SecondaryCategories] WHERE IsDeleted = 0 AND [SecondaryCategoryName]=N'מלחמים')),
-		((SELECT ID FROM [dbo].[MainCategories] WHERE MainCategoryName=N'טמפרטורה ולחות'),(SELECT ID FROM [dbo].[SecondaryCategories] WHERE IsDeleted = 0 AND [SecondaryCategoryName]=N'משאיות קירור'))
-		) ds([MainCategoryId],[SecondaryCategoryId])
-	) AS source
-	ON dest.[SecondaryCategoryId] = source.[SecondaryCategoryId]
-	  AND dest.[MainCategoryId] = source.[MainCategoryId]
-	  AND dest.IsDeleted = 0
-WHEN NOT MATCHED BY TARGET
-	THEN
-	INSERT([SecondaryCategoryId]
-		  ,[MainCategoryId])
-		VALUES (
-			 source.[SecondaryCategoryId]
 			,source.[MainCategoryId]
-			);
+			)
+WHEN MATCHED 
+	THEN
+		UPDATE
+			SET [MainCategoryId] = source.[MainCategoryId];
 
 
 

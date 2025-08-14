@@ -1,4 +1,5 @@
 ﻿CREATE   PROCEDURE  [dbo].[GetAllSpecificationReferences]
+@SecondaryCategoryId INT = NULL
 AS
 SELECT [ID]
       ,[Name] as SpecificationReference
@@ -7,4 +8,4 @@ SELECT [ID]
       ,[IsDeleted]
       ,[UpdateUserID]
 FROM [dbo].[SpecificationReference]
-WHERE [IsDeleted] = 0
+WHERE [IsDeleted] = 0 AND (@SecondaryCategoryId IS NULL OR SecondaryCategoryId = @SecondaryCategoryId)

@@ -65,6 +65,7 @@ FROM #DateRange as dr
 LEFT JOIN [dbo].[CarsToOrder] as cto ON dr.ID = cto.CarId AND dr.DayDate = cto.AssignDate AND cto.IsDeleted = 0
 LEFT JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderWorkPlanId = cto.OrderWorkPlanId  AND wp.IsCancelled = 0
 LEFT JOIN [dbo].[Statuses] as s ON s.StatusId = dr.CarStatusId
+WHERE s.StatusDescriptionENG = 'Available'
 ORDER BY dr.Id ,dr.DayDate
 
 END

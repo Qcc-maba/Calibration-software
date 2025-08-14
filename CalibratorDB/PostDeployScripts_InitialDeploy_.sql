@@ -15,3 +15,5 @@ GO
 :r".\8_PopulateDataStatuses.sql"
 GO 
 :r".\AddMeasurmentSpec.sql"
+GO 
+:r".\Add_SpecificationReference_data.sql"

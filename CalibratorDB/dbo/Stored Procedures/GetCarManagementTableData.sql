@@ -110,8 +110,8 @@ CONCAT(
       ,c.[LicenseNumber]
       ,c.[Seats]
       ,c.[TreatmentPeriod]
-      ,c.[NextTreatmentDate]
-      ,c.[NextYearlyTestDate]
+      ,COALESCE(c.[NextTreatmentDate], ''1900-01-01'') as [NextTreatmentDate]
+      ,COALESCE(c.[NextYearlyTestDate], ''1900-01-01'') as NextYearlyTestDate
       ,c.[OwnerId]
 	  ,CONCAT(u1.LastName,'' '', u1.FirstName) as OwnerFullName
 	  ,CONCAT(u1.LastNameEng,'' '', u1.FirstNameEng) as OwnerFullNameENG
@@ -150,8 +150,8 @@ CONCAT(
       ,c.[LicenseNumber]
       ,c.[Seats]
       ,c.[TreatmentPeriod]
-      ,c.[NextTreatmentDate]
-      ,c.[NextYearlyTestDate]
+      ,COALESCE(c.[NextTreatmentDate], ''1900-01-01'') 
+      ,COALESCE(c.[NextYearlyTestDate], ''1900-01-01'')
       ,c.[OwnerId]
 	  ,CONCAT(u1.LastName,'' '', u1.FirstName)
 	  ,CONCAT(u1.LastNameEng,'' '', u1.FirstNameEng) 

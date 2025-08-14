@@ -14,6 +14,7 @@ SELECT @rows=[OrderLineCnt],
 	   @OrderWorkPlanId = [OrderWorkPlanId]
 FROM [dbo].[OrderDetails] as od  WHERE OrderDetailId = @OrderDetailId
 
+
 ;WITH numbers
 as
 (
@@ -56,6 +57,7 @@ odi.[MeasurementPoints],
 odi.[MeasurementValueList],	
 odi.[ProductLocation],
 e.[EquipmentNames],
+scs.[StatusDescriptionENG] as [CalibrationStatus],
 ROW_NUMBER() OVER( PARTITION BY wp.[OrderWorkPlanId] ORDER BY wp.[OrderWorkPlanId]) as rn
  FROM [dbo].[OrderWorkPlans] as wp 
 JOIN  [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId
@@ -67,6 +69,7 @@ LEFT JOIN [dbo].[OrdersDeviceManufacturers] as odf ON odi.[OrdersDeviceManufactu
 LEFT JOIN [dbo].[MeasurementsSpecifications] mc ON odi.[CalibrationSpecificationId] = mc.ID
 LEFT JOIN [dbo].[SpecificationReference] as sr ON odi.[SpecificationReferenceId] = sr.ID
 LEFT JOIN [dbo].[MeasurementDeviceUnits] as mu ON odi.[MeasurementUnitId] = mu.MeasurementDeviceUnitId
+LEFT JOIN [dbo].[Statuses] as scs ON odi.[CalibrationStatusId] = scs.StatusId
 LEFT JOIN
 (
 SELECT mdt.[OrderWorkPlanId], STRING_AGG(md.Description,', ') as EquipmentNames
@@ -106,7 +109,8 @@ r.[MeasurementUnit],
 r.[MeasurementPoints],	
 r.[MeasurementValueList],	
 r.[ProductLocation],
-r.[EquipmentNames]
+r.[EquipmentNames],
+r.[CalibrationStatus]
 FROM numbers as n
 FULL JOIN result as r ON n.cnt = r.rn 
 option (maxrecursion 0)

@@ -12,9 +12,9 @@ CREATE   PROCEDURE [dbo].[CreateCarRecord]
 @Owner INT = NULL,
 @AssignedCalibrator INT = NULL,
 @TreatmentPeriod INT,
-@NextTreatment DATE,
-@NextTestDate DATE,
-@AssociatedEquipmentIDs NVARCHAR(200)
+@NextTreatment DATE = NULL,
+@NextTestDate DATE = NULL,
+@AssociatedEquipmentIDs NVARCHAR(200) = NULL
 
 /*
 EXEC [dbo].[CreateCarRecord] 

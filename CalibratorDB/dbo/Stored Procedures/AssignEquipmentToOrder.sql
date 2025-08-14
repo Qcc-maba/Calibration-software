@@ -6,13 +6,16 @@
 -- =============================================
 CREATE   PROCEDURE [dbo].[AssignEquipmentToOrder]
 @OrderID NVARCHAR(100),
-@EquipmentIDs NVARCHAR(MAX)=''
+@EquipmentIDs NVARCHAR(MAX)='',
+@CheckDate DATE = NULL
 
 /*
 EXEC dbo.AssignEquipmentToOrder @OrderID = 'SO25000153', @EquipmentIDs = '578,579'
 */
 AS
 BEGIN
+
+IF @CheckDate IS NULL SET @CheckDate = GETDATE()
 
 SET NOCOUNT ON;
 
@@ -47,11 +50,13 @@ IF (SELECT COUNT(*) FROM #AssociatedEquipmentIDs WHERE EquipmentId > 0) >= 1
 INSERT [dbo].[MeasurementDevicesToOrderHeaders]
 (
 OrderWorkPlanId,
-MeasurementDeviceId
+MeasurementDeviceId,
+AssigmentDate
 )
 SELECT 
     @OrderWorkPlanId,
-	EquipmentId
+	EquipmentId,
+	@CheckDate
 FROM #AssociatedEquipmentIDs as aei
 
 

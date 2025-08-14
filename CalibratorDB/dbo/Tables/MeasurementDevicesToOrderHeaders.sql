@@ -6,6 +6,7 @@
     [UpdatedDate]         DATETIME2 (0) NULL,
     [IsDeleted]           BIT           DEFAULT ((0)) NOT NULL,
     [UpdateUserID]        INT           NULL,
+    [AssigmentDate]       DATE          DEFAULT (getdate()) NOT NULL,
     CONSTRAINT [PK_CalibEquipmentsToOrderHeaders] PRIMARY KEY CLUSTERED ([OrderWorkPlanId] ASC, [MeasurementDeviceId] ASC, [CreateDate] ASC),
     CONSTRAINT [FK_MeasurementDevicesToOrderHeaders_CalibEquipmentId] FOREIGN KEY ([MeasurementDeviceId]) REFERENCES [dbo].[MeasurementDevices] ([ID]),
     CONSTRAINT [FK_MeasurementDevicesToOrderHeaders_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[Users] ([ID]),

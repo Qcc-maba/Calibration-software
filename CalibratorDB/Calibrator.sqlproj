@@ -176,7 +176,6 @@
     <Build Include="dbo\Stored Procedures\AssignCalibratorsAvailability.sql" />
     <Build Include="dbo\Tables\UsersToDepartments.sql" />
     <Build Include="dbo\Stored Procedures\EditCarAssigmentToOrder.sql" />
-    <Build Include="dbo\Tables\OrderItemsStatuses.sql" />
     <Build Include="dbo\Stored Procedures\AssignOrderItemsStatus.sql" />
     <Build Include="etl\Tables\CalibGetDataLog.sql" />
     <Build Include="etl\Stored Procedures\CalibGetDataLogGetSet.sql" />
@@ -265,7 +264,6 @@
     <None Include="AddMeasurmentSpec.sql" />
     <Build Include="dbo\Tables\MainCategories.sql" />
     <Build Include="dbo\Tables\SecondaryCategories_1.sql" />
-    <Build Include="dbo\Tables\MainToSecondaryCategories_1.sql" />
     <Build Include="dbo\Tables\MeasurmentDeviceToOrderDetailsItems.sql" />
     <Build Include="dbo\Stored Procedures\AssignMeasurmentDeviceToOrderDetailsItems.sql" />
     <Build Include="dbo\Tables\MeasurmentPointsToOrderDetailsItems.sql" />
@@ -273,12 +271,14 @@
     <Build Include="dbo\Stored Procedures\GetMeasurmentPointsForOrderDetail.sql" />
     <Build Include="dbo\Stored Procedures\GetMeasurmentDevicesForOrderDetail.sql" />
     <Build Include="dbo\Tables\MeasurementsSpecificationsToSecondCategory.sql" />
+    <Build Include="dbo\Tables\OrderItemsStatusesHistory.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
     <None Include="5_PopulateMainCategories.sql" />
     <None Include="3_Add_UserMessages.sql" />
     <None Include="PostDeployScripts_InitialDeploy_.sql" />
+    <None Include="Add_SpecificationReference_data.sql" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="hebutils">
