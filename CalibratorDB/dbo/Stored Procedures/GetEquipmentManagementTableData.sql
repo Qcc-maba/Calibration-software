@@ -149,7 +149,7 @@ CONCAT(
   ,CASE WHEN @DepartmentId IS NOT NULL THEN' AND ce.[MainCategoryId] = '+CAST(@DepartmentId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @CarId IS NOT NULL THEN' AND c.[CarId] = '+CAST(@CarId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @NextCalibrationDate IS NOT NULL AND @NextCalibrationDate > '1900-01-01' THEN' AND ce.[NextCalibration] = '''+CAST(@NextCalibrationDate as NVARCHAR(50))+''' 'ELSE ' ' END
-  ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ce.[Description],ce.[SerialNumber],s.StatusDescriptionHEB,u.FirstName,u.LastName,c.LicenseNumber,mc.NameHebrew,d.[MainCategoryName])  LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
+  ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ce.[Description],ce.[SerialNumber],s.StatusDescriptionHEB,u.FirstName,u.LastName,c.LicenseNumber,mc.NameHebrew,d.[MainCategoryName])  LIKE N''%'+ dbo.fn_NormalizeHebrewSearch(@GlobalSearch) +'%'''ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql

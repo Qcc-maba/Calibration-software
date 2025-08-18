@@ -272,6 +272,7 @@
     <Build Include="dbo\Stored Procedures\GetMeasurmentDevicesForOrderDetail.sql" />
     <Build Include="dbo\Tables\MeasurementsSpecificationsToSecondCategory.sql" />
     <Build Include="dbo\Tables\OrderItemsStatusesHistory.sql" />
+    <Build Include="dbo\Functions\fn_NormalizeHebrewSearch.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

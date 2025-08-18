@@ -195,7 +195,7 @@ CONCAT(
 	 FROM (SELECT DISTINCT od.OrderWorkPlanId, s.StatusDescriptionENG, s.StatusDescriptionHEB
 	 FROM [dbo].[OrderDetails] as od
 	 JOIN [dbo].[Statuses] as s ON od.SpecialCareTypeId = s.StatusId
-	 WHERE od.IsInHouse = 0 and od.IsCancelled = 0
+	 WHERE od.IsInHouse = 0
 	 ) ds GROUP BY OrderWorkPlanId
 	) as sp ON wp.OrderWorkPlanId = sp.OrderWorkPlanId
 	LEFT JOIN 
@@ -207,10 +207,10 @@ CONCAT(
 	)as coh ON wp.OrderWorkPlanId = coh.OrderWorkPlanId
 	LEFT JOIN 
 	(SELECT OrderWorkPlanId,STRING_AGG(SpecialCareTypeId,'','') as SpecialCares
-	 FROM [dbo].[OrderDetails] WHERE IsInHouse = 0 and IsCancelled = 0
+	 FROM [dbo].[OrderDetails] WHERE IsInHouse = 0 
 	 GROUP BY OrderWorkPlanId 
 	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
-	WHERE od.IsInHouse = 0 AND wp.IsCancelled = 0'
+	WHERE od.IsInHouse = 0'
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
 	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND od.ActualCalibrationDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Location  IS NOT NULL THEN ' AND c.CustomerCity LIKE N''%'+@Location +'%'' 'ELSE ' ' END
@@ -220,7 +220,7 @@ CONCAT(
 	,CASE WHEN @DeviceNumber IS NOT NULL THEN ' AND itm.SerialNumber LIKE N''%'+ @DeviceNumber +'%'' 'ELSE ' ' END
 	,CASE WHEN @DeviceManufacturer IS NOT NULL THEN ' AND dm.OrdersDeviceManufacturerDescription LIKE N''%'+ @DeviceManufacturer +'%'''ELSE ' ' END
     ,CASE WHEN @OrderNumber IS NOT NULL THEN ' AND wp.OrderNumber LIKE N''%'+ @OrderNumber +'%'''ELSE ' ' END
-    ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(cwp.[Calibrators],mcf.[MainCategoryName],c.[CustomerCity],c.[CustomerName],scf.[SecondaryCategoryName],sp.[StatusDescriptionENG],wp.[OrderNumber]) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
+    ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(cwp.[Calibrators],mcf.[MainCategoryName],c.[CustomerCity],c.[CustomerName],scf.[SecondaryCategoryName],sp.[StatusDescriptionENG],wp.[OrderNumber]) LIKE N''%'+ dbo.fn_NormalizeHebrewSearch(@GlobalSearch) +'%'''ELSE ' ' END
 	,'GROUP BY wp.[OrderNumber], 
 	spc.[SpecialCares],
 	c.[CustomerName], 
