@@ -15,7 +15,8 @@ CREATE   PROCEDURE [dbo].[EditCarRecord]
 @TreatmentPeriod INT,
 @NextTreatmentDate DATE,
 @NextTestDate DATE,
-@AssociatedEquipmentId NVARCHAR(200)
+@AssociatedEquipmentId NVARCHAR(200),
+@LoggedInUserEmail NVARCHAR(50) = NULL
 
 /*
 EXEC [dbo].[EditCarRecord] 
@@ -36,6 +37,8 @@ AS
 BEGIN
 
 SET NOCOUNT ON;
+
+DECLARE @LoggedInUserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @LoggedInUserEmail) 
 
 if NOT EXISTS (
 SELECT 1 FROM [dbo].[Cars] WHERE CarId = @CarId
@@ -84,15 +87,17 @@ BEGIN TRY
 		  ,[OwnerId] = COALESCE(@OwnerId,[OwnerId])
 		  ,[CarStatusId] = @StatusId
 		  ,[UpdatedDate] = GETDATE()
+		  ,[UpdateUserID] = @LoggedInUserId
 		  ,[AssignedCalibratorId] = @AssignedCalibrator
 	 WHERE CarId = @CarId
 
 	UPDATE [dbo].[CarsToEquipment]
-	SET IsDeleted = 1
+	SET [IsDeleted] = 1,
+		[UpdateUserID] = @LoggedInUserId
 	WHERE CarId = @CarId
 
-	INSERT [dbo].[CarsToEquipment](CarId, MeasurementDeviceId)
-	SELECT DISTINCT @CarId, EquipmentId
+	INSERT [dbo].[CarsToEquipment](CarId, MeasurementDeviceId,UpdateUserID)
+	SELECT DISTINCT @CarId, EquipmentId, @LoggedInUserId
 	FROM #AssociatedEquipmentIDs
 	COMMIT
 END TRY

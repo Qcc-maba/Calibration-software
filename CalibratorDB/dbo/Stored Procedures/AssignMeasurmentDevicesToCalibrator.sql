@@ -1,4 +1,5 @@
-﻿-- =============================================
+﻿
+-- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 02/07/2025
 -- Description:	This SP assing combination of logger sensor and channeles to calibrator
@@ -26,7 +27,7 @@ SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
 if NOT EXISTS (
 SELECT 1 FROM dbo.Users as u
 JOIN dbo.UserRoles as ur ON u.UserRoleId = ur.UserRoleId
-WHERE u.ID = @Userid AND ur.UserRoleDescriptionENG = 'Calibrator'
+WHERE u.ID = @Userid AND ur.UserRoleDescriptionENG LIKE '%Calibrator%'
 )
 THROW 51000, 'Incorrect user email passed. User is not a calibrator.', 1;
 

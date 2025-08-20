@@ -66,7 +66,7 @@ SELECT DISTINCT
 	u.LocationArea,
 	ud.[MainCategoryName] as DepartmentName
   FROM [dbo].[Users] as u
-  JOIN [dbo].[UserRoles] as ur ON  u.UserRoleId = ur.UserRoleId AND ur.UserRoleDescriptionENG = ''Calibrator''
+  JOIN [dbo].[UserRoles] as ur ON  u.UserRoleId = ur.UserRoleId AND ur.UserRoleName IN (''Calibrator'',''ExternalCalibrator'')
   LEFT JOIN [dbo].[UsersToDepartments] as utd ON u.ID = utd.UserId
   LEFT JOIN [dbo].[MainCategories] as ud ON ud.ID = utd.MainCategoryId
   LEFT JOIN [dbo].[CalibratorsToWorkPlan] cp ON u.[ID] = cp.CalibratorId AND cp.IsDeleted = 0 AND cp.AssigmentDate = ''',@CheckDate,'''
@@ -84,7 +84,7 @@ SELECT DISTINCT
   LEFT JOIN [dbo].[MeasurementsSpecifications] as cc ON ctc.CertificationId = cc.ID'
   ,CASE WHEN @SecondCategories IS NOT NULL THEN ' JOIN #SecondCategories as sc ON cp.OrderWorkPlanId = sc.OrderWorkPlanId ' ELSE ' ' END
   ,CASE WHEN @Certifications IS NOT NULL THEN ' JOIN #Certifications as s ON u.ID = s.CalibratorId ' ELSE ' ' END
-   ,' WHERE u.IsActive = 1 AND u.ID > 0'
+   ,' WHERE u.IsActive = 1 AND u.ID > 0 '
    ,'
     GROUP BY 
     u.[ID],

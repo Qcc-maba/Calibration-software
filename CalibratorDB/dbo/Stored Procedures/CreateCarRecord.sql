@@ -14,8 +14,8 @@ CREATE   PROCEDURE [dbo].[CreateCarRecord]
 @TreatmentPeriod INT,
 @NextTreatment DATE = NULL,
 @NextTestDate DATE = NULL,
-@AssociatedEquipmentIDs NVARCHAR(200) = NULL
-
+@AssociatedEquipmentIDs NVARCHAR(200) = NULL,
+@LoggedInUserEmail NVARCHAR(50) = NULL
 /*
 EXEC [dbo].[CreateCarRecord] 
    @LicenseNumber = '090-001-003'
@@ -32,6 +32,8 @@ AS
 BEGIN
 
 SET NOCOUNT ON;
+
+DECLARE @LoggedInUserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @LoggedInUserEmail) 
 
 DROP TABLE IF EXISTS #AssociatedEquipmentIDs
 CREATE TABLE #AssociatedEquipmentIDs
@@ -91,6 +93,7 @@ BEGIN TRY
 			   ,[AssignedCalibratorId]
 			   ,[OwnerId]
 			   ,[CarStatusId]
+			   ,[UpdateUserID]
 			   )
 		 VALUES
 		   (
@@ -102,13 +105,14 @@ BEGIN TRY
 		   @NextTestDate,
 		   @AssignedCalibrator,
 		   @Owner,
-		   @Status
+		   @Status,
+		   @LoggedInUserId
 		   )
 
 	SELECT @CarId = SCOPE_IDENTITY()
 
-	INSERT [dbo].[CarsToEquipment]([CarId],[MeasurementDeviceId])
-	SELECT DISTINCT @CarId, [EquipmentId] FROM #AssociatedEquipmentIDs
+	INSERT [dbo].[CarsToEquipment]([CarId],[MeasurementDeviceId],[UpdateUserID])
+	SELECT DISTINCT @CarId, [EquipmentId], @LoggedInUserId FROM #AssociatedEquipmentIDs
 
 	COMMIT
 END TRY

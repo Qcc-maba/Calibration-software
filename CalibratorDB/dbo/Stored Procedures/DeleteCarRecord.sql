@@ -5,7 +5,8 @@
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-210
 -- =============================================
 CREATE    PROCEDURE [dbo].[DeleteCarRecord]
-@CarIDs NVARCHAR(MAX)
+@CarIDs NVARCHAR(MAX),
+@LoggedInUserEmail NVARCHAR(50) = NULL
 
 /*
 EXEC [dbo].[DeleteCarRecord] 
@@ -16,6 +17,8 @@ AS
 BEGIN
 
 SET NOCOUNT ON;
+
+DECLARE @LoggedInUserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @LoggedInUserEmail) 
 
 DROP TABLE IF EXISTS #CarIDs
 CREATE TABLE #CarIDs
@@ -30,12 +33,12 @@ BEGIN TRY
 	BEGIN TRAN
 
 	UPDATE ce
-	SET ce.UpdatedDate = GETDATE(), ce.IsDeleted = 1
+	SET ce.UpdatedDate = GETDATE(), ce.IsDeleted = 1, ce.UpdateUserID = @LoggedInUserId
 	FROM dbo.CarsToEquipment as ce
 	JOIN #CarIDs as d ON ce.CarId = d.CarId
 
 	UPDATE c
-	SET c.UpdatedDate = GETDATE(), c.IsDeleted = 1
+	SET c.UpdatedDate = GETDATE(), c.IsDeleted = 1, c.UpdateUserID = @LoggedInUserId
 	FROM [dbo].[Cars] as c
 	JOIN #CarIDs as d ON c.CarId = d.CarId
 

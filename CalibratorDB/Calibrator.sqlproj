@@ -138,7 +138,6 @@
     <Build Include="dbo\Stored Procedures\CreateConversionParameter.sql" />
     <None Include="6_CustomerSupportDepartmentParts.sql" />
     <Build Include="Security\stg.sql" />
-    <Build Include="dbo\Stored Procedures\AssignCarToEquipment.sql" />
     <Build Include="stg\Tables\stg_Orders.sql" />
     <Build Include="stg\Stored Procedures\MergeOrdersData.sql" />
     <Build Include="dbo\Tables\OrderWorkPlans.sql" />
@@ -273,6 +272,8 @@
     <Build Include="dbo\Tables\MeasurementsSpecificationsToSecondCategory.sql" />
     <Build Include="dbo\Tables\OrderItemsStatusesHistory.sql" />
     <Build Include="dbo\Functions\fn_NormalizeHebrewSearch.sql" />
+    <Build Include="dbo\Stored Procedures\CalibrationStoppedComment.sql" />
+    <Build Include="dbo\Stored Procedures\Deprecated_AssignCarToEquipment.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

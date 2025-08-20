@@ -4,7 +4,7 @@
 -- Description:	Assign car for one or more equipment
 -- JiraLink: 
 -- =============================================
-CREATE PROCEDURE [dbo].[AssignCarToEquipment]
+CREATE PROCEDURE [dbo].[Deprecated_AssignCarToEquipment]
 @CarId INT,
 @EquipmentIds NVARCHAR(MAX),
 @LoggedInUserEmail NVARCHAR(50) = NULL

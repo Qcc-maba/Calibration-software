@@ -34,7 +34,7 @@ WHERE s.StatusDescriptionENG = @StatusName AND sc.StatusDescriptionENG = @Status
 IF NOT EXISTS (
 SELECT 1 FROM [dbo].[Users] as u
 LEFT JOIN [dbo].[UserRoles] as ur ON u.UserRoleId = ur.UserRoleId
-WHERE u.ID = @UserId /*AND ur.UserRoleName = 'Calibrator'*/ and u.IsActive = 1
+WHERE u.ID = @UserId AND u.IsActive = 1
 )
 THROW 51000, 'Provided user is not active', 1;
 
