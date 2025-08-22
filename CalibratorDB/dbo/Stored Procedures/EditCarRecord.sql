@@ -6,16 +6,16 @@
 -- =============================================
 CREATE   PROCEDURE [dbo].[EditCarRecord]
 @CarId INT,
-@LicenseNumber NVARCHAR(50),
-@Model NVARCHAR(50),
-@NumberOfSeats INT,
-@StatusId INT,
+@LicenseNumber NVARCHAR(50) = NULL,
+@Model NVARCHAR(50) = NULL,
+@NumberOfSeats INT = NULL,
+@StatusId INT = NULL,
 @OwnerId INT = NULL,
-@AssignedCalibrator INT,
-@TreatmentPeriod INT,
-@NextTreatmentDate DATE,
-@NextTestDate DATE,
-@AssociatedEquipmentId NVARCHAR(200),
+@AssignedCalibrator INT = NULL,
+@TreatmentPeriod INT = NULL,
+@NextTreatmentDate DATE = NULL,
+@NextTestDate DATE = NULL,
+@AssociatedEquipmentId NVARCHAR(200) = NULL,
 @LoggedInUserEmail NVARCHAR(50) = NULL
 
 /*
@@ -45,7 +45,7 @@ SELECT 1 FROM [dbo].[Cars] WHERE CarId = @CarId
 )
 THROW 51000, 'Car do not exist', 1;
 
-IF @StatusId NOT IN (SELECT StatusId
+IF @StatusId IS NOT NULL AND @StatusId NOT IN (SELECT StatusId
 				FROM [dbo].[Statuses] as s
 				JOIN [dbo].[StatusesCategories] as c On s.[StatusCategoryId] = c.[StatusCategoryId]
 				WHERE c.StatusDescriptionENG = 'CarStatus' )
@@ -78,14 +78,14 @@ BEGIN TRY
 
 	UPDATE [dbo].[Cars]
 	   SET 
-		   [Model] = @Model
-		  ,[LicenseNumber] = @LicenseNumber
-		  ,[Seats] = @NumberOfSeats
+		   [Model] = COALESCE(@Model,'')
+		  ,[LicenseNumber] = COALESCE(@LicenseNumber,'')
+		  ,[Seats] = COALESCE(@NumberOfSeats,0)
 		  ,[TreatmentPeriod] = @TreatmentPeriod
 		  ,[NextTreatmentDate] = @NextTreatmentDate
 		  ,[NextYearlyTestDate] = @NextTestDate
 		  ,[OwnerId] = COALESCE(@OwnerId,[OwnerId])
-		  ,[CarStatusId] = @StatusId
+		  ,[CarStatusId] = COALESCE(@StatusId,0)
 		  ,[UpdatedDate] = GETDATE()
 		  ,[UpdateUserID] = @LoggedInUserId
 		  ,[AssignedCalibratorId] = @AssignedCalibrator

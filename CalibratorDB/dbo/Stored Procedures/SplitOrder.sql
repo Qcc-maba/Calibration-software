@@ -56,15 +56,19 @@ BEGIN TRAN
 	WHERE OrderWorkPlanId = @OrderId
 
 	INSERT INTO [dbo].[OrderWorkPlans] (
-		[OrderNumber]
-		,[WorkPlanOpenDate]
-		,[IsCancelled]
-		,[CreatedDate]
-		,[UpdatedDate]
-		,[CreatedByUserId]
-		,[UpdateUserID]
-		,[Notes]
-		,[SourceId]
+	       [OrderNumber]
+		  ,[WorkPlanOpenDate]
+		  ,[IsCancelled]
+		  ,[CreatedDate]
+		  ,[UpdatedDate]
+		  ,[CreatedByUserId]
+		  ,[UpdateUserID]
+		  ,[Notes]
+		  ,[OrderSourceId]
+		  ,[SourceId]
+		  ,[OrderStatusId]
+		  ,[CustomerId]
+		  ,[OrderOverallStatusId]
 		)
 
 	SELECT 			
@@ -74,14 +78,18 @@ BEGIN TRAN
 			ELSE CONCAT (SUBSTRING([OrderNumber], 1, CHARINDEX('-', [OrderNumber]))
 					,@CntOfOrders + 1)
 		END
-		,GETDATE()
-		,0
-		,[CreatedDate]
-		,[UpdatedDate]
-		,[CreatedByUserId]
-		,[UpdateUserID]
-		,[Notes]
-		,[SourceId]
+      ,[WorkPlanOpenDate]
+      ,[IsCancelled]
+      ,GETDATE()
+      ,[UpdatedDate]
+      ,@Userid
+      ,@Userid
+      ,[Notes]
+      ,[OrderSourceId]
+      ,[SourceId]
+      ,[OrderStatusId]
+      ,[CustomerId]
+      ,[OrderOverallStatusId]
 	FROM [dbo].[OrderWorkPlans]
 	WHERE OrderWorkPlanId = @OrderId
 

@@ -20,7 +20,8 @@ BEGIN
 IF NOT EXISTS (
 SELECT 1 FROM [dbo].[Users] as u
 JOIN [dbo].[UserRoles] as ur ON u.UserRoleId = ur.UserRoleId
-WHERE u.ID = @UserId AND ur.UserRoleName like '%Calibrator%' and u.IsActive = 1
+WHERE u.ID = @UserId AND ur.UserRoleName IN (N'SuperAdmin',N'Calibrator',N'ExternalCalibrator')
+and u.IsActive = 1
 )
 THROW 51000, 'Provided user is not calibrator or user not active', 1;
 

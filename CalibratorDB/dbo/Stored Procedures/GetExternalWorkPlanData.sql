@@ -138,8 +138,8 @@ CONCAT(
         MAX(od.[ActualCalibrationDate]) AS [CalibDate],
 		MAX(wp.[CustomerId]) as [CustomerId], 
         spc.[SpecialCares],
-        REVERSE(c.[CustomerName]) as [ClientName],
-        REVERSE(c.[CustomerCity]) as [Location],
+        [dbo].[fn_NormalizeHebrewSearch](c.[CustomerName]) as [ClientName],
+        [dbo].[fn_NormalizeHebrewSearch](c.[CustomerCity]) as [Location],
         wp.[WorkPlanOpenDate] as [WorkPlanOpenDate],
 		sp.StatusDescriptionENG AS SpecialCareENG,
 		sp.StatusDescriptionHEB AS SpecialCareHEB, 
@@ -147,7 +147,7 @@ CONCAT(
         coh.EquipmentIds,
 		coh.EquipmentNames,
 		cwp.Calibrators,
-        NULL as Notes,
+        wp.Notes as Notes,
 		--STRING_AGG(mcf.[MainCategoryName],'','') as MainCategory,
 		--STRING_AGG(scf.[SecondaryCategoryName],'','')  AS SecondCategory,
 		wp.[IsCancelled],
@@ -211,7 +211,7 @@ CONCAT(
 	 GROUP BY OrderWorkPlanId 
 	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
 	WHERE od.IsInHouse = 0'
-	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
+	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ [dbo].[fn_NormalizeHebrewSearch](@ClientName) +'%'' 'ELSE ' ' END
 	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND od.ActualCalibrationDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Location  IS NOT NULL THEN ' AND c.CustomerCity LIKE N''%'+@Location +'%'' 'ELSE ' ' END
 	,CASE WHEN @ProductType IS NOT NULL THEN ' AND od.PartName LIKE N''%'+ @ProductType +'%'' 'ELSE ' ' END
@@ -232,6 +232,7 @@ CONCAT(
     coh.EquipmentIds,
 	coh.EquipmentNames,
 	cwp.Calibrators,
+	wp.Notes,
 	sp.StatusDescriptionENG,
 	sp.StatusDescriptionHEB, 
 	wp.[IsCancelled]'

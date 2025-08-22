@@ -51,6 +51,23 @@ SELECT @AvailableStatus = s.StatusId
   JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
 WHERE sc.StatusDescriptionENG = 'UserAvailabilityStatus' AND s.StatusDescriptionENG = 'Available'
 
+DROP TABLE IF EXISTS #Events
+CREATE TABLE #Events
+(
+UserId INT PRIMARY KEY,
+EventDescription NVARCHAR(300)
+)
+INSERT #Events (UserId,EventDescription)
+SELECT 
+ctp.UserId , STRING_AGG(s.StatusDescriptionHEB,',') as EventDescription
+FROM [dbo].[CalendarEvents] as ce
+JOIN [dbo].[CalendarEventsToParticipants] as ctp ON ce.CalendarEventId = ctp.CalendarEventId
+JOIN [dbo].[Statuses] as s ON ce.EventTypeId = s.StatusId
+WHERE CAST([ce].[StartDate] AS DATE) >= @CheckDate AND CAST([ce].[EndDate] AS DATE) <= @CheckDate
+AND ce.IsDeleted = 0 AND ctp.IsDeleted = 0
+GROUP BY ctp.UserId
+
+
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 '
@@ -61,20 +78,22 @@ SELECT DISTINCT
 	MAX(st.AvailabilityStatusId) as AvailabilityStatusId,
 	MAX(st.StatusDescriptionENG)	as [StatusENG],
 	MAX(st.StatusDescriptionHEB) as [StatusHEB],
+	MAX(ee.EventDescription) as [EventDescription],
 	wp.[OrderNumber] as [AssignedToOrderNumber],
 	STRING_AGG(cc.[Name],'', '') as Certification,
 	u.LocationArea,
 	ud.[MainCategoryName] as DepartmentName
   FROM [dbo].[Users] as u
-  JOIN [dbo].[UserRoles] as ur ON  u.UserRoleId = ur.UserRoleId AND ur.UserRoleName IN (''Calibrator'',''ExternalCalibrator'')
+  JOIN [dbo].[UserRoles] as ur ON  u.UserRoleId = ur.UserRoleId AND ur.UserRoleName IN (N''Calibrator'',N''ExternalCalibrator'')
   LEFT JOIN [dbo].[UsersToDepartments] as utd ON u.ID = utd.UserId
   LEFT JOIN [dbo].[MainCategories] as ud ON ud.ID = utd.MainCategoryId
   LEFT JOIN [dbo].[CalibratorsToWorkPlan] cp ON u.[ID] = cp.CalibratorId AND cp.IsDeleted = 0 AND cp.AssigmentDate = ''',@CheckDate,'''
   LEFT JOIN [dbo].[OrderWorkPlans] as wp ON cp.OrderWorkPlanId = wp.OrderWorkPlanId AND wp.IsCancelled = 0
+  LEFT JOIN #Events as ee ON u.ID = ee.UserId
   LEFT JOIN
-    (SELECT  u.ID as UserId, COALESCE(ca.AvailabilityStatusId,',@AvailableStatus,') as AvailabilityStatusId,st.StatusDescriptionENG,st.StatusDescriptionHEB, ROW_NUMBER() OVER( PARTITION BY u.ID ORDER BY ca.AvailbilityDateTo) AS rn   
+   (SELECT  u.ID as UserId, COALESCE(ca.AvailabilityStatusId,',@AvailableStatus,') as AvailabilityStatusId,st.StatusDescriptionENG,st.StatusDescriptionHEB, ROW_NUMBER() OVER( PARTITION BY u.ID ORDER BY ca.AvailbilityDateTo) AS rn   
 	FROM [dbo].[Users] as u
-	LEFT JOIN [dbo].[CalibratorsAvailability] as ca ON u.ID = ca.UserId 
+	LEFT JOIN [dbo].[CalibratorsAvailability] as ca ON u.ID = ca.UserId AND ca.IsDeleted = 0
 			  AND ca.AvailbilityDateFrom >= ''',@CheckDate,'''
 			  AND ca.AvailbilityDateTo <= ''',@CheckDate,'''
 	LEFT JOIN [dbo].[Statuses] as st ON COALESCE(ca.AvailabilityStatusId,',@AvailableStatus,')  = st.StatusId

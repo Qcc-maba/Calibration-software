@@ -61,5 +61,9 @@ FROM #CalibratorIDs as c
 LEFT JOIN dbo.CalibratorsToWorkPlan as wp ON c.CalibratorID = wp.CalibratorId AND wp.OrderWorkPlanId = @WorkPlanId
 WHERE wp.CalibratorId IS NULL
 
+UPDATE od
+SET [ActualCalibrationDate] = @StartDate
+FROM [dbo].[OrderDetails] as od 
+WHERE od.OrderWorkPlanId = @WorkPlanId AND od.IsCancelled = 0
 
 END

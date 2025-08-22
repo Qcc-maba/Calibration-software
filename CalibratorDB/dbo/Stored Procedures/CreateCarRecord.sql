@@ -5,10 +5,10 @@
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-183
 -- =============================================
 CREATE   PROCEDURE [dbo].[CreateCarRecord]
-@LicenseNumber NVARCHAR(50),
-@Model NVARCHAR(50),
-@NumberOfSeats TINYINT,
-@Status INT,
+@LicenseNumber NVARCHAR(50) = NULL,
+@Model NVARCHAR(50) = NULL,
+@NumberOfSeats TINYINT = NULL,
+@Status INT = NULL,
 @Owner INT = NULL,
 @AssignedCalibrator INT = NULL,
 @TreatmentPeriod INT,
@@ -97,15 +97,15 @@ BEGIN TRY
 			   )
 		 VALUES
 		   (
-		   @Model,
-		   @LicenseNumber,
-		   @NumberOfSeats,
+		   COALESCE(@Model,''),
+		   COALESCE(@LicenseNumber,''),
+		   COALESCE(@NumberOfSeats,0),
 		   @TreatmentPeriod,
 		   @NextTreatment,
 		   @NextTestDate,
 		   @AssignedCalibrator,
 		   @Owner,
-		   @Status,
+		   COALESCE(@Status,0),
 		   @LoggedInUserId
 		   )
 

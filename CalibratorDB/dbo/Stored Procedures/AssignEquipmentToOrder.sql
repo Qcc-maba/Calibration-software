@@ -7,13 +7,17 @@
 CREATE   PROCEDURE [dbo].[AssignEquipmentToOrder]
 @OrderID NVARCHAR(100),
 @EquipmentIDs NVARCHAR(MAX)='',
-@CheckDate DATE = NULL
+@CheckDate DATE = NULL,
+@LoggedInUserEmail NVARCHAR(100) = NULL
 
 /*
 EXEC dbo.AssignEquipmentToOrder @OrderID = 'SO25000153', @EquipmentIDs = '578,579'
 */
 AS
 BEGIN
+
+DECLARE @Userid INT = 0
+SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
 
 IF @CheckDate IS NULL SET @CheckDate = GETDATE()
 
@@ -42,7 +46,7 @@ SELECT @OrderWorkPlanId = OrderWorkPlanId FROM [dbo].[OrderWorkPlans] WHERE Orde
 
 
 UPDATE [dbo].[MeasurementDevicesToOrderHeaders]
-SET IsDeleted = 1
+SET IsDeleted = 1, UpdateUserID = @Userid
 WHERE OrderWorkPlanId = @OrderWorkPlanId
 
 IF (SELECT COUNT(*) FROM #AssociatedEquipmentIDs WHERE EquipmentId > 0) >= 1
@@ -51,12 +55,14 @@ INSERT [dbo].[MeasurementDevicesToOrderHeaders]
 (
 OrderWorkPlanId,
 MeasurementDeviceId,
-AssigmentDate
+AssigmentDate,
+UpdateUserID
 )
 SELECT 
     @OrderWorkPlanId,
 	EquipmentId,
-	@CheckDate
+	@CheckDate,
+	@Userid
 FROM #AssociatedEquipmentIDs as aei
 
 

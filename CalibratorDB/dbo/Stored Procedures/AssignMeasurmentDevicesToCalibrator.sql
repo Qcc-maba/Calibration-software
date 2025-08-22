@@ -27,7 +27,7 @@ SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
 if NOT EXISTS (
 SELECT 1 FROM dbo.Users as u
 JOIN dbo.UserRoles as ur ON u.UserRoleId = ur.UserRoleId
-WHERE u.ID = @Userid AND ur.UserRoleDescriptionENG LIKE '%Calibrator%'
+WHERE u.ID = @Userid AND ur.UserRoleName IN (N'SuperAdmin',N'ExternalCalibrator',N'Calibrator')
 )
 THROW 51000, 'Incorrect user email passed. User is not a calibrator.', 1;
 
