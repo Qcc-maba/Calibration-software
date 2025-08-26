@@ -14,7 +14,6 @@
     [UpdateUserID]          INT             NULL,
     [IsDeleted]             BIT             CONSTRAINT [DF_OrderDetails_IsDeleted] DEFAULT ((0)) NOT NULL,
     [IsCancelled]           BIT             CONSTRAINT [DF_OrderDetails_IsCancelled] DEFAULT ((0)) NOT NULL,
-    [SourceId]              TINYINT         NULL,
     [OrdersProductTypeId]   INT             NULL,
     [PART]                  INT             NULL,
     [ActualCalibrationDate] DATE            NULL,

@@ -8,8 +8,11 @@ CREATE   PROCEDURE [dbo].[GetAllProductTypes]
 AS
 BEGIN
 	SELECT DISTINCT
-	       od.PartName as ProductType
+	       od.PartName as ProductType,
+		   wp.[SourceId],
+		   s.[SourceName]
 	  FROM [dbo].[OrderWorkPlans] as wp
 	  JOIN [dbo].[OrderDetails] as od ON od.[OrderWorkPlanId] = wp.[OrderWorkPlanId]
+	  LEFT JOIN [dbo].[Source] as s ON wp.SourceId = s.SourceId
 	  WHERE od.[IsDeleted] = 0 and wp.[IsCancelled] = 0
 END

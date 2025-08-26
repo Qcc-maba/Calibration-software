@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="102"
-  DTS:VersionGUID="{9C4ABB24-1184-412A-8D8E-1A0E17A8C88C}">
+  DTS:VersionBuild="105"
+  DTS:VersionGUID="{442A20DD-FD18-414B-9CC6-7EFCB3A3D4D0}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -36,7 +36,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customer Remarks"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -52,7 +52,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Contacts Data"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="2">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -68,7 +68,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Data"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -84,7 +84,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Order Product Type"
-          DTS:ThreadHint="2">
+          DTS:ThreadHint="3">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -100,7 +100,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Device Manufacturers"
-          DTS:ThreadHint="3">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -660,8 +660,8 @@ WHERE pb.INACTIVE ='' AND pb.ORDFLAG ='Y'</property>
                       expressionType="Notify"
                       name="SqlCommand"
                       UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT CUST
-	,COMPRESS(STRING_AGG(CAST(REVERSE(c.TEXT) AS NVARCHAR(MAX)), '')) as CompresedText
-	,BINARY_CHECKSUM(STRING_AGG(CAST(REVERSE(c.TEXT) AS NVARCHAR(MAX)), '')) as HashText
+	,COMPRESS(STRING_AGG(CAST(c.TEXT AS NVARCHAR(MAX)), '')) as CompresedText
+	,BINARY_CHECKSUM(STRING_AGG(CAST(c.TEXT AS NVARCHAR(MAX)), '')) as HashText
 	,'MABA' as SourceSystem
 FROM amaba.dbo.CUSTOMERSTEXT AS c
 WHERE c.CUST IN (
@@ -674,8 +674,8 @@ GROUP BY CUST
 UNION ALL
 
 SELECT CUST
-	,COMPRESS(STRING_AGG(CAST(REVERSE(c.TEXT) AS NVARCHAR(MAX)), '')) CompresedText
-	,BINARY_CHECKSUM(STRING_AGG(CAST(REVERSE(c.TEXT) AS NVARCHAR(MAX)), '')) as HashText
+	,COMPRESS(STRING_AGG(CAST(c.TEXT AS NVARCHAR(MAX)), '')) CompresedText
+	,BINARY_CHECKSUM(STRING_AGG(CAST(c.TEXT AS NVARCHAR(MAX)), '')) as HashText
 	,'SEPHARM' as SourceSystem
 FROM sepharm.dbo.CUSTOMERSTEXT AS c
 WHERE c.CUST IN (
@@ -987,19 +987,19 @@ GROUP BY CUST</property>
                       name="SqlCommand"
                       UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT 
 	c.CUST as CustomerID,
-	REVERSE(c.CUSTDES) as CustomerName,
+	c.CUSTDES as CustomerName,
 	c.PHONE as CustomerPhone,
-	REVERSE(c.STATE) as CustomerCity,
-	REVERSE(c.ADDRESS) as CustomerAddress,
+	c.STATE as CustomerCity,
+	c.ADDRESS as CustomerAddress,
 	'MABA' as SourceSystem
 FROM amaba.dbo.CUSTOMERS as c
 UNION ALL
 SELECT 
 	c.CUST as CustomerID,
-	REVERSE(c.CUSTDES) as CustomerName,
+	c.CUSTDES as CustomerName,
 	c.PHONE as CustomerPhone,
-	REVERSE(c.STATE) as CustomerCity,
-	REVERSE(c.ADDRESS) as CustomerAddress,
+	c.STATE as CustomerCity,
+	c.ADDRESS as CustomerAddress,
 	'SEPHARM' as SourceSystem
 FROM sepharm.dbo.CUSTOMERS as c</property>
                     <property
@@ -1379,8 +1379,8 @@ FROM sepharm.dbo.CUSTOMERS as c</property>
                       expressionType="Notify"
                       name="SqlCommand"
                       UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT c.PART
-	,COMPRESS(STRING_AGG(CAST(REVERSE(c.TEXT) AS NVARCHAR(MAX)), '')) AS CompresedText
-	,BINARY_CHECKSUM(STRING_AGG(CAST(REVERSE(c.TEXT) AS NVARCHAR(MAX)), '')) AS HashText
+	,COMPRESS(STRING_AGG(CAST(c.TEXT AS NVARCHAR(MAX)), '')) AS CompresedText
+	,BINARY_CHECKSUM(STRING_AGG(CAST(c.TEXT AS NVARCHAR(MAX)), '')) AS HashText
 	,'MABA' AS SourceSystem
 FROM (
 	SELECT TOP 100 PERCENT c.PART
@@ -1401,8 +1401,8 @@ GROUP BY c.PART
 UNION ALL
 
 SELECT c.PART
-	,COMPRESS(STRING_AGG(CAST(REVERSE(c.TEXT) AS NVARCHAR(MAX)), '')) AS CompresedText
-	,BINARY_CHECKSUM(STRING_AGG(CAST(REVERSE(c.TEXT) AS NVARCHAR(MAX)), '')) AS HashText
+	,COMPRESS(STRING_AGG(CAST(c.TEXT AS NVARCHAR(MAX)), '')) AS CompresedText
+	,BINARY_CHECKSUM(STRING_AGG(CAST(c.TEXT AS NVARCHAR(MAX)), '')) AS HashText
 	,'SEPHARM' AS SourceSystem
 FROM (
 	SELECT TOP 100 PERCENT c.PART
@@ -1723,14 +1723,14 @@ GROUP BY c.PART</property>
                       UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">WITH cte
 as
 (
-SELECT DISTINCT mnf.MNFNAME,REVERSE(mnf.MNFDES) as MNFDES
+SELECT DISTINCT mnf.MNFNAME,mnf.MNFDES as MNFDES
 FROM amaba.dbo.SERNUMBERS AS sn
     INNER JOIN amaba.dbo.MBA_SERNORD AS ms ON ms.SERN = sn.SERN
 	JOIN amaba.dbo.MBA_SERNUMBERS as mbas ON sn.SERN = mbas.SERN
 	JOIN amaba.dbo.MNFCTR as mnf ON mbas.MNF = mnf.MNF
 	WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1, 1) AND mnf.MNF &gt; 0
 UNION 
-SELECT DISTINCT mnf.MNFNAME,REVERSE(mnf.MNFDES) as MNFDES
+SELECT DISTINCT mnf.MNFNAME,mnf.MNFDES as MNFDES
 FROM [sepharm].dbo.SERNUMBERS AS sn
     INNER JOIN [sepharm].dbo.MBA_SERNORD AS ms ON ms.SERN = sn.SERN
 	JOIN [sepharm].dbo.MBA_SERNUMBERS as mbas ON sn.SERN = mbas.SERN
@@ -3253,7 +3253,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_CustomerContact">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_CustomerContact\Load stg table"
@@ -3281,9 +3281,7 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -3309,7 +3307,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_CustomerRemark">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="161.6,41.6"
           Id="Package\Populate staging tables\Load data to stg_CustomerRemark\Populate stg table"
@@ -3337,9 +3335,7 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -3365,7 +3361,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_Customers">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_Customers\Load stg table"
@@ -3393,9 +3389,7 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -3421,7 +3415,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_maba comments">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="161.6,41.6"
           Id="Package\Populate staging tables\Load data to stg_maba comments\Populate stg table"
@@ -3449,9 +3443,7 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -3477,7 +3469,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_Manufacturers">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="161.6,41.6"
           Id="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table"
@@ -3505,9 +3497,7 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -3533,7 +3523,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_Orders">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="223.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging"
@@ -3561,9 +3551,7 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>

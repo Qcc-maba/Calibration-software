@@ -13,6 +13,7 @@ BEGIN
 		  ,c.CustomerPhone	
 		  ,c.CustomerCity	
 		  ,c.CustomerAddress
+		  ,c.SourceId
 		  ,ss.SourceName
 	  FROM [dbo].[Customers] as c
 	  JOIN [dbo].[Source] as ss ON c.[SourceId] = ss.[SourceId]

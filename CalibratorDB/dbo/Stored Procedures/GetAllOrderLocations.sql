@@ -8,8 +8,12 @@ CREATE   PROCEDURE [dbo].[GetAllOrderLocations]
 AS
 BEGIN
 	SELECT DISTINCT
-		   [CustomerCity] as CustomerLocation
+		   c.[CustomerCity] as CustomerLocation,
+		   c.[CustomerId],
+		   od.[SourceId],
+		   s.[SourceName]
 	  FROM [dbo].[Customers] as c
 	  JOIN [dbo].[OrderWorkPlans] as od ON od.[CustomerId] = c.[CustomerId]
+	  JOIN [dbo].[Source] as s ON od.SourceId = s.SourceId
 	  WHERE c.[IsDeleted] = 0 AND LEN([CustomerCity]) > 0
 END
