@@ -273,6 +273,7 @@
     <Build Include="dbo\Functions\fn_NormalizeHebrewSearch.sql" />
     <Build Include="dbo\Stored Procedures\CalibrationStoppedComment.sql" />
     <Build Include="dbo\Stored Procedures\Deprecated_AssignCarToEquipment.sql" />
+    <Build Include="dbo\Functions\fn_NormalizeTextMixed.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

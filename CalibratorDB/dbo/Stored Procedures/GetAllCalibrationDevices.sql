@@ -41,9 +41,7 @@ THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
 		  ,md.[IP]
 		  ,COALESCE(md.Resolution,60) as Resolution
 		  ,CASE WHEN mc.NameEnglish = ''Sensor'' THEN 60 ELSE 30 END as ChannelsNumber
-		  ,CASE WHEN mc.NameEnglish = ''Sensor'' AND Description LIKE ''%TC-K%'' THEN ''2W''
-				WHEN mc.NameEnglish = ''Sensor'' THEN ''4W'' 
-			ELSE NULL END as Connection
+		  ,md.Connection
 		  ,md.MeasurementId	
 		  ,md.MainClassId	
 		  ,md.SubClassId

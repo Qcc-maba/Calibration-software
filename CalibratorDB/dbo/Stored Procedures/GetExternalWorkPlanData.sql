@@ -35,8 +35,29 @@ BEGIN
 
 	IF @OrderBy NOT IN 
 	(N'OrderNumber',N'Date',N'SpecialCares',N'ClientName',N'Location',N'WorkPlanOpenDate',
-	N'Cars',N'Calibrators',N'Equipments',N'Notes',N'MainCategory')
-	THROW 51000, 'Incorrect value for parameter @OrderBy. Available values |OrderNumber|Date|SpecialCares|ClientName|Location|WorkPlanOpenDate|Cars|Calibrators|Equipments|Notes|MainCategory|', 1;
+	N'Cars',N'Calibrators',N'EquipmentNames',N'Notes',N'MainCategory',N'CalibDate')
+	THROW 51000, 'Incorrect value for parameter @OrderBy. Available values |OrderNumber|Date|SpecialCares|ClientName|Location|WorkPlanOpenDate|Cars|Calibrators|EquipmentNames|Notes|MainCategory|CalibDate', 1;
+
+	IF @OrderBy IN (N'Cars')
+		BEGIN
+		SET @OrderBy = CONCAT(N'IIF([Cars] IS NULL,0,1) ',CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END ,N' ,IIF([Calibrators] IS NULL,0,1)', N' ,IIF([EquipmentNames] IS NULL,0,1)')
+
+		SET @OrderByAsc = NULL
+		END
+
+	IF @OrderBy IN (N'Calibrators')
+		BEGIN
+		SET @OrderBy = CONCAT(N' IIF([Cars] IS NULL,0,1) DESC',N' ,IIF([Calibrators] IS NULL,0,1) ',CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END , N' ,IIF([EquipmentNames] IS NULL,0,1)')
+
+		SET @OrderByAsc = NULL
+		END
+
+	IF @OrderBy IN (N'EquipmentNames')
+		BEGIN
+		SET @OrderBy = CONCAT(N' IIF([Cars] IS NULL,0,1) DESC',N' ,IIF([Calibrators] IS NULL,0,1) DESC', N' ,IIF([EquipmentNames] IS NULL,0,1)',CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END )
+
+		SET @OrderByAsc = NULL
+		END	
 
 
 	DROP TABLE IF EXISTS #FilteredDetails
@@ -148,7 +169,7 @@ CONCAT(
 		coh.EquipmentNames,
 		cwp.Calibrators,
         wp.Notes as Notes,
-		--STRING_AGG(mcf.[MainCategoryName],'','') as MainCategory,
+		STRING_AGG(mcf.[MainCategoryName],'','') as MainCategory,
 		--STRING_AGG(scf.[SecondaryCategoryName],'','')  AS SecondCategory,
 		wp.[IsCancelled],
 	--	STRING_AGG(od.SerialNumber,'','') AS DeviceNumber,
@@ -227,7 +248,7 @@ CONCAT(
 	c.[CustomerCity],
 	wp.[WorkPlanOpenDate],
 	co.[Cars],
---	mc.MainCategory,
+	--mc.MainCategory,
 	--od.SecondCategory,
     coh.EquipmentIds,
 	coh.EquipmentNames,
@@ -239,9 +260,9 @@ CONCAT(
 	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL 
 		  THEN ' HAVING MAX(od.ActualCalibrationDate) >= '''+CAST(@DateFrom AS NVARCHAR(MAX))+''' AND MAX(od.ActualCalibrationDate) <= '''+CAST(@DateTo AS NVARCHAR(MAX))+''''
 	  ELSE ' ' END
-  ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
+  ,  'ORDER BY ' , @OrderBy , CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT LEN(@sql)
-PRINT @sql
+PRINT REPLACE(@sql,' ','')
 EXEC (@sql)
 --EXEC sp_executesql @sql
 
