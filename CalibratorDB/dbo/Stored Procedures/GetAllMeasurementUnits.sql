@@ -1,6 +1,6 @@
 ﻿
+
 CREATE    PROCEDURE [dbo].[GetAllMeasurementUnits]
-@MeasurementDeviceUnitGroupId INT = NULL,
 @MainCategoryId INT = NULL
 AS
 -- =============================================
@@ -11,13 +11,9 @@ AS
 -- =============================================
 
 SELECT 
-u.MeasurementDeviceUnitGroupId
-,MeasurementDeviceUnitId
+/*u.MeasurementDeviceUnitGroupId
+,*/MeasurementDeviceUnitId
 ,u.ShortNameHe as UnitShortName	
 ,u.LongNameHe as UnitLongName
-,ug.NameHe as UnitGroupName
-,ug.Symbol
 FROM [dbo].[MeasurementDeviceUnits] as u
-JOIN [dbo].[MeasurementDeviceUnitGroups] as ug ON u.MeasurementDeviceUnitGroupId = ug.MeasurementDeviceUnitGroupId
-WHERE (@MeasurementDeviceUnitGroupId IS NULL OR u.MeasurementDeviceUnitGroupId = @MeasurementDeviceUnitGroupId)
-AND (@MainCategoryId IS NULL OR ug.MainCategoryId = @MainCategoryId)
+WHERE (@MainCategoryId IS NULL OR u.MainCategoryId = @MainCategoryId)

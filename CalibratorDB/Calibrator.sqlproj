@@ -274,6 +274,8 @@
     <Build Include="dbo\Stored Procedures\CalibrationStoppedComment.sql" />
     <Build Include="dbo\Stored Procedures\Deprecated_AssignCarToEquipment.sql" />
     <Build Include="dbo\Functions\fn_NormalizeTextMixed.sql" />
+    <Build Include="dbo\Tables\CalibratorCertificationAuthorities.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllCalibratorCertificationAuthorities.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
@@ -281,6 +283,8 @@
     <None Include="3_Add_UserMessages.sql" />
     <None Include="PostDeployScripts_InitialDeploy_.sql" />
     <None Include="Add_SpecificationReference_data.sql" />
+    <None Include="ListOfAllEquipment.sql" />
+    <None Include="CalibratorCertificationAuthorities.sql" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="hebutils">
