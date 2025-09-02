@@ -162,7 +162,7 @@ CONCAT(
       ,c.[AssignedCalibratorId]
 	  ,CONCAT(u.LastName,'' '', u.FirstName)
 	  ,CONCAT(u.FirstNameEng,'' '', u.LastNameEng) '
-	,CASE WHEN @GlobalSearch IS NOT NULL THEN ' HAVING CONCAT(c.[LicenseNumber],c.[Model],s.[StatusDescriptionHEB],CONCAT(u.LastName,'' '', u.FirstName),c.[TreatmentPeriod],STRING_AGG(e.Description,'','')) LIKE N''%'+ dbo.fn_NormalizeHebrewSearch(@GlobalSearch) +'%'''ELSE ' ' END
+	,CASE WHEN @GlobalSearch IS NOT NULL THEN ' HAVING CONCAT(c.[LicenseNumber],c.[Model],s.[StatusDescriptionHEB],CONCAT(u.LastName,'' '', u.FirstName),c.[TreatmentPeriod],STRING_AGG(e.Description,'','')) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
   ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql

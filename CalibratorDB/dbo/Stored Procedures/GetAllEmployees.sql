@@ -216,7 +216,7 @@ WHERE u.ID > 0
 ,CASE WHEN @Email IS NOT NULL THEN ' AND u.Email LIKE N''%'+ @Email +'%'' 'ELSE ' ' END
 ,CASE WHEN @UserRoleId IS NOT NULL THEN ' AND u.UserRoleId = '+ CAST(@UserRoleId as NVARCHAR(20)) +' 'ELSE ' ' END
 ,CASE WHEN @PositionId IS NOT NULL THEN ' AND u.PositionId = '+ CAST(@PositionId as NVARCHAR(20)) +' 'ELSE ' ' END
-,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(u.FirstName,u.LastName,u.FirstNameEng,u.LastNameEng,u.Phone,u.Email,cc.Certification,u.UserAddress,u.LocationArea,dep.DepartmentNames,ps.StatusDescriptionHEB,ur.UserRoleDescriptionHEB,ss.AvailabilityStatusDescriptionHEB) LIKE N''%'+ dbo.fn_NormalizeHebrewSearch(@GlobalSearch) +'%'''ELSE ' ' END
+,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(u.FirstName,u.LastName,u.FirstNameEng,u.LastNameEng,u.Phone,u.Email,cc.Certification,u.UserAddress,u.LocationArea,dep.DepartmentNames,ps.StatusDescriptionHEB,ur.UserRoleDescriptionHEB,ss.AvailabilityStatusDescriptionHEB) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
 OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT LEN(@sql)

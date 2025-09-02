@@ -7,8 +7,15 @@
 CREATE   PROCEDURE [dbo].[GetAllCalibratorCertificationAuthorities]
 @MainCategoryId INT = NULL
 AS
-SELECT [ID]
-      ,[AuthorityName]
-      ,[MainCategoryId]
-  FROM [dbo].[CalibratorCertificationAuthorities]
-  WHERE [IsDeleted] = 0 AND ( @MainCategoryId IS NULL OR [MainCategoryId] = @MainCategoryId)
+SELECT ca.[ID]
+      ,ca.[AuthorityName]
+      ,ca.[MainCategoryId]
+      ,s.SignatureType
+  FROM [dbo].[CalibratorCertificationAuthorities] as ca
+  CROSS JOIN 
+  (
+  SELECT N'רגילה' AS SignatureType
+  UNION ALL
+  SELECT N'חתימה שניה' AS SignatureType
+  ) as s
+  WHERE ca.[IsDeleted] = 0 AND ( @MainCategoryId IS NULL OR ca.[MainCategoryId] = @MainCategoryId)

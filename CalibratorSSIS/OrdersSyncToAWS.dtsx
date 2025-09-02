@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="110"
-  DTS:VersionGUID="{C4DC1D49-D62B-4DF1-9570-73315C2AFDDD}">
+  DTS:VersionBuild="114"
+  DTS:VersionGUID="{FB44E098-306E-43B0-B961-CBB10477E37C}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -36,7 +36,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customer Remarks"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="2">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -52,7 +52,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Contacts Data"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="3">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -68,7 +68,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Data"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="2">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -84,7 +84,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Order Product Type"
-          DTS:ThreadHint="2">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -100,7 +100,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Device Manufacturers"
-          DTS:ThreadHint="3">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -201,8 +201,8 @@
                       name="SqlCommand"
                       UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT 
 	pb.PHONE as CustomerContactIdFromSource,
-	pb.NAME AS CustomerContactName, 
-	pb.POSITIONDES as CustomerContactPersonRole,
+	SUBSTRING(system.dbo.tabula_hebconvert(pb.NAME),1,50) AS CustomerContactName,
+	SUBSTRING(system.dbo.tabula_hebconvert(pb.POSITIONDES),1,50)  as CustomerContactPersonRole,
 	pb.PHONENUM AS CustomerContactPhone,
 	pb.CELLPHONE as CustomerContactAdditionalPhoneNumber,
 	pb.EMAIL as CustomerContactEmail,
@@ -213,8 +213,8 @@ WHERE pb.INACTIVE ='' AND pb.ORDFLAG ='Y'
 UNION ALL
 SELECT 
 	pb.PHONE as CustomerContactIdFromSource,
-	pb.NAME AS CustomerContactName, 
-	pb.POSITIONDES as CustomerContactPersonRole,
+	SUBSTRING(system.dbo.tabula_hebconvert(pb.NAME),1,50) AS CustomerContactName,
+	SUBSTRING(system.dbo.tabula_hebconvert(pb.POSITIONDES),1,50)  as CustomerContactPersonRole,
 	pb.PHONENUM AS CustomerContactPhone,
 	pb.CELLPHONE as CustomerContactAdditionalPhoneNumber,
 	pb.EMAIL as CustomerContactEmail,
@@ -273,7 +273,7 @@ WHERE pb.INACTIVE ='' AND pb.ORDFLAG ='Y'</property>
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactName]"
-                          length="37"
+                          length="50"
                           lineageId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactName]"
                           name="CustomerContactName"
                           truncationRowDisposition="FailComponent" />
@@ -283,7 +283,7 @@ WHERE pb.INACTIVE ='' AND pb.ORDFLAG ='Y'</property>
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactPersonRole]"
-                          length="32"
+                          length="50"
                           lineageId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactPersonRole]"
                           name="CustomerContactPersonRole"
                           truncationRowDisposition="FailComponent" />
@@ -346,12 +346,12 @@ WHERE pb.INACTIVE ='' AND pb.ORDFLAG ='Y'</property>
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactName]"
                           dataType="wstr"
-                          length="37"
+                          length="50"
                           name="CustomerContactName" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactPersonRole]"
                           dataType="wstr"
-                          length="32"
+                          length="50"
                           name="CustomerContactPersonRole" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerContactPhone]"
@@ -392,13 +392,13 @@ WHERE pb.INACTIVE ='' AND pb.ORDFLAG ='Y'</property>
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactName]"
                           dataType="wstr"
-                          length="37"
+                          length="50"
                           lineageId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactName]"
                           name="CustomerContactName" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactPersonRole]"
                           dataType="wstr"
-                          length="32"
+                          length="50"
                           lineageId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerContactPersonRole]"
                           name="CustomerContactPersonRole" />
                         <outputColumn
@@ -505,14 +505,14 @@ WHERE pb.INACTIVE ='' AND pb.ORDFLAG ='Y'</property>
                         <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerContact\Load stg table.Inputs[ADO NET Destination Input].Columns[CustomerContactName]"
                           cachedDataType="wstr"
-                          cachedLength="37"
+                          cachedLength="50"
                           cachedName="CustomerContactName"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerContact\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactName]"
                           lineageId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactName]" />
                         <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerContact\Load stg table.Inputs[ADO NET Destination Input].Columns[CustomerContactPersonRole]"
                           cachedDataType="wstr"
-                          cachedLength="32"
+                          cachedLength="50"
                           cachedName="CustomerContactPersonRole"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerContact\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerContactPersonRole]"
                           lineageId="Package\Populate staging tables\Load data to stg_CustomerContact\Get source data.Outputs[ADO NET Source Output].Columns[CustomerContactPersonRole]" />
@@ -987,21 +987,23 @@ GROUP BY CUST</property>
                       name="SqlCommand"
                       UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT 
 	c.CUST as CustomerID,
-	c.CUSTDES as CustomerName,
+	SUBSTRING(system.dbo.tabula_hebconvert(c.CUSTDES),1,48) as CustomerName,
 	c.PHONE as CustomerPhone,
-	c.STATE as CustomerCity,
-	c.ADDRESS as CustomerAddress,
+	SUBSTRING(system.dbo.tabula_hebconvert(c.STATE),1,40) as CustomerCity,
+	SUBSTRING(system.dbo.tabula_hebconvert(c.ADDRESS),1,80) as CustomerAddress,
 	'MABA' as SourceSystem
 FROM amaba.dbo.CUSTOMERS as c
+WHERE c.CUST &gt; 0
 UNION ALL
 SELECT 
 	c.CUST as CustomerID,
-	c.CUSTDES as CustomerName,
+	SUBSTRING(system.dbo.tabula_hebconvert(c.CUSTDES),1,48) as CustomerName,
 	c.PHONE as CustomerPhone,
-	c.STATE as CustomerCity,
-	c.ADDRESS as CustomerAddress,
+	SUBSTRING(system.dbo.tabula_hebconvert(c.STATE),1,40) as CustomerCity,
+	SUBSTRING(system.dbo.tabula_hebconvert(c.ADDRESS),1,80) as CustomerAddress,
 	'SEPHARM' as SourceSystem
-FROM sepharm.dbo.CUSTOMERS as c</property>
+FROM sepharm.dbo.CUSTOMERS as c
+WHERE c.CUST &gt; 0</property>
                     <property
                       dataType="System.Int32"
                       description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
@@ -1723,14 +1725,14 @@ GROUP BY c.PART</property>
                       UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">WITH cte
 as
 (
-SELECT DISTINCT mnf.MNFNAME,mnf.MNFDES as MNFDES
+SELECT DISTINCT mnf.MNFNAME,SUBSTRING(system.dbo.tabula_hebconvert(mnf.MNFDES),1,32) as MNFDES
 FROM amaba.dbo.SERNUMBERS AS sn
     INNER JOIN amaba.dbo.MBA_SERNORD AS ms ON ms.SERN = sn.SERN
 	JOIN amaba.dbo.MBA_SERNUMBERS as mbas ON sn.SERN = mbas.SERN
 	JOIN amaba.dbo.MNFCTR as mnf ON mbas.MNF = mnf.MNF
 	WHERE DATEADD(n, sn.ODATE, '1988-01-01') &gt;=  DATEFROMPARTS(YEAR(GETDATE()), 1, 1) AND mnf.MNF &gt; 0
 UNION 
-SELECT DISTINCT mnf.MNFNAME,mnf.MNFDES as MNFDES
+SELECT DISTINCT mnf.MNFNAME,SUBSTRING(system.dbo.tabula_hebconvert(mnf.MNFDES),1,32)  as MNFDES
 FROM [sepharm].dbo.SERNUMBERS AS sn
     INNER JOIN [sepharm].dbo.MBA_SERNORD AS ms ON ms.SERN = sn.SERN
 	JOIN [sepharm].dbo.MBA_SERNUMBERS as mbas ON sn.SERN = mbas.SERN
@@ -3361,7 +3363,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_Customers">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_Customers\Load stg table"
@@ -3389,9 +3391,7 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -3471,7 +3471,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_Manufacturers">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="161.6,41.6"
           Id="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table"
@@ -3499,9 +3499,7 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
