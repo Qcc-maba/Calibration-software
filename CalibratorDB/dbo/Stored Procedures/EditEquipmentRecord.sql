@@ -4,14 +4,13 @@
 -- Description:	This SP should edit a record for the equipment management table. 
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-174
 -- =============================================
-CREATE   PROCEDURE [dbo].[EditEquipmentRecord]
+CREATE   PROCEDURE [dbo].[EditEquipmentRecord] 
  @ID INT
-,@DepartmentId INT -- mapped to main category
-,@StatusId INT
-,@EquipmentName NVARCHAR(255)
+,@StatusId INT = NULL
+,@EquipmentName NVARCHAR(255) = NULL
 ,@SerialNumber NVARCHAR(100) = NULL
 ,@CalibratorId INT = NULL
-,@MainCategoryId INT
+,@MainCategoryId INT = NULL
 ,@SecondaryCategoryId INT = NULL
 ,@NextCalibrationDate DATE = NULL
 ,@CarId INT = NULL
@@ -45,19 +44,13 @@ WHERE ID = @ID
 )
 THROW 51000, 'Incorrect @ID', 1;
 
-if NOT EXISTS (
+if @MainCategoryId IS NOT NULL AND NOT EXISTS (
 SELECT 1 FROM [dbo].[MainCategories]
-WHERE ID = @DepartmentId
+WHERE ID = @MainCategoryId 
 )
-THROW 51000, 'Incorrect @DepartmentId', 1;
+THROW 51000, 'Incorrect @MainCategoryId', 1;
 
-if NOT EXISTS (
-SELECT 1 FROM [dbo].[MainCategories]
-WHERE ID = @DepartmentId
-)
-THROW 51000, 'Incorrect @StatusId', 1;
-
-IF @StatusId NOT IN (SELECT StatusId
+IF @StatusId IS NOT NULL AND @StatusId NOT IN (SELECT StatusId
 				FROM [dbo].[Statuses] as s
 				JOIN [dbo].[StatusesCategories] as c On s.[StatusCategoryId] = c.[StatusCategoryId]
 				WHERE c.StatusDescriptionENG = 'MeasurementDeviceStatus' )
@@ -81,13 +74,14 @@ BEGIN TRY
 		DECLARE @PrevCarId INT = (SELECT TOP 1 CarId FROM [dbo].[CarsToEquipment] WHERE IsDeleted = 0 AND [MeasurementDeviceId] = @ID ORDER BY CreatedDate DESC)
 
 		UPDATE [dbo].[MeasurementDevices]
-		   SET [MainCategoryId] = @DepartmentId
+		   SET [MainCategoryId] = @MainCategoryId 
+		      ,[SecondaryCategoryId] = @SecondaryCategoryId
 			  ,[MeasurementDeviceStatusId] = @StatusId
 			  ,[Description] = @EquipmentName
 			  ,[SerialNumber] = @SerialNumber
 			  ,[CalibratorId] = @CalibratorId
-			  ,[MainClassId] = @MainCategoryId
-			  ,[SubClassId] = @SecondaryCategoryId
+			  ,[MainClassId] = NULL
+			  ,[SubClassId] = NULL
 			  ,[NextCalibration] = @NextCalibrationDate
 			  ,[UpdateDate] = GETDATE()
 			  ,[UpdateUserID] = @Userid

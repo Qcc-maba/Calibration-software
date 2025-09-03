@@ -5,12 +5,11 @@
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-173
 -- =============================================
 CREATE   PROCEDURE [dbo].[CreateEquipmentRecord]
- @DepartmentId INT -- was renamed to MainCategoryId 
-,@StatusId INT
-,@EquipmentName NVARCHAR(255)
+ @StatusId INT = NULL
+,@EquipmentName NVARCHAR(255) = NULL
 ,@SerialNumber NVARCHAR(100) = NULL
 ,@CalibratorId INT = NULL
-,@MainCategoryId INT
+,@MainCategoryId INT = NULL
 ,@SecondaryCategoryId INT = NULL
 ,@NextCalibrationDate DATE = NULL
 ,@CarId INT = NULL
@@ -18,8 +17,7 @@ CREATE   PROCEDURE [dbo].[CreateEquipmentRecord]
 
 /*
 EXEC dbo.CreateEquipmentRecord
- @DepartmentId = 1
-,@StatusId = 39
+ @StatusId = 39
 ,@EquipmentName = 'Test2'
 ,@SerialNumber = '00-00-11'
 ,@CalibratorId = 38
@@ -37,19 +35,13 @@ DECLARE @Userid INT = 0
 IF @LoggedInUserEmail IS NOT NULL
 SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
 
-if NOT EXISTS (
+if @MainCategoryId IS NOT NULL AND NOT EXISTS (
 SELECT 1 FROM [dbo].[MainCategories]
-WHERE ID = @DepartmentId
+WHERE ID = @MainCategoryId 
 )
-THROW 51000, 'Incorrect @DepartmentId', 1;
+THROW 51000, 'Incorrect @MainCategoryId', 1;
 
-if NOT EXISTS (
-SELECT 1 FROM [dbo].[MainCategories]
-WHERE ID = @DepartmentId
-)
-THROW 51000, 'Incorrect @StatusId', 1;
-
-IF @StatusId NOT IN (SELECT StatusId
+IF @StatusId IS NOT NULL AND @StatusId NOT IN (SELECT StatusId
 				FROM [dbo].[Statuses] as s
 				JOIN [dbo].[StatusesCategories] as c On s.[StatusCategoryId] = c.[StatusCategoryId]
 				WHERE c.StatusDescriptionENG = 'MeasurementDeviceStatus' )
@@ -73,6 +65,7 @@ BEGIN TRY
 		INSERT INTO [dbo].[MeasurementDevices]
 				   ([MabaID]
 				   ,[MainCategoryId]
+				   ,[SecondaryCategoryId]
 				   ,[MeasurementDeviceStatusId]
 				   ,[Description]
 				   ,[SerialNumber]
@@ -85,13 +78,14 @@ BEGIN TRY
 		VALUES 
 		(
 		''
-		,@DepartmentId
+		,@MainCategoryId
+		,@SecondaryCategoryId
 		,@StatusId
 		,@EquipmentName
 		,@SerialNumber
 		,@CalibratorId
-		,@MainCategoryId
-		,@SecondaryCategoryId
+		,NULL
+		,NULL
 		,NULLIF(@NextCalibrationDate,'1900-01-01')
 		,@Userid
 		)

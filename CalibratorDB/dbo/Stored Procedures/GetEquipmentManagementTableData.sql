@@ -10,7 +10,6 @@ CREATE  PROCEDURE [dbo].[GetEquipmentManagementTableData]
 @PageNumber INT = 1,
 @OrderBy NVARCHAR(30) = N'DepartmentName',
 @OrderByAsc BIT = 1,
-@DepartmentId INT = NULL, -- mapped to Main category
 @EquipmentName NVARCHAR(255)= NULL,
 @SerialNumber NVARCHAR(100)= NULL,
 @StatusId INT = NULL,
@@ -22,10 +21,10 @@ CREATE  PROCEDURE [dbo].[GetEquipmentManagementTableData]
 @CalibratorFullName NVARCHAR(200) = NULL,
 @StatusDescription NVARCHAR(255) = NULL,
 @DepartmentName NVARCHAR(255) = NULL,
-@GlobalSearch NVARCHAR(200) = NULL
+@GlobalSearch NVARCHAR(200) = NULL,
+@SecondaryCategory NVARCHAR(200) = NULL
 /*
 EXEC dbo.GetEquipmentManagementTableData
-@DepartmentId  = 1,
 @EquipmentName = 'Test',
 @SerialNumber = '00-00-11',
 --@StatusId  = 43,
@@ -39,15 +38,8 @@ AS
 
 SET NOCOUNT ON;
 
-IF @OrderBy NOT IN (N'ID',N'DepartmentId',N'DepartmentName',N'StatusId',N'StatusDescriptionENG',N'StatusDescriptionHEB',N'EquipmentName',N'SerialNumber',N'CalibratorId',N'CalibratorFullName',N'MainCategory',N'NextCalibrationDate',N'CarId',N'Model',N'LicenseNumber')
+IF @OrderBy NOT IN (N'ID',N'DepartmentId',N'DepartmentName',N'StatusId',N'StatusDescriptionENG',N'StatusDescriptionHEB',N'EquipmentName',N'SerialNumber',N'CalibratorId',N'CalibratorFullName',N'MainCategory',N'NextCalibrationDate',N'CarId',N'Model',N'LicenseNumber',N'SecondaryCategory')
 THROW 51000, 'Incorrect value for parameter @OrderBy.', 1;
-
-
-if @DepartmentId > 0 AND NOT EXISTS (
-SELECT 1 FROM [dbo].[MainCategories]
-WHERE ID = @DepartmentId
-)
-THROW 51000, 'Incorrect @DepartmentId', 1;
 
 IF @StatusId > 0 AND @StatusId NOT IN (SELECT StatusId
 				FROM [dbo].[Statuses] as s
@@ -118,10 +110,10 @@ CONCAT(
       ,ce.[SerialNumber]
       ,ce.[CalibratorId]
 	  ,CONCAT(u.FirstName, '' '', u.LastName) as CalibratorFullName
-      ,mc.NameHebrew as [MainCategory]
-	  ,ce.MainClassId as [MainCategoryId]
-	  ,ess.[Name] as [SecondaryCategory]
-	  ,ce.SubClassId as [SecondaryCategoryId]
+      ,d.[MainCategoryName] as [MainCategory]
+	  ,ce.[MainCategoryId] as [MainCategoryId]
+	  ,ssc.[SecondaryCategoryName] as [SecondaryCategory]
+	  ,ce.[SecondaryCategoryId] as [SecondaryCategoryId]
       ,ce.[NextCalibration] as [NextCalibrationDate]
       ,c.[CarId]
 	  ,c.Model	
@@ -129,6 +121,7 @@ CONCAT(
 	  ,COUNT(1) OVER(PARTITION BY 1 ORDER BY ce.[ID] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
   FROM [dbo].[MeasurementDevices] as ce
   LEFT JOIN [dbo].[MainCategories] as d ON ce.[MainCategoryId] = d.ID AND d.IsDeleted = 0
+  LEFT JOIN [dbo].[SecondaryCategories] as ssc ON ce.[SecondaryCategoryId] = ssc.ID AND d.IsDeleted = 0
   LEFT JOIN [dbo].[Statuses] as s ON s.StatusId = ce.[MeasurementDeviceStatusId]
   LEFT JOIN [dbo].[Users] as u ON ce.[CalibratorId] = u.ID AND u.IsActive = 1 
   LEFT JOIN [dbo].[CarsToEquipment] as cte ON cte.MeasurementDeviceId = ce.ID AND cte.IsDeleted=0
@@ -143,13 +136,13 @@ CONCAT(
   ,CASE WHEN @SerialNumber IS NOT NULL THEN' AND ce.[SerialNumber] LIKE ''%'+ @SerialNumber+'%'' 'ELSE ' ' END
   ,CASE WHEN @DepartmentName IS NOT NULL THEN' AND d.[MainCategoryName] LIKE ''%'+ @DepartmentName+'%'' 'ELSE ' ' END
   ,CASE WHEN @CarLicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] LIKE ''%'+ @CarLicenseNumber+'%'' 'ELSE ' ' END
-  ,CASE WHEN @MainCategory IS NOT NULL THEN' AND mc.NameHebrew LIKE ''%'+ @MainCategory+'%'' 'ELSE ' ' END
+  ,CASE WHEN @MainCategory IS NOT NULL THEN' AND d.[MainCategoryName] LIKE ''%'+ @MainCategory+'%'' 'ELSE ' ' END
   ,CASE WHEN @StatusId IS NOT NULL THEN' AND ce.[MeasurementDeviceStatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @CalibratorId IS NOT NULL THEN' AND ce.[CalibratorId] = '+CAST(@CalibratorId as NVARCHAR(50))+' 'ELSE ' ' END
-  ,CASE WHEN @DepartmentId IS NOT NULL THEN' AND ce.[MainCategoryId] = '+CAST(@DepartmentId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @CarId IS NOT NULL THEN' AND c.[CarId] = '+CAST(@CarId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @NextCalibrationDate IS NOT NULL AND @NextCalibrationDate > '1900-01-01' THEN' AND ce.[NextCalibration] = '''+CAST(@NextCalibrationDate as NVARCHAR(50))+''' 'ELSE ' ' END
-  ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ce.[Description],ce.[SerialNumber],s.StatusDescriptionHEB,u.FirstName,u.LastName,c.LicenseNumber,mc.NameHebrew,d.[MainCategoryName])  LIKE N''%'+ dbo.fn_NormalizeHebrewSearch(@GlobalSearch) +'%'''ELSE ' ' END
+  ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ce.[Description],ce.[SerialNumber],s.StatusDescriptionHEB,u.FirstName,u.LastName,c.LicenseNumber,mc.NameHebrew,d.[MainCategoryName])  LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
+  ,CASE WHEN @SecondaryCategory IS NOT NULL THEN' AND ssc.[SecondaryCategoryName] LIKE ''%'+ @SecondaryCategory+'%'' 'ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql

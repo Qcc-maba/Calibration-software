@@ -14,6 +14,23 @@ CREATE   PROCEDURE [dbo].[GetAllCars]
 AS
 BEGIN
 
+
+/*Get all company mandatory events*/
+DROP TABLE IF EXISTS #ce
+CREATE TABLE #ce
+(
+[StartDate] DATE,
+[EndDate] DATE
+)
+INSERT #ce([StartDate],[EndDate])
+SELECT 
+CAST(ce.[StartDate] AS DATE) as [StartDate]
+,CAST(ce.[EndDate] as date) as [EndDate]
+FROM [dbo].[CalendarEvents] as ce
+JOIN [dbo].[Statuses] as s ON ce.EventTypeId = s.StatusId
+WHERE s.StatusDescriptionENG = 'CompanyEventMandatory'
+AND CAST(ce.[StartDate] AS DATE) >= @StartWeekDate AND CAST(ce.[EndDate] as date) <= @EndWeekDate
+
 /*Prepare list of cars with defined dates*/
 DROP TABLE IF EXISTS #DateRange
 CREATE TABLE #DateRange
@@ -60,11 +77,18 @@ SELECT dr.ID as CarId,
 	cto.AssignQuater2,
 	cto.AssignQuater3,
 	s.StatusDescriptionENG as CarStatusENG,
-	s.StatusDescriptionHEB as CarStatusHEB
+	s.StatusDescriptionHEB as CarStatusHEB,
+	COALESCE(ce.IsCompanyEventMandatory,0) as IsCompanyEventMandatory
 FROM #DateRange as dr
 LEFT JOIN [dbo].[CarsToOrder] as cto ON dr.ID = cto.CarId AND dr.DayDate = cto.AssignDate AND cto.IsDeleted = 0
 LEFT JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderWorkPlanId = cto.OrderWorkPlanId  AND wp.IsCancelled = 0
 LEFT JOIN [dbo].[Statuses] as s ON s.StatusId = dr.CarStatusId
+OUTER APPLY
+(
+SELECT TOP 1 CAST(1 as BIT) as IsCompanyEventMandatory
+FROM #ce as ce
+WHERE ce.[StartDate] <= dr.DayDate AND ce.[EndDate] >= dr.DayDate 
+) as ce
 WHERE s.StatusDescriptionENG = 'Available'
 ORDER BY dr.Id ,dr.DayDate
 

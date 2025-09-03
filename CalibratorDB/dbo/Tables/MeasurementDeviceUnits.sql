@@ -6,7 +6,7 @@
     [ShortNameHeAsc]                NVARCHAR (50)  NOT NULL,
     [ShortNameHe]                   NVARCHAR (50)  NOT NULL,
     [LongNameHe]                    NVARCHAR (100) NOT NULL,
-    [MeasurementDeviceUnitGroupId]  INT            NOT NULL,
+    [MeasurementDeviceUnitGroupId]  INT            NULL,
     [Note]                          NVARCHAR (500) NULL,
     [MeasurementDeviceUnitSourceId] INT            NULL,
     [CreatedDate]                   DATETIME2 (0)  DEFAULT (getdate()) NOT NULL,

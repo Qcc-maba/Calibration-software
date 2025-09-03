@@ -63,7 +63,7 @@ ctp.UserId , STRING_AGG(s.StatusDescriptionHEB,',') as EventDescription
 FROM [dbo].[CalendarEvents] as ce
 JOIN [dbo].[CalendarEventsToParticipants] as ctp ON ce.CalendarEventId = ctp.CalendarEventId
 JOIN [dbo].[Statuses] as s ON ce.EventTypeId = s.StatusId
-WHERE CAST([ce].[StartDate] AS DATE) >= @CheckDate AND CAST([ce].[EndDate] AS DATE) <= @CheckDate
+WHERE CAST([ce].[StartDate] AS DATE) <= @CheckDate AND CAST([ce].[EndDate] AS DATE) >= @CheckDate
 AND ce.IsDeleted = 0 AND ctp.IsDeleted = 0
 GROUP BY ctp.UserId
 
@@ -80,7 +80,7 @@ SELECT DISTINCT
 	MAX(st.StatusDescriptionHEB) as [StatusHEB],
 	MAX(ee.EventDescription) as [EventDescription],
 	wp.[OrderNumber] as [AssignedToOrderNumber],
-	STRING_AGG(cc.[Name],'', '') as Certification,
+	STRING_AGG(cc.[AuthorityName],'', '') as Certification,
 	u.LocationArea,
 	ud.[MainCategoryName] as DepartmentName
   FROM [dbo].[Users] as u
@@ -100,7 +100,7 @@ SELECT DISTINCT
 	) as st ON u.ID =  st.UserId AND st.rn = 1
   LEFT JOIN [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId AND od.IsCancelled = 0
   LEFT JOIN [dbo].[CalibratorsToCertification] as ctc ON u.ID = ctc.CalibratorId
-  LEFT JOIN [dbo].[MeasurementsSpecifications] as cc ON ctc.CertificationId = cc.ID'
+  LEFT JOIN [dbo].[CalibratorCertificationAuthorities] as cc ON ctc.CertificationId = cc.ID'
   ,CASE WHEN @SecondCategories IS NOT NULL THEN ' JOIN #SecondCategories as sc ON cp.OrderWorkPlanId = sc.OrderWorkPlanId ' ELSE ' ' END
   ,CASE WHEN @Certifications IS NOT NULL THEN ' JOIN #Certifications as s ON u.ID = s.CalibratorId ' ELSE ' ' END
    ,' WHERE u.IsActive = 1 AND u.ID > 0 '

@@ -20,12 +20,13 @@ SELECT c.[ID]
       ,s.[StatusId]
 	  ,s.[StatusDescriptionENG]	
 	  ,s.[StatusDescriptionHEB] 
-	  ,mc.[NameHebrew] AS [MainCategory]
+	  ,mmc.MainCategoryName AS [MainCategory]
       -----------------------------
 	  ,op.OrderNumber as OrderNumber
 	  ,coh.OrderWorkPlanId as OrderId
 	  ,c.ManufacturerId
 FROM [dbo].[MeasurementDevices] as c
+LEFT JOIN [dbo].[MainCategories] as mmc ON c.[MainCategoryId] = mmc.ID
 LEFT JOIN [dbo].[Statuses] as s ON c.MeasurementDeviceStatusId = s.StatusId
 LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mc ON c.MainClassId = mc.Id
 LEFT JOIN [dbo].[MeasurementDevicesToOrderHeaders] as coh ON c.ID = coh.MeasurementDeviceId AND coh.IsDeleted = 0 AND coh.AssigmentDate = @CheckDate

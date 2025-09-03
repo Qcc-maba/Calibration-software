@@ -18,8 +18,6 @@ GO
 GO 
 :r".\Add_SpecificationReference_data.sql"
 GO
-:r".\AddMeasurmentSpec.sql"
-GO
 :r".\CalibratorCertificationAuthorities.sql"
 
 
