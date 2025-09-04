@@ -66,5 +66,8 @@ SELECT
 FROM #AssociatedEquipmentIDs as aei
 
 
+UPDATE [dbo].OrderWorkPlans
+SET WorkPlanOpenDate = @CheckDate
+WHERE OrderWorkPlanId = @OrderWorkPlanId
 
 END

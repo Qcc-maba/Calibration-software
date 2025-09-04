@@ -96,4 +96,8 @@ SET [ActualCalibrationDate] = @Date
 FROM [dbo].[OrderDetails] as od 
 WHERE od.OrderWorkPlanId = @OrderWorkPlanId AND od.IsCancelled = 0
 
+UPDATE [dbo].OrderWorkPlans
+SET WorkPlanOpenDate = @Date
+WHERE OrderWorkPlanId = @OrderWorkPlanId
+
 END

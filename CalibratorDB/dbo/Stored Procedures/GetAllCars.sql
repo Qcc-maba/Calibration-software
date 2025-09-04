@@ -29,6 +29,7 @@ CAST(ce.[StartDate] AS DATE) as [StartDate]
 FROM [dbo].[CalendarEvents] as ce
 JOIN [dbo].[Statuses] as s ON ce.EventTypeId = s.StatusId
 WHERE s.StatusDescriptionENG = 'CompanyEventMandatory'
+AND ce.IsDeleted = 0
 AND CAST(ce.[StartDate] AS DATE) >= @StartWeekDate AND CAST(ce.[EndDate] as date) <= @EndWeekDate
 
 /*Prepare list of cars with defined dates*/
