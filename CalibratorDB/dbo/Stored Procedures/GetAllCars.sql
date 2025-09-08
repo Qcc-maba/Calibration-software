@@ -90,7 +90,7 @@ SELECT TOP 1 CAST(1 as BIT) as IsCompanyEventMandatory
 FROM #ce as ce
 WHERE ce.[StartDate] <= dr.DayDate AND ce.[EndDate] >= dr.DayDate 
 ) as ce
-WHERE s.StatusDescriptionENG = 'Available'
+--WHERE s.StatusDescriptionENG = 'Available'
 ORDER BY dr.Id ,dr.DayDate
 
 END

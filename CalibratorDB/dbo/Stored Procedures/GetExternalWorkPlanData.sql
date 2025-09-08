@@ -16,7 +16,6 @@ CREATE  PROCEDURE [dbo].[GetExternalWorkPlanData]
 	@Location NVARCHAR(100) = NULL,
 	@ProductType NVARCHAR(100) = NULL,
 	@ProducedIn NVARCHAR(255) = NULL,
-	--@AssignedCalibrators NVARCHAR(100) = NULL,
 	@DeviceModel NVARCHAR(100) = NULL,
 	@DateFrom DATETIME2(0) = NULL,
 	@DateTo DATETIME2(0) = NULL,
@@ -26,7 +25,10 @@ CREATE  PROCEDURE [dbo].[GetExternalWorkPlanData]
 	@EquipmentIds NVARCHAR(MAX) = NULL,
 	@SpecialCareTypeIds NVARCHAR(255) = NULL,
 	@OrderNumber NVARCHAR(20) = NULL,
-	@GlobalSearch NVARCHAR(200) = NULL
+	@GlobalSearch NVARCHAR(200) = NULL,
+	@WorkPlanOpenDate DATETIME2(0) = NULL,
+	@CarsIds NVARCHAR(MAX) = NULL,
+	@Notes NVARCHAR(255) = NULL
 AS
 
 BEGIN
@@ -60,43 +62,6 @@ BEGIN
 		END	
 
 
-	DROP TABLE IF EXISTS #FilteredDetails
-	CREATE TABLE #FilteredDetails
-	(
-	OrderWorkPlanId INT PRIMARY KEY
-	)
-
-	--IF @AssignedCalibrators IS NOT NULL
-	--BEGIN
-	--	DROP TABLE IF EXISTS #Calibrators
-	--	CREATE TABLE #Calibrators
-	--	(
-	--	CalibratorId INT
-	--	)
-	--	INSERT #Calibrators(CalibratorId)
-	--	SELECT u.ID FROM [dbo].[Users] as u 
-	--	JOIN [dbo].[UserRoles] as r ON u.UserRoleId  = r.UserRoleId AND r.UserRoleDescriptionENG='Calibrator'
-	--	WHERE u.IsActive = 1 
-	--		  AND (
-	--			u.LastName LIKE '%'+@AssignedCalibrators+'%' 
-	--			OR u.FirstName LIKE '%'+@AssignedCalibrators+'%'
-	--			OR u.FirstNameEng LIKE '%'+@AssignedCalibrators+'%'
-	--			OR u.LastNameEng LIKE '%'+@AssignedCalibrators+'%'
-	--			OR CONCAT(u.FirstName,' ',u.LastName) LIKE '%'+@AssignedCalibrators+'%'
-	--			OR CONCAT(u.FirstNameEng,' ',u.LastNameEng) LIKE '%'+@AssignedCalibrators+'%'
-	--			OR CONCAT(u.LastName,' ',u.FirstName) LIKE '%'+@AssignedCalibrators+'%'
-	--			OR CONCAT(u.LastNameEng,' ',u.FirstNameEng) LIKE '%'+@AssignedCalibrators+'%'
-	--	) and u.ID > 0
-
-	--	INSERT #FilteredDetails(OrderWorkPlanId)
- --  		SELECT DISTINCT cwp.[OrderWorkPlanId]
-	--	FROM [dbo].[CalibratorsToWorkPlan] as cwp
-	--	JOIN #Calibrators AS c ON c.CalibratorId = cwp.CalibratorId
-	--	LEFT JOIN #FilteredDetails as fd ON cwp.OrderWorkPlanId = fd.OrderWorkPlanId
-	--	WHERE fd.OrderWorkPlanId IS NULL and cwp.IsDeleted = 0
-
-	--END
-
 	DROP TABLE IF EXISTS #AssignedCalibrators
 	CREATE TABLE #AssignedCalibrators
 	(
@@ -121,6 +86,19 @@ BEGIN
 	INSERT #EquipmentId([OrderWorkPlanId])
 	SELECT DISTINCT ce.OrderWorkPlanId FROM dbo.ParseCSVToTable(@EquipmentIds) as f
 	JOIN [dbo].[MeasurementDevicesToOrderHeaders] as ce ON ce.MeasurementDeviceId = f.Value and ce.IsDeleted = 0
+
+	
+	DROP TABLE IF EXISTS #CarsIds
+	CREATE TABLE #CarsIds
+	(
+	[OrderWorkPlanId] INT
+	)
+	INSERT #CarsIds([OrderWorkPlanId])	
+	SELECT DISTINCT value 
+	FROM STRING_SPLIT(@CarsIds,',') as sp
+    JOIN [dbo].[CarsToOrder] as c ON sp.value = c.CarId
+	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderWorkPlanId = c.OrderWorkPlanId
+	WHERE wp.IsCancelled = 0 AND c.IsDeleted = 0 
 
 	DROP TABLE IF EXISTS #SpecialCareTypes
 	CREATE TABLE #SpecialCareTypes
@@ -177,9 +155,9 @@ CONCAT(
 	--	STRING_AGG(od.DeviceModel,'','') AS DeviceModel,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
-    ,IIF((SELECT COUNT(*) FROM #FilteredDetails) > 0,' JOIN #FilteredDetails as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId ',' ')
 	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
 	,IIF(@EquipmentIds IS NOT NULL,' JOIN #EquipmentId as eid ON wp.OrderWorkPlanId = eid.OrderWorkPlanId ',' ')
+	,IIF(@CarsIds IS NOT NULL,' JOIN #CarsIds as cid ON wp.OrderWorkPlanId = cid.OrderWorkPlanId ',' ')
 	,'LEFT JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
 	  LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
 	  LEFT JOIN [dbo].[Customers] as c ON wp.[CustomerId] = c.[CustomerId]
@@ -201,15 +179,6 @@ CONCAT(
 		JOIN [dbo].[Users] as u ON cwp.CalibratorId = u.ID
 		WHERE cwp.IsDeleted = 0	GROUP BY cwp.OrderWorkPlanId
 	 ) as cwp ON wp.OrderWorkPlanId = cwp.OrderWorkPlanId
-	--LEFT JOIN 
-	--(SELECT OrderWorkPlanId, STRING_AGG(MainCategory,'','') AS MainCategory
-	-- FROM ( SELECT DISTINCT od.OrderWorkPlanId,omc.OrdersMainCategoryName as MainCategory
-	-- FROM [dbo].[OrderDetails] as od
-	-- JOIN [dbo].[OrderWorkPlans] as wp ON od.OrderWorkPlanId = wp.OrderWorkPlanId
-	-- JOIN [dbo].[OrdersMainCategories] as omc ON od.OrdersMainCategoryId = omc.OrdersMainCategoryId
-	-- WHERE od.IsInHouse = 0 and wp.IsCancelled = 0
-	-- ) ds GROUP BY OrderWorkPlanId
-	--) as mc ON wp.OrderWorkPlanId = mc.OrderWorkPlanId
 	LEFT JOIN 
 	( SELECT OrderWorkPlanId,STRING_AGG(StatusDescriptionENG,'','') AS StatusDescriptionENG,
 	 STRING_AGG(StatusDescriptionHEB,'','') AS StatusDescriptionHEB
@@ -242,6 +211,9 @@ CONCAT(
 	,CASE WHEN @DeviceManufacturer IS NOT NULL THEN ' AND dm.OrdersDeviceManufacturerDescription LIKE N''%'+ @DeviceManufacturer +'%'''ELSE ' ' END
     ,CASE WHEN @OrderNumber IS NOT NULL THEN ' AND wp.OrderNumber LIKE N''%'+ @OrderNumber +'%'''ELSE ' ' END
     ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(cwp.[Calibrators],mcf.[MainCategoryName],c.[CustomerCity],c.[CustomerName],scf.[SecondaryCategoryName],sp.[StatusDescriptionENG],wp.[OrderNumber]) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
+	,CASE WHEN @WorkPlanOpenDate IS NOT NULL THEN ' AND wp.WorkPlanOpenDate = '''+CAST(@WorkPlanOpenDate as NVARCHAR(MAX)) +''' 'ELSE ' ' END
+	,CASE WHEN @Notes IS NOT NULL THEN ' AND wp.Notes LIKE N''%'+ @Notes +'%'''ELSE ' ' END
+	
 	,'GROUP BY wp.[OrderNumber], 
 	spc.[SpecialCares],
 	c.[CustomerName], 
@@ -262,7 +234,7 @@ CONCAT(
 	  ELSE ' ' END
   ,  'ORDER BY ' , @OrderBy , CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT LEN(@sql)
-PRINT REPLACE(@sql,' ','')
+PRINT @sql
 EXEC (@sql)
 --EXEC sp_executesql @sql
 
