@@ -2119,3 +2119,6 @@ LEFT JOIN [dbo].[MeasurementDevices] as md ON t.[ID] = md.MabaID
 WHERE t.[Department] IN (N'לחות',N'טמפרטורה')  AND md.MabaID IS NULL
 
 
+UPDATE [dbo].[MeasurementDevices]
+SET SerialNumber = REVERSE(SerialNumber)
+WHERE  PATINDEX(N'%[' + NCHAR(0x0590) + N'-' + NCHAR(0x05FF) + N']%', SerialNumber COLLATE Latin1_General_100_BIN2) > 0

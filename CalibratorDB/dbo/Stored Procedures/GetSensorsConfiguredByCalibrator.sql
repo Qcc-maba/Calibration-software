@@ -22,7 +22,7 @@ BEGIN
 	FROM dbo.LoggerToCalibrator as ltc
 	JOIN dbo.SensorToLoggerToCalibrator as stc ON stc.LoggerToCalibratorId = ltc.LoggerToCalibratorId AND stc.IsDeleted =0
 	LEFT JOIN dbo.ChannelsToSensorForCalibratoration as cts ON cts.SensorToLoggerToCalibratorId = stc.SensorToLoggerToCalibratorId AND cts.IsDeleted =0
-	WHERE ltc.AssignedCalibratorId = @Userid AND ltc.IsDeleted =0
+	WHERE ltc.AssignedCalibratorId = @Userid AND ltc.IsDeleted =0 AND stc.IsDeleted =0 AND  cts.IsDeleted =0
 		  AND (stc.SensorMeasurementDeviceId = @SensorMeasurementDeviceId OR @SensorMeasurementDeviceId IS NULL)
 	GROUP BY
 		   ltc.LoggerMeasurementDeviceId,

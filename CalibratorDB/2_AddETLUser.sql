@@ -213,6 +213,57 @@ USING (
 			,''
 			,''
 			,'ExternalCalibrator'
+			),
+			(
+			 N'sinova'
+			,N'Packing'
+			,N'sinova'
+			,N'Packing'
+			,N'Packing@mba.co.il'
+			,'1234'
+			,'0585686607'
+			,1
+			,GETDATE()
+			,NULL
+			,0
+			,''
+			,''
+			,''
+			,'Packing'
+			),
+			(
+			 N'sinova'
+			,N'LogisticManager'
+			,N'sinova'
+			,N'LogisticManager'
+			,N'LogisticManager@mba.co.il'
+			,'1234'
+			,'0585686607'
+			,1
+			,GETDATE()
+			,NULL
+			,0
+			,''
+			,''
+			,''
+			,'LogisticManager'
+			),
+			(
+			 N'sinova'
+			,N'Driver'
+			,N'sinova'
+			,N'Driver'
+			,N'Driver@mba.co.il'
+			,'1234'
+			,'0585686608'
+			,1
+			,GETDATE()
+			,NULL
+			,0
+			,''
+			,''
+			,''
+			,'Driver'
 			)
 		) ds([FirstName], [LastName], [FirstNameEng], [LastNameEng], [Email], [Password], [Phone], [IsActive], [CreatedDate], [UpdatedDate], [UpdateUserID], [UserAddress], [LocationArea], [Stamp],[UserRole])
 		JOIN dbo.UserRoles as ur ON ds.[UserRole] = ur.UserRoleName

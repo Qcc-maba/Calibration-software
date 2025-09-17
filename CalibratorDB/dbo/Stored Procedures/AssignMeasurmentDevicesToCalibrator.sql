@@ -90,7 +90,7 @@ BEGIN TRY
 				,dest.[CommunicationDetails] = source.[CommunicationDetails]
 				,dest.[UpdatedDate] = GETDATE()
 				,dest.[UpdateUserID] = source.[UpdateUserID]
-	WHEN NOT MATCHED BY TARGET
+	WHEN NOT MATCHED 
 		THEN
 			INSERT (
 				 [AssignedCalibratorId]
@@ -138,7 +138,7 @@ BEGIN TRY
 				,dest.[WorkRangeUnitId] = source.[WorkRangeUnitId]
 				,dest.[UpdatedDate] = GETDATE()
 				,dest.[UpdateUserID] = source.[UpdateUserID]
-	WHEN NOT MATCHED BY TARGET
+	WHEN NOT MATCHED
 		THEN
 			INSERT (
 				 [LoggerToCalibratorId]
@@ -181,7 +181,7 @@ BEGIN TRY
 		ON dest.[SensorToLoggerToCalibratorId] = source.[SensorToLoggerToCalibratorId]
 		   AND dest.[ChannelNumber] = source.[ChannelNumber]
 		   AND dest.IsDeleted = 0
-	WHEN NOT MATCHED BY TARGET
+	WHEN NOT MATCHED 
 		THEN
 			INSERT (
 				[SensorToLoggerToCalibratorId]

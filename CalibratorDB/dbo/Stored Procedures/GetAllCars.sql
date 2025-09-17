@@ -20,15 +20,16 @@ DROP TABLE IF EXISTS #ce
 CREATE TABLE #ce
 (
 [StartDate] DATE,
-[EndDate] DATE
+[EndDate] DATE,
+[EventType] NVARCHAR(50) COLLATE Latin1_General_100_CI_AI_SC NOT NULL
 )
-INSERT #ce([StartDate],[EndDate])
+INSERT #ce([StartDate],[EndDate],[EventType])
 SELECT 
 CAST(ce.[StartDate] AS DATE) as [StartDate]
 ,CAST(ce.[EndDate] as date) as [EndDate]
+,s.StatusDescriptionENG
 FROM [dbo].[CalendarEvents] as ce
 JOIN [dbo].[Statuses] as s ON ce.EventTypeId = s.StatusId
-WHERE s.StatusDescriptionENG = 'CompanyEventMandatory'
 AND ce.IsDeleted = 0
 AND CAST(ce.[StartDate] AS DATE) >= @StartWeekDate AND CAST(ce.[EndDate] as date) <= @EndWeekDate
 
@@ -79,14 +80,19 @@ SELECT dr.ID as CarId,
 	cto.AssignQuater3,
 	s.StatusDescriptionENG as CarStatusENG,
 	s.StatusDescriptionHEB as CarStatusHEB,
-	COALESCE(ce.IsCompanyEventMandatory,0) as IsCompanyEventMandatory
+	CASE 
+		WHEN ce.EventType = 'CompanyEventMandatory' THEN 1 
+		WHEN ce.EventType = 'CompanyEventOptional' THEN 2
+		ELSE 0		
+	END
+	as IsCompanyEventMandatory
 FROM #DateRange as dr
 LEFT JOIN [dbo].[CarsToOrder] as cto ON dr.ID = cto.CarId AND dr.DayDate = cto.AssignDate AND cto.IsDeleted = 0
 LEFT JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderWorkPlanId = cto.OrderWorkPlanId  AND wp.IsCancelled = 0
 LEFT JOIN [dbo].[Statuses] as s ON s.StatusId = dr.CarStatusId
 OUTER APPLY
 (
-SELECT TOP 1 CAST(1 as BIT) as IsCompanyEventMandatory
+SELECT TOP 1 [EventType]
 FROM #ce as ce
 WHERE ce.[StartDate] <= dr.DayDate AND ce.[EndDate] >= dr.DayDate 
 ) as ce
@@ -94,3 +100,4 @@ WHERE ce.[StartDate] <= dr.DayDate AND ce.[EndDate] >= dr.DayDate
 ORDER BY dr.Id ,dr.DayDate
 
 END
+--WHERE s.StatusDescriptionENG = 'CompanyEventMandatory'

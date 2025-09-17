@@ -273,6 +273,7 @@
     <Build Include="dbo\Stored Procedures\CalibrationStoppedComment.sql" />
     <Build Include="dbo\Tables\CalibratorCertificationAuthorities.sql" />
     <Build Include="dbo\Stored Procedures\GetAllCalibratorCertificationAuthorities.sql" />
+    <Build Include="dbo\Stored Procedures\RemoveSensorFromLogger.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
@@ -282,6 +283,7 @@
     <None Include="Add_SpecificationReference_data.sql" />
     <None Include="ListOfAllEquipment.sql" />
     <None Include="CalibratorCertificationAuthorities.sql" />
+    <None Include="PopulateMeasurmentUnits.sql" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="hebutils">

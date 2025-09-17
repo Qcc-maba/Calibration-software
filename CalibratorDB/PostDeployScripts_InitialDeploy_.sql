@@ -19,5 +19,5 @@ GO
 :r".\Add_SpecificationReference_data.sql"
 GO
 :r".\CalibratorCertificationAuthorities.sql"
-
-
+GO
+:r".\PopulateMeasurmentUnits"
