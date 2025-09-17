@@ -4,7 +4,7 @@
 -- Description:	Get all devices assosiated to orders details
 -- JiraLink: 
 -- =============================================
-CREATE   PROCEDURE [dbo].[GetOrderDetailsDevices]
+CREATE   PROCEDURE [dbo].[GetOrderDetailsDevices] 
 @OrderDetailId INT
 AS
 
@@ -28,7 +28,9 @@ result as
 (
 SELECT 
 wp.[OrderWorkPlanId],
+wp.[OrderNumber],
 wp.[CustomerId],
+cust.[CustomerName],
 od.[OrderDetailId],
 od.[OrderLineCnt],
 od.[OrdersProductTypeId],
@@ -61,6 +63,7 @@ scs.[StatusDescriptionENG] as [CalibrationStatus],
 ROW_NUMBER() OVER( PARTITION BY wp.[OrderWorkPlanId] ORDER BY wp.[OrderWorkPlanId]) as rn
  FROM [dbo].[OrderWorkPlans] as wp 
 JOIN  [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId
+LEFT JOIN [dbo].[Customers] as cust ON wp.CustomerId = cust.CustomerId
 LEFT JOIN [dbo].[OrderDetailsItems] as odi ON od.OrderDetailId = odi.OrderDetailId
 LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.[OrdersProductTypeId] = opt.[OrdersProductTypeId]
 LEFT JOIN [dbo].[MainCategories] as omc ON odi.[MainCategoryId] = omc.ID
@@ -81,7 +84,9 @@ WHERE od.[OrderDetailId] = @OrderDetailId
 )
 SELECT
 COALESCE(r.[OrderWorkPlanId],@OrderWorkPlanId) as [OrderWorkPlanId],
+r.[OrderNumber],
 r.[CustomerId],
+r.[CustomerName],
 COALESCE(r.[OrderDetailId],@OrderDetailId) as [OrderDetailId],
 r.[OrderLineCnt],
 r.[OrdersProductTypeId],

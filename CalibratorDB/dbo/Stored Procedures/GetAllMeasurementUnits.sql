@@ -17,3 +17,4 @@ SELECT
 ,u.LongNameHe as UnitLongName
 FROM [dbo].[MeasurementDeviceUnits] as u
 WHERE (@MainCategoryId IS NULL OR u.MainCategoryId = @MainCategoryId)
+AND u.IsDeleted = 0

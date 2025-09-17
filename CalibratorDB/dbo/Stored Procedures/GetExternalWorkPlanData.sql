@@ -86,7 +86,6 @@ BEGIN
 	INSERT #EquipmentId([OrderWorkPlanId])
 	SELECT DISTINCT ce.OrderWorkPlanId FROM dbo.ParseCSVToTable(@EquipmentIds) as f
 	JOIN [dbo].[MeasurementDevicesToOrderHeaders] as ce ON ce.MeasurementDeviceId = f.Value and ce.IsDeleted = 0
-
 	
 	DROP TABLE IF EXISTS #CarsIds
 	CREATE TABLE #CarsIds
@@ -130,6 +129,13 @@ BEGIN
 	SELECT ID FROM [dbo].[SecondaryCategories] as sc WHERE sc.SecondaryCategoryName LIKE CONCAT('%',@SecondCategory,'%')
 	END
 
+	DECLARE @ClientConfirmationStatusDefault NVARCHAR(50)
+	SELECT
+	    @ClientConfirmationStatusDefault = s.StatusDescriptionHEB
+	FROM [dbo].[StatusesCategories] as c
+	JOIN [dbo].[Statuses] as s ON c.StatusCategoryId = s.StatusCategoryId
+	WHERE c.StatusDescriptionENG = N'ClientConfirmationStatus' AND s.StatusDescriptionENG = N'Pending'
+
 
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
@@ -153,6 +159,7 @@ CONCAT(
 	--	STRING_AGG(od.SerialNumber,'','') AS DeviceNumber,
 	--	STRING_AGG(dm.OrdersDeviceManufacturerDescription,'','') AS DeviceManufacturer,
 	--	STRING_AGG(od.DeviceModel,'','') AS DeviceModel,
+	    COALESCE(MAX(clst.StatusDescriptionHEB),''',@ClientConfirmationStatusDefault,''') as ClientConfirmationStatus,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
 	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
@@ -162,6 +169,7 @@ CONCAT(
 	  LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
 	  LEFT JOIN [dbo].[Customers] as c ON wp.[CustomerId] = c.[CustomerId]
 	  LEFT JOIN [dbo].[MainCategories] as mcf ON itm.MainCategoryId	= mcf.ID
+	  LEFT JOIN [dbo].[Statuses] as clst ON wp.[ClientConfirmationStatusId] = clst.[StatusId]
 	  LEFT JOIN [dbo].[SecondaryCategories] as scf ON itm.SecondaryCategoryId = scf.ID
 	  LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON itm.[OrdersDeviceManufacturerId] = dm.[OrdersDeviceManufacturerId]
 	',IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')

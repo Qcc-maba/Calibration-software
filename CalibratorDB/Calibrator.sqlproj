@@ -121,7 +121,6 @@
     <Build Include="dbo\Stored Procedures\EditCalendarEvent.sql" />
     <Build Include="dbo\Stored Procedures\GetAllCalibrators.sql" />
     <Build Include="dbo\Stored Procedures\AssignCarToOrder.sql" />
-    <Build Include="dbo\Stored Procedures\CancelOrders.sql" />
     <Build Include="dbo\Stored Procedures\GetAllCars.sql" />
     <Build Include="dbo\Stored Procedures\GetAllEmployees.sql" />
     <Build Include="dbo\Stored Procedures\AssignCalibratorsToOrder.sql" />
@@ -274,6 +273,7 @@
     <Build Include="dbo\Tables\CalibratorCertificationAuthorities.sql" />
     <Build Include="dbo\Stored Procedures\GetAllCalibratorCertificationAuthorities.sql" />
     <Build Include="dbo\Stored Procedures\RemoveSensorFromLogger.sql" />
+    <Build Include="dbo\Stored Procedures\SetOrderStatus.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

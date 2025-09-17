@@ -83,7 +83,10 @@ USING (
 		('Position','DH','DepartmentHead',N'ראש מדור'),
 		('Position','ME','MetrologyEngineer',N'טכנולוג'),
 		('Position','COO','ChiefOperationsOfficer',N'מנהל תפעול'),
-		('Position','CTO','ChiefTechnologyOfficer',N'מנהל טכני')
+		('Position','CTO','ChiefTechnologyOfficer',N'מנהל טכני'),
+		('ClientConfirmationStatus','','Pending',N'בהמתנה'),
+		('ClientConfirmationStatus','','Confirmed',N'מאושר'),
+		('ClientConfirmationStatus','','Rejected',N'נדחה')
 		) ds ([StatusCategory],[Code],[StatusDescriptionENG],[StatusDescriptionHEB])
 		JOIN [dbo].[StatusesCategories] as sc ON ds.StatusCategory = sc.StatusDescriptionENG
 	) AS source
