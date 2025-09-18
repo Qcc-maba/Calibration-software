@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="118"
-  DTS:VersionGUID="{F7AC65FB-9070-4FB6-ACAB-0082F4788A23}">
+  DTS:VersionBuild="121"
+  DTS:VersionGUID="{B78BB6B2-A6BE-4F9A-8EAE-031A10B44B9E}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -36,7 +36,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customer Remarks"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="2">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -52,7 +52,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Contacts Data"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="3">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -68,7 +68,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Data"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="2">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -84,7 +84,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Order Product Type"
-          DTS:ThreadHint="2">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -100,7 +100,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Device Manufacturers"
-          DTS:ThreadHint="3">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -991,8 +991,13 @@ GROUP BY CUST</property>
 	c.PHONE as CustomerPhone,
 	SUBSTRING(system.dbo.tabula_hebconvert(c.STATE),1,40) as CustomerCity,
 	SUBSTRING(system.dbo.tabula_hebconvert(c.ADDRESS),1,80) as CustomerAddress,
+	SUBSTRING(system.dbo.tabula_hebconvert(st.STDES),1,50) as ShipTypeDescr,
+	TRY_CAST(c.MBA_SIGNAMOUNT AS TINYINT) as SignatureAmount,
+    SUBSTRING(system.dbo.tabula_hebconvert(IIF(LEN(sp.[SPEC7]) &gt;=2,sp.[SPEC7],N'יש לשלוח את הדו״ח ללקוח')),1,50) as ReportRequired,   
 	'MABA' as SourceSystem
 FROM amaba.dbo.CUSTOMERS as c
+LEFT JOIN amaba.dbo.CUSTSPEC as sp ON c.CUST = sp.CUST
+LEFT JOIN amaba.[dbo].[SHIPTYPES] as st ON c.SHIPTYPE = st.SHIPTYPE
 WHERE c.CUST &gt; 0
 UNION ALL
 SELECT 
@@ -1001,8 +1006,13 @@ SELECT
 	c.PHONE as CustomerPhone,
 	SUBSTRING(system.dbo.tabula_hebconvert(c.STATE),1,40) as CustomerCity,
 	SUBSTRING(system.dbo.tabula_hebconvert(c.ADDRESS),1,80) as CustomerAddress,
+	SUBSTRING(system.dbo.tabula_hebconvert(st.STDES),1,50) as ShipTypeDescr,
+	TRY_CAST(c.MBA_SIGNAMOUNT AS TINYINT) as SignatureAmount,
+    SUBSTRING(system.dbo.tabula_hebconvert(IIF(LEN(sp.[SPEC7]) &gt;=2,sp.[SPEC7],N'יש לשלוח את הדו״ח ללקוח')),1,50) as ReportRequired,  
 	'SEPHARM' as SourceSystem
 FROM sepharm.dbo.CUSTOMERS as c
+LEFT JOIN sepharm.dbo.CUSTSPEC as sp ON c.CUST = sp.CUST
+LEFT JOIN sepharm.[dbo].[SHIPTYPES] as st ON c.SHIPTYPE = st.SHIPTYPE
 WHERE c.CUST &gt; 0</property>
                     <property
                       dataType="System.Int32"
@@ -1090,6 +1100,35 @@ WHERE c.CUST &gt; 0</property>
                           name="CustomerAddress"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[ShipTypeDescr]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShipTypeDescr]"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[ShipTypeDescr]"
+                          name="ShipTypeDescr"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[SignatureAmount]"
+                          dataType="ui1"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SignatureAmount]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[SignatureAmount]"
+                          name="SignatureAmount"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[ReportRequired]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ReportRequired]"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[ReportRequired]"
+                          name="ReportRequired"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]"
                           dataType="wstr"
                           errorOrTruncationOperation="Conversion"
@@ -1126,6 +1165,20 @@ WHERE c.CUST &gt; 0</property>
                           dataType="wstr"
                           length="80"
                           name="CustomerAddress" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShipTypeDescr]"
+                          dataType="wstr"
+                          length="50"
+                          name="ShipTypeDescr" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SignatureAmount]"
+                          dataType="ui1"
+                          name="SignatureAmount" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ReportRequired]"
+                          dataType="wstr"
+                          length="50"
+                          name="ReportRequired" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceSystem]"
                           dataType="wstr"
@@ -1167,6 +1220,23 @@ WHERE c.CUST &gt; 0</property>
                           length="80"
                           lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerAddress]"
                           name="CustomerAddress" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[ShipTypeDescr]"
+                          dataType="wstr"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[ShipTypeDescr]"
+                          name="ShipTypeDescr" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[SignatureAmount]"
+                          dataType="ui1"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[SignatureAmount]"
+                          name="SignatureAmount" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[ReportRequired]"
+                          dataType="wstr"
+                          length="50"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[ReportRequired]"
+                          name="ReportRequired" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceSystem]"
                           dataType="wstr"
@@ -1274,6 +1344,26 @@ WHERE c.CUST &gt; 0</property>
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerAddress]"
                           lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[CustomerAddress]" />
                         <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].Columns[ShipTypeDescr]"
+                          cachedDataType="wstr"
+                          cachedLength="50"
+                          cachedName="ShipTypeDescr"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[ShipTypeDescr]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[ShipTypeDescr]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].Columns[SignatureAmount]"
+                          cachedDataType="ui1"
+                          cachedName="SignatureAmount"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[SignatureAmount]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[SignatureAmount]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].Columns[ReportRequired]"
+                          cachedDataType="wstr"
+                          cachedLength="50"
+                          cachedName="ReportRequired"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[ReportRequired]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[ReportRequired]" />
+                        <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].Columns[SourceSystem]"
                           cachedDataType="wstr"
                           cachedLength="7"
@@ -1312,6 +1402,20 @@ WHERE c.CUST &gt; 0</property>
                           dataType="wstr"
                           length="7"
                           name="SourceSystem" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[SignatureAmount]"
+                          dataType="ui1"
+                          name="SignatureAmount" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[ShipTypeDescr]"
+                          dataType="wstr"
+                          length="50"
+                          name="ShipTypeDescr" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[ReportRequired]"
+                          dataType="wstr"
+                          length="50"
+                          name="ReportRequired" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -3365,7 +3469,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_Customers">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_Customers\Load stg table"
@@ -3380,22 +3484,20 @@ SELECT [SourceOrderId]
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,70.39999833107"
+              EndConnector="0,70.3999983310699"
               Start="0,0"
-              End="0,62.89999833107">
+              End="0,62.8999983310699">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,62.89999833107" />
+                    End="0,62.8999983310699" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>

@@ -55,7 +55,8 @@ THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
 	  LEFT JOIN [dbo].[MeasurementDeviceUnits] as u2 ON md.WorkRangeUnitId = u2.MeasurementDeviceUnitId
 	  LEFT JOIN [dbo].[Measurements] as m ON md.MeasurementId = m.ID
 	  LEFT JOIN [dbo].[MainCategories] as d ON md.MainCategoryId = d.ID
-	  WHERE md.RemoveDate IS NULL AND md.IsDeleted = 0
+	  WHERE md.RemoveDate IS NULL AND md.IsDeleted = 0 AND md.Connection IS NOT NULL
+	  AND md.Connection <> N''',N'אוגר אלחוטי','''
 	  '
 	  ,CASE WHEN @MeasurementDevicesMainClassId IS NOT NULL AND @ApplyFilterByDevicesParents = 0 THEN' AND md.MainClassId = '+ +CAST(@MeasurementDevicesMainClassId as NVARCHAR(50))+' 'ELSE ' ' END
 	  ,CASE WHEN @CalibrationDeviceId IS NOT NULL AND @ApplyFilterByDevicesParents = 0 THEN' AND md.[ID] = '+ +CAST(@CalibrationDeviceId as NVARCHAR(50))+' 'ELSE ' ' END 

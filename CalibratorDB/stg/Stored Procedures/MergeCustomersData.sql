@@ -1,4 +1,4 @@
-﻿CREATE   PROCEDURE stg.MergeCustomersData
+﻿CREATE   PROCEDURE [stg].[MergeCustomersData]
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 02/06/2025
@@ -19,6 +19,9 @@ USING (
 		,c.[CustomerAddress]
 		,0 as [UpdateUserID]
 		,ss.SourceId
+		,c.SignatureAmount		
+		,c.ShipTypeDescr
+		,c.ReportRequired
 	FROM stg.stg_Customers as c
 	JOIN dbo.Source as ss ON c.SourceSystem = ss.SourceName
 	) AS source
@@ -39,6 +42,9 @@ WHEN MATCHED
 			,dest.[CustomerIdFromSource] = source.[CustomerIdFromSource]
 			,dest.[UpdatedDate] = GETDATE()
 			,dest.[UpdateUserID] = 0
+			,dest.SignatureAmount = source.SignatureAmount
+			,dest.ShipTypeDescr = source.ShipTypeDescr
+			,dest.ReportRequired = source.ReportRequired
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -49,6 +55,9 @@ WHEN NOT MATCHED BY TARGET
 			,[CustomerIdFromSource]
 			,[SourceId]
 			,[UpdateUserID]
+			,[SignatureAmount]
+			,[ShipTypeDescr]
+			,[ReportRequired]
 			)
 		VALUES (
 			 source.[CustomerName]
@@ -58,5 +67,8 @@ WHEN NOT MATCHED BY TARGET
 			,source.[CustomerIdFromSource]
 			,source.[SourceId]
 			,source.[UpdateUserID]
+			,source.SignatureAmount		
+			,source.ShipTypeDescr
+			,source.ReportRequired
 			);
 END

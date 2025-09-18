@@ -2111,7 +2111,7 @@ SELECT
                       WHERE sc.StatusDescriptionENG = N'MeasurementDeviceStatus' AND s.StatusDescriptionENG = N'Available')
             END
            ,NULL
-           ,CASE WHEN t.Subdepartment IN (N'2W','4W') THEN t.Subdepartment ELSE NULL END
+           ,t.Subdepartment
            ,NULL
 FROM #test as t
 LEFT JOIN [dbo].[MeasurementDevicesManufacturers] as mnf ON t.Manufacturer = mnf.Name
