@@ -15,10 +15,11 @@ CREATE     PROCEDURE [dbo].[CreateUserRecord]
 ,@UserStatusId INT
 ,@Email NVARCHAR(50)
 ,@DepartmentIdsList NVARCHAR(max) = NULL -- mapped to MainCategories
-,@CertificationIdsList NVARCHAR(max) = NULL
+--,@CertificationIdsList NVARCHAR(max) = NULL
 ,@LoggedInUserEmail NVARCHAR(50)
 ,@Stamp NVARCHAR(200) = NULL
 ,@PositionId INT = NULL
+,@CertificationAuthoritiesIdsList NVARCHAR(max) = NULL 
 
 /*
 EXEC [dbo].[CreateUserRecord]
@@ -32,7 +33,7 @@ EXEC [dbo].[CreateUserRecord]
 ,@UserStatusId = 56
 ,@Email ='tes2t@test.com12333'
 ,@DepartmentIdsList = '1,4,3'
---,@CertificationIdsList ='1,2,3'
+,@CertificationAuthoritiesIdsList ='1,2,3'
 ,@LoggedInUserEmail = 'sinova_super_admin@gmail.com'
 ,@Stamp =''
 */
@@ -50,16 +51,16 @@ WHERE u.Email = @Email
 )
 THROW 51000, 'User already exists.', 1;
 
-IF @CertificationIdsList IS NOT NULL
+IF @CertificationAuthoritiesIdsList IS NOT NULL
 BEGIN
-DROP TABLE IF EXISTS #CertificationIds
-CREATE TABLE #CertificationIds
+DROP TABLE IF EXISTS #CertificationAuthoritiesIdsList
+CREATE TABLE #CertificationAuthoritiesIdsList
 (
-CertificationId INT
+CalibratorCertificationAuthorityId INT
 )
 
-INSERT #CertificationIds(CertificationId)
-SELECT Value FROM dbo.ParseCSVToTable(@CertificationIdsList)
+INSERT #CertificationAuthoritiesIdsList(CalibratorCertificationAuthorityId)
+SELECT Value FROM dbo.ParseCSVToTable(@CertificationAuthoritiesIdsList)
 END
 
 
@@ -117,10 +118,10 @@ BEGIN TRY
 
 	SELECT @Userid = SCOPE_IDENTITY()
 
-	IF @CertificationIdsList IS NOT NULL
-	INSERT [dbo].[CalibratorsToCertification](CertificationId,CalibratorId,UpdateUserID)
-	SELECT DISTINCT CertificationId,@Userid,@LoggedInUserId
-	FROM #CertificationIds
+	IF @CertificationAuthoritiesIdsList IS NOT NULL
+	INSERT [dbo].[CalibratorsToCertificationAuthoritiesAuthorities](CalibratorCertificationAuthorityId,CalibratorId,UpdateUserID)
+	SELECT DISTINCT CalibratorCertificationAuthorityId,@Userid,@LoggedInUserId
+	FROM #CertificationAuthoritiesIdsList
 
 	INSERT [dbo].[UsersToDepartments](UserId,[MainCategoryId],UpdateUserID)
 	SELECT DISTINCT @Userid, DepartmentId,@LoggedInUserId

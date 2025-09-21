@@ -15,11 +15,12 @@ CREATE     PROCEDURE [dbo].[EditUserRecord]
 ,@UserStatusId INT
 ,@Email NVARCHAR(50) = NULL
 ,@DepartmentIdsList NVARCHAR(max) = NULL -- mapped to main category
-,@CertificationIdsList NVARCHAR(max) = NULL
+--,@CertificationIdsList NVARCHAR(max) = NULL
 ,@LoggedInUserEmail NVARCHAR(50)
 ,@UserId INT
 ,@Stamp NVARCHAR(200) = NULL
 ,@PositionId INT = NULL
+,@CertificationAuthoritiesIdsList NVARCHAR(max) = NULL 
 /*
 EXEC [dbo].[EditUserRecord]
  @FirstName = 'test1'
@@ -32,7 +33,7 @@ EXEC [dbo].[EditUserRecord]
 ,@Email ='tes2t@test.com1234'
 ,@UserStatusId = 55
 ,@DepartmentIdsList = '1'
-,@CertificationIdsList ='1,2,3'
+,@CertificationAuthoritiesIdsList ='1,2,3'
 ,@LoggedInUserEmail = 'sinova_super_admin@gmail.com'
 ,@UserId =18
 */
@@ -50,15 +51,15 @@ WHERE u.ID = @UserId
 )
 THROW 51000, 'User not exists.', 1;
 
-DROP TABLE IF EXISTS #CertificationIds
-CREATE TABLE #CertificationIds
+DROP TABLE IF EXISTS #CertificationAuthoritiesIdsList
+CREATE TABLE #CertificationAuthoritiesIdsList
 (
-CertificationId INT
+CertificationAuthorityId INT
 )
 
-IF @CertificationIdsList IS NOT NULL
-INSERT #CertificationIds(CertificationId)
-SELECT Value FROM dbo.ParseCSVToTable(@CertificationIdsList)
+IF @CertificationAuthoritiesIdsList IS NOT NULL
+INSERT #CertificationAuthoritiesIdsList(CertificationAuthorityId)
+SELECT Value FROM dbo.ParseCSVToTable(@CertificationAuthoritiesIdsList)
 
 DROP TABLE IF EXISTS #UserRoles
 CREATE TABLE #UserRoles
@@ -124,19 +125,19 @@ BEGIN TRY
 		FROM [dbo].[UsersToDepartments] as ud
 		WHERE ud.UserId = @UserId 
 
-	IF @CertificationIdsList IS NOT NULL
+	IF @CertificationAuthoritiesIdsList IS NOT NULL
 	BEGIN
 	UPDATE ctc
 	SET IsDeleted = 1,UpdateUserID = @LoggedInUserId
-	FROM [dbo].[CalibratorsToCertification] as ctc
-	LEFT JOIN #CertificationIds as ci ON ctc.CalibratorId = @UserId and ci.CertificationId = ctc.CertificationId 
-	WHERE ctc.CalibratorId = @UserId  AND ci.CertificationId IS NULL
+	FROM [dbo].[CalibratorsToCertificationAuthoritiesAuthorities] as ctc
+	LEFT JOIN #CertificationAuthoritiesIdsList as ci ON ctc.CalibratorId = @UserId and ci.CertificationAuthorityId = ctc.CalibratorCertificationAuthorityId 
+	WHERE ctc.CalibratorId = @UserId  AND ci.CertificationAuthorityId IS NULL
 
-	INSERT [dbo].[CalibratorsToCertification](CertificationId,CalibratorId,UpdateUserID)
-	SELECT ci.CertificationId,@UserId,@LoggedInUserId
-	FROM #CertificationIds as ci
-	LEFT JOIN [dbo].[CalibratorsToCertification] as ctc ON ctc.CalibratorId = @UserId and ci.CertificationId = ctc.CertificationId AND ctc.IsDeleted = 0
-	WHERE ctc.CertificationId IS NULL
+	INSERT [dbo].[CalibratorsToCertificationAuthoritiesAuthorities](CalibratorCertificationAuthorityId,CalibratorId,UpdateUserID)
+	SELECT ci.CertificationAuthorityId,@UserId,@LoggedInUserId
+	FROM #CertificationAuthoritiesIdsList as ci
+	LEFT JOIN [dbo].[CalibratorsToCertificationAuthoritiesAuthorities] as ctc ON ctc.CalibratorId = @UserId and ci.CertificationAuthorityId = ctc.CalibratorCertificationAuthorityId AND ctc.IsDeleted = 0
+	WHERE ctc.CalibratorCertificationAuthorityId IS NULL
 	END
 
 

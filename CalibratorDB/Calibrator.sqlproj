@@ -147,7 +147,6 @@
     <Build Include="dbo\Stored Procedures\GetAssignedSpecialCaresForOrders.sql" />
     <Build Include="dbo\Stored Procedures\DeleteEquipmentsRecord.sql" />
     <Build Include="dbo\Stored Procedures\DeleteCarRecord.sql" />
-    <Build Include="dbo\Tables\CalibratorsToCertification.sql" />
     <Build Include="dbo\Stored Procedures\GetAllSecondaryCategories.sql" />
     <Build Include="dbo\Stored Procedures\GetAllCalibratorsCertifications.sql" />
     <Build Include="dbo\Stored Procedures\GetCarsByOrderNumber.sql" />
@@ -274,6 +273,7 @@
     <Build Include="dbo\Stored Procedures\GetAllCalibratorCertificationAuthorities.sql" />
     <Build Include="dbo\Stored Procedures\RemoveSensorFromLogger.sql" />
     <Build Include="dbo\Stored Procedures\SetOrderStatus.sql" />
+    <Build Include="dbo\Tables\CalibratorsToCertificationAuthoritiesAuthorities.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

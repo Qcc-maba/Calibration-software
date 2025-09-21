@@ -20,7 +20,7 @@ CREATE    PROCEDURE [dbo].[GetAllEmployees]
     @UserRoleId INT  = NULL,
 	@UserStatusIds NVARCHAR(50) = NULL,
 	@DepartmentIdsList NVARCHAR(max) = NULL, -- mapped to main category
-	@CertificationIds NVARCHAR(MAX) = NULL,
+	@CertificationAuthoritiesIdsList NVARCHAR(MAX) = NULL,
 	@EventStartDate DATETIME2(0) = NULL,
     @EventEndDate DATETIME2(0) = NULL,
 	@PositionId INT = NULL,
@@ -99,7 +99,7 @@ SELECT DISTINCT ud.UserId
 FROM dbo.ParseCSVToTable(@DepartmentIdsList) as v
 JOIN dbo.UsersToDepartments as ud ON v.Value = ud.MainCategoryId
 WHERE ud.IsDeleted = 0
---Insert users filtered by provided @CertificationIds
+--Insert users filtered by provided @CertificationAuthoritiesIdsList
 
 DROP TABLE IF EXISTS #CertificationUserIds
 CREATE TABLE #CertificationUserIds
@@ -109,8 +109,8 @@ UserId INT
 
 INSERT #CertificationUserIds(UserId)
 SELECT DISTINCT c.CalibratorId as UserId 
-FROM dbo.ParseCSVToTable(@CertificationIds) as v
-JOIN dbo.CalibratorsToCertification as c ON v.Value = c.CertificationId
+FROM dbo.ParseCSVToTable(@CertificationAuthoritiesIdsList) as v
+JOIN [dbo].[CalibratorsToCertificationAuthoritiesAuthorities] as c ON v.Value = c.CalibratorCertificationAuthorityId
 WHERE c.IsDeleted = 0
 
 DECLARE @EventTypeId INT,
@@ -164,9 +164,9 @@ SELECT u.ID,
 	   ur.UserRoleDescriptionHEB as UserRoleHEB,
 	   dep.DepartmentIds,
 	   dep.DepartmentNames,
-	   cc.Certification,
+	   cc.CalibratorAuthorityNames,
 	   ur.UserRoleId as UserRoleIds,
-	   cc.CertificationIds,
+	   cc.CalibratorAuthorityIds,
 	   u.Stamp,
 	   u.Password,
 	   u.IsActive,
@@ -185,16 +185,16 @@ LEFT JOIN [dbo].[UserRoles] as ur ON u.UserRoleId = ur.UserRoleId
 '
 ,IIF(@UserStatusIds IS NOT NULL,' JOIN #UserStatusesIds as uf2 ON u.ID =  uf2.UserId ',' ')
 ,IIF(@DepartmentIdsList IS NOT NULL,' JOIN #DepartmentUserIds as uf3 ON u.ID =  uf3.UserId ',' ')
-,IIF(@CertificationIds IS NOT NULL,' JOIN #CertificationUserIds as uf4 ON u.ID =  uf4.UserId ',' ')
+,IIF(@CertificationAuthoritiesIdsList IS NOT NULL,' JOIN #CertificationUserIds as uf4 ON u.ID =  uf4.UserId ',' ')
 ,IIF(@FirstName IS NOT NULL OR @LastName IS NOT NULL,' JOIN #UserFullName  as f ON u.ID =  f.UserId ',' ')
 ,IIF(@EventStartDate IS NOT NULL AND @EventEndDate IS NOT NULL,' LEFT JOIN #AssociatedCalendarEvents as ace ON u.ID =  ace.UserId ',' '),
 'LEFT JOIN
 (
 SELECT ctc.CalibratorId as UserId,
-	   STRING_AGG(cc.ID,'','') as CertificationIds,
-	   STRING_AGG(cc.Name,'','') as Certification
-FROM [dbo].[CalibratorsToCertification] as ctc
-JOIN [dbo].[MeasurementsSpecifications] as cc ON ctc.CertificationId = cc.ID AND cc.IsDeleted = 0
+	   STRING_AGG(a.ID,'','') as CalibratorAuthorityIds,
+	   STRING_AGG(a.AuthorityName,'','') as CalibratorAuthorityNames
+FROM [dbo].[CalibratorsToCertificationAuthoritiesAuthorities] as ctc
+JOIN [dbo].[CalibratorCertificationAuthorities] as a ON ctc.CalibratorCertificationAuthorityId = a.ID AND a.IsDeleted = 0
 WHERE ctc.IsDeleted = 0
 GROUP BY ctc.CalibratorId
 ) as cc ON u.ID = cc.UserId

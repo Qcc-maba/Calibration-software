@@ -131,7 +131,7 @@ BEGIN
 
 	DECLARE @ClientConfirmationStatusDefault NVARCHAR(50)
 	SELECT
-	    @ClientConfirmationStatusDefault = s.StatusDescriptionHEB
+	    @ClientConfirmationStatusDefault = s.StatusDescriptionENG
 	FROM [dbo].[StatusesCategories] as c
 	JOIN [dbo].[Statuses] as s ON c.StatusCategoryId = s.StatusCategoryId
 	WHERE c.StatusDescriptionENG = N'ClientConfirmationStatus' AND s.StatusDescriptionENG = N'Pending'
@@ -159,7 +159,7 @@ CONCAT(
 	--	STRING_AGG(od.SerialNumber,'','') AS DeviceNumber,
 	--	STRING_AGG(dm.OrdersDeviceManufacturerDescription,'','') AS DeviceManufacturer,
 	--	STRING_AGG(od.DeviceModel,'','') AS DeviceModel,
-	    COALESCE(MAX(clst.StatusDescriptionHEB),''',@ClientConfirmationStatusDefault,''') as ClientConfirmationStatus,
+	    COALESCE(MAX(clst.StatusDescriptionENG),''',@ClientConfirmationStatusDefault,''') as ClientConfirmationStatus,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
 	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
