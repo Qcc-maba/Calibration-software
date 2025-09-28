@@ -21,3 +21,5 @@ GO
 :r".\CalibratorCertificationAuthorities.sql"
 GO
 :r".\PopulateMeasurmentUnits"
+GO
+:r".\ListOfAllEquipment"
