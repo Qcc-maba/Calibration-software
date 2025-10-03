@@ -31,8 +31,8 @@ BEGIN
 SET NOCOUNT ON;
 
 	IF @OrderBy NOT IN 
-	(N'FirstName', N'LastName', N'FirstNameEng', N'LastNameEng', N'Phone', N'Email', N'UserAddress', N'LocationArea', N'UserRoleENG', N'UserRoleHEB', N'DepartmentNames', N'Certification',N'Stamp',N'Position')
-	THROW 51000, 'Incorrect value for parameter @OrderBy. Available values FirstName|LastName|FirstNameEng|LastNameEng|Phone|Email|UserAddress|LocationArea|UserRoleENG|UserRoleHEB|DepartmentNames|Certification|Stamp|Position', 1;
+	(N'FirstName', N'LastName', N'FirstNameEng', N'LastNameEng', N'Phone', N'Email', N'UserAddress', N'LocationArea', N'UserRoleENG', N'UserRoleHEB', N'DepartmentNames', N'Certification',N'Stamp',N'Position',N'CalibratorAuthorityNames')
+	THROW 51000, 'Incorrect value for parameter @OrderBy. Available values FirstName|LastName|FirstNameEng|LastNameEng|Phone|Email|UserAddress|LocationArea|UserRoleENG|UserRoleHEB|DepartmentNames|Certification|Stamp|Position|CalibratorAuthorityNames', 1;
 
 
 	IF @FirstName IS NOT NULL OR @LastName IS NOT NULL 
@@ -170,7 +170,7 @@ SELECT u.ID,
 	   u.Stamp,
 	   u.Password,
 	   u.IsActive,
-	   ss.StatusId as AvaibabilityStatusId,
+	   ss.StatusId as AvailabilityStatusId,
 	   ss.AvailabilityStatusDescriptionHEB,
 	   '
 	   ,IIF(@EventStartDate IS NOT NULL AND @EventEndDate IS NOT NULL,'ace.EventTypeId, ace.StatusDescriptionHEB , ace.StatusDescriptionENG,  ',' '),
@@ -216,7 +216,7 @@ WHERE u.ID > 0
 ,CASE WHEN @Email IS NOT NULL THEN ' AND u.Email LIKE N''%'+ @Email +'%'' 'ELSE ' ' END
 ,CASE WHEN @UserRoleId IS NOT NULL THEN ' AND u.UserRoleId = '+ CAST(@UserRoleId as NVARCHAR(20)) +' 'ELSE ' ' END
 ,CASE WHEN @PositionId IS NOT NULL THEN ' AND u.PositionId = '+ CAST(@PositionId as NVARCHAR(20)) +' 'ELSE ' ' END
-,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(u.FirstName,u.LastName,u.FirstNameEng,u.LastNameEng,u.Phone,u.Email,cc.Certification,u.UserAddress,u.LocationArea,dep.DepartmentNames,ps.StatusDescriptionHEB,ur.UserRoleDescriptionHEB,ss.AvailabilityStatusDescriptionHEB) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
+,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(u.FirstName,u.LastName,u.FirstNameEng,u.LastNameEng,u.Phone,u.Email,cc.CalibratorAuthorityNames,u.UserAddress,u.LocationArea,dep.DepartmentNames,ps.StatusDescriptionHEB,ur.UserRoleDescriptionHEB,ss.AvailabilityStatusDescriptionHEB) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
 OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT LEN(@sql)

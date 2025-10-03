@@ -40,6 +40,10 @@ SELECT DISTINCT
 		,ss.[SourceId]
 		,o.SourceOrderId
 		,os.StatusId as OrderOverallStatusId
+	    ,o.[CustomerPackingExists]
+	    ,o.[ActualReturnDate]
+	    ,o.[ExpectedReturnDate]
+	    ,o.[PackageLocation]
 		FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as ss ON o.[SourceSystem] = ss.SourceName
     LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = ss.SourceId and c.IsDeleted = 0
@@ -61,6 +65,10 @@ WHEN NOT MATCHED BY TARGET
 			,[SourceId]
 			,[CustomerId]
 			,[OrderOverallStatusId]
+			,[CustomerPackingExists]
+			,[ActualReturnDate]
+			,[ExpectedReturnDate]
+			,[PackageLocation]
 			)
 		VALUES (
 			 source.[OrderNumber]
@@ -74,6 +82,10 @@ WHEN NOT MATCHED BY TARGET
 			,source.[SourceId]
 			,source.[CustomerId]
 			,source.[OrderOverallStatusId]
+			,source.[CustomerPackingExists]
+			,source.[ActualReturnDate]
+			,source.[ExpectedReturnDate]
+			,source.[PackageLocation]
 			)
 WHEN MATCHED AND
 	(
@@ -82,7 +94,11 @@ WHEN MATCHED AND
 	THEN
 		UPDATE
 		SET dest.[OrderOverallStatusId] = source.[OrderOverallStatusId],
-		    dest.[UpdateUserID] = source.[UpdateUserID];
+		    dest.[UpdateUserID] = source.[UpdateUserID],
+			dest.[CustomerPackingExists] = source.[CustomerPackingExists],
+			dest.[ActualReturnDate] = source.[ActualReturnDate],
+			dest.[ExpectedReturnDate] = source.[ExpectedReturnDate],
+			dest.[PackageLocation] = source.[PackageLocation];
 
 	
 MERGE INTO [dbo].[OrderDetails] AS dest

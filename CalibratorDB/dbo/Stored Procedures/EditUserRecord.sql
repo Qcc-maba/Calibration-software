@@ -128,7 +128,7 @@ BEGIN TRY
 	IF @CertificationAuthoritiesIdsList IS NOT NULL
 	BEGIN
 	UPDATE ctc
-	SET IsDeleted = 1,UpdateUserID = @LoggedInUserId
+	SET IsDeleted = 1,UpdateUserID = @LoggedInUserId, UpdatedDate = GETDATE()
 	FROM [dbo].[CalibratorsToCertificationAuthoritiesAuthorities] as ctc
 	LEFT JOIN #CertificationAuthoritiesIdsList as ci ON ctc.CalibratorId = @UserId and ci.CertificationAuthorityId = ctc.CalibratorCertificationAuthorityId 
 	WHERE ctc.CalibratorId = @UserId  AND ci.CertificationAuthorityId IS NULL

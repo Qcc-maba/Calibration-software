@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="121"
-  DTS:VersionGUID="{B78BB6B2-A6BE-4F9A-8EAE-031A10B44B9E}">
+  DTS:VersionBuild="125"
+  DTS:VersionGUID="{F774BB74-332E-48D0-9A4A-173C54807D79}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -36,7 +36,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customer Remarks"
-          DTS:ThreadHint="2">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -52,7 +52,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Contacts Data"
-          DTS:ThreadHint="3">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -68,7 +68,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Data"
-          DTS:ThreadHint="2">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -84,7 +84,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Order Product Type"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="3">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -100,7 +100,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Device Manufacturers"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="2">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -2106,18 +2106,22 @@ FROM cte</property>
       ,[SpecialCareTypeId]
       ,[InHouse]
       ,[MainCategorySourceId]
-      ,[SecondCategorySourceId]
+      ,SUBSTRING([SecondCategorySourceId],1,48) as [SecondCategorySourceId]
       ,[PART]
       ,[PartName]
-      ,[DeviceType]
+      ,SUBSTRING([DeviceType],1,59) as [DeviceType]
       ,[MbaReportNumber]
       ,[DeviceManufacturerSourceId]
       ,[OrderLineCnt]
 	  ,[VPRICE]
 	  ,[PRICE]
-	  ,[ProductLocation] 
+	  ,SUBSTRING([ProductLocation],1,50) as [ProductLocation]
 	  ,'MABA' as SourceSystem
 	  ,[ORDSTATUS]
+	  ,[CustomerPackingExists]
+	  ,[ActualReturnDate]
+	  ,[ExpectedReturnDate]
+	  ,SUBSTRING([PackageLocation],1,1) as [PackageLocation]
   FROM [amaba].[dbo].[vwGetOrders_WorkPlan_Full_new]
   WHERE InHouse IS NOT NULL
 UNION ALl
@@ -2134,18 +2138,22 @@ SELECT [SourceOrderId]
       ,[SpecialCareTypeId]
       ,[InHouse]
       ,[MainCategorySourceId]
-      ,[SecondCategorySourceId]
+      ,SUBSTRING([SecondCategorySourceId],1,48) as [SecondCategorySourceId]
       ,[PART]
       ,[PartName]
-      ,[DeviceType]
+      ,SUBSTRING([DeviceType],1,59) as [DeviceType]
       ,[MbaReportNumber]
       ,[DeviceManufacturerSourceId]
       ,[OrderLineCnt]
 	  ,[VPRICE]
 	  ,[PRICE]
-	  ,[ProductLocation]
+	  ,SUBSTRING([ProductLocation],1,50) as [ProductLocation]
 	  ,'SEPHARM' as SourceSystem
 	  ,[ORDSTATUS]
+	  ,[CustomerPackingExists]
+	  ,[ActualReturnDate]
+	  ,[ExpectedReturnDate]
+	  ,SUBSTRING([PackageLocation],1,1) as [PackageLocation]
   FROM [sepharm].[dbo].[vwGetOrders_WorkPlan_Full_new]
   WHERE InHouse IS NOT NULL</property>
                     <property
@@ -2397,7 +2405,7 @@ SELECT [SourceOrderId]
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ProductLocation]"
-                          length="20"
+                          length="50"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ProductLocation]"
                           name="ProductLocation"
                           truncationRowDisposition="FailComponent" />
@@ -2419,6 +2427,43 @@ SELECT [SourceOrderId]
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ORDSTATUS]"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ORDSTATUS]"
                           name="ORDSTATUS"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerPackingExists]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerPackingExists]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerPackingExists]"
+                          name="CustomerPackingExists"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ActualReturnDate]"
+                          dataType="dbTimeStamp"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ActualReturnDate]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ActualReturnDate]"
+                          name="ActualReturnDate"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ExpectedReturnDate]"
+                          dataType="dbTimeStamp"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ExpectedReturnDate]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ExpectedReturnDate]"
+                          name="ExpectedReturnDate"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[PackageLocation]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[PackageLocation]"
+                          length="1"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[PackageLocation]"
+                          name="PackageLocation"
                           truncationRowDisposition="FailComponent" />
                       </outputColumns>
                       <externalMetadataColumns
@@ -2523,7 +2568,7 @@ SELECT [SourceOrderId]
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ProductLocation]"
                           dataType="wstr"
-                          length="20"
+                          length="50"
                           name="ProductLocation" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceSystem]"
@@ -2534,6 +2579,23 @@ SELECT [SourceOrderId]
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ORDSTATUS]"
                           dataType="i4"
                           name="ORDSTATUS" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerPackingExists]"
+                          dataType="i4"
+                          name="CustomerPackingExists" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ActualReturnDate]"
+                          dataType="dbTimeStamp"
+                          name="ActualReturnDate" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ExpectedReturnDate]"
+                          dataType="dbTimeStamp"
+                          name="ExpectedReturnDate" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[PackageLocation]"
+                          dataType="wstr"
+                          length="1"
+                          name="PackageLocation" />
                       </externalMetadataColumns>
                     </output>
                     <output
@@ -2663,7 +2725,7 @@ SELECT [SourceOrderId]
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ProductLocation]"
                           dataType="wstr"
-                          length="20"
+                          length="50"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ProductLocation]"
                           name="ProductLocation" />
                         <outputColumn
@@ -2677,6 +2739,27 @@ SELECT [SourceOrderId]
                           dataType="i4"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ORDSTATUS]"
                           name="ORDSTATUS" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerPackingExists]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerPackingExists]"
+                          name="CustomerPackingExists" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ActualReturnDate]"
+                          dataType="dbTimeStamp"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ActualReturnDate]"
+                          name="ActualReturnDate" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ExpectedReturnDate]"
+                          dataType="dbTimeStamp"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ExpectedReturnDate]"
+                          name="ExpectedReturnDate" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[PackageLocation]"
+                          dataType="wstr"
+                          length="1"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[PackageLocation]"
+                          name="PackageLocation" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
                           dataType="i4"
@@ -2887,7 +2970,7 @@ SELECT [SourceOrderId]
                         <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[ProductLocation]"
                           cachedDataType="wstr"
-                          cachedLength="20"
+                          cachedLength="50"
                           cachedName="ProductLocation"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ProductLocation]"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ProductLocation]" />
@@ -2904,6 +2987,31 @@ SELECT [SourceOrderId]
                           cachedName="ORDSTATUS"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ORDSTATUS]"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ORDSTATUS]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerPackingExists]"
+                          cachedDataType="i4"
+                          cachedName="CustomerPackingExists"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerPackingExists]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerPackingExists]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[ActualReturnDate]"
+                          cachedDataType="dbTimeStamp"
+                          cachedName="ActualReturnDate"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ActualReturnDate]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ActualReturnDate]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[ExpectedReturnDate]"
+                          cachedDataType="dbTimeStamp"
+                          cachedName="ExpectedReturnDate"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ExpectedReturnDate]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ExpectedReturnDate]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[PackageLocation]"
+                          cachedDataType="wstr"
+                          cachedLength="1"
+                          cachedName="PackageLocation"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[PackageLocation]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[PackageLocation]" />
                       </inputColumns>
                       <externalMetadataColumns
                         isUsed="True">
@@ -3022,6 +3130,23 @@ SELECT [SourceOrderId]
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ORDSTATUS]"
                           dataType="i4"
                           name="ORDSTATUS" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerPackingExists]"
+                          dataType="bool"
+                          name="CustomerPackingExists" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ActualReturnDate]"
+                          dataType="dbTimeStamp"
+                          name="ActualReturnDate" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ExpectedReturnDate]"
+                          dataType="dbTimeStamp"
+                          name="ExpectedReturnDate" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[PackageLocation]"
+                          dataType="wstr"
+                          length="1"
+                          name="PackageLocation" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -3633,7 +3758,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_Orders">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="223.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging"
@@ -3661,9 +3786,7 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>

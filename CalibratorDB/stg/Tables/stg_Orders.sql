@@ -23,6 +23,10 @@
     [PRICE]                      DECIMAL (18, 2) NULL,
     [PART]                       INT             NULL,
     [ProductLocation]            NVARCHAR (50)   NULL,
-    [ORDSTATUS]                  INT             NULL
+    [ORDSTATUS]                  INT             NULL,
+    [CustomerPackingExists]      BIT             NULL,
+    [ActualReturnDate]           DATETIME2 (0)   NULL,
+    [ExpectedReturnDate]         DATETIME2 (0)   NULL,
+    [PackageLocation]            NCHAR (1)       NULL
 );
 
