@@ -5,23 +5,22 @@
 -- JiraLink: 
 -- =============================================
 CREATE   PROCEDURE [dbo].[GetOrderDetailsDevices] 
-@OrderDetailId INT
+@OrderWorkPlanId INT =41,
+@OrderDetailId INT = NULL
 AS
-
-DECLARE @OrderWorkPlanId INT = 0 
-DECLARE @rows INT = 0
-SELECT @rows=[OrderLineCnt],
-	   @OrderWorkPlanId = [OrderWorkPlanId]
-FROM [dbo].[OrderDetails] as od  WHERE OrderDetailId = @OrderDetailId
-
 
 ;WITH numbers
 as
 (
-SELECT 1 as cnt
+SELECT 1 as cnt, od.OrderLineCnt, od.OrderDetailId, od.OrdersProductTypeId
+FROM [dbo].[OrderDetails] as od 
+WHERE od.OrderWorkPlanId = @OrderWorkPlanId
 UNION ALL
-SELECT cnt +1 FROM numbers
-WHERE cnt <@rows
+SELECT n.cnt +1, od.OrderLineCnt, od.OrderDetailId, od.OrdersProductTypeId
+FROM numbers as n
+JOIN [dbo].[OrderDetails] as od ON od.OrderDetailId = n.OrderDetailId AND od.OrderLineCnt = n.OrderLineCnt
+WHERE od.OrderWorkPlanId = @OrderWorkPlanId
+AND cnt < od.OrderLineCnt
 )
 ,
 result as
@@ -60,7 +59,7 @@ odi.[MeasurementValueList],
 odi.[ProductLocation],
 e.[EquipmentNames],
 scs.[StatusDescriptionENG] as [CalibrationStatus],
-ROW_NUMBER() OVER( PARTITION BY wp.[OrderWorkPlanId] ORDER BY wp.[OrderWorkPlanId]) as rn
+ROW_NUMBER() OVER( PARTITION BY odi.OrderDetailId ORDER BY odi.OrderDetailId) as rn
  FROM [dbo].[OrderWorkPlans] as wp 
 JOIN  [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId
 LEFT JOIN [dbo].[Customers] as cust ON wp.CustomerId = cust.CustomerId
@@ -80,17 +79,17 @@ FROM [dbo].[MeasurementDevicesToOrderHeaders] as mdt
 JOIN [dbo].[MeasurementDevices] as md ON mdt.MeasurementDeviceId = md.ID
 GROUP BY mdt.[OrderWorkPlanId]
 ) as e ON e.[OrderWorkPlanId] = wp.[OrderWorkPlanId]
-WHERE od.[OrderDetailId] = @OrderDetailId
+WHERE wp.[OrderWorkPlanId] = @OrderWorkPlanId
 )
 SELECT
-COALESCE(r.[OrderWorkPlanId],@OrderWorkPlanId) as [OrderWorkPlanId],
-r.[OrderNumber],
-r.[CustomerId],
-r.[CustomerName],
-COALESCE(r.[OrderDetailId],@OrderDetailId) as [OrderDetailId],
-r.[OrderLineCnt],
-r.[OrdersProductTypeId],
-r.[OrdersProductType],
+FIRST_VALUE(r.[OrderWorkPlanId]) OVER(ORDER BY r.[OrderWorkPlanId] DESC) as [OrderWorkPlanId],
+FIRST_VALUE(r.[OrderNumber]) OVER(ORDER BY r.[OrderWorkPlanId] DESC) as [OrderNumber],
+FIRST_VALUE(r.[CustomerId]) OVER(ORDER BY r.[OrderWorkPlanId] DESC) as [CustomerId],
+FIRST_VALUE(r.[CustomerName]) OVER(ORDER BY r.[OrderWorkPlanId] DESC) as [CustomerName],
+FIRST_VALUE(COALESCE(r.[OrderDetailId],n.[OrderDetailId])) OVER(PARTITION BY r.[OrderDetailId] ORDER BY r.[OrderDetailId]) as [OrderDetailId],
+FIRST_VALUE(COALESCE(r.[OrderLineCnt],n.[OrderLineCnt])) OVER(PARTITION BY r.[OrderDetailId] ORDER BY r.[OrderDetailId]) as [OrderLineCnt],
+FIRST_VALUE(COALESCE(r.[OrdersProductTypeId],n.[OrdersProductTypeId])) OVER(PARTITION BY r.[OrderDetailId] ORDER BY r.[OrderDetailId]) as [OrdersProductTypeId],
+COALESCE(opt1.[OrdersProductTypeName],opt2.[OrdersProductTypeName]) AS[OrdersProductType],
 r.[OrderDetailsItemId],
 r.[ActualCalibrationDate],	
 r.[NextCalibrationDate],	
@@ -116,6 +115,9 @@ r.[MeasurementValueList],
 r.[ProductLocation],
 r.[EquipmentNames],
 r.[CalibrationStatus]
-FROM numbers as n
-FULL JOIN result as r ON n.cnt = r.rn 
+FROM  numbers as n
+LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt 
+LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[OrdersProductTypeId]
+LEFT JOIN [dbo].[OrdersProductTypes] as opt2 ON r.[OrdersProductTypeId] = opt2.[OrdersProductTypeId]
+ORDER BY [OrderDetailId]
 option (maxrecursion 0)
