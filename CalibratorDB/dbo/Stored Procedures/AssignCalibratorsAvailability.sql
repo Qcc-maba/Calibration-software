@@ -17,6 +17,8 @@ CREATE   PROCEDURE [dbo].[AssignCalibratorsAvailability]
 AS
 BEGIN
 
+SET NOCOUNT ON;
+
 IF NOT EXISTS (
 SELECT 1 FROM [dbo].[Users] as u
 JOIN [dbo].[UserRoles] as ur ON u.UserRoleId = ur.UserRoleId
@@ -25,8 +27,13 @@ and u.IsActive = 1
 )
 THROW 51000, 'Provided user is not calibrator or user not active', 1;
 
-SET NOCOUNT ON;
-DECLARE @LoggedInUserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @LoggedInUserEmail) 
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 INSERT INTO [dbo].[CalibratorsAvailability]
            ([UserId]

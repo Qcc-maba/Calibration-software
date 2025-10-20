@@ -11,9 +11,15 @@ CREATE   PROCEDURE [dbo].[SplitOrder]
 AS
 BEGIN
 
-DECLARE @Userid INT = 0
-IF @LoggedInUserEmail IS NOT NULL
-SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+SET NOCOUNT ON;
+
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 DECLARE @NewOrderWorkPlanId INT = 0
 
@@ -51,7 +57,7 @@ BEGIN TRAN
 				ELSE [OrderNumber]
 			END
 		,UpdatedDate = GETDATE()
-		,UpdateUserID = @Userid
+		,UpdateUserID = @LoggedInUserId
 	FROM [dbo].[OrderWorkPlans]
 	WHERE OrderWorkPlanId = @OrderId
 
@@ -82,8 +88,8 @@ BEGIN TRAN
       ,[IsCancelled]
       ,GETDATE()
       ,[UpdatedDate]
-      ,@Userid
-      ,@Userid
+      ,@LoggedInUserId
+      ,@LoggedInUserId
       ,[Notes]
       ,[OrderSourceId]
       ,[SourceId]

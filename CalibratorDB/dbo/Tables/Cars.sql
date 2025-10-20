@@ -15,10 +15,12 @@
     [UpdateUserID]         INT           NULL,
     [IsDeleted]            BIT           DEFAULT ((0)) NOT NULL,
     [AWSCarId]             INT           NULL,
+    [SourceId]             TINYINT       NULL,
     PRIMARY KEY CLUSTERED ([CarId] ASC),
     CONSTRAINT [FK_Cars_AssignedCalibratorId] FOREIGN KEY ([AssignedCalibratorId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_Cars_CarStatusId] FOREIGN KEY ([CarStatusId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_Cars_OwnerId] FOREIGN KEY ([OwnerId]) REFERENCES [dbo].[Users] ([ID]),
+    CONSTRAINT [FK_Cars_SourceId] FOREIGN KEY ([SourceId]) REFERENCES [dbo].[Source] ([SourceId]),
     CONSTRAINT [FK_Cars_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
 

@@ -19,8 +19,13 @@ BEGIN
 SET NOCOUNT ON;
 
 
-DECLARE @Userid INT = 0
-SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 DROP TABLE IF EXISTS #CalibratorIDs
 CREATE TABLE #CalibratorIDs
@@ -51,12 +56,12 @@ WHERE OrderWorkPlanId = @WorkPlanId
 
 UPDATE dbo.CalibratorsToWorkPlan
 SET UpdatedDate = GETDATE(),
-    UpdateUserID = @Userid,
+    UpdateUserID = @LoggedInUserId,
     IsDeleted = 0
 WHERE OrderWorkPlanId = @WorkPlanId and IsDeleted = 1
 
 INSERT dbo.CalibratorsToWorkPlan(OrderWorkPlanId,CalibratorId,AssigmentDate,UpdateUserID)
-SELECT DISTINCT @WorkPlanId, c.CalibratorID, @StartDate,@Userid
+SELECT DISTINCT @WorkPlanId, c.CalibratorID, @StartDate,@LoggedInUserId
 FROM #CalibratorIDs as c 
 LEFT JOIN dbo.CalibratorsToWorkPlan as wp ON c.CalibratorID = wp.CalibratorId AND wp.OrderWorkPlanId = @WorkPlanId
 WHERE wp.CalibratorId IS NULL

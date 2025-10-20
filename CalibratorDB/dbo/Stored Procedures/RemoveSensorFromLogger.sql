@@ -14,8 +14,13 @@ BEGIN
 
 SET NOCOUNT ON;
 
-	DECLARE @Userid INT
-	SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+	DECLARE @LoggedInUserId INT 
+	DECLARE @SourceId TINYINT
+
+	SELECT 
+	 @LoggedInUserId  = d.UserId 
+	,@SourceId = d.SourceId
+	FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 	DECLARE @CalibratorId INT
 	SELECT @CalibratorId = ID FROM dbo.Users WHERE Email = @CalibratorEmail
@@ -48,7 +53,7 @@ SET NOCOUNT ON;
 	WHERE cal.AssignedCalibratorId = @CalibratorId
 
 	UPDATE sl
-	SET IsDeleted = 1, UpdateUserID = @Userid
+	SET IsDeleted = 1, UpdateUserID = @LoggedInUserId
 	FROM dbo.SensorToLoggerToCalibrator as sl
 	JOIN #Sensors as s ON sl.SensorMeasurementDeviceId = s.SensorId
 	JOIN @Changed as c ON sl.LoggerToCalibratorId = c.LoggerToCalibratorId

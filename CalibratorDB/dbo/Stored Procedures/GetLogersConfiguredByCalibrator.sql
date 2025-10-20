@@ -8,8 +8,15 @@ AS
 -- JiraLink: 
 -- =============================================
 BEGIN
-	DECLARE @Userid INT
-	SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+SET NOCOUNT ON;
+
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 	SELECT ltc.LoggerMeasurementDeviceId,
 	       ltc.FlowRate,	
@@ -18,6 +25,6 @@ BEGIN
 		   ltc.CommunicationDetails,
 		   SUM(1) OVER( PARTITION BY ltc.AssignedCalibratorId) as CountAssignedLoggers
 	FROM dbo.LoggerToCalibrator as ltc
-	WHERE ltc.AssignedCalibratorId = @Userid AND IsDeleted =0
+	WHERE ltc.AssignedCalibratorId = @LoggedInUserId AND IsDeleted =0
 
 END

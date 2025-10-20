@@ -45,8 +45,13 @@ BEGIN
 
 SET NOCOUNT ON;
 
-DECLARE @Userid INT
-SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 DROP TABLE IF EXISTS #parsedData
 
@@ -150,7 +155,7 @@ WHEN MATCHED AND (
 		SET  dest.[PrimaryMeasurmentUnitId] = source.[PrimaryMeasurmentUnitId]
 			,dest.[SecondaryMeasurmentUnitId] = source.[SecondaryMeasurmentUnitId]
 			,dest.[UpdatedDate] = GETDATE()
-			,dest.[UpdateUserID] = @Userid
+			,dest.[UpdateUserID] = @LoggedInUserId
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -167,7 +172,7 @@ WHEN NOT MATCHED BY TARGET
 			,source.[SensorMeasurementDeviceId]
 			,source.[PrimaryMeasurmentUnitId]
 			,source.[SecondaryMeasurmentUnitId]
-			,@Userid
+			,@LoggedInUserId
 			);
 
 END

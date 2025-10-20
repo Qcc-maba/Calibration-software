@@ -43,7 +43,13 @@ BEGIN
 
 SET NOCOUNT ON;
 
-DECLARE @LoggedInUserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @LoggedInUserEmail) 
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 if EXISTS (
 SELECT 1 FROM [dbo].[Users] as u
@@ -98,7 +104,8 @@ BEGIN TRY
 			   ,[UpdateUserID]
 			   ,[Stamp]
 			   ,[UserRoleId]
-			   ,[PositionId])
+			   ,[PositionId]
+			   ,[SourceId])
 		 VALUES(
 			 @FirstName
 			,@LastName 
@@ -112,6 +119,7 @@ BEGIN TRY
 			,@Stamp
 			,@UserRoleId
 			,@PositionId
+			,@SourceId
 			)
 
 	DECLARE @Userid INT

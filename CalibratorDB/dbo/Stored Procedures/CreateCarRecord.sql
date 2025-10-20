@@ -33,7 +33,13 @@ BEGIN
 
 SET NOCOUNT ON;
 
-DECLARE @LoggedInUserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @LoggedInUserEmail) 
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 DROP TABLE IF EXISTS #AssociatedEquipmentIDs
 CREATE TABLE #AssociatedEquipmentIDs
@@ -94,6 +100,7 @@ BEGIN TRY
 			   ,[OwnerId]
 			   ,[CarStatusId]
 			   ,[UpdateUserID]
+			   ,[SourceId]
 			   )
 		 VALUES
 		   (
@@ -106,7 +113,8 @@ BEGIN TRY
 		   @AssignedCalibrator,
 		   @Owner,
 		   COALESCE(@Status,0),
-		   @LoggedInUserId
+		   @LoggedInUserId,
+		   @SourceId
 		   )
 
 	SELECT @CarId = SCOPE_IDENTITY()

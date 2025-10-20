@@ -18,9 +18,13 @@ CREATE   PROCEDURE [dbo].[CreateCalendarEvent]
 AS
 BEGIN
 
-DECLARE @Userid INT = 0
-IF @LoggedInUserEmail IS NOT NULL
-SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 DROP TABLE IF EXISTS #ParticipantIDs
 CREATE TABLE #ParticipantIDs
@@ -52,12 +56,12 @@ BEGIN TRY
 	BEGIN TRANSACTION
 
 	INSERT dbo.CalendarEvents (EventTypeId,StartDate,EndDate,Comments,UpdateUserID)
-	VALUES (@EventTypeId,@StartDate,@EndDate,@Comments,@Userid)
+	VALUES (@EventTypeId,@StartDate,@EndDate,@Comments,@LoggedInUserId)
 
 	SELECT @CalendarEventId = SCOPE_IDENTITY()  
 
 	INSERT dbo.CalendarEventsToParticipants (CalendarEventId,UserId,UpdateUserID)
-	SELECT DISTINCT @CalendarEventId, ParticipantId,@Userid
+	SELECT DISTINCT @CalendarEventId, ParticipantId,@LoggedInUserId
 	FROM #ParticipantIDs
 
 

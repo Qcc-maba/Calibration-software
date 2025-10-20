@@ -20,14 +20,19 @@ CREATE    PROCEDURE [dbo].[AssignMeasurmentDevicesToCalibrator]
 AS
 BEGIN
 
-DECLARE @Userid INT
-SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 
 if NOT EXISTS (
 SELECT 1 FROM dbo.Users as u
 JOIN dbo.UserRoles as ur ON u.UserRoleId = ur.UserRoleId
-WHERE u.ID = @Userid AND ur.UserRoleName IN (N'SuperAdmin',N'ExternalCalibrator',N'Calibrator')
+WHERE u.ID = @LoggedInUserId AND ur.UserRoleName IN (N'SuperAdmin',N'ExternalCalibrator',N'Calibrator')
 )
 THROW 51000, 'Incorrect user email passed. User is not a calibrator.', 1;
 
@@ -64,13 +69,13 @@ BEGIN TRY
 	MERGE INTO [dbo].[LoggerToCalibrator] AS dest
 	USING (
 		SELECT 
-			 @Userid as [AssignedCalibratorId]
+			 @LoggedInUserId as [AssignedCalibratorId]
 			,@FlowRate as [FlowRate]
 			,@Interval as [Interval]
 			,@LoggerMeasurementDeviceId as [LoggerMeasurementDeviceId]
 			,@CommunicationProtocol as [CommunicationProtocol]
 			,@CommunicationDetails as [CommunicationDetails]
-			,@Userid as [UpdateUserID]
+			,@LoggedInUserId as [UpdateUserID]
 		) AS source
 		ON 
 			dest.[AssignedCalibratorId] = source.[AssignedCalibratorId] 
@@ -113,7 +118,7 @@ BEGIN TRY
 
 	DECLARE @LoggerToCalibratorId INT = 0
 	SELECT @LoggerToCalibratorId = l.LoggerToCalibratorId FROM [dbo].[LoggerToCalibrator] as l 
-		WHERE l.[AssignedCalibratorId] = @Userid AND l.[LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
+		WHERE l.[AssignedCalibratorId] = @LoggedInUserId AND l.[LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
 
 
 	MERGE INTO [dbo].[SensorToLoggerToCalibrator] AS dest
@@ -123,7 +128,7 @@ BEGIN TRY
 			,@SensorMeasurementDeviceId AS [SensorMeasurementDeviceId]
 			,@UnitId AS [UnitId]
 			,@WorkRangeUnitId as [WorkRangeUnitId]
-			,@Userid as [UpdateUserID]
+			,@LoggedInUserId as [UpdateUserID]
 		) AS source
 		ON dest.[LoggerToCalibratorId] = source.[LoggerToCalibratorId] 
 		   AND dest.[SensorMeasurementDeviceId] = source.[SensorMeasurementDeviceId]
@@ -161,7 +166,7 @@ BEGIN TRY
 
 	UPDATE dest
 	SET  dest.[UpdatedDate] = GETDATE()
-		,dest.[UpdateUserID] = @Userid
+		,dest.[UpdateUserID] = @LoggedInUserId
 		,dest.[IsDeleted] = 1
 	FROM [dbo].[ChannelsToSensorForCalibratoration] as dest
 	LEFT JOIN #Channels as c ON dest.[SensorToLoggerToCalibratorId] = @SensorToLoggerToCalibratorId
@@ -175,7 +180,7 @@ BEGIN TRY
 		SELECT 
 		     @SensorToLoggerToCalibratorId as [SensorToLoggerToCalibratorId]
 			,ch.[ChannelNumber]
-			,@Userid as [UpdateUserID]
+			,@LoggedInUserId as [UpdateUserID]
 		FROM #Channels as ch
 		) AS source
 		ON dest.[SensorToLoggerToCalibratorId] = source.[SensorToLoggerToCalibratorId]

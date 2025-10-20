@@ -277,6 +277,7 @@
     <Build Include="stg\Tables\stg_ClientAccessoryOrderDetails.sql" />
     <Build Include="dbo\Tables\ClientAccessoryOrderDetails.sql" />
     <Build Include="stg\Stored Procedures\MergeClientAccessoryOrderDetails.sql" />
+    <Build Include="dbo\Functions\GetSourceFilterByEmail.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

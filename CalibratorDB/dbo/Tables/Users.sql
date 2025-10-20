@@ -18,8 +18,10 @@
     [UserRoleId]   INT            NULL,
     [PositionId]   INT            NULL,
     [UserSourceId] INT            NULL,
+    [SourceId]     TINYINT        NULL,
     CONSTRAINT [PK_Users] PRIMARY KEY CLUSTERED ([ID] ASC),
     CONSTRAINT [FK_Users_PositionId] FOREIGN KEY ([PositionId]) REFERENCES [dbo].[Statuses] ([StatusId]),
+    CONSTRAINT [FK_Users_SourceId] FOREIGN KEY ([SourceId]) REFERENCES [dbo].[Source] ([SourceId]),
     CONSTRAINT [FK_Users_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_Users_UserRoleId] FOREIGN KEY ([UserRoleId]) REFERENCES [dbo].[UserRoles] ([UserRoleId])
 );

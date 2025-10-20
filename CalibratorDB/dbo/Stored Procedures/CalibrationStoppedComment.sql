@@ -20,8 +20,13 @@ BEGIN
 
 SET NOCOUNT ON;
 
-DECLARE @Userid INT
-SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 DECLARE @StatusCategoryId INT
 SELECT @StatusCategoryId = s.StatusCategoryId
@@ -32,7 +37,7 @@ WHERE sc.StatusDescriptionENG = N'CalibrationStatuses' AND s.StatusDescriptionEN
 UPDATE [dbo].[OrderDetailsItems]
 SET CalibrationStoppedComment = @CalibrationStoppedComment,
 	CalibrationStatusId = @StatusCategoryId,
-	UpdateUserID = @Userid,
+	UpdateUserID = @LoggedInUserId,
 	UpdatedDate = GETDATE()
 WHERE OrderDetailsItemId = @OrderDetailsItemId
 

@@ -34,9 +34,13 @@ BEGIN
 
 SET NOCOUNT ON;
 
-DECLARE @Userid INT = 0
-IF @LoggedInUserEmail IS NOT NULL
-SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 if NOT EXISTS (
 SELECT 1 FROM [dbo].[MeasurementDevices]
@@ -84,13 +88,13 @@ BEGIN TRY
 			  ,[SubClassId] = NULL
 			  ,[NextCalibration] = @NextCalibrationDate
 			  ,[UpdateDate] = GETDATE()
-			  ,[UpdateUserID] = @Userid
+			  ,[UpdateUserID] = @LoggedInUserId
 		 WHERE ID = @ID
 
 		IF @PrevCarId IS NOT NULL 
 			UPDATE [dbo].[CarsToEquipment]
 				SET [CarId] = COALESCE(@CarId,[CarId])
-				   ,[UpdateUserID] = @Userid
+				   ,[UpdateUserID] = @LoggedInUserId
 				   ,[UpdatedDate] = GETDATE()
 				   ,[IsDeleted] = IIF(@CarId IS NULL,1,0)
 			WHERE [CarId] = @PrevCarId AND [MeasurementDeviceId] = @ID AND IsDeleted = 0
@@ -98,7 +102,7 @@ BEGIN TRY
 		IF @CarId IS NOT NULL
 		 AND NOT EXISTS (SELECT 1 FROM [dbo].[CarsToEquipment] WHERE [CarId] = @CarId AND [MeasurementDeviceId] = @ID AND IsDeleted = 0) 
 		INSERT [dbo].[CarsToEquipment]([CarId],[MeasurementDeviceId],[UpdateUserID])
-		VALUES (@CarId,@ID,@Userid)
+		VALUES (@CarId,@ID,@LoggedInUserId)
 
 	COMMIT
 END TRY

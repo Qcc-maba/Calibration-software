@@ -59,6 +59,7 @@ odi.[MeasurementValueList],
 odi.[ProductLocation],
 e.[EquipmentNames],
 scs.[StatusDescriptionENG] as [CalibrationStatus],
+scs.[StatusDescriptionHEB] as [CalibrationStatusHEB],
 ROW_NUMBER() OVER( PARTITION BY odi.OrderDetailId ORDER BY odi.OrderDetailId) as rn
  FROM [dbo].[OrderWorkPlans] as wp 
 JOIN  [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId
@@ -114,7 +115,8 @@ r.[MeasurementPoints],
 r.[MeasurementValueList],	
 r.[ProductLocation],
 r.[EquipmentNames],
-r.[CalibrationStatus]
+r.[CalibrationStatus],
+r.[CalibrationStatusHEB]
 FROM  numbers as n
 LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt 
 LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[OrdersProductTypeId]

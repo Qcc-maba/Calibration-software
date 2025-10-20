@@ -14,9 +14,13 @@ CREATE    PROCEDURE [dbo].[EditCarAssigmentToOrder]
 AS
 BEGIN
 
-DECLARE @Userid INT
-IF @LoggedInUserEmail IS NOT NULL
-SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 DROP TABLE IF EXISTS #QuartersOfDay
 CREATE TABLE #QuartersOfDay
@@ -56,7 +60,7 @@ SET AssignQuater0 = IIF(@part0db = 0,NULL,AssignQuater0),
 	AssignQuater2 = IIF(@part2db = 0,NULL,AssignQuater2),
 	AssignQuater3 = IIF(@part3db = 0,NULL,AssignQuater3),
 	UpdatedDate = GETDATE(),
-	UpdateUserID = @Userid
+	UpdateUserID = @LoggedInUserId
 WHERE CarId = @CarID AND AssignDate = @Date
 
 END

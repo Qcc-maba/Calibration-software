@@ -1,6 +1,7 @@
 ﻿CREATE TABLE [dbo].[Source] (
-    [SourceId]   TINYINT       IDENTITY (1, 1) NOT NULL,
-    [SourceName] NVARCHAR (50) NULL,
+    [SourceId]    TINYINT       IDENTITY (1, 1) NOT NULL,
+    [SourceName]  NVARCHAR (50) NULL,
+    [EmailDomain] NVARCHAR (50) DEFAULT ('') NOT NULL,
     CONSTRAINT [PK_Source] PRIMARY KEY CLUSTERED ([SourceId] ASC)
 );
 

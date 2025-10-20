@@ -16,9 +16,13 @@ EXEC dbo.AssignEquipmentToOrder @OrderID = 'SO25000153', @EquipmentIDs = '578,57
 AS
 BEGIN
 
-DECLARE @Userid INT = 0
-SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
 
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 IF @CheckDate IS NULL SET @CheckDate = GETDATE()
 
 SET NOCOUNT ON;
@@ -46,7 +50,7 @@ SELECT @OrderWorkPlanId = OrderWorkPlanId FROM [dbo].[OrderWorkPlans] WHERE Orde
 
 
 UPDATE [dbo].[MeasurementDevicesToOrderHeaders]
-SET IsDeleted = 1, UpdateUserID = @Userid
+SET IsDeleted = 1, UpdateUserID = @LoggedInUserId
 WHERE OrderWorkPlanId = @OrderWorkPlanId
 
 IF (SELECT COUNT(*) FROM #AssociatedEquipmentIDs WHERE EquipmentId > 0) >= 1
@@ -62,7 +66,7 @@ SELECT
     @OrderWorkPlanId,
 	EquipmentId,
 	@CheckDate,
-	@Userid
+	@LoggedInUserId
 FROM #AssociatedEquipmentIDs as aei
 
 

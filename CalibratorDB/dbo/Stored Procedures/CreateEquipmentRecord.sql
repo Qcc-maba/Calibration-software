@@ -31,9 +31,13 @@ BEGIN
 
 SET NOCOUNT ON;
 
-DECLARE @Userid INT = 0
-IF @LoggedInUserEmail IS NOT NULL
-SELECT @Userid = ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 if @MainCategoryId IS NOT NULL AND NOT EXISTS (
 SELECT 1 FROM [dbo].[MainCategories]
@@ -74,6 +78,7 @@ BEGIN TRY
 				   ,[SubClassId]
 				   ,[NextCalibration]
 				   ,[UpdateUserID]
+				   ,[SourceId]
 				   )
 		VALUES 
 		(
@@ -87,7 +92,8 @@ BEGIN TRY
 		,NULL
 		,NULL
 		,NULLIF(@NextCalibrationDate,'1900-01-01')
-		,@Userid
+		,@LoggedInUserId
+		,@SourceId
 		)
 		DECLARE @EquipmentId INT
 		SELECT @EquipmentId = SCOPE_IDENTITY()
@@ -101,7 +107,7 @@ BEGIN TRY
 			SELECT 
 				@CarId ,
 				@EquipmentId,
-				@Userid
+				@LoggedInUserId
 	COMMIT
 END TRY
 
