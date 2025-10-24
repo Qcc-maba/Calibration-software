@@ -47,9 +47,9 @@ BEGIN
 	/*-------------------------------------------------*/
 	DECLARE @ExtIntFilter BIT = NULL
 
-	IF @Page IN ('external-schedule','external-orders') SET @ExtIntFilter = 0 -- IsInHouse = 0 for external orders
+	IF @Page IN (N'external-schedule',N'external-orders') SET @ExtIntFilter = 0 -- IsInHouse = 0 for external orders
 
-	IF @Page IN ('internal-orders') SET @ExtIntFilter = 1 -- IsInHouse = 0 for internal orders
+	IF @Page IN (N'internal-orders') SET @ExtIntFilter = 1 -- IsInHouse = 0 for internal orders
 
 	/*-------------------------------------------------*/
 
