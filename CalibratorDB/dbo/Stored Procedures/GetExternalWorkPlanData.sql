@@ -136,12 +136,18 @@ BEGIN
 	JOIN [dbo].[Statuses] as s ON c.StatusCategoryId = s.StatusCategoryId
 	WHERE c.StatusDescriptionENG = N'ClientConfirmationStatus' AND s.StatusDescriptionENG = N'Pending'
 
+	DECLARE @StatusesForOrders NVARCHAR(MAX)
+
+	SELECT @StatusesForOrders=STRING_AGG(s.StatusId,',')
+	FROM [Calibrator].[dbo].[Statuses] as s
+	JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
+	WHERE sc.StatusDescriptionENG='OrderStatus' AND s.StatusDescriptionENG <> 'Executed'
 
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 'SELECT wp.[OrderNumber] AS [OrderNumber],
-        MAX(od.[ActualCalibrationDate]) AS [CalibDate],
-		MAX(wp.[CustomerId]) as [CustomerId], 
+        wp.AssigmentDate AS [CalibDate],
+		wp.[CustomerId] as [CustomerId], 
         spc.[SpecialCares],
         c.[CustomerName] as [ClientName],
         c.[CustomerCity] as [Location],
@@ -154,11 +160,7 @@ CONCAT(
 		cwp.Calibrators,
         wp.Notes as Notes,
 		STRING_AGG(mcf.[MainCategoryName],'','') as MainCategory,
-		--STRING_AGG(scf.[SecondaryCategoryName],'','')  AS SecondCategory,
 		wp.[IsCancelled],
-	--	STRING_AGG(od.SerialNumber,'','') AS DeviceNumber,
-	--	STRING_AGG(dm.OrdersDeviceManufacturerDescription,'','') AS DeviceManufacturer,
-	--	STRING_AGG(od.DeviceModel,'','') AS DeviceModel,
 	    COALESCE(MAX(clst.StatusDescriptionENG),''',@ClientConfirmationStatusDefault,''') as ClientConfirmationStatus,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
@@ -208,7 +210,7 @@ CONCAT(
 	 FROM [dbo].[OrderDetails] WHERE IsInHouse = 0 
 	 GROUP BY OrderWorkPlanId 
 	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
-	WHERE od.IsInHouse = 0'
+	WHERE od.IsInHouse = 0 AND wp.OrderOverallStatusId IN(',@StatusesForOrders,')'
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
 	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND od.ActualCalibrationDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Location  IS NOT NULL THEN ' AND c.CustomerCity LIKE N''%'+@Location +'%'' 'ELSE ' ' END
@@ -222,7 +224,9 @@ CONCAT(
 	,CASE WHEN @WorkPlanOpenDate IS NOT NULL THEN ' AND wp.WorkPlanOpenDate = '''+CAST(@WorkPlanOpenDate as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Notes IS NOT NULL THEN ' AND wp.Notes LIKE N''%'+ @Notes +'%'''ELSE ' ' END
 	
-	,'GROUP BY wp.[OrderNumber], 
+	,'GROUP BY wp.AssigmentDate,
+	wp.[CustomerId],
+	wp.[OrderNumber], 
 	spc.[SpecialCares],
 	c.[CustomerName], 
 	c.[CustomerCity],

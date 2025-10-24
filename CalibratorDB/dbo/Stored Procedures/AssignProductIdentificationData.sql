@@ -24,7 +24,8 @@ CREATE   PROCEDURE [dbo].[AssignProductIdentificationData]
 @MeasurementPoints INT= NULL,
 @MeasurementValueList NVARCHAR(MAX) = NULL,
 @CalibrationProcessComment NVARCHAR(MAX) = NULL,
-@OrderLineCnt_new INT = NULL
+@OrderLineCnt_new INT = NULL,
+@Accuracy TINYINT = NULL
 AS
 BEGIN 
 
@@ -52,6 +53,7 @@ BEGIN
 					   ,[MeasurementValueList]
 					   ,[CreatedDate]
 					   ,[CreatedByUserId]
+					   ,[Accuracy]
 					)
 				 SELECT
 					@OrderDetailId,	
@@ -71,7 +73,8 @@ BEGIN
 					@MeasurementPoints,
 					@MeasurementValueList,
 					GETDATE(),
-					@UserId
+					@UserId,
+					@Accuracy
 
 				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
 
@@ -103,6 +106,7 @@ BEGIN
 			,[MeasurementValueList] = @MeasurementValueList
 			,[UpdatedDate] = GETDATE()
 			,[UpdateUserID] = @UserId
+			,[Accuracy] = @Accuracy
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
 	IF NOT EXISTS (SELECT 1 FROM [dbo].[CalibrationProcessComments] WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted))

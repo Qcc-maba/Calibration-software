@@ -71,7 +71,7 @@ FROM #AssociatedEquipmentIDs as aei
 
 
 UPDATE [dbo].OrderWorkPlans
-SET WorkPlanOpenDate = @CheckDate
+SET AssigmentDate = @CheckDate
 WHERE OrderWorkPlanId = @OrderWorkPlanId
 
 END
