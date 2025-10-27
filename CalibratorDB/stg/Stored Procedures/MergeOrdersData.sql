@@ -43,7 +43,14 @@ SELECT DISTINCT
 	    ,o.[CustomerPackingExists]
 	    ,o.[ActualReturnDate]
 	    ,o.[ExpectedReturnDate]
-	    ,o.[PackageLocation]
+	    ,CASE o.[PackageLocation]
+			 WHEN N'A' THEN N'אזור א'
+			 WHEN N'B' THEN N'אזור ב'
+			 WHEN N'C' THEN N'אזור ג'
+			 WHEN N'D' THEN N'אזור ד'
+			 WHEN N'E' THEN N'אזור ה'
+         ELSE NULL
+         END AS [PackageLocation]		
 		FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as ss ON o.[SourceSystem] = ss.SourceName
     LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = ss.SourceId and c.IsDeleted = 0

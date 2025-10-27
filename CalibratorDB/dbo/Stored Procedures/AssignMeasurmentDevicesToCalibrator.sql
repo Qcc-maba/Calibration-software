@@ -29,12 +29,12 @@ SELECT
 FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 
-if NOT EXISTS (
-SELECT 1 FROM dbo.Users as u
-JOIN dbo.UserRoles as ur ON u.UserRoleId = ur.UserRoleId
-WHERE u.ID = @LoggedInUserId AND ur.UserRoleName IN (N'SuperAdmin',N'ExternalCalibrator',N'Calibrator')
-)
-THROW 51000, 'Incorrect user email passed. User is not a calibrator.', 1;
+--if NOT EXISTS (
+--SELECT 1 FROM dbo.Users as u
+--JOIN dbo.UserRoles as ur ON u.UserRoleId = ur.UserRoleId
+--WHERE u.ID = @LoggedInUserId AND ur.UserRoleName IN (N'SuperAdmin',N'ExternalCalibrator',N'Calibrator')
+--)
+--THROW 51000, 'Incorrect user email passed. User is not a calibrator.', 1;
 
 if NOT EXISTS (
 SELECT 1 FROM dbo.MeasurementDevices as md

@@ -17,7 +17,7 @@
     [CustomerPackingExists]      BIT            NULL,
     [ActualReturnDate]           DATETIME2 (0)  NULL,
     [ExpectedReturnDate]         DATETIME2 (0)  NULL,
-    [PackageLocation]            NCHAR (1)      NULL,
+    [PackageLocation]            NVARCHAR (20)  NULL,
     [AssigmentDate]              DATETIME2 (0)  NULL,
     CONSTRAINT [PK_OrderWorkPlans] PRIMARY KEY CLUSTERED ([OrderWorkPlanId] ASC),
     CONSTRAINT [FK_OrdersHeaders_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[Users] ([ID]),
