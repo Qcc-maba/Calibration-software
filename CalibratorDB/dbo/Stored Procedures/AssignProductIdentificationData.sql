@@ -54,6 +54,7 @@ BEGIN
 					   ,[CreatedDate]
 					   ,[CreatedByUserId]
 					   ,[Accuracy]
+					   ,[IsManuallyAdded]
 					)
 				 SELECT
 					@OrderDetailId,	
@@ -74,8 +75,8 @@ BEGIN
 					@MeasurementValueList,
 					GETDATE(),
 					@UserId,
-					@Accuracy
-
+					@Accuracy,
+					1
 				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
 
 		END

@@ -228,9 +228,9 @@ CONCAT(
 	 FROM [dbo].[OrderDetails] WHERE IsInHouse = 0 
 	 GROUP BY OrderWorkPlanId 
 	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
-	WHERE od.IsInHouse = 0 AND wp.OrderOverallStatusId IN(',@StatusesForOrders,')'
+	WHERE wp.OrderOverallStatusId IN(',@StatusesForOrders,')'
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
-	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND od.ActualCalibrationDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
+	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND wp.AssigmentDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Location  IS NOT NULL THEN ' AND c.CustomerCity LIKE N''%'+@Location +'%'' 'ELSE ' ' END
 	,CASE WHEN @ProductType IS NOT NULL THEN ' AND od.PartName LIKE N''%'+ @ProductType +'%'' 'ELSE ' ' END
 	,CASE WHEN @ProducedIn IS NOT NULL THEN ' AND dm.OrdersDeviceManufacturerDescription LIKE N''%'+ @ProducedIn +'%'' 'ELSE ' ' END
@@ -242,6 +242,9 @@ CONCAT(
 	,CASE WHEN @WorkPlanOpenDate IS NOT NULL THEN ' AND wp.WorkPlanOpenDate = '''+CAST(@WorkPlanOpenDate as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Notes IS NOT NULL THEN ' AND wp.Notes LIKE N''%'+ @Notes +'%'''ELSE ' ' END
 	,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
+	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL 
+		  THEN ' AND wp.[WorkPlanOpenDate] >= '''+CAST(@DateFrom AS NVARCHAR(MAX))+''' AND wp.[WorkPlanOpenDate] <= '''+CAST(@DateTo AS NVARCHAR(MAX))+''''
+	  ELSE ' ' END
 	,'GROUP BY wp.AssigmentDate,
 	wp.[CustomerId],
 	wp.[OrderNumber], 
@@ -257,9 +260,6 @@ CONCAT(
 	sp.StatusDescriptionENG,
 	sp.StatusDescriptionHEB, 
 	wp.[IsCancelled]'
-	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL 
-		  THEN ' HAVING MAX(od.ActualCalibrationDate) >= '''+CAST(@DateFrom AS NVARCHAR(MAX))+''' AND MAX(od.ActualCalibrationDate) <= '''+CAST(@DateTo AS NVARCHAR(MAX))+''''
-	  ELSE ' ' END
   ,  'ORDER BY ' , @OrderBy , CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT LEN(@sql)
 PRINT @sql

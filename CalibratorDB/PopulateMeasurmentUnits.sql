@@ -31,7 +31,7 @@ VALUES
 ,(N'K', N'K', N'Kelvin', N'K', N'K', N'קלווין ', NULL, NULL, 13, CAST(N'2025-09-02T19:03:17.0000000' AS DateTime2), NULL, 0, 0, N'טמפרטורה ולחות')
 ,(N'°C', N'°C', N'Celsius', N'°C', N'°C', N'מעלות צלסיוס', NULL, NULL, 14, CAST(N'2025-09-02T19:03:17.0000000' AS DateTime2), NULL, 0, 0, N'טמפרטורה ולחות')
 ,(N'°F', N'°F', N'Fahrenheit', N'°F', N'°F', N'מעלות פרנהייט', NULL, NULL, 17, CAST(N'2025-09-02T19:03:17.0000000' AS DateTime2), NULL, 0, 0, N'טמפרטורה ולחות')
-,(N'°R', N'°R', N'Rankine', N'°R', N'°R', N'מעלות רנקין', NULL, NULL, 17, CAST(N'2025-09-02T19:03:17.0000000' AS DateTime2), NULL, 0, 0, N'טמפרטורה ולחות')
+,(N'°R', N'°R', N'Rankine', N'°R', N'°R', N'מעלות רנקין', NULL, NULL, 18, CAST(N'2025-09-02T19:03:17.0000000' AS DateTime2), NULL, 0, 0, N'טמפרטורה ולחות')
 ,(N'Pa', N'Pa', N'Pascal', N'Pa', N'Pa', N'פסקל', NULL, N'1 Pa = 1 N/m² ', 23, CAST(N'2025-09-02T19:03:17.0000000' AS DateTime2), NULL, 0, 0, N'לחץ')
 ,(N'bar', N'bar', N'Bar', N'bar', N'bar', N'באר', NULL, N'1 bar=106 dyn/cm² ', 24, CAST(N'2025-09-02T19:03:17.0000000' AS DateTime2), NULL, 0, 0, N'לחץ')
 ,(N'at', N'at', N'technical atmosphere', N'at', N'at', N'אטמוספרה  טכנית', NULL, N'1 at = 1 kgf/cm²', 25, CAST(N'2025-09-02T19:03:17.0000000' AS DateTime2), NULL, 0, 0, N'לחץ')
