@@ -25,7 +25,7 @@ SELECT s.StatusId
   JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
 WHERE s.StatusDescriptionENG IN
 (
-'','',''
+'Available'
 ) AND sc.StatusDescriptionENG='CarStatus'
 
 /*Get all company mandatory events*/
@@ -78,7 +78,7 @@ SELECT
 FROM cte as dt
 CROSS JOIN [dbo].[Cars] as c
 WHERE DATEADD(DAY,d-1,@StartWeekDate) <= @EndWeekDate AND c.IsDeleted = 0
---AND c.CarStatusId IN (SELECT StatusId FROM #CarStatusesFilter)
+AND c.CarStatusId IN (SELECT StatusId FROM #CarStatusesFilter)
 
 SELECT dr.ID as CarId,
 	dr.MabaNumber,

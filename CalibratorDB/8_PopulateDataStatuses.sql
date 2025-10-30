@@ -48,7 +48,7 @@ USING (
 		('SpecialCare','','Urgent',N'דחוף '),
 		('CarStatus','','Available',N'תקין'),
 		('CarStatus','','Treatment',N'טיפול'),
-		('CarStatus','','Damage',N'פגום'),
+		('CarStatus','','UnAvailable',N'לא זמין'),
 		('CarStatus','','Sold',N'נמכר'),
 		('CalibrationEquipmentStatus','','Available',N'זמין '),
 		('CalibrationEquipmentStatus','','Treatment',N'טיפול'),
