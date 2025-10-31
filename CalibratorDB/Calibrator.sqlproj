@@ -278,6 +278,8 @@
     <Build Include="stg\Stored Procedures\MergeClientAccessoryOrderDetails.sql" />
     <Build Include="dbo\Functions\GetSourceFilterByEmail.sql" />
     <Build Include="dbo\Stored Procedures\GetWorkPlanData.sql" />
+    <Build Include="dbo\Tables\CarsTreatmentTracking.sql" />
+    <Build Include="dbo\Stored Procedures\utility_revertCarTreatmentStatus.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

@@ -106,7 +106,19 @@ END
 
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
-'SELECT c.[CarId]
+'
+;WITH GetLastTreatment
+AS
+(
+SELECT 
+	ct.[CarId],
+	ROW_NUMBER() OVER (PARTITION BY ct.[CarId] ORDER BY ct.[DateOfChange] DESC) AS rn,
+	ct.[TreatmentStartDate],
+	ct.[TreatmentEndDate]
+FROM [dbo].[CarsTreatmentTracking] as ct
+WHERE ct.[TreatmentStartDate] >= CAST(GETDATE() AS DATETIME2(0)) AND ct.[TreatmentEndDate] <= CAST(GETDATE() AS DATETIME2(0))
+)
+SELECT c.[CarId]
       ,c.[Model]
       ,c.[LicenseNumber]
       ,c.[Seats]
@@ -124,9 +136,12 @@ CONCAT(
 	  ,CONCAT(u.FirstNameEng,'' '', u.LastNameEng) as CalibratorFullNameENG
 	  ,STRING_AGG(ce.MeasurementDeviceId,'','') as EquipmentId
 	  ,STRING_AGG(e.Description,'','') as EquipmentName
+	  ,MIN(ct.[TreatmentStartDate]) as TreatmentStartDate
+	  ,MIN(ct.[TreatmentEndDate]) as TreatmentEndDate
 	  ,COUNT(1) OVER(PARTITION BY 1 ORDER BY c.[CarId] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
   FROM [dbo].[Cars] as c
   JOIN [dbo].[Statuses] as s ON c.[CarStatusId] = s.[StatusId]
+  LEFT JOIN GetLastTreatment as ct ON  c.[CarId] = ct.[CarId] AND ct.[rn] = 1
   LEFT JOIN [dbo].[Users] as u ON c.[AssignedCalibratorId] = u.[ID]
   LEFT JOIN [dbo].[Users] as u1 ON c.[OwnerId] = u1.[ID]
   LEFT JOIN [dbo].[CarsToEquipment] as ce ON c.[CarId] = ce.[CarId] AND ce.IsDeleted = 0'

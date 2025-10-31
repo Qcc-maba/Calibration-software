@@ -16,7 +16,9 @@ CREATE   PROCEDURE [dbo].[EditCarRecord]
 @NextTreatmentDate DATE = NULL,
 @NextTestDate DATE = NULL,
 @AssociatedEquipmentId NVARCHAR(200) = NULL,
-@LoggedInUserEmail NVARCHAR(50) = NULL
+@LoggedInUserEmail NVARCHAR(50) = NULL,
+@TreatmentStartDate DATE = NULL,
+@TreatmentEndDate DATE = NULL
 
 /*
 EXEC [dbo].[EditCarRecord] 
@@ -105,6 +107,77 @@ BEGIN TRY
 	INSERT [dbo].[CarsToEquipment](CarId, MeasurementDeviceId,UpdateUserID)
 	SELECT DISTINCT @CarId, EquipmentId, @LoggedInUserId
 	FROM #AssociatedEquipmentIDs
+
+
+	IF (@TreatmentStartDate IS NOT NULL AND @TreatmentEndDate IS NOT NULL)
+	BEGIN
+		-- In case if Treatment specified populate table for tracking and assing car status as treatment
+		INSERT [dbo].[CarsTreatmentTracking]
+		(
+			[CarId],
+			[DateOfChange],
+			[TreatmentStartDate],
+			[TreatmentEndDate],
+			[UpdateUserID]
+		)
+		SELECT 
+			@CarId,
+			GETDATE(),
+			@TreatmentStartDate,
+			@TreatmentEndDate,
+			@LoggedInUserId
+	   
+		UPDATE [dbo].[Cars]
+		SET [CarStatusId] = (
+				SELECT TOP 1 s.StatusId
+				FROM [dbo].[Statuses] AS s
+				JOIN [dbo].[StatusesCategories] AS c ON s.[StatusCategoryId] = c.[StatusCategoryId]
+				WHERE c.StatusDescriptionENG = 'CarStatus'
+					AND s.StatusDescriptionENG = 'Treatment'
+				)
+			,[UpdatedDate] = GETDATE()
+			,[UpdateUserID] = @LoggedInUserId
+		WHERE CarId = @CarId
+
+		DECLARE @UpdatedCarsAssigments TABLE (
+			[CarId] [int] NOT NULL,
+			[AssignDate] [datetime2](0) NOT NULL,
+			[AssignQuater0] [bit] NULL,
+			[AssignQuater1] [bit] NULL,
+			[AssignQuater2] [bit] NULL,
+			[AssignQuater3] [bit] NULL,
+			[OrderWorkPlanId] [int] NOT NULL
+		)
+
+		UPDATE [dbo].[CarsToOrder]
+		SET IsDeleted = 1
+			,UpdateUserID = @LoggedInUserId
+			,UpdatedDate = GETDATE()
+		OUTPUT DELETED.[CarId]
+			,DELETED.[AssignDate]
+			,DELETED.[AssignQuater0]
+			,DELETED.[AssignQuater1]
+			,DELETED.[AssignQuater2]
+			,DELETED.[AssignQuater3]
+			,DELETED.[OrderWorkPlanId]
+		INTO @UpdatedCarsAssigments
+		WHERE [IsDeleted] = 0
+			AND [AssignDate] >= @TreatmentStartDate 
+			AND [AssignDate] <= @TreatmentEndDate
+			AND [CarId] = @CarId
+
+		SELECT 
+			[CarId],
+			[AssignDate],
+			[AssignQuater0],
+			[AssignQuater1],
+			[AssignQuater2],
+			[AssignQuater3],
+			[OrderWorkPlanId]
+		FROM @UpdatedCarsAssigments
+
+	END
+
 	COMMIT
 END TRY
 
