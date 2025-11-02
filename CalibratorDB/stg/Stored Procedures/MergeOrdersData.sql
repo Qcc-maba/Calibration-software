@@ -113,7 +113,10 @@ USING (
 	SELECT DISTINCT
 	    wp.[OrderWorkPlanId]
 		,o.[SpecialCareTypeId]
-		,o.[InHouse] as [IsInHouse]
+		,CASE 
+			WHEN RIGHT(o.[PartName], 2) IN ('-7','-8') AND TRY_CAST(RIGHT(o.[PartName], 2) AS INT) IS NOT NULL THEN 0 
+			WHEN RIGHT(o.[PartName], 2) IN ('-0','-1') AND TRY_CAST(RIGHT(o.[PartName], 2) AS INT) IS NOT NULL THEN 1 
+		ELSE NULL END  as [IsInHouse]
 		,o.[PartName]
 		,o.[KLINE]
 		,o.[PART]
