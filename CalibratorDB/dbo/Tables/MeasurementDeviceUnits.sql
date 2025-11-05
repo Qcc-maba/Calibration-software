@@ -6,7 +6,6 @@
     [ShortNameHeAsc]                NVARCHAR (50)  NOT NULL,
     [ShortNameHe]                   NVARCHAR (50)  NOT NULL,
     [LongNameHe]                    NVARCHAR (100) NOT NULL,
-    [MeasurementDeviceUnitGroupId]  INT            NULL,
     [Note]                          NVARCHAR (500) NULL,
     [MeasurementDeviceUnitSourceId] INT            NULL,
     [CreatedDate]                   DATETIME2 (0)  DEFAULT (getdate()) NOT NULL,
@@ -14,9 +13,9 @@
     [IsDeleted]                     BIT            DEFAULT ((0)) NOT NULL,
     [UpdateUserID]                  INT            NULL,
     [MainCategoryId]                INT            NULL,
+    [MeasurementDeviceUnitGroupId]  INT            NULL,
     CONSTRAINT [PK_MeasurementDeviceUnits] PRIMARY KEY CLUSTERED ([MeasurementDeviceUnitId] ASC),
     CONSTRAINT [FK_MeasurementDeviceUnits_MainCategoryId] FOREIGN KEY ([MainCategoryId]) REFERENCES [dbo].[MainCategories] ([ID]),
-    CONSTRAINT [FK_MeasurementDeviceUnits_MeasurementDeviceUnitGroups] FOREIGN KEY ([MeasurementDeviceUnitGroupId]) REFERENCES [dbo].[MeasurementDeviceUnitGroups] ([MeasurementDeviceUnitGroupId]),
     CONSTRAINT [FK_MeasurementDeviceUnits_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
 

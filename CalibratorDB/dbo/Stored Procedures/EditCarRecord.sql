@@ -109,8 +109,19 @@ BEGIN TRY
 	FROM #AssociatedEquipmentIDs
 
 
-	IF (@TreatmentStartDate IS NOT NULL AND @TreatmentEndDate IS NOT NULL)
+	IF (@TreatmentStartDate IS NOT NULL AND @TreatmentEndDate IS NOT NULL
+	AND NOT EXISTS 
+	(
+		SELECT TOP 1 CarId
+		FROM [dbo].[CarsToOrder]
+		WHERE [IsDeleted] = 0
+			AND [AssignDate] >= @TreatmentStartDate 
+			AND [AssignDate] <= @TreatmentEndDate
+			AND [CarId] = @CarId
+	)
+	)
 	BEGIN
+
 		-- In case if Treatment specified populate table for tracking and assing car status as treatment
 		INSERT [dbo].[CarsTreatmentTracking]
 		(
@@ -139,49 +150,23 @@ BEGIN TRY
 			,[UpdateUserID] = @LoggedInUserId
 		WHERE CarId = @CarId
 
-		DECLARE @UpdatedCarsAssigments TABLE (
-			[CarId] [int] NOT NULL,
-			[AssignDate] [datetime2](0) NOT NULL,
-			[AssignQuater0] [bit] NULL,
-			[AssignQuater1] [bit] NULL,
-			[AssignQuater2] [bit] NULL,
-			[AssignQuater3] [bit] NULL,
-			[OrderWorkPlanId] [int] NOT NULL
-		)
-
-		UPDATE [dbo].[CarsToOrder]
-		SET IsDeleted = 1
-			,UpdateUserID = @LoggedInUserId
-			,UpdatedDate = GETDATE()
-		OUTPUT DELETED.[CarId]
-			,DELETED.[AssignDate]
-			,DELETED.[AssignQuater0]
-			,DELETED.[AssignQuater1]
-			,DELETED.[AssignQuater2]
-			,DELETED.[AssignQuater3]
-			,DELETED.[OrderWorkPlanId]
-		INTO @UpdatedCarsAssigments
-		WHERE [IsDeleted] = 0
-			AND [AssignDate] >= @TreatmentStartDate 
-			AND [AssignDate] <= @TreatmentEndDate
-			AND [CarId] = @CarId
-
-		SELECT 
-			[CarId],
-			[AssignDate],
-			[AssignQuater0],
-			[AssignQuater1],
-			[AssignQuater2],
-			[AssignQuater3],
-			[OrderWorkPlanId]
-		FROM @UpdatedCarsAssigments
-
 	END
 
+	ELSE 
+		THROW 51000, 'Status was not changed. Active orders assigments exists.', 1;
 	COMMIT
 END TRY
 
 BEGIN CATCH
 ROLLBACK
+
+	SELECT wp.OrderNumber, cto.AssignDate
+	FROM [dbo].[CarsToOrder] as cto
+	JOIN [dbo].[OrderWorkPlans] as wp ON cto.OrderWorkPlanId = wp.OrderWorkPlanId
+	WHERE [IsDeleted] = 0
+		AND [AssignDate] >= @TreatmentStartDate 
+		AND [AssignDate] <= @TreatmentEndDate
+		AND [CarId] = @CarId
+
 END CATCH
 END

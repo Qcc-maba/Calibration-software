@@ -124,7 +124,6 @@
     <Build Include="dbo\Stored Procedures\GetAllCars.sql" />
     <Build Include="dbo\Stored Procedures\GetAllEmployees.sql" />
     <Build Include="dbo\Stored Procedures\AssignCalibratorsToOrder.sql" />
-    <Build Include="dbo\Stored Procedures\GetCalibrationDeviceConfigurationData.sql" />
     <Build Include="dbo\Stored Procedures\CreateCarRecord.sql" />
     <Build Include="dbo\Stored Procedures\CreateEquipmentRecord.sql" />
     <Build Include="dbo\Stored Procedures\EditEquipmentRecord.sql" />
@@ -207,7 +206,6 @@
     <Build Include="stg\Tables\stg_MeasurementDeviceUnitGroups.sql" />
     <Build Include="stg\Tables\stg_MeasurementDevicesMainClasses.sql" />
     <Build Include="dbo\Tables\MeasurementDeviceUnits.sql" />
-    <Build Include="dbo\Tables\MeasurementDeviceUnitGroups.sql" />
     <Build Include="stg\Stored Procedures\MergeMeasurementDeviceUnitsData.sql" />
     <Build Include="stg\Stored Procedures\MergeMeasurementDeviceUnitGroupsData.sql" />
     <Build Include="stg\Stored Procedures\MergeMeasurementDevicesMainClasses.sql" />
@@ -218,7 +216,6 @@
     <Build Include="stg\Tables\stg_MeasurementDeviceParents.sql" />
     <Build Include="dbo\Tables\MeasurementsToMeasurmentUnits.sql" />
     <Build Include="dbo\Tables\MeasurementsSpecifications.sql" />
-    <Build Include="dbo\Tables\MeasurementDeviceParents.sql" />
     <Build Include="stg\Stored Procedures\MergeMeasurementsToMeasurmentUnitsData.sql" />
     <Build Include="stg\Stored Procedures\MergeMeasurementsData.sql" />
     <Build Include="stg\Stored Procedures\MergeMeasurementDevicesSubClassData.sql" />
@@ -280,6 +277,7 @@
     <Build Include="dbo\Stored Procedures\GetWorkPlanData.sql" />
     <Build Include="dbo\Tables\CarsTreatmentTracking.sql" />
     <Build Include="dbo\Stored Procedures\utility_revertCarTreatmentStatus.sql" />
+    <Build Include="dbo\Stored Procedures\deprecated_GetCalibrationDeviceConfigurationData.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

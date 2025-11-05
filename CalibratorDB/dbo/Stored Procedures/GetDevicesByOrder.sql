@@ -8,12 +8,29 @@ CREATE PROCEDURE [dbo].[GetDevicesByOrder] --'LA25102864'
 	@MainCategories NVARCHAR(MAX) = NULL,
 	@SecondaryCategories NVARCHAR(MAX) = NULL,
 	@DeviceManufacturer NVARCHAR(MAX) = NULL,
-	@DeviceModels NVARCHAR(MAX) = NULL
+	@DeviceModels NVARCHAR(MAX) = NULL,
+	@Page NVARCHAR(100) = 'coordinator-orders'
 AS
 BEGIN
 
-	SET NOCOUNT ON;
-	
+SET NOCOUNT ON;
+
+/*
+Filter logic by page
+/coordinator-orders - @page = ‘coordinator-orders’ 
+/external-schedule - @page = ‘external-schedule’
+/internal-orders - @page = ‘internal-orders’
+/calibration-wizard - @page = ‘calibration-wizard’ 
+/external-orders - @page = 'external-orders'
+*/
+/*-------------------------------------------------*/
+DECLARE @ExtIntFilter BIT = NULL
+
+IF @Page IN (N'external-schedule',N'external-orders',N'coordinator-orders') SET @ExtIntFilter = 0 -- IsInHouse = 0 for external orders
+
+IF @Page IN (N'internal-orders') SET @ExtIntFilter = 1 -- IsInHouse = 0 for internal orders
+
+/*-------------------------------------------------*/	
 
 DROP TABLE IF EXISTS #MainCategories
 CREATE TABLE #MainCategories
@@ -80,7 +97,9 @@ LEFT JOIN [dbo].[OrdersDeviceManufacturers] as odm ON itm.OrdersDeviceManufactur
 ,'
 WHERE OrderNumber = TRIM(''',@OrderNumber,''')
 
-')
+'
+,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
+)
 PRINT @sql
 EXEC sp_executesql @sql
 

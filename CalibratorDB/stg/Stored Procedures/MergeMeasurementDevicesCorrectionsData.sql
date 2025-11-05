@@ -9,7 +9,7 @@ AS
 BEGIN
 
 SET NOCOUNT ON;
-
+/*
 	
 	MERGE INTO [dbo].[MeasurementDevicesCorrections] AS dest
 	USING (
@@ -88,5 +88,5 @@ SET NOCOUNT ON;
 				,source.[MeasurementDevicesCorrectionsSourceId]
 				);
 
-
+				*/
 END

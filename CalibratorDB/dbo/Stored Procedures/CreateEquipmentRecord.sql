@@ -14,6 +14,7 @@ CREATE   PROCEDURE [dbo].[CreateEquipmentRecord]
 ,@NextCalibrationDate DATE = NULL
 ,@CarId INT = NULL
 ,@LoggedInUserEmail NVARCHAR(50) = NULL
+,@DisplayToCoordinator BIT NULL = 1
 
 /*
 EXEC dbo.CreateEquipmentRecord
@@ -79,6 +80,7 @@ BEGIN TRY
 				   ,[NextCalibration]
 				   ,[UpdateUserID]
 				   ,[SourceId]
+				   ,[DisplayToCoordinator]
 				   )
 		VALUES 
 		(
@@ -94,6 +96,7 @@ BEGIN TRY
 		,NULLIF(@NextCalibrationDate,'1900-01-01')
 		,@LoggedInUserId
 		,@SourceId
+		,@DisplayToCoordinator
 		)
 		DECLARE @EquipmentId INT
 		SELECT @EquipmentId = SCOPE_IDENTITY()

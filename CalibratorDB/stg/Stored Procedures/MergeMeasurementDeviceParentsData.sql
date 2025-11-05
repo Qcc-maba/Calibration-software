@@ -9,7 +9,7 @@ AS
 BEGIN
 
 SET NOCOUNT ON;
-
+/*
 UPDATE pd
 SET UpdatedDate = GETDATE(),
 	UpdateUserID = 0,
@@ -56,6 +56,6 @@ WHERE mdp.[ID] IS NULL
 				,source.[MeasurementDeviceParentsSourceId]
 				,source.[UpdateUserID]
 				);
-
+*/
 
 END

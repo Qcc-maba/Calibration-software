@@ -15,6 +15,7 @@ CREATE   PROCEDURE [dbo].[EditEquipmentRecord]
 ,@NextCalibrationDate DATE = NULL
 ,@CarId INT = NULL
 ,@LoggedInUserEmail NVARCHAR(50) = NULL
+,@DisplayToCoordinator BIT = NULL
 
 /*
 EXEC dbo.EditEquipmentRecord
@@ -89,6 +90,7 @@ BEGIN TRY
 			  ,[NextCalibration] = @NextCalibrationDate
 			  ,[UpdateDate] = GETDATE()
 			  ,[UpdateUserID] = @LoggedInUserId
+			  ,[DisplayToCoordinator] = @DisplayToCoordinator
 		 WHERE ID = @ID
 
 		IF @PrevCarId IS NOT NULL 

@@ -10,7 +10,7 @@ BEGIN
 
 SET NOCOUNT ON;
 
-	
+/*	
 	MERGE INTO [dbo].[MeasurementDevices] AS dest
 	USING (
 		SELECT 
@@ -186,5 +186,5 @@ SET NOCOUNT ON;
 		    md.UpdateDate = GETDATE()
 	FROM [dbo].[MeasurementDevices] as md
 	JOIN [stg].[stg_DataLoggerIP] as dip ON md.MabaID = dip.MABAId
-	WHERE COALESCE(md.[IP],'') <> COALESCE(dip.[IP],'')
+	WHERE COALESCE(md.[IP],'') <> COALESCE(dip.[IP],'')*/
 END

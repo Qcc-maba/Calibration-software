@@ -3,14 +3,14 @@
 -- Create date: 07/01/2025
 -- Description:	Get Calibration device configuration data 
 -- =============================================
-CREATE PROCEDURE [dbo].[GetCalibrationDeviceConfigurationData]
+CREATE PROCEDURE [dbo].[deprecated_GetCalibrationDeviceConfigurationData]
 	@DeviceNumber NVARCHAR(20)
 AS
 BEGIN
 	-- SET NOCOUNT ON added to prevent extra result sets from
 	-- interfering with SELECT statements.
 	SET NOCOUNT ON;
-
+/*
 	-- Insert statements for procedure here
 SELECT 
     dbo.MeasurementDevices.MabaID AS [Maba Number],
@@ -46,5 +46,5 @@ FROM
     LEFT OUTER JOIN [dbo].[MeasurementDeviceUnits]
         ON dbo.MeasurementDevices.UnitId = [dbo].[MeasurementDeviceUnits].MeasurementDeviceUnitId
 WHERE	(dbo.MeasurementDevices.MabaID = @DeviceNumber)
-
+*/
 END
