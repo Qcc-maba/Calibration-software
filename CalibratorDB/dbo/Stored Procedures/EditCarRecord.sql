@@ -17,8 +17,9 @@ CREATE   PROCEDURE [dbo].[EditCarRecord]
 @NextTestDate DATE = NULL,
 @AssociatedEquipmentId NVARCHAR(200) = NULL,
 @LoggedInUserEmail NVARCHAR(50) = NULL,
-@TreatmentStartDate DATE = NULL,
-@TreatmentEndDate DATE = NULL
+@DowntimePeriodStartDate DATE = NULL,
+@DowntimePeriodEndDate DATE = NULL,
+@CarIdForReassigment INT = NULL
 
 /*
 EXEC [dbo].[EditCarRecord] 
@@ -58,6 +59,8 @@ IF @StatusId IS NOT NULL AND @StatusId NOT IN (SELECT StatusId
 				JOIN [dbo].[StatusesCategories] as c On s.[StatusCategoryId] = c.[StatusCategoryId]
 				WHERE c.StatusDescriptionENG = 'CarStatus' )
 THROW 51000, 'Incorrect status was assigned.', 1;
+
+DECLARE @StatusDescription NVARCHAR(255) = (SELECT TOP 1 [StatusDescriptionENG] FROM [dbo].[Statuses] WHERE StatusId = @StatusId)
 
 DROP TABLE IF EXISTS #AssociatedEquipmentIDs
 CREATE TABLE #AssociatedEquipmentIDs
@@ -108,47 +111,55 @@ BEGIN TRY
 	SELECT DISTINCT @CarId, EquipmentId, @LoggedInUserId
 	FROM #AssociatedEquipmentIDs
 
-
-	IF (@TreatmentStartDate IS NOT NULL AND @TreatmentEndDate IS NOT NULL
+	IF (@DowntimePeriodStartDate IS NOT NULL AND @DowntimePeriodEndDate IS NOT NULL
 	AND NOT EXISTS 
 	(
 		SELECT TOP 1 CarId
 		FROM [dbo].[CarsToOrder]
 		WHERE [IsDeleted] = 0
-			AND [AssignDate] >= @TreatmentStartDate 
-			AND [AssignDate] <= @TreatmentEndDate
+			AND [AssignDate] >= @DowntimePeriodStartDate 
+			AND [AssignDate] <= @DowntimePeriodEndDate
 			AND [CarId] = @CarId
+			/*This check allow to skip reassing logic*/
+			AND 1 = IIF(@StatusDescription = N'Treatment',1,0)
+	)
+	AND NOT EXISTS 
+	(
+	SELECT 1 
+	FROM [dbo].[CarDowntimePeriodHistory]
+	WHERE [CarId] = @CarId 
+		AND [TreatmentStartDate] = @DowntimePeriodStartDate 
+		AND [TreatmentEndDate] = @DowntimePeriodEndDate
+		AND [StatusId] = @StatusId
 	)
 	)
 	BEGIN
 
 		-- In case if Treatment specified populate table for tracking and assing car status as treatment
-		INSERT [dbo].[CarsTreatmentTracking]
+		INSERT [dbo].[CarDowntimePeriodHistory]
 		(
 			[CarId],
 			[DateOfChange],
 			[TreatmentStartDate],
 			[TreatmentEndDate],
-			[UpdateUserID]
+			[UpdateUserID],
+			[StatusId]
 		)
 		SELECT 
 			@CarId,
 			GETDATE(),
-			@TreatmentStartDate,
-			@TreatmentEndDate,
-			@LoggedInUserId
+			@DowntimePeriodStartDate,
+			@DowntimePeriodEndDate,
+			@LoggedInUserId,
+			@StatusId
 	   
-		UPDATE [dbo].[Cars]
-		SET [CarStatusId] = (
-				SELECT TOP 1 s.StatusId
-				FROM [dbo].[Statuses] AS s
-				JOIN [dbo].[StatusesCategories] AS c ON s.[StatusCategoryId] = c.[StatusCategoryId]
-				WHERE c.StatusDescriptionENG = 'CarStatus'
-					AND s.StatusDescriptionENG = 'Treatment'
-				)
-			,[UpdatedDate] = GETDATE()
-			,[UpdateUserID] = @LoggedInUserId
-		WHERE CarId = @CarId
+		UPDATE cto
+		SET CarId = @CarIdForReassigment
+		FROM [dbo].[CarsToOrder] as cto
+		WHERE cto.[IsDeleted] = 0
+			AND cto.[AssignDate] >= @DowntimePeriodStartDate 
+			AND cto.[AssignDate] <= @DowntimePeriodEndDate
+			AND cto.CarId = @CarId
 
 	END
 
@@ -164,8 +175,8 @@ ROLLBACK
 	FROM [dbo].[CarsToOrder] as cto
 	JOIN [dbo].[OrderWorkPlans] as wp ON cto.OrderWorkPlanId = wp.OrderWorkPlanId
 	WHERE [IsDeleted] = 0
-		AND [AssignDate] >= @TreatmentStartDate 
-		AND [AssignDate] <= @TreatmentEndDate
+		AND [AssignDate] >= @DowntimePeriodStartDate 
+		AND [AssignDate] <= @DowntimePeriodEndDate
 		AND [CarId] = @CarId
 
 END CATCH

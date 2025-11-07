@@ -4,7 +4,7 @@
 -- Description:	This SP designed for automatically roll back treatment status when current date more than TreatmentEndDate
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-363
 -- =============================================
-CREATE    PROCEDURE [dbo].[utility_revertCarTreatmentStatus]
+CREATE   PROCEDURE [dbo].[utility_revertCarStatus]
 AS
 
 SET NOCOUNT ON;
@@ -20,27 +20,26 @@ FROM [dbo].[Statuses] AS s
 JOIN [dbo].[StatusesCategories] AS c ON s.[StatusCategoryId] = c.[StatusCategoryId]
 WHERE c.StatusDescriptionENG = 'CarStatus'
 
-;WITH GetUpdatedStatus
+
+;WITH CarStatus
 AS
 (
-SELECT ca.CarId, st.TreatmentEndDate,
-IIF(GETDATE() > st.TreatmentEndDate,@AvailableStatusId,@TreatmentStatusId) as StatusId
-FROM [dbo].[Cars] as ca
-OUTER APPLY
+SELECT c.CarId, IIF(st.TreatmentEndDate < GETDATE(),@AvailableStatusId,-1) as CarStatusId
+FROM [dbo].[Cars] as c
+JOIN [dbo].[Statuses] as s ON c.CarStatusId = s.StatusId
+CROSS APPLY
 (
-SELECT TOP 1 c.TreatmentEndDate
-FROM  [dbo].[CarsTreatmentTracking] as c
-WHERE ca.CarId = c.CarId
-ORDER BY c.DateOfChange DESC
+SELECT TOP 1 ct.TreatmentEndDate
+FROM  [dbo].[CarDowntimePeriodHistory] as ct
+WHERE c.CarId = ct.CarId 
+ORDER BY ct.DateOfChange DESC
 ) as st
-WHERE 
-	ca.CarStatusId = @TreatmentStatusId
-	AND ca.IsDeleted = 0
-	AND st.TreatmentEndDate IS NOT NULL)
+WHERE s.StatusDescriptionENG IN (N'Treatment',N'UnAvailable')
+)
 UPDATE c
-SET CarStatusId = us.StatusId,
+SET
+    CarStatusId = @AvailableStatusId,
 	UpdatedDate	=GETDATE(),
 	UpdateUserID = 0
 FROM [dbo].[Cars] as c
-JOIN GetUpdatedStatus as us ON c.CarId = us.CarId
-WHERE c.CarStatusId <> us.StatusId
+JOIN CarStatus as cs On c.CarId = cs.CarId AND cs.CarStatusId > 0

@@ -114,9 +114,10 @@ SELECT
 	ct.[CarId],
 	ROW_NUMBER() OVER (PARTITION BY ct.[CarId] ORDER BY ct.[DateOfChange] DESC) AS rn,
 	ct.[TreatmentStartDate],
-	ct.[TreatmentEndDate]
-FROM [dbo].[CarsTreatmentTracking] as ct
---WHERE ct.[TreatmentStartDate] >= CAST(GETDATE() AS DATETIME2(0)) AND ct.[TreatmentEndDate] <= CAST(GETDATE() AS DATETIME2(0))
+	ct.[TreatmentEndDate],
+	s.[StatusDescriptionHEB]
+FROM [dbo].[CarDowntimePeriodHistory] as ct
+JOIN [dbo].[Statuses] as s ON ct.StatusId = s.StatusId
 )
 SELECT c.[CarId]
       ,c.[Model]
@@ -138,6 +139,7 @@ SELECT c.[CarId]
 	  ,STRING_AGG(e.Description,'','') as EquipmentName
 	  ,MIN(ct.[TreatmentStartDate]) as TreatmentStartDate
 	  ,MIN(ct.[TreatmentEndDate]) as TreatmentEndDate
+	  ,MIN(ct.[StatusDescriptionHEB]) as UnvailabilityStatus
 	  ,COUNT(1) OVER(PARTITION BY 1 ORDER BY c.[CarId] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
   FROM [dbo].[Cars] as c
   JOIN [dbo].[Statuses] as s ON c.[CarStatusId] = s.[StatusId]
