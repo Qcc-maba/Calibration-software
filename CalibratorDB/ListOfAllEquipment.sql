@@ -2036,7 +2036,6 @@ WHERE MainCategoryName = N'טמפרטורה ולחות'
 INSERT INTO [dbo].[MeasurementDevices]
            ([MabaID]
            ,[Description]
-           ,[ManufacturerId]
            ,[Model]
            ,[SerialNumber]
            ,[NextCalibration]
@@ -2059,10 +2058,10 @@ INSERT INTO [dbo].[MeasurementDevices]
            ,[DeviceRange]
            ,[LastCalibrationReport]
            ,[DisplayToCoordinator]
+		   ,[Manufacturer]
 		   )
 SELECT t.[ID] AS [MabaID]
 	,t.DeviceDescription AS [Description]
-	,mnf.ID AS [ManufacturerId]
 	,t.[Model] AS [Model]
 	,t.[ManufacturerSerialNumber] AS [SerialNumber]
 	,TRY_CAST(t.NextCalibrationDate AS DATETIME2(0)) AS [NextCalibration]
@@ -2121,8 +2120,8 @@ SELECT t.[ID] AS [MabaID]
 	,t.[DeviceRange] AS [DeviceRange]
 	,t.[LastCalibrationReport] AS [LastCalibrationReport]
 	,IIF(LEN([DisplayInArrangement]) > 0, 1, 0) AS [DisplayToCoordinator] 
+	,t.[Manufacturer]
 FROM #test AS t
-LEFT JOIN [dbo].[MeasurementDevicesManufacturers] AS mnf ON t.Manufacturer = mnf.Name
 LEFT JOIN [dbo].[MeasurementDevices] AS md ON t.[ID] = md.MabaID
 WHERE t.[Department] = N'טמפרטורה ולחות' AND md.MabaID IS NULL
 

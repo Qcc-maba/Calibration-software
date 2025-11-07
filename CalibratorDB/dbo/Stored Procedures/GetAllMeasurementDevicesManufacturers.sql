@@ -6,10 +6,9 @@
 -- Description:	Get all measurement devices manufacturers
 -- JiraLink: 
 -- =============================================
-CREATE   PROCEDURE  GetAllMeasurementDevicesManufacturers
+CREATE   PROCEDURE  [dbo].[GetAllMeasurementDevicesManufacturers]
 AS
-SELECT [ID]
-      ,[Name]
-      ,[Description]
-  FROM [dbo].[MeasurementDevicesManufacturers]
-  WHERE [IsDeleted] = 0
+SELECT DISTINCT
+       Manufacturer as Name
+  FROM [dbo].[MeasurementDevices]
+  WHERE [IsDeleted] = 0 AND Manufacturer IS NOT NULL

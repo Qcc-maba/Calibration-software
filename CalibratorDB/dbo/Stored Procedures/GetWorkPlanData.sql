@@ -50,7 +50,7 @@ BEGIN
 	IF @Page IN (N'external-schedule',N'external-orders',N'coordinator-orders') SET @ExtIntFilter = 0 -- IsInHouse = 0 for external orders
 
 	IF @Page IN (N'internal-orders') SET @ExtIntFilter = 1 -- IsInHouse = 0 for internal orders
-
+	--validator-orders
 	/*-------------------------------------------------*/
 
 	IF @OrderBy NOT IN 
@@ -166,6 +166,7 @@ CONCAT(
 'SELECT wp.[OrderNumber] AS [OrderNumber],
         wp.AssigmentDate AS [CalibDate],
 		wp.[CustomerId] as [CustomerId], 
+		wp.[OrderWorkPlanId],
         spc.[SpecialCares],
         c.[CustomerName] as [ClientName],
         c.[CustomerCity] as [Location],
@@ -248,6 +249,7 @@ CONCAT(
 	,'GROUP BY wp.AssigmentDate,
 	wp.[CustomerId],
 	wp.[OrderNumber], 
+	wp.[OrderWorkPlanId],
 	spc.[SpecialCares],
 	c.[CustomerName], 
 	c.[CustomerCity],

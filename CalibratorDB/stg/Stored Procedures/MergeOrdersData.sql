@@ -41,23 +41,25 @@ SELECT DISTINCT
 		,o.SourceOrderId
 		,os.StatusId as OrderOverallStatusId
 	    ,o.[CustomerPackingExists]
-	    ,o.[ActualReturnDate]
-	    ,o.[ExpectedReturnDate]
-	    ,CASE o.[PackageLocation]
-			 WHEN N'A' THEN N'אזור א'
-			 WHEN N'B' THEN N'אזור ב'
-			 WHEN N'C' THEN N'אזור ג'
-			 WHEN N'D' THEN N'אזור ד'
-			 WHEN N'E' THEN N'אזור ה'
-         ELSE NULL
-         END AS [PackageLocation]		
+	    ,MAX(o.[ActualReturnDate]) as [ActualReturnDate]
+	    ,MAX(o.[ExpectedReturnDate]) as [ExpectedReturnDate]
+	    ,o.[PackageLocation]
 		FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as ss ON o.[SourceSystem] = ss.SourceName
     LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = ss.SourceId and c.IsDeleted = 0
 	LEFT JOIN #OrderStatus AS os ON o.ORDSTATUS = os.Code
+	GROUP BY 	     
+	     o.ORDNAME
+		,o.OpenDate
+		,c.[CustomerId]
+		,o.SourceOrderId
+		,ss.[SourceId]
+		,o.SourceOrderId
+	    ,os.StatusId
+	    ,o.[CustomerPackingExists]	
+	    ,o.[PackageLocation] 
 	) AS source
 	ON dest.[OrderSourceId] = source.[OrderSourceId]
-	   AND dest.[OrderSourceId] = source.[OrderSourceId]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -96,7 +98,11 @@ WHEN NOT MATCHED BY TARGET
 			)
 WHEN MATCHED AND
 	(
-		  COALESCE(dest.[OrderOverallStatusId],0) <> COALESCE(source.[OrderOverallStatusId],0)
+		  COALESCE(dest.[OrderOverallStatusId],0) <> COALESCE(source.[OrderOverallStatusId],0) OR
+		  COALESCE(dest.[CustomerPackingExists],0) <> COALESCE(source.[CustomerPackingExists],0) OR
+		  COALESCE(dest.[ActualReturnDate],'1900-01-01') <> COALESCE(source.[ActualReturnDate],'1900-01-01') OR
+		  COALESCE(dest.[ExpectedReturnDate],'1900-01-01') <> COALESCE(source.[ExpectedReturnDate],'1900-01-01') OR
+		  COALESCE(dest.[PackageLocation],'') = COALESCE(source.[PackageLocation],'')
 	)
 	THEN
 		UPDATE
@@ -127,12 +133,18 @@ USING (
 		,o.OrderLineCnt
 		,pt.OrdersProductTypeId
 		,o.DeviceType 
+		,o.ShipTypeDesc	
+		,o.ProductLocation
+		,o.OrderDetailId as OrderDetailSourceId
+		,o.VPRICE	
+		,o.PRICE
 	FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as s ON o.SourceSystem = s.SourceName
 	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderSourceId = o.SourceOrderId AND wp.SourceId = s.SourceId 
 	LEFT JOIN [dbo].[OrdersProductTypes] as pt ON pt.OrdersProductTypeName = o.DeviceType and pt.IsDeleted = 0
+	WHERE o.OrderDetailId IS NOT NULL
 	) AS source
-	ON dest.[OrderWorkPlanId] = source.[OrderWorkPlanId] AND source.[KLINE] = dest.[KLINE] 
+	ON dest.[OrderWorkPlanId] = source.[OrderWorkPlanId] AND source.OrderDetailSourceId = dest.[OrderDetailSourceId] 
 WHEN MATCHED AND
 	(
 		  COALESCE(dest.[SpecialCareTypeId],0) <> COALESCE(source.[SpecialCareTypeId],0)
@@ -140,6 +152,9 @@ WHEN MATCHED AND
 		OR COALESCE(dest.[OrderLineCnt],0) <> COALESCE(source.[OrderLineCnt],0)
 		OR COALESCE(dest.OrdersProductTypeId,0) <> COALESCE(source.[OrdersProductTypeId],0)
 		OR COALESCE(dest.[PART],0) <> COALESCE(source.[PART],0)
+		OR COALESCE(dest.[ProductLocation],'')<> COALESCE(source.[ProductLocation],'')
+		OR COALESCE(dest.[VPRICE],0) <> COALESCE(source.[VPRICE],0)
+		OR COALESCE(dest.[PRICE],0) <> COALESCE(source.[PRICE],0)
 	)
 	THEN
 		UPDATE
@@ -150,6 +165,9 @@ WHEN MATCHED AND
 			,dest.[OrderLineCnt] = source.[OrderLineCnt]
 			,dest.[OrdersProductTypeId] = source.[OrdersProductTypeId]
 			,dest.[PART] = source.[PART]
+			,dest.[ProductLocation] = source.[ProductLocation]
+			,dest.[VPRICE] = source.[VPRICE]
+			,dest.[PRICE] = source.[PRICE]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -165,6 +183,10 @@ WHEN NOT MATCHED BY TARGET
 			,[OrderLineCnt]
 			,[OrdersProductTypeId]
 			,[PART]
+			,[OrderDetailSourceId]
+			,[ProductLocation]
+			,[VPRICE]	
+			,[PRICE]
 			)
 		VALUES (
 			 source.[OrderWorkPlanId]
@@ -179,6 +201,10 @@ WHEN NOT MATCHED BY TARGET
 			,source.[OrderLineCnt]
 			,source.[OrdersProductTypeId]
 			,source.[PART]
+			,source.[OrderDetailSourceId]
+			,source.[ProductLocation]
+			,source.[VPRICE]	
+			,source.[PRICE]
 			);
 
 	
@@ -213,22 +239,21 @@ USING (
 	LEFT JOIN [dbo].[SecondaryCategories] as sc ON o.SecondCategorySourceId = sc.SecondaryCategoryName and sc.IsDeleted = 0
 	LEFT JOIN [dbo].[OrdersDeviceManufacturers] as mf ON mf.OrdersDeviceManufacturerName = o.ManufacturerNumber and mf.IsDeleted = 0
 	LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = s.SourceId and c.IsDeleted = 0
-	WHERE o.[SERN] IS NOT NULL
+	WHERE o.[SERN] IS NOT NULL AND o.OrderDetailId IS NOT NULL
 	) AS source
 	ON dest.OrderDetailId = source.OrderDetailId AND source.[SERN] = dest.[SERN]
-/*WHEN MATCHED
+ WHEN MATCHED
 	THEN
 		UPDATE
 		SET  dest.[SerialNumber] = source.[SerialNumber]
 			,dest.[ManufacturerNumber] = source.[ManufacturerNumber]
 			,dest.[DeviceModel] = source.[DeviceModel]
 			,dest.[MbaReportNumber] = source.[MbaReportNumber]
-			,dest.[OrdersMainCategoryId] = source.[OrdersMainCategoryId]
-			,dest.[OrdersSecondaryCategoryId] = source.[OrdersSecondaryCategoryId]
+			,dest.[MainCategoryId] = source.[MainCategoryId]
+			,dest.[SecondaryCategoryId] = source.[SecondaryCategoryId]
 			,dest.[OrdersDeviceManufacturerId] = source.[OrdersDeviceManufacturerId]
-			,dest.[StatusId] = source.[StatusId]
 			,dest.[UpdatedDate] = source.[UpdatedDate]
-			,dest.[UpdateUserID] = source.[UpdateUserID]*/
+			,dest.[UpdateUserID] = source.[UpdateUserID]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (

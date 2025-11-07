@@ -15,6 +15,7 @@ CREATE   PROCEDURE [dbo].[CreateEquipmentRecord]
 ,@CarId INT = NULL
 ,@LoggedInUserEmail NVARCHAR(50) = NULL
 ,@DisplayToCoordinator BIT NULL = 1
+,@Manufacturer NVARCHAR(100) NULL
 
 /*
 EXEC dbo.CreateEquipmentRecord
@@ -81,6 +82,7 @@ BEGIN TRY
 				   ,[UpdateUserID]
 				   ,[SourceId]
 				   ,[DisplayToCoordinator]
+				   ,[Manufacturer]
 				   )
 		VALUES 
 		(
@@ -97,6 +99,7 @@ BEGIN TRY
 		,@LoggedInUserId
 		,@SourceId
 		,@DisplayToCoordinator
+		,@Manufacturer
 		)
 		DECLARE @EquipmentId INT
 		SELECT @EquipmentId = SCOPE_IDENTITY()

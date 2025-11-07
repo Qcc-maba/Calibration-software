@@ -24,7 +24,7 @@ SELECT c.[ID]
       -----------------------------
 	  ,op.OrderNumber as OrderNumber
 	  ,coh.OrderWorkPlanId as OrderId
-	  ,c.ManufacturerId
+	  ,c.Manufacturer
 FROM [dbo].[MeasurementDevices] as c
 LEFT JOIN [dbo].[MainCategories] as mmc ON c.[MainCategoryId] = mmc.ID
 LEFT JOIN [dbo].[Statuses] as s ON c.MeasurementDeviceStatusId = s.StatusId

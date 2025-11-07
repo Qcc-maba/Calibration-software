@@ -116,7 +116,7 @@ SELECT
 	ct.[TreatmentStartDate],
 	ct.[TreatmentEndDate]
 FROM [dbo].[CarsTreatmentTracking] as ct
-WHERE ct.[TreatmentStartDate] >= CAST(GETDATE() AS DATETIME2(0)) AND ct.[TreatmentEndDate] <= CAST(GETDATE() AS DATETIME2(0))
+--WHERE ct.[TreatmentStartDate] >= CAST(GETDATE() AS DATETIME2(0)) AND ct.[TreatmentEndDate] <= CAST(GETDATE() AS DATETIME2(0))
 )
 SELECT c.[CarId]
       ,c.[Model]

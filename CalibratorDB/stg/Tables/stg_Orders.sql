@@ -12,7 +12,7 @@
     [SecondCategorySourceId]     NVARCHAR (48)   NULL,
     [PartName]                   NVARCHAR (22)   NULL,
     [DeviceType]                 NVARCHAR (59)   NULL,
-    [MbaReportNumber]            INT             NULL,
+    [MbaReportNumber]            NVARCHAR (50)   NULL,
     [DeviceManufacturerSourceId] NVARCHAR (30)   NULL,
     [SourceSystem]               NVARCHAR (7)    NULL,
     [OrderLineCnt]               INT             NULL,
@@ -27,6 +27,8 @@
     [CustomerPackingExists]      BIT             NULL,
     [ActualReturnDate]           DATETIME2 (0)   NULL,
     [ExpectedReturnDate]         DATETIME2 (0)   NULL,
-    [PackageLocation]            NCHAR (1)       NULL
+    [PackageLocation]            NVARCHAR (50)   NULL,
+    [OrderDetailId]              INT             NULL,
+    [ShipTypeDesc]               NVARCHAR (100)  NULL
 );
 
