@@ -62,6 +62,9 @@ THROW 51000, 'Incorrect status was assigned.', 1;
 
 DECLARE @StatusDescription NVARCHAR(255) = (SELECT TOP 1 [StatusDescriptionENG] FROM [dbo].[Statuses] WHERE StatusId = @StatusId)
 
+IF( @StatusDescription IN (N'Treatment',N'UnAvailable') AND @DowntimePeriodStartDate IS NULL AND @DowntimePeriodEndDate IS NULL )
+THROW 51000, 'For statuses Treatment and UnAvailable date range should be provided.', 1;
+
 DROP TABLE IF EXISTS #AssociatedEquipmentIDs
 CREATE TABLE #AssociatedEquipmentIDs
 (
@@ -111,7 +114,7 @@ BEGIN TRY
 	SELECT DISTINCT @CarId, EquipmentId, @LoggedInUserId
 	FROM #AssociatedEquipmentIDs
 
-	IF (@DowntimePeriodStartDate IS NOT NULL AND @DowntimePeriodEndDate IS NOT NULL
+	IF (@DowntimePeriodStartDate IS NOT NULL AND @DowntimePeriodEndDate IS NOT NULL AND @StatusDescription IN (N'Treatment',N'UnAvailable')
 	AND NOT EXISTS 
 	(
 		SELECT TOP 1 CarId
@@ -160,11 +163,21 @@ BEGIN TRY
 			AND cto.[AssignDate] >= @DowntimePeriodStartDate 
 			AND cto.[AssignDate] <= @DowntimePeriodEndDate
 			AND cto.CarId = @CarId
-
+			SELECT @@ERROR;
 	END
 
-	ELSE 
-		THROW 51000, 'Status was not changed. Active orders assigments exists.', 1;
+	IF (@DowntimePeriodStartDate IS NOT NULL AND @DowntimePeriodEndDate IS NOT NULL AND @StatusDescription IN (N'Treatment')
+	AND EXISTS 
+	(
+		SELECT TOP 1 CarId
+		FROM [dbo].[CarsToOrder]
+		WHERE [IsDeleted] = 0
+			AND [AssignDate] >= @DowntimePeriodStartDate 
+			AND [AssignDate] <= @DowntimePeriodEndDate
+			AND [CarId] = @CarId
+			/*This check allow to skip reassing logic*/
+			AND 1 = IIF(@StatusDescription = N'Treatment',1,0)
+	) )	THROW 51000, 'Status was not changed. Active orders assigments exists.', 1;
 	COMMIT
 END TRY
 
@@ -178,6 +191,8 @@ ROLLBACK
 		AND [AssignDate] >= @DowntimePeriodStartDate 
 		AND [AssignDate] <= @DowntimePeriodEndDate
 		AND [CarId] = @CarId
+
+		
 
 END CATCH
 END

@@ -18,8 +18,8 @@
     [PART]                  INT             NULL,
     [ActualCalibrationDate] DATE            NULL,
     [ShipTypeDesc]          NVARCHAR (100)  NULL,
-    [ProductLocation]       NVARCHAR (100)  NULL,
     [OrderDetailSourceId]   INT             NULL,
+    [Doc]                   INT             NULL,
     CONSTRAINT [PK_OrderDetails] PRIMARY KEY CLUSTERED ([OrderWorkPlanId] ASC, [OrderDetailId] ASC),
     CONSTRAINT [FK_OrderDetails_OrdersProductTypeId] FOREIGN KEY ([OrdersProductTypeId]) REFERENCES [dbo].[OrdersProductTypes] ([OrdersProductTypeId]),
     CONSTRAINT [FK_OrderDetails_SpecialCareTypeId] FOREIGN KEY ([SpecialCareTypeId]) REFERENCES [dbo].[Statuses] ([StatusId])

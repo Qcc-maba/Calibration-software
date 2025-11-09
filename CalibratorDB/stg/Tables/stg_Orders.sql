@@ -29,6 +29,7 @@
     [ExpectedReturnDate]         DATETIME2 (0)   NULL,
     [PackageLocation]            NVARCHAR (50)   NULL,
     [OrderDetailId]              INT             NULL,
-    [ShipTypeDesc]               NVARCHAR (100)  NULL
+    [ShipTypeDesc]               NVARCHAR (100)  NULL,
+    [Doc]                        INT             NULL
 );
 

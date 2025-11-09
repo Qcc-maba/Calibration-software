@@ -137,8 +137,8 @@ SELECT c.[CarId]
 	  ,CONCAT(u.FirstNameEng,'' '', u.LastNameEng) as CalibratorFullNameENG
 	  ,STRING_AGG(ce.MeasurementDeviceId,'','') as EquipmentId
 	  ,STRING_AGG(e.Description,'','') as EquipmentName
-	  ,MIN(ct.[TreatmentStartDate]) as TreatmentStartDate
-	  ,MIN(ct.[TreatmentEndDate]) as TreatmentEndDate
+	  ,MIN(ct.[TreatmentStartDate]) as DowntimePeriodStartDate
+	  ,MIN(ct.[TreatmentEndDate]) as DowntimePeriodEndDate
 	  ,MIN(ct.[StatusDescriptionHEB]) as UnvailabilityStatus
 	  ,COUNT(1) OVER(PARTITION BY 1 ORDER BY c.[CarId] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
   FROM [dbo].[Cars] as c
