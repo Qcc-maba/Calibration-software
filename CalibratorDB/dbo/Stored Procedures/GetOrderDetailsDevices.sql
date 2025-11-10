@@ -1,4 +1,5 @@
-﻿-- =============================================
+﻿
+-- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 24/06/2025
 -- Description:	Get all devices assosiated to orders details
@@ -42,9 +43,9 @@ odi.[ManufacturerNumber],
 odi.[DeviceModel],
 odi.[AdditionalDeviceNumber],	
 odi.[MbaReportNumber],
-odi.[MainCategoryId],	
+od.[MainCategoryId],	
 omc.[MainCategoryName] as [OrdersMainCategory],
-odi.SecondaryCategoryId as [OrdersSecondaryCategoryId],
+od.SecondaryCategoryId as [OrdersSecondaryCategoryId],
 oc.[SecondaryCategoryName] as [OrdersSecondaryCategory],
 odi.[OrdersDeviceManufacturerId],	
 odf.[OrdersDeviceManufacturerDescription] as [OrdersDeviceManufacturer],
@@ -68,8 +69,8 @@ JOIN  [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId
 LEFT JOIN [dbo].[Customers] as cust ON wp.CustomerId = cust.CustomerId
 LEFT JOIN [dbo].[OrderDetailsItems] as odi ON od.OrderDetailId = odi.OrderDetailId
 LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.[OrdersProductTypeId] = opt.[OrdersProductTypeId]
-LEFT JOIN [dbo].[MainCategories] as omc ON odi.[MainCategoryId] = omc.ID
-LEFT JOIN [dbo].[SecondaryCategories] as oc ON odi.[SecondaryCategoryId] = oc.ID
+LEFT JOIN [dbo].[MainCategories] as omc ON od.[MainCategoryId] = omc.ID
+LEFT JOIN [dbo].[SecondaryCategories] as oc ON od.[SecondaryCategoryId] = oc.ID
 LEFT JOIN [dbo].[OrdersDeviceManufacturers] as odf ON odi.[OrdersDeviceManufacturerId] = odf.OrdersDeviceManufacturerId
 LEFT JOIN [dbo].[MeasurementsSpecifications] mc ON odi.[CalibrationSpecificationId] = mc.ID
 LEFT JOIN [dbo].[SpecificationReference] as sr ON odi.[SpecificationReferenceId] = sr.ID

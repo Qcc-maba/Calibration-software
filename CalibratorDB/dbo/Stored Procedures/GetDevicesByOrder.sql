@@ -3,7 +3,7 @@
 -- Create date: 06/03/2025
 -- Description:	Get devices by order number
 -- =============================================
-CREATE PROCEDURE [dbo].[GetDevicesByOrder] --'LA25102864'
+CREATE PROCEDURE [dbo].[GetDevicesByOrder]
 	@OrderNumber NVARCHAR(20),
 	@MainCategories NVARCHAR(MAX) = NULL,
 	@SecondaryCategories NVARCHAR(MAX) = NULL,
@@ -85,8 +85,8 @@ CONCAT(
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
 LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
-LEFT JOIN [dbo].[MainCategories] as mc ON itm.MainCategoryId = mc.ID
-LEFT JOIN [dbo].[SecondaryCategories] sc ON itm.SecondaryCategoryId = sc.ID
+LEFT JOIN [dbo].[MainCategories] as mc ON od.MainCategoryId = mc.ID
+LEFT JOIN [dbo].[SecondaryCategories] sc ON od.SecondaryCategoryId = sc.ID
 LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
 LEFT JOIN [dbo].[OrdersDeviceManufacturers] as odm ON itm.OrdersDeviceManufacturerId = odm.OrdersDeviceManufacturerId 
 '

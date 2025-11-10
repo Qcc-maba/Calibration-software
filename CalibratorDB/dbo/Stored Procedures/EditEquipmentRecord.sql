@@ -17,6 +17,7 @@ CREATE   PROCEDURE [dbo].[EditEquipmentRecord]
 ,@LoggedInUserEmail NVARCHAR(50) = NULL
 ,@DisplayToCoordinator BIT = NULL
 ,@Manufacturer NVARCHAR(100) NULL
+,@MabaID NVARCHAR(50)
 /*
 EXEC dbo.EditEquipmentRecord
 @ID = 1
@@ -92,6 +93,7 @@ BEGIN TRY
 			  ,[UpdateUserID] = @LoggedInUserId
 			  ,[DisplayToCoordinator] = @DisplayToCoordinator
 			  ,[Manufacturer] = @Manufacturer
+			  ,[MabaID] = @MabaID
 		 WHERE ID = @ID
 
 		IF @PrevCarId IS NOT NULL 

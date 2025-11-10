@@ -19,9 +19,12 @@
     [ActualCalibrationDate] DATE            NULL,
     [ShipTypeDesc]          NVARCHAR (100)  NULL,
     [OrderDetailSourceId]   INT             NULL,
-    [Doc]                   INT             NULL,
+    [MainCategoryId]        INT             NULL,
+    [SecondaryCategoryId]   INT             NULL,
     CONSTRAINT [PK_OrderDetails] PRIMARY KEY CLUSTERED ([OrderWorkPlanId] ASC, [OrderDetailId] ASC),
+    CONSTRAINT [FK_OrderDetails_OrdersMainCategoryId] FOREIGN KEY ([MainCategoryId]) REFERENCES [dbo].[MainCategories] ([ID]),
     CONSTRAINT [FK_OrderDetails_OrdersProductTypeId] FOREIGN KEY ([OrdersProductTypeId]) REFERENCES [dbo].[OrdersProductTypes] ([OrdersProductTypeId]),
+    CONSTRAINT [FK_OrderDetails_OrdersSecondaryCategoryId] FOREIGN KEY ([SecondaryCategoryId]) REFERENCES [dbo].[SecondaryCategories] ([ID]),
     CONSTRAINT [FK_OrderDetails_SpecialCareTypeId] FOREIGN KEY ([SpecialCareTypeId]) REFERENCES [dbo].[Statuses] ([StatusId])
 );
 

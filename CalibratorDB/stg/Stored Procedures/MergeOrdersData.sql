@@ -11,6 +11,46 @@ BEGIN
 
 SET NOCOUNT ON;
 
+/*Clean-up Main categories*/
+
+UPDATE t
+SET MainCategorySourceId =
+    CASE LTRIM(RTRIM(t.MainCategorySourceId))
+        WHEN N'אורך'                    THEN N'אורך וזווית'
+        WHEN N'אורך מדוייקים'           THEN N'אורך וזווית'
+        WHEN N'אל חמה'                  THEN N'NA'
+        WHEN N'אלקטרוניקה'              THEN N'אלקטרוניקה'
+        WHEN N'בדיקות דגם'              THEN N'NA'
+        WHEN N'גלאי גזים'               THEN N'גזים'
+        WHEN N'גפן'                     THEN N'NA'
+        WHEN N'זמן'                     THEN N'זמן'
+        WHEN N'טמפרטורה'                THEN N'טמפרטורה ולחות'
+        WHEN N'כח'                      THEN N'כוח'
+        WHEN N'לחות'                    THEN N'טמפרטורה ולחות'
+        WHEN N'לחץ'                     THEN N'לחץ'
+        WHEN N'ללא מחלקה'               THEN N'NA'
+        WHEN N'מאגנוס'                  THEN N'אלקטרוניקה'
+        WHEN N'מדידים'                  THEN N'אורך וזווית'
+        WHEN N'מהירות אוויר'            THEN N'מהירות אוויר'
+        WHEN N'מומנט'                   THEN N'מומנט'
+        WHEN N'מכונות'                  THEN N'NA'
+        WHEN N'מסה'                     THEN N'מסה'
+        WHEN N'מקבילונים'               THEN N'אורך וזווית'
+        WHEN N'נפח'                     THEN N'נפח'
+        WHEN N'סיבוב'                   THEN N'אורך וזווית'
+        WHEN N'ספיקה'                   THEN N'ספיקה'
+        WHEN N'קבלני משנה'              THEN N'NA'
+        WHEN N'קבלני משנה כללי'         THEN N'NA'
+        WHEN N'קושי'                    THEN N'קשיות'
+        WHEN N'רדיומטריה ופוטומטריה'    THEN N'רדיומטריה'
+        WHEN N'שירותי איכות ורגולציה'   THEN N'NA'
+        WHEN N'תעשיה אוירית'            THEN N'NA'
+        ELSE t.MainCategorySourceId
+    END
+FROM [stg].[stg_Orders] AS t;
+
+
+
 DROP TABLE IF EXISTS #OrderStatus
 CREATE TABLE #OrderStatus
 (
@@ -137,10 +177,14 @@ USING (
 		,o.OrderDetailId as OrderDetailSourceId
 		,o.VPRICE	
 		,o.PRICE
+		,mc.[ID] as [MainCategoryId]
+		,sc.ID as [SecondaryCategoryId]
 	FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as s ON o.SourceSystem = s.SourceName
 	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderSourceId = o.SourceOrderId AND wp.SourceId = s.SourceId 
 	LEFT JOIN [dbo].[OrdersProductTypes] as pt ON pt.OrdersProductTypeName = o.DeviceType and pt.IsDeleted = 0
+	LEFT JOIN [dbo].[MainCategories] as mc ON o.MainCategorySourceId = mc.MainCategoryName and mc.IsDeleted = 0
+	LEFT JOIN [dbo].[SecondaryCategories] as sc ON o.SecondCategorySourceId = sc.SecondaryCategoryName and sc.IsDeleted = 0
 	WHERE o.OrderDetailId IS NOT NULL
 	) AS source
 	ON dest.[OrderWorkPlanId] = source.[OrderWorkPlanId] AND source.OrderDetailSourceId = dest.[OrderDetailSourceId] 
@@ -153,6 +197,8 @@ WHEN MATCHED AND
 		OR COALESCE(dest.[PART],0) <> COALESCE(source.[PART],0)
 		OR COALESCE(dest.[VPRICE],0) <> COALESCE(source.[VPRICE],0)
 		OR COALESCE(dest.[PRICE],0) <> COALESCE(source.[PRICE],0)
+		OR COALESCE(dest.[MainCategoryId],0) = COALESCE(source.[MainCategoryId],0)
+		OR COALESCE(dest.[SecondaryCategoryId],0) = COALESCE(source.[SecondaryCategoryId],0)
 	)
 	THEN
 		UPDATE
@@ -165,6 +211,8 @@ WHEN MATCHED AND
 			,dest.[PART] = source.[PART]
 			,dest.[VPRICE] = source.[VPRICE]
 			,dest.[PRICE] = source.[PRICE]
+			,dest.[MainCategoryId] = source.[MainCategoryId]
+			,dest.[SecondaryCategoryId] = source.[SecondaryCategoryId]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -183,6 +231,8 @@ WHEN NOT MATCHED BY TARGET
 			,[OrderDetailSourceId]
 			,[VPRICE]	
 			,[PRICE]
+			,[MainCategoryId]
+			,[SecondaryCategoryId]
 			)
 		VALUES (
 			 source.[OrderWorkPlanId]
@@ -200,6 +250,8 @@ WHEN NOT MATCHED BY TARGET
 			,source.[OrderDetailSourceId]
 			,source.[VPRICE]	
 			,source.[PRICE]
+			,source.[MainCategoryId]
+			,source.[SecondaryCategoryId]
 			);
 
 	
@@ -214,8 +266,7 @@ USING (
 		,o.[InHouse] as [IsInHouse]
 		,o.[PartName]
 		,o.[MbaReportNumber]
-		,mc.[ID] as [MainCategoryId]
-		,sc.ID as [SecondaryCategoryId]
+
 		,mf.[OrdersDeviceManufacturerId]
 		,c.[CustomerId]
 		,o.[KLINE]
@@ -227,12 +278,11 @@ USING (
 		,0 as [CreatedByUserId]
 		,0 as [UpdateUserID]
 		,o.[Doc]
+		,o.[NextCalibrationDate]
 	FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as s ON o.SourceSystem = s.SourceName
 	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderSourceId = o.SourceOrderId AND wp.SourceId = s.SourceId
 	JOIN [dbo].[OrderDetails] as od ON wp.[OrderWorkPlanId] = od.[OrderWorkPlanId] AND o.[KLINE] = od.[KLINE] 
-	LEFT JOIN [dbo].[MainCategories] as mc ON o.MainCategorySourceId = mc.MainCategoryName and mc.IsDeleted = 0
-	LEFT JOIN [dbo].[SecondaryCategories] as sc ON o.SecondCategorySourceId = sc.SecondaryCategoryName and sc.IsDeleted = 0
 	LEFT JOIN [dbo].[OrdersDeviceManufacturers] as mf ON mf.OrdersDeviceManufacturerName = o.ManufacturerNumber and mf.IsDeleted = 0
 	LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = s.SourceId and c.IsDeleted = 0
 	WHERE o.OrderDetailId IS NOT NULL AND o.Doc IS NOT NULL
@@ -243,13 +293,12 @@ USING (
 		OR COALESCE(dest.[ManufacturerNumber],'') = COALESCE(source.[ManufacturerNumber],'')
 		OR COALESCE(dest.[DeviceModel],'') = COALESCE(source.[DeviceModel],'')
 		OR COALESCE(dest.[MbaReportNumber],'') = COALESCE(source.[MbaReportNumber],'')
-		OR COALESCE(dest.[MainCategoryId],0) = COALESCE(source.[MainCategoryId],0)
-		OR COALESCE(dest.[SecondaryCategoryId],0) = COALESCE(source.[SecondaryCategoryId],0)
 		OR COALESCE(dest.[OrdersDeviceManufacturerId],0) = COALESCE(source.[OrdersDeviceManufacturerId],0)
 		OR COALESCE(dest.[UpdatedDate],'1900-01-01') = source.[UpdatedDate]
 		OR COALESCE(dest.[UpdateUserID],0) = source.[UpdateUserID]
 		OR COALESCE(dest.[Doc],0) = source.[Doc]
- 		OR COALESCE(dest.[ProductLocation],'')<> COALESCE(source.[ProductLocation],''))
+ 		OR COALESCE(dest.[ProductLocation],'')<> COALESCE(source.[ProductLocation],'')
+		OR COALESCE(dest.[NextCalibrationDate],'1900-01-01') = COALESCE(source.[NextCalibrationDate],'1900-01-01'))
  
 	THEN
 		UPDATE
@@ -257,13 +306,12 @@ USING (
 			,dest.[ManufacturerNumber] = source.[ManufacturerNumber]
 			,dest.[DeviceModel] = source.[DeviceModel]
 			,dest.[MbaReportNumber] = source.[MbaReportNumber]
-			,dest.[MainCategoryId] = source.[MainCategoryId]
-			,dest.[SecondaryCategoryId] = source.[SecondaryCategoryId]
 			,dest.[OrdersDeviceManufacturerId] = source.[OrdersDeviceManufacturerId]
 			,dest.[UpdatedDate] = source.[UpdatedDate]
 			,dest.[UpdateUserID] = source.[UpdateUserID]
 			,dest.[ProductLocation] = source.[ProductLocation]
 			,dest.[Doc] = source.[Doc]
+			,dest.[NextCalibrationDate] = source.[NextCalibrationDate]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -272,8 +320,6 @@ WHEN NOT MATCHED BY TARGET
 			,[ManufacturerNumber]
 			,[DeviceModel]
 			,[MbaReportNumber]
-			,[MainCategoryId]
-			,[SecondaryCategoryId]
 			,[OrdersDeviceManufacturerId]
 			,[CreatedDate]
 			,[UpdatedDate]
@@ -282,6 +328,7 @@ WHEN NOT MATCHED BY TARGET
 			,[SERN]
 			,[ProductLocation]
 			,[Doc]
+			,[NextCalibrationDate]
 			)
 		VALUES (
 			 source.[OrderDetailId]
@@ -289,8 +336,6 @@ WHEN NOT MATCHED BY TARGET
 			,source.[ManufacturerNumber]
 			,source.[DeviceModel]
 			,source.[MbaReportNumber]
-			,source.[MainCategoryId]
-			,source.[SecondaryCategoryId]
 			,source.[OrdersDeviceManufacturerId]
 			,source.[CreatedDate]
 			,source.[UpdatedDate]
@@ -299,5 +344,6 @@ WHEN NOT MATCHED BY TARGET
 			,source.[SERN]
 			,source.[ProductLocation]
 			,source.[Doc]
+			,source.[NextCalibrationDate]
 			);
 END

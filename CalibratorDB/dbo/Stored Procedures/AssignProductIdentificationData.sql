@@ -43,8 +43,6 @@ BEGIN
 					   ,[ManufacturerNumber]
 					   ,[DeviceModel]
 					   ,[AdditionalDeviceNumber]
-					   ,[MainCategoryId]
-					   ,[SecondaryCategoryId]
 					   ,[OrdersDeviceManufacturerId]
 					   ,[CalibrationSpecificationId]
 					   ,[SpecificationReferenceId]
@@ -64,8 +62,6 @@ BEGIN
 					@ManufacturerNumber,
 					@DeviceModel,	
 					@AdditionalDeviceNumber,
-					@OrdersMainCategoryId,
-					@OrdersSecondaryCategoryId,
 					@OrdersDeviceManufacturerId,
 
 					@CalibrationSpecificationId,
@@ -83,6 +79,8 @@ BEGIN
 
 	UPDATE [dbo].[OrderDetails] 
 	SET [OrdersProductTypeId] = @OrdersProductTypeId
+		,[MainCategoryId] = @OrdersMainCategoryId
+		,[SecondaryCategoryId] = @OrdersSecondaryCategoryId
 	WHERE OrderDetailId = @OrderDetailId AND [OrdersProductTypeId] <> @OrdersProductTypeId
 
 	UPDATE [dbo].[OrderDetails] 
@@ -97,8 +95,6 @@ BEGIN
 			,[ManufacturerNumber] = @ManufacturerNumber
 			,[DeviceModel] = @DeviceModel
 			,[AdditionalDeviceNumber] = @AdditionalDeviceNumber
-			,[MainCategoryId] = @OrdersMainCategoryId
-			,[SecondaryCategoryId] = @OrdersSecondaryCategoryId
 			,[OrdersDeviceManufacturerId] = @OrdersDeviceManufacturerId
 			,[CalibrationSpecificationId] = @CalibrationSpecificationId
 			,[SpecificationReferenceId] = @SpecificationReferenceId

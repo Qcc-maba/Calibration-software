@@ -25,7 +25,7 @@ OrderWorkPlanId INT
 INSERT #SecondCategories(OrderWorkPlanId)
 SELECT DISTINCT od.OrderWorkPlanId FROM [dbo].[OrderDetailsItems] as odi
 JOIN [dbo].[OrderDetails] as od ON odi.OrderDetailId = od.OrderDetailId
-JOIN [dbo].[SecondaryCategories] as s ON odi.SecondaryCategoryId = s.ID
+JOIN [dbo].[SecondaryCategories] as s ON od.SecondaryCategoryId = s.ID
 JOIN dbo.ParseCSVToTable(@SecondCategories) as sc ON s.SecondaryCategoryName = sc.Value
 END
 

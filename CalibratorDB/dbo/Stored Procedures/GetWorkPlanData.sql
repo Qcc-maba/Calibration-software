@@ -1,9 +1,10 @@
-﻿-- =============================================
+﻿
+-- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 03/04/2025
 -- Description:	Get work plan data
 -- =============================================
-CREATE    PROCEDURE [dbo].[GetWorkPlanData]
+CREATE   PROCEDURE [dbo].[GetWorkPlanData] 
     @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
     @RowsOfPage AS INT = 1000,                 -- Result page size
     @OrderBy AS NVARCHAR(MAX) = 'OrderNumber',      -- OrderBy column
@@ -178,7 +179,7 @@ CONCAT(
 		coh.EquipmentNames,
 		cwp.Calibrators,
         wp.Notes as Notes,
-		STRING_AGG(mcf.[MainCategoryName],'','') as MainCategory,
+		STRING_AGG(mcat.[MainCategoryName],'','') as MainCategory,
 		wp.[IsCancelled],
 	    COALESCE(MAX(clst.StatusDescriptionENG),''',@ClientConfirmationStatusDefault,''') as ClientConfirmationStatus,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
@@ -189,14 +190,26 @@ CONCAT(
 	,'LEFT JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
 	  LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
 	  LEFT JOIN [dbo].[Customers] as c ON wp.[CustomerId] = c.[CustomerId]
-	  LEFT JOIN [dbo].[MainCategories] as mcf ON itm.MainCategoryId	= mcf.ID
 	  LEFT JOIN [dbo].[Statuses] as clst ON wp.[ClientConfirmationStatusId] = clst.[StatusId]
-	  LEFT JOIN [dbo].[SecondaryCategories] as scf ON itm.SecondaryCategoryId = scf.ID
+	  LEFT JOIN [dbo].[MainCategories] as mcf ON od.MainCategoryId	= mcf.ID
+	  LEFT JOIN [dbo].[SecondaryCategories] as scf ON od.SecondaryCategoryId = scf.ID
 	  LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON itm.[OrdersDeviceManufacturerId] = dm.[OrdersDeviceManufacturerId]
 	',IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
-	 ,IIF(@MainCategory IS NOT NULL,' JOIN #MainCategory as mainc ON itm.MainCategoryId = mainc.ID ',' ')
-	 ,IIF(@SecondCategory IS NOT NULL,' JOIN #SecondCategory as secc ON itm.SecondaryCategoryId = secc.ID ',' ')
-	,'LEFT JOIN 
+	 ,IIF(@MainCategory IS NOT NULL,' JOIN #MainCategory as mainc ON od.MainCategoryId = mainc.ID ',' ')
+	 ,IIF(@SecondCategory IS NOT NULL,' JOIN #SecondCategory as secc ON od.SecondaryCategoryId = secc.ID ',' ')
+	,'
+	 LEFT JOIN 
+	  (
+	  SELECT maincat.OrderWorkPlanId, STRING_AGG(maincat.MainCategoryName,'','') as MainCategoryName
+	  FROM (
+		  SELECT DISTINCT wp.OrderWorkPlanId, CAST(mcf.MainCategoryName AS NVARCHAR(MAX)) as MainCategoryName
+		  FROM [dbo].[OrderWorkPlans] as wp  
+		  JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
+		  JOIN [dbo].[MainCategories] as mcf ON od.MainCategoryId	= mcf.ID
+		  ) as maincat
+	 GROUP BY maincat.OrderWorkPlanId
+	) as mcat ON wp.OrderWorkPlanId = mcat.OrderWorkPlanId
+	LEFT JOIN 
 	(  SELECT co.OrderWorkPlanId,STRING_AGG(co.CarId,'','') as [Cars]
 		FROM [dbo].[CarsToOrder] as co 
 		WHERE co.IsDeleted = 0

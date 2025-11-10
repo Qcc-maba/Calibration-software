@@ -16,7 +16,7 @@ CREATE   PROCEDURE [dbo].[CreateEquipmentRecord]
 ,@LoggedInUserEmail NVARCHAR(50) = NULL
 ,@DisplayToCoordinator BIT NULL = 1
 ,@Manufacturer NVARCHAR(100) NULL
-
+,@MabaID NVARCHAR(50)
 /*
 EXEC dbo.CreateEquipmentRecord
  @StatusId = 39
@@ -86,7 +86,7 @@ BEGIN TRY
 				   )
 		VALUES 
 		(
-		''
+		 @MabaID
 		,@MainCategoryId
 		,@SecondaryCategoryId
 		,@StatusId

@@ -12,8 +12,8 @@
   DTS:ObjectName="StartSyncMasterToAWS"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="13"
-  DTS:VersionGUID="{F6AE9CF5-2DF7-4465-8A6C-EFFA06398DB3}">
+  DTS:VersionBuild="14"
+  DTS:VersionGUID="{84599167-F341-463C-BE27-7624392858E8}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -49,24 +49,6 @@
         <ExecutePackageTask>
           <UseProjectReference>True</UseProjectReference>
           <PackageName>DepartmentDelaysToAWS.dtsx</PackageName>
-        </ExecutePackageTask>
-      </DTS:ObjectData>
-    </DTS:Executable>
-    <DTS:Executable
-      DTS:refId="Package\MeasurmentDevicesSyncToAWS"
-      DTS:CreationName="Microsoft.ExecutePackageTask"
-      DTS:Description="Execute Package Task"
-      DTS:Disabled="True"
-      DTS:DTSID="{E5C0B917-5A6A-435E-8D05-9DA01246FB5A}"
-      DTS:ExecutableType="Microsoft.ExecutePackageTask"
-      DTS:LocaleID="-1"
-      DTS:ObjectName="MeasurmentDevicesSyncToAWS"
-      DTS:TaskContact="Microsoft Corporation; Microsoft SQL Server; Microsoft Corporation; All Rights Reserved;http://www.microsoft.com/sql/support/default.asp;1">
-      <DTS:Variables />
-      <DTS:ObjectData>
-        <ExecutePackageTask>
-          <UseProjectReference>True</UseProjectReference>
-          <PackageName>MeasurmentDevicesSyncToAWS.dtsx</PackageName>
         </ExecutePackageTask>
       </DTS:ObjectData>
     </DTS:Executable>
@@ -107,11 +89,7 @@
         <NodeLayout
           Size="200.8,41.6"
           Id="Package\DepartmentDelaysToAWS"
-          TopLeft="39.1666645266945,187.199998698234" />
-        <NodeLayout
-          Size="232,41.6"
-          Id="Package\MeasurmentDevicesSyncToAWS"
-          TopLeft="29.1666650730703,123.933332471516" />
+          TopLeft="48.3333306925165,123.066665810876" />
         <NodeLayout
           Size="168.8,41.6"
           Id="Package\OrdersSyncToAWS"

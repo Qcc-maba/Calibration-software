@@ -11,7 +11,7 @@ CREATE  PROCEDURE [dbo].[GetEquipmentManagementTableData]
 @OrderBy NVARCHAR(30) = N'DepartmentName',
 @OrderByAsc BIT = 1,
 @EquipmentName NVARCHAR(255)= NULL,
-@SerialNumber NVARCHAR(100)= NULL,
+@SerialNumber NVARCHAR(100)= NULL,--MabaNumber
 @StatusId INT = NULL,
 @CalibratorId INT = NULL,
 @CarId INT = NULL,
@@ -107,7 +107,7 @@ CONCAT(
 	  ,s.StatusDescriptionENG	
 	  ,s.StatusDescriptionHEB
       ,ce.[Description] as EquipmentName
-      ,ce.[SerialNumber]
+      ,ce.[MabaID] as [SerialNumber]
       ,ce.[CalibratorId]
 	  ,CONCAT(u.FirstName, '' '', u.LastName) as CalibratorFullName
       ,d.[MainCategoryName] as [MainCategory]
@@ -133,7 +133,7 @@ CONCAT(
   ,'
   WHERE ce.IsDeleted = 0'
   ,CASE WHEN @EquipmentName IS NOT NULL THEN' AND ce.[Description] = '''+ @EquipmentName+''' 'ELSE ' ' END
-  ,CASE WHEN @SerialNumber IS NOT NULL THEN' AND ce.[SerialNumber] LIKE ''%'+ @SerialNumber+'%'' 'ELSE ' ' END
+  ,CASE WHEN @SerialNumber IS NOT NULL THEN' AND ce.[MabaID] LIKE ''%'+ @SerialNumber+'%'' 'ELSE ' ' END
   ,CASE WHEN @DepartmentName IS NOT NULL THEN' AND d.[MainCategoryName] LIKE ''%'+ @DepartmentName+'%'' 'ELSE ' ' END
   ,CASE WHEN @CarLicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] LIKE ''%'+ @CarLicenseNumber+'%'' 'ELSE ' ' END
   ,CASE WHEN @MainCategory IS NOT NULL THEN' AND d.[MainCategoryName] LIKE ''%'+ @MainCategory+'%'' 'ELSE ' ' END

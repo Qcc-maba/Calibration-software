@@ -15,7 +15,6 @@ USING (
 			('Validator',N'ולידטור','Validator',1),
 			('Client',N'לקוח','Client',1),
 			('Customer support',N'שירות לקוחות','CustomerSupport',1),
-			('External Calibrator',N'מכוון חיצוני','ExternalCalibrator',1),
 			('Packing',N'אריזה','Packing',1),
 			('Logistic Manager',N'מנהל לוגיסטי','LogisticManager',1),
 			('Driver',N'נהג','Driver',1)
