@@ -179,8 +179,11 @@ CONCAT(
 		coh.EquipmentNames,
 		cwp.Calibrators,
         wp.Notes as Notes,
-		STRING_AGG(mcat.[MainCategoryName],'','') as MainCategory,
+		MIN(mcat.[MainCategoryName]) as MainCategory,
 		wp.[IsCancelled],
+		MAX(CAST(CustomerPackingExists as TINYINT)) as CustomerPackingExists,
+		MAX(ExpectedReturnDate) as ExpectedReturnDate,
+		MAX(ActualReturnDate) as ActualReturnDate,
 	    COALESCE(MAX(clst.StatusDescriptionENG),''',@ClientConfirmationStatusDefault,''') as ClientConfirmationStatus,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
@@ -197,10 +200,8 @@ CONCAT(
 	',IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
 	 ,IIF(@MainCategory IS NOT NULL,' JOIN #MainCategory as mainc ON od.MainCategoryId = mainc.ID ',' ')
 	 ,IIF(@SecondCategory IS NOT NULL,' JOIN #SecondCategory as secc ON od.SecondaryCategoryId = secc.ID ',' ')
-	,'
-	 LEFT JOIN 
-	  (
-	  SELECT maincat.OrderWorkPlanId, STRING_AGG(maincat.MainCategoryName,'','') as MainCategoryName
+	,'LEFT JOIN 
+	  (SELECT maincat.OrderWorkPlanId, STRING_AGG(maincat.MainCategoryName,'','') as MainCategoryName
 	  FROM (
 		  SELECT DISTINCT wp.OrderWorkPlanId, CAST(mcf.MainCategoryName AS NVARCHAR(MAX)) as MainCategoryName
 		  FROM [dbo].[OrderWorkPlans] as wp  
@@ -227,18 +228,15 @@ CONCAT(
 	 FROM (SELECT DISTINCT od.OrderWorkPlanId, s.StatusDescriptionENG, s.StatusDescriptionHEB
 	 FROM [dbo].[OrderDetails] as od
 	 JOIN [dbo].[Statuses] as s ON od.SpecialCareTypeId = s.StatusId
-	 WHERE od.IsInHouse = 0
-	 ) ds GROUP BY OrderWorkPlanId
+	 WHERE od.IsInHouse = 0) ds GROUP BY OrderWorkPlanId
 	) as sp ON wp.OrderWorkPlanId = sp.OrderWorkPlanId
 	LEFT JOIN 
-	( SELECT coh.OrderWorkPlanId, STRING_AGG(coh.MeasurementDeviceId,'', '') as EquipmentIds, 
-			STRING_AGG(ce.Description,'', '') as EquipmentNames
+	( SELECT coh.OrderWorkPlanId, STRING_AGG(coh.MeasurementDeviceId,'', '') as EquipmentIds, STRING_AGG(ce.Description,'', '') as EquipmentNames
 	  FROM [dbo].[MeasurementDevicesToOrderHeaders] as coh
 	  JOIN [dbo].[MeasurementDevices] as ce ON coh.MeasurementDeviceId = ce.ID AND ce.IsDeleted = 0
 	  WHERE coh.IsDeleted = 0 GROUP BY coh.OrderWorkPlanId
 	)as coh ON wp.OrderWorkPlanId = coh.OrderWorkPlanId
-	LEFT JOIN 
-	(SELECT OrderWorkPlanId,STRING_AGG(SpecialCareTypeId,'','') as SpecialCares
+	LEFT JOIN (SELECT OrderWorkPlanId,STRING_AGG(SpecialCareTypeId,'','') as SpecialCares
 	 FROM [dbo].[OrderDetails] WHERE IsInHouse = 0 
 	 GROUP BY OrderWorkPlanId 
 	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
@@ -257,7 +255,7 @@ CONCAT(
 	,CASE WHEN @Notes IS NOT NULL THEN ' AND wp.Notes LIKE N''%'+ @Notes +'%'''ELSE ' ' END
 	,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
 	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL 
-		  THEN ' AND wp.[WorkPlanOpenDate] >= '''+CAST(@DateFrom AS NVARCHAR(MAX))+''' AND wp.[WorkPlanOpenDate] <= '''+CAST(@DateTo AS NVARCHAR(MAX))+''''
+		  THEN ' AND wp.[AssigmentDate] >= '''+CAST(@DateFrom AS NVARCHAR(MAX))+''' AND wp.[AssigmentDate] <= '''+CAST(@DateTo AS NVARCHAR(MAX))+''''
 	  ELSE ' ' END
 	,'GROUP BY wp.AssigmentDate,
 	wp.[CustomerId],
@@ -277,7 +275,7 @@ CONCAT(
 	wp.[IsCancelled]'
   ,  'ORDER BY ' , @OrderBy , CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT LEN(@sql)
-PRINT @sql
+PRINT CAST(@sql as VARCHAR(MAX))
 EXEC (@sql)
 --EXEC sp_executesql @sql
 

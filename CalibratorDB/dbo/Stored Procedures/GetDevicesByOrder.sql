@@ -82,13 +82,16 @@ CONCAT(
 	,odm.OrdersDeviceManufacturerName as DeviceManufacturer
 	,od.OrderLineCnt
 	,od.PartName
+	,cals.[StatusDescriptionHEB] as CalibrationStatus
+    ,od. ShipTypeDesc
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
 LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
 LEFT JOIN [dbo].[MainCategories] as mc ON od.MainCategoryId = mc.ID
 LEFT JOIN [dbo].[SecondaryCategories] sc ON od.SecondaryCategoryId = sc.ID
 LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
-LEFT JOIN [dbo].[OrdersDeviceManufacturers] as odm ON itm.OrdersDeviceManufacturerId = odm.OrdersDeviceManufacturerId 
+LEFT JOIN [dbo].[OrdersDeviceManufacturers] as odm ON itm.OrdersDeviceManufacturerId = odm.OrdersDeviceManufacturerId
+LEFT JOIN [dbo].[Statuses] as cals ON cals.[StatusId] = itm.[CalibrationStatusId]
 '
 ,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mcf ON mc.MainCategoryName COLLATE DATABASE_DEFAULT = mcf.MainCategory COLLATE DATABASE_DEFAULT',' ')
 ,IIF(@SecondaryCategories IS NOT NULL,' JOIN #SecondaryCategories as scf ON sc.OrdersSecondaryCategoryName COLLATE DATABASE_DEFAULT   = scf.SecondaryCategory COLLATE DATABASE_DEFAULT ',' ')

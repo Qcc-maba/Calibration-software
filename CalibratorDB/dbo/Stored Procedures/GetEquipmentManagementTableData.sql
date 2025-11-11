@@ -118,6 +118,8 @@ CONCAT(
       ,c.[CarId]
 	  ,c.Model	
 	  ,c.LicenseNumber
+	  ,ce.DisplayToCoordinator
+	  ,ce.Manufacturer
 	  ,COUNT(1) OVER(PARTITION BY 1 ORDER BY ce.[ID] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) as ItemsCount
   FROM [dbo].[MeasurementDevices] as ce
   LEFT JOIN [dbo].[MainCategories] as d ON ce.[MainCategoryId] = d.ID AND d.IsDeleted = 0
