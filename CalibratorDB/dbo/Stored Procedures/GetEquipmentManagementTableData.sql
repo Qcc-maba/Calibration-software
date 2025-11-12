@@ -11,7 +11,7 @@ CREATE  PROCEDURE [dbo].[GetEquipmentManagementTableData]
 @OrderBy NVARCHAR(30) = N'DepartmentName',
 @OrderByAsc BIT = 1,
 @EquipmentName NVARCHAR(255)= NULL,
-@SerialNumber NVARCHAR(100)= NULL,--MabaNumber
+@MabaID NVARCHAR(100)= NULL,--MabaNumber
 @StatusId INT = NULL,
 @CalibratorId INT = NULL,
 @CarId INT = NULL,
@@ -26,7 +26,7 @@ CREATE  PROCEDURE [dbo].[GetEquipmentManagementTableData]
 /*
 EXEC dbo.GetEquipmentManagementTableData
 @EquipmentName = 'Test',
-@SerialNumber = '00-00-11',
+@MabaID = '00-00-11',
 --@StatusId  = 43,
 @CalibratorId  = 107,
 @CarId  = 1,
@@ -38,7 +38,9 @@ AS
 
 SET NOCOUNT ON;
 
-IF @OrderBy NOT IN (N'ID',N'DepartmentId',N'DepartmentName',N'StatusId',N'StatusDescriptionENG',N'StatusDescriptionHEB',N'EquipmentName',N'SerialNumber',N'CalibratorId',N'CalibratorFullName',N'MainCategory',N'NextCalibrationDate',N'CarId',N'Model',N'LicenseNumber',N'SecondaryCategory')
+IF @OrderBy NOT IN (N'ID',N'DepartmentId',N'DepartmentName',N'StatusId',N'StatusDescriptionENG',N'StatusDescriptionHEB',N'EquipmentName'
+,N'SerialNumber',N'CalibratorId',N'CalibratorFullName',N'MainCategory',N'NextCalibrationDate',N'CarId',N'Model',N'LicenseNumber'
+,N'SecondaryCategory',N'MabaID')
 THROW 51000, 'Incorrect value for parameter @OrderBy.', 1;
 
 IF @StatusId > 0 AND @StatusId NOT IN (SELECT StatusId
@@ -107,7 +109,7 @@ CONCAT(
 	  ,s.StatusDescriptionENG	
 	  ,s.StatusDescriptionHEB
       ,ce.[Description] as EquipmentName
-      ,ce.[MabaID] as [SerialNumber]
+      ,ce.[MabaID]
       ,ce.[CalibratorId]
 	  ,CONCAT(u.FirstName, '' '', u.LastName) as CalibratorFullName
       ,d.[MainCategoryName] as [MainCategory]
@@ -135,7 +137,7 @@ CONCAT(
   ,'
   WHERE ce.IsDeleted = 0'
   ,CASE WHEN @EquipmentName IS NOT NULL THEN' AND ce.[Description] = '''+ @EquipmentName+''' 'ELSE ' ' END
-  ,CASE WHEN @SerialNumber IS NOT NULL THEN' AND ce.[MabaID] LIKE ''%'+ @SerialNumber+'%'' 'ELSE ' ' END
+  ,CASE WHEN @MabaID IS NOT NULL THEN' AND ce.[MabaID] LIKE ''%'+ @MabaID+'%'' 'ELSE ' ' END
   ,CASE WHEN @DepartmentName IS NOT NULL THEN' AND d.[MainCategoryName] LIKE ''%'+ @DepartmentName+'%'' 'ELSE ' ' END
   ,CASE WHEN @CarLicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] LIKE ''%'+ @CarLicenseNumber+'%'' 'ELSE ' ' END
   ,CASE WHEN @MainCategory IS NOT NULL THEN' AND d.[MainCategoryName] LIKE ''%'+ @MainCategory+'%'' 'ELSE ' ' END
