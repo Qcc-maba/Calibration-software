@@ -8,7 +8,8 @@
 -- =============================================
 CREATE   PROCEDURE  [dbo].[GetAllMeasurementDevicesManufacturers]
 AS
-SELECT DISTINCT
-       Manufacturer as Name
-  FROM [dbo].[MeasurementDevices]
-  WHERE [IsDeleted] = 0 AND Manufacturer IS NOT NULL
+SELECT 
+     OrdersDeviceManufacturerId as ID
+	,OrdersDeviceManufacturerDescription as Name
+FROM [dbo].[OrdersDeviceManufacturers]
+WHERE [IsDeleted] = 0

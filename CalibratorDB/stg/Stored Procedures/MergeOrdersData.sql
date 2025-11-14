@@ -283,7 +283,7 @@ USING (
 	JOIN [dbo].[Source] as s ON o.SourceSystem = s.SourceName
 	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderSourceId = o.SourceOrderId AND wp.SourceId = s.SourceId
 	JOIN [dbo].[OrderDetails] as od ON wp.[OrderWorkPlanId] = od.[OrderWorkPlanId] AND o.[KLINE] = od.[KLINE] 
-	LEFT JOIN [dbo].[OrdersDeviceManufacturers] as mf ON mf.OrdersDeviceManufacturerName = o.ManufacturerNumber and mf.IsDeleted = 0
+	LEFT JOIN [dbo].[OrdersDeviceManufacturers] as mf ON mf.OrdersDeviceManufacturerName = o.DeviceManufacturerSourceId and mf.IsDeleted = 0
 	LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = s.SourceId and c.IsDeleted = 0
 	WHERE o.OrderDetailId IS NOT NULL AND o.Doc IS NOT NULL
 	) AS source

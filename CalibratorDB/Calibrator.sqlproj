@@ -261,6 +261,7 @@
     <Build Include="dbo\Stored Procedures\deprecated_GetCalibrationDeviceConfigurationData.sql" />
     <Build Include="dbo\Tables\CarDowntimePeriodHistory.sql" />
     <Build Include="dbo\Stored Procedures\utility_revertCarStatus.sql" />
+    <Build Include="dbo\Stored Procedures\AssignMbaReportNumberForOrder.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

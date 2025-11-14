@@ -81,7 +81,7 @@ BEGIN
 	SET [OrdersProductTypeId] = @OrdersProductTypeId
 		,[MainCategoryId] = @OrdersMainCategoryId
 		,[SecondaryCategoryId] = @OrdersSecondaryCategoryId
-	WHERE OrderDetailId = @OrderDetailId AND [OrdersProductTypeId] <> @OrdersProductTypeId
+	WHERE OrderDetailId = @OrderDetailId-- AND [OrdersProductTypeId] <> @OrdersProductTypeId
 
 	UPDATE [dbo].[OrderDetails] 
 	SET [OrderLineCnt] = @OrderLineCnt_new
