@@ -12,8 +12,8 @@
   DTS:ObjectName="PostDeployDataMigration"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="66"
-  DTS:VersionGUID="{90A54DBB-1E0D-4FE6-9C0C-8B0C3B825AAB}">
+  DTS:VersionBuild="67"
+  DTS:VersionGUID="{7C4C5B21-6EFE-4D71-9DAE-EEBA939BBFF5}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables>
@@ -6195,6 +6195,7 @@ ORDER  BY s.StatusDescriptionHEB</property>
           DTS:CreationName="Microsoft.Pipeline"
           DTS:DelayValidation="True"
           DTS:Description="Data Flow Task"
+          DTS:Disabled="True"
           DTS:DTSID="{63ADE1F3-958F-49BC-AD80-7DEEA29E2EB1}"
           DTS:ExecutableType="Microsoft.Pipeline"
           DTS:LocaleID="-1"
