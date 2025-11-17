@@ -7,8 +7,18 @@
 -- =============================================
 CREATE   PROCEDURE [dbo].[GetOrderDetailsDevices] 
 @OrderWorkPlanId INT =41,
-@OrderDetailId INT = NULL
+@OrderDetailId INT = NULL,
+@LoggedInUserEmail NVARCHAR(50) = NULL
 AS
+
+DECLARE @LoggedInUserId INT = 0
+DECLARE @SourceId TINYINT
+
+SELECT 
+	@LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
+
 
 ;WITH numbers
 as
@@ -42,7 +52,7 @@ odi.[SerialNumber],
 odi.[ManufacturerNumber],
 odi.[DeviceModel],
 odi.[AdditionalDeviceNumber],	
-odi.[MbaReportNumber],
+IIF(ctwp.OrderDetailsMbaReportNumber IS NULL,odi.[MbaReportNumber],COALESCE(ctwp.OrderDetailsMbaReportNumber,'\')) as [MbaReportNumber],
 od.[MainCategoryId],	
 omc.[MainCategoryName] as [OrdersMainCategory],
 od.SecondaryCategoryId as [OrdersSecondaryCategoryId],
@@ -76,6 +86,7 @@ LEFT JOIN [dbo].[MeasurementsSpecifications] mc ON odi.[CalibrationSpecification
 LEFT JOIN [dbo].[SpecificationReference] as sr ON odi.[SpecificationReferenceId] = sr.ID
 LEFT JOIN [dbo].[MeasurementDeviceUnits] as mu ON odi.[MeasurementUnitId] = mu.MeasurementDeviceUnitId
 LEFT JOIN [dbo].[Statuses] as scs ON odi.[CalibrationStatusId] = scs.StatusId
+LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = wp.[OrderWorkPlanId] AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
 LEFT JOIN
 (
 SELECT mdt.[OrderWorkPlanId], STRING_AGG(md.Description,', ') as EquipmentNames

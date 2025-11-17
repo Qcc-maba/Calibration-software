@@ -30,12 +30,21 @@ CREATE   PROCEDURE [dbo].[GetWorkPlanData]
 	@WorkPlanOpenDate DATETIME2(0) = NULL,
 	@CarsIds NVARCHAR(MAX) = NULL,
 	@Notes NVARCHAR(255) = NULL,
-	@Page NVARCHAR(100) 
+	@Page NVARCHAR(100),
+	@LoggedInUserEmail NVARCHAR(50) = NULL
 AS
 
 BEGIN
     SET NOCOUNT ON;
 	SET ANSI_WARNINGS OFF;
+
+	DECLARE @LoggedInUserId INT = 0
+	DECLARE @SourceId TINYINT
+
+	SELECT 
+	 @LoggedInUserId  = d.UserId 
+	,@SourceId = d.SourceId
+	FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 	/*
 	Filter logic by page
@@ -184,6 +193,7 @@ CONCAT(
 		MAX(CAST(CustomerPackingExists as TINYINT)) as CustomerPackingExists,
 		MAX(ExpectedReturnDate) as ExpectedReturnDate,
 		MAX(ActualReturnDate) as ActualReturnDate,
+		MAX(ctwp.OrderDetailsMbaReportNumber) as CalibratorMabaNumber, 
 	    COALESCE(MAX(clst.StatusDescriptionENG),''',@ClientConfirmationStatusDefault,''') as ClientConfirmationStatus,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
@@ -195,6 +205,7 @@ CONCAT(
 	  LEFT JOIN [dbo].[Customers] as c ON wp.[CustomerId] = c.[CustomerId]
 	  LEFT JOIN [dbo].[Statuses] as clst ON wp.[ClientConfirmationStatusId] = clst.[StatusId]
 	  LEFT JOIN [dbo].[MainCategories] as mcf ON od.MainCategoryId	= mcf.ID
+	  LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = wp.[OrderWorkPlanId] AND ctwp.[CalibratorId] = ',@LoggedInUserId,' AND ctwp.IsDeleted = 0
 	  LEFT JOIN [dbo].[SecondaryCategories] as scf ON od.SecondaryCategoryId = scf.ID
 	  LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON itm.[OrdersDeviceManufacturerId] = dm.[OrdersDeviceManufacturerId]
 	',IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
@@ -240,7 +251,7 @@ CONCAT(
 	 FROM [dbo].[OrderDetails] WHERE IsInHouse = 0 
 	 GROUP BY OrderWorkPlanId 
 	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
-	WHERE wp.OrderOverallStatusId IN(',@StatusesForOrders,')'
+	WHERE /*wp.OrderOverallStatusId IN(',@StatusesForOrders,')*/1=1 '
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
 	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND wp.AssigmentDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Location  IS NOT NULL THEN ' AND c.CustomerCity LIKE N''%'+@Location +'%'' 'ELSE ' ' END
