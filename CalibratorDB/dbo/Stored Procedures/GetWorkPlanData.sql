@@ -195,6 +195,7 @@ CONCAT(
 		MAX(ActualReturnDate) as ActualReturnDate,
 		MAX(ctwp.OrderDetailsMbaReportNumber) as CalibratorMabaNumber, 
 	    COALESCE(MAX(clst.StatusDescriptionENG),''',@ClientConfirmationStatusDefault,''') as ClientConfirmationStatus,
+		MAX(wp.ShipTypeDesc) AS ShipTypeDesc,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
 	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
@@ -251,7 +252,7 @@ CONCAT(
 	 FROM [dbo].[OrderDetails] WHERE IsInHouse = 0 
 	 GROUP BY OrderWorkPlanId 
 	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
-	WHERE /*wp.OrderOverallStatusId IN(',@StatusesForOrders,')*/1=1 '
+	WHERE wp.OrderOverallStatusId IN(',@StatusesForOrders,') '
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
 	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND wp.AssigmentDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Location  IS NOT NULL THEN ' AND c.CustomerCity LIKE N''%'+@Location +'%'' 'ELSE ' ' END

@@ -84,6 +84,7 @@ SELECT DISTINCT
 	    ,MAX(o.[ActualReturnDate]) as [ActualReturnDate]
 	    ,MAX(o.[ExpectedReturnDate]) as [ExpectedReturnDate]
 	    ,o.[PackageLocation]
+		,IIF(LEN(o.[ShipTypeDesc]) > 1,o.[ShipTypeDesc],NULL) as [ShipTypeDesc]
 		FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as ss ON o.[SourceSystem] = ss.SourceName
     LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = ss.SourceId and c.IsDeleted = 0
@@ -97,7 +98,8 @@ SELECT DISTINCT
 		,o.SourceOrderId
 	    ,os.StatusId
 	    ,o.[CustomerPackingExists]	
-	    ,o.[PackageLocation] 
+	    ,o.[PackageLocation]
+		,o.[ShipTypeDesc]
 	) AS source
 	ON dest.[OrderSourceId] = source.[OrderSourceId]
 WHEN NOT MATCHED BY TARGET
@@ -118,6 +120,7 @@ WHEN NOT MATCHED BY TARGET
 			,[ActualReturnDate]
 			,[ExpectedReturnDate]
 			,[PackageLocation]
+			,[ShipTypeDesc]
 			)
 		VALUES (
 			 source.[OrderNumber]
@@ -135,6 +138,7 @@ WHEN NOT MATCHED BY TARGET
 			,source.[ActualReturnDate]
 			,source.[ExpectedReturnDate]
 			,source.[PackageLocation]
+			,source.[ShipTypeDesc]
 			)
 WHEN MATCHED AND
 	(
@@ -142,7 +146,8 @@ WHEN MATCHED AND
 		  COALESCE(dest.[CustomerPackingExists],0) <> COALESCE(source.[CustomerPackingExists],0) OR
 		  COALESCE(dest.[ActualReturnDate],'1900-01-01') <> COALESCE(source.[ActualReturnDate],'1900-01-01') OR
 		  COALESCE(dest.[ExpectedReturnDate],'1900-01-01') <> COALESCE(source.[ExpectedReturnDate],'1900-01-01') OR
-		  COALESCE(dest.[PackageLocation],'') = COALESCE(source.[PackageLocation],'')
+		  COALESCE(dest.[PackageLocation],'') = COALESCE(source.[PackageLocation],'') OR
+		  COALESCE(dest.[ShipTypeDesc],'') = COALESCE(source.[ShipTypeDesc],'')
 	)
 	THEN
 		UPDATE
@@ -151,7 +156,8 @@ WHEN MATCHED AND
 			dest.[CustomerPackingExists] = source.[CustomerPackingExists],
 			dest.[ActualReturnDate] = source.[ActualReturnDate],
 			dest.[ExpectedReturnDate] = source.[ExpectedReturnDate],
-			dest.[PackageLocation] = source.[PackageLocation];
+			dest.[PackageLocation] = source.[PackageLocation],
+			dest.[ShipTypeDesc] = source.[ShipTypeDesc];
 
 	
 MERGE INTO [dbo].[OrderDetails] AS dest
@@ -173,7 +179,6 @@ USING (
 		,o.OrderLineCnt
 		,pt.OrdersProductTypeId
 		,o.DeviceType 
-		,o.ShipTypeDesc	
 		,o.OrderDetailId as OrderDetailSourceId
 		,o.VPRICE	
 		,o.PRICE

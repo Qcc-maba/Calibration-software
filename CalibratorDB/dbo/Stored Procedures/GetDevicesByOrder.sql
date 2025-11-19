@@ -1,4 +1,5 @@
-﻿-- =============================================
+﻿
+-- =============================================
 -- Author:		Shamailov Slavik
 -- Create date: 06/03/2025
 -- Description:	Get devices by order number
@@ -83,7 +84,6 @@ CONCAT(
 	,od.OrderLineCnt
 	,od.PartName
 	,cals.[StatusDescriptionHEB] as CalibrationStatus
-    ,od. ShipTypeDesc
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
 LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId

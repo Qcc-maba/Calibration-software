@@ -17,7 +17,6 @@
     [OrdersProductTypeId]   INT             NULL,
     [PART]                  INT             NULL,
     [ActualCalibrationDate] DATE            NULL,
-    [ShipTypeDesc]          NVARCHAR (100)  NULL,
     [OrderDetailSourceId]   INT             NULL,
     [MainCategoryId]        INT             NULL,
     [SecondaryCategoryId]   INT             NULL,
