@@ -13,21 +13,25 @@ AS
 
 DECLARE @LoggedInUserId INT = 0
 DECLARE @SourceId TINYINT
+DECLARE @IsUserCalibrator BIT 
 
 SELECT 
 	@LoggedInUserId  = d.UserId 
-,@SourceId = d.SourceId
+   ,@SourceId = d.SourceId
+   ,@IsUserCalibrator = IIF(ur.UserRoleName = N'Calibrator',1,0)
 FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
+JOIN dbo.Users as u ON d.UserId  = u.ID
+JOIN dbo.UserRoles as ur ON u.UserRoleId = ur.UserRoleId
 
 
 ;WITH numbers
 as
 (
-SELECT 1 as cnt, od.OrderLineCnt, od.OrderDetailId, od.OrdersProductTypeId
+SELECT 1 as cnt, od.OrderLineCnt, od.OrderDetailId, od.OrdersProductTypeId, od.OrderWorkPlanId
 FROM [dbo].[OrderDetails] as od 
 WHERE od.OrderWorkPlanId = @OrderWorkPlanId
 UNION ALL
-SELECT n.cnt +1, od.OrderLineCnt, od.OrderDetailId, od.OrdersProductTypeId
+SELECT n.cnt +1, od.OrderLineCnt, od.OrderDetailId, od.OrdersProductTypeId, od.OrderWorkPlanId
 FROM numbers as n
 JOIN [dbo].[OrderDetails] as od ON od.OrderDetailId = n.OrderDetailId AND od.OrderLineCnt = n.OrderLineCnt
 WHERE od.OrderWorkPlanId = @OrderWorkPlanId
@@ -52,7 +56,7 @@ odi.[SerialNumber],
 odi.[ManufacturerNumber],
 odi.[DeviceModel],
 odi.[AdditionalDeviceNumber],	
-IIF(ctwp.OrderDetailsMbaReportNumber IS NULL,odi.[MbaReportNumber],COALESCE(ctwp.OrderDetailsMbaReportNumber,'\')) as [MbaReportNumber],
+odi.[MbaReportNumber],
 od.[MainCategoryId],	
 omc.[MainCategoryName] as [OrdersMainCategory],
 od.SecondaryCategoryId as [OrdersSecondaryCategoryId],
@@ -112,7 +116,10 @@ r.[SerialNumber],
 r.[ManufacturerNumber],
 r.[DeviceModel],
 r.[AdditionalDeviceNumber],	
-r.[MbaReportNumber],
+CASE 
+	WHEN @IsUserCalibrator = 1 THEN IIF(CHARINDEX(ctwp.OrderDetailsMbaReportNumber,r.[MbaReportNumber] ) <> 0,r.[MbaReportNumber],CONCAT(ctwp.OrderDetailsMbaReportNumber,'\',ROW_NUMBER() OVER (PARTITION BY COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) ORDER BY r.[OrderWorkPlanId])  ))
+ELSE r.[MbaReportNumber]
+END as [MbaReportNumber],
 r.[MainCategoryId] as [OrdersMainCategoryId],	
 r.[OrdersMainCategory],
 r.[OrdersSecondaryCategoryId],	
@@ -137,5 +144,7 @@ FROM  numbers as n
 LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt 
 LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[OrdersProductTypeId]
 LEFT JOIN [dbo].[OrdersProductTypes] as opt2 ON r.[OrdersProductTypeId] = opt2.[OrdersProductTypeId]
+LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
+LEFT JOIN [dbo].[OrderDetailsItems] as odi ON n.OrderDetailId = odi.OrderDetailId AND odi.[OrderDetailsItemId] = r.[OrderDetailsItemId]
 ORDER BY [OrderDetailId]
 option (maxrecursion 0)

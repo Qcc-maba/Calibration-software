@@ -1,4 +1,5 @@
 ﻿
+
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 03/04/2025
@@ -64,9 +65,9 @@ BEGIN
 	/*-------------------------------------------------*/
 
 	IF @OrderBy NOT IN 
-	(N'OrderNumber',N'Date',N'SpecialCares',N'ClientName',N'Location',N'WorkPlanOpenDate',
-	N'Cars',N'Calibrators',N'EquipmentNames',N'Notes',N'MainCategory',N'CalibDate')
-	THROW 51000, 'Incorrect value for parameter @OrderBy. Available values |OrderNumber|Date|SpecialCares|ClientName|Location|WorkPlanOpenDate|Cars|Calibrators|EquipmentNames|Notes|MainCategory|CalibDate', 1;
+	(N'OrderNumber',N'SpecialCares',N'ClientName',N'Location',N'WorkPlanOpenDate',
+	N'Cars',N'Calibrators',N'EquipmentNames',N'Notes',N'MainCategory',N'CalibDate',N'ClientConfirmationStatus')
+	THROW 51000, 'Incorrect value for parameter @OrderBy. Available values |OrderNumber|SpecialCares|ClientName|Location|WorkPlanOpenDate|Cars|Calibrators|EquipmentNames|Notes|MainCategory|CalibDate', 1;
 
 	IF @OrderBy IN (N'Cars')
 		BEGIN
@@ -201,7 +202,7 @@ CONCAT(
 	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
 	,IIF(@EquipmentIds IS NOT NULL,' JOIN #EquipmentId as eid ON wp.OrderWorkPlanId = eid.OrderWorkPlanId ',' ')
 	,IIF(@CarsIds IS NOT NULL,' JOIN #CarsIds as cid ON wp.OrderWorkPlanId = cid.OrderWorkPlanId ',' ')
-	,'LEFT JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
+	,'JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
 	  LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
 	  LEFT JOIN [dbo].[Customers] as c ON wp.[CustomerId] = c.[CustomerId]
 	  LEFT JOIN [dbo].[Statuses] as clst ON wp.[ClientConfirmationStatusId] = clst.[StatusId]
@@ -240,7 +241,7 @@ CONCAT(
 	 FROM (SELECT DISTINCT od.OrderWorkPlanId, s.StatusDescriptionENG, s.StatusDescriptionHEB
 	 FROM [dbo].[OrderDetails] as od
 	 JOIN [dbo].[Statuses] as s ON od.SpecialCareTypeId = s.StatusId
-	 WHERE od.IsInHouse = 0) ds GROUP BY OrderWorkPlanId
+	 ) ds GROUP BY OrderWorkPlanId
 	) as sp ON wp.OrderWorkPlanId = sp.OrderWorkPlanId
 	LEFT JOIN 
 	( SELECT coh.OrderWorkPlanId, STRING_AGG(coh.MeasurementDeviceId,'', '') as EquipmentIds, STRING_AGG(ce.Description,'', '') as EquipmentNames
@@ -249,10 +250,10 @@ CONCAT(
 	  WHERE coh.IsDeleted = 0 GROUP BY coh.OrderWorkPlanId
 	)as coh ON wp.OrderWorkPlanId = coh.OrderWorkPlanId
 	LEFT JOIN (SELECT OrderWorkPlanId,STRING_AGG(SpecialCareTypeId,'','') as SpecialCares
-	 FROM [dbo].[OrderDetails] WHERE IsInHouse = 0 
+	 FROM [dbo].[OrderDetails]
 	 GROUP BY OrderWorkPlanId 
 	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
-	WHERE wp.OrderOverallStatusId IN(',@StatusesForOrders,') '
+	WHERE /*wp.OrderOverallStatusId IN(',@StatusesForOrders,')*/ 1=1 '
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
 	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND wp.AssigmentDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Location  IS NOT NULL THEN ' AND c.CustomerCity LIKE N''%'+@Location +'%'' 'ELSE ' ' END

@@ -36,7 +36,7 @@ IF @Page IN (N'internal-orders') SET @ExtIntFilter = 1 -- IsInHouse = 0 for inte
 DROP TABLE IF EXISTS #MainCategories
 CREATE TABLE #MainCategories
 (
-MainCategory NVARCHAR(50) COLLATE Latin1_General_100_CI_AI_SC
+MainCategory NVARCHAR(50) 
 )
 INSERT #MainCategories(MainCategory)
 SELECT DISTINCT CAST(v.Value AS NVARCHAR(50)) FROM dbo.ParseCSVToTable(@MainCategories) as v
@@ -45,7 +45,7 @@ SELECT DISTINCT CAST(v.Value AS NVARCHAR(50)) FROM dbo.ParseCSVToTable(@MainCate
 DROP TABLE IF EXISTS #SecondaryCategories
 CREATE TABLE #SecondaryCategories
 (
-SecondaryCategory NVARCHAR(50) COLLATE Latin1_General_100_CI_AI_SC
+SecondaryCategory NVARCHAR(50) 
 )
 INSERT #SecondaryCategories(SecondaryCategory)
 SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@SecondaryCategories) as v
@@ -53,7 +53,7 @@ SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@SecondaryCategories) as v
 DROP TABLE IF EXISTS #DeviceManufacturer
 CREATE TABLE #DeviceManufacturer
 (
-DeviceManufacturer NVARCHAR(255) COLLATE Latin1_General_100_CI_AI_SC
+DeviceManufacturer NVARCHAR(255) 
 )
 INSERT #DeviceManufacturer(DeviceManufacturer)
 SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceManufacturer) as v
@@ -61,7 +61,7 @@ SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceManufacturer) as v
 DROP TABLE IF EXISTS #DeviceModels
 CREATE TABLE #DeviceModels
 (
-DeviceModel NVARCHAR(30) COLLATE Latin1_General_100_CI_AI_SC
+DeviceModel NVARCHAR(30) 
 )
 INSERT #DeviceModels(DeviceModel)
 SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceModels) as v
@@ -84,6 +84,7 @@ CONCAT(
 	,od.OrderLineCnt
 	,od.PartName
 	,cals.[StatusDescriptionHEB] as CalibrationStatus
+	,od.[IsChecked]
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
 LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
