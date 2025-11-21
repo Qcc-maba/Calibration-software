@@ -28,10 +28,15 @@ USING (
 	ON dest.[CustomerIdFromSource] = source.[CustomerIdFromSource]
 		AND dest.SourceId = source.SourceId
 WHEN MATCHED
-		AND dest.[CustomerName] <> source.[CustomerName]
-		AND dest.[CustomerPhone] <> source.[CustomerPhone]
-		AND dest.[CustomerCity] <> source.[CustomerCity]
-		AND dest.[CustomerAddress] <> source.[CustomerAddress]
+		AND
+		    (COALESCE(dest.[CustomerName],'') <> COALESCE(source.[CustomerName],'')
+		OR COALESCE(dest.[CustomerPhone],'') <> COALESCE(source.[CustomerPhone],'')
+		OR COALESCE(dest.[CustomerCity],'') <> COALESCE(source.[CustomerCity],'')
+		OR COALESCE(dest.[CustomerAddress],'') <> COALESCE(source.[CustomerAddress],'')
+		OR COALESCE(dest.[SignatureAmount],0) <> COALESCE(source.[SignatureAmount],0)
+		OR COALESCE(dest.[ShipTypeDescr],'') <> COALESCE(source.[ShipTypeDescr],'')
+		OR COALESCE(dest.[ReportRequired],'') <> COALESCE(source.[ReportRequired],'')
+		)
 	THEN
 		UPDATE
 		SET 

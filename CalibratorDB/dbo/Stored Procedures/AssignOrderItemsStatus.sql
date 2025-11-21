@@ -63,12 +63,12 @@ IF @StatusCategoryName = 'ReportStatus'
 
     UPDATE [dbo].[OrderDetailsItems]
     SET [CalibrationReportStatusId] = @StatusId
-    WHERE [OrderDetailsItemId]  = @OrderDetailsItemId AND COALESCE([CalibrationReportStatusId],0) <> @StatusId
+    WHERE [OrderDetailsItemId]  = @OrderDetailsItemId --AND COALESCE([CalibrationReportStatusId],0) <> @StatusId
 
 ELSE 
     UPDATE [dbo].[OrderDetailsItems]
     SET [CalibrationStatusId] = @StatusId
-    WHERE [OrderDetailsItemId] = @OrderDetailsItemId AND COALESCE([CalibrationStatusId],0) <> @StatusId
+    WHERE [OrderDetailsItemId] = @OrderDetailsItemId --AND COALESCE([CalibrationStatusId],0) <> @StatusId
 
 
 
