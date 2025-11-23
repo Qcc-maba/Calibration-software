@@ -263,6 +263,8 @@
     <Build Include="dbo\Stored Procedures\utility_revertCarStatus.sql" />
     <Build Include="dbo\Stored Procedures\AssignMbaReportNumberForOrder.sql" />
     <Build Include="dbo\Stored Procedures\AssignValidatedStatusToOrderDevice.sql" />
+    <Build Include="dbo\Stored Procedures\AssignOrderComment.sql" />
+    <Build Include="dbo\Tables\CalibratorNotifications.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

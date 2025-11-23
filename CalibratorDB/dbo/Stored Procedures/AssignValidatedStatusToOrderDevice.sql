@@ -6,12 +6,12 @@
 -- =============================================
 CREATE     PROCEDURE [dbo].[AssignValidatedStatusToOrderDevice]
 @UserEmail NVARCHAR(50),
-@OrderDetailId INT,
+@OrderDetailsItemId INT,
 @IsChecked BIT
 /*
 EXEC [dbo].[AssignValidatedStatusToOrderDevice]
 @UserEmail ='sinova_super_admin@gmail.com',
-@OrderDetailId = 1309,
+@OrderDetailsItemId = 1309,
 @IsChecked = 0
 */
 AS
@@ -27,10 +27,10 @@ WHERE u.ID = @UserId AND u.IsActive = 1
 )
 THROW 51000, 'Provided user is not active', 1;
 
-UPDATE [dbo].[OrderDetails]
+UPDATE [dbo].[OrderDetailsItems]
 SET IsChecked = @IsChecked,
 	UpdateUserID = @UserId,
 	UpdatedDate = GETDATE()
-WHERE OrderDetailId = @OrderDetailId
+WHERE OrderDetailsItemId = @OrderDetailsItemId
 
 END

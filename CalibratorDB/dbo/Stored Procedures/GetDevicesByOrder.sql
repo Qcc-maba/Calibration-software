@@ -72,10 +72,12 @@ CONCAT(
      op.OrderNumber
 	,od.OrderWorkPlanId as OrderId
 	,od.OrderDetailId
+	,itm.OrderDetailsItemId
 	,opt.OrdersProductTypeName AS DeviceType
 	,mc.ID AS DepartmentId
 	,mc.MainCategoryName as MainCategory
 	,sc.SecondaryCategoryName AS SecondCategory
+	,itm.OrderDetailsItemId
 	--,itm.SerialNumber
 	--,itm.DeviceModel
 	--,itm.MbaReportNumber
@@ -83,16 +85,23 @@ CONCAT(
 	,odm.OrdersDeviceManufacturerName as DeviceManufacturer
 	,od.OrderLineCnt
 	,od.PartName
-	,cals.[StatusDescriptionHEB] as CalibrationStatus
-	,od.[IsChecked]
+	,odm.[StatusDescriptionHEB] as CalibrationStatus
+	,itm.[IsChecked]
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
 LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
 LEFT JOIN [dbo].[MainCategories] as mc ON od.MainCategoryId = mc.ID
 LEFT JOIN [dbo].[SecondaryCategories] sc ON od.SecondaryCategoryId = sc.ID
 LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
-LEFT JOIN [dbo].[OrdersDeviceManufacturers] as odm ON itm.OrdersDeviceManufacturerId = odm.OrdersDeviceManufacturerId
+OUTER APPLY
+(
+SELECT TOP 1 ddd.OrdersDeviceManufacturerName , cals.[StatusDescriptionHEB]
+FROM 
+[dbo].[OrderDetailsItems] as itm
+LEFT JOIN [dbo].[OrdersDeviceManufacturers] as ddd ON itm.OrdersDeviceManufacturerId = ddd.OrdersDeviceManufacturerId
 LEFT JOIN [dbo].[Statuses] as cals ON cals.[StatusId] = itm.[CalibrationStatusId]
+WHERE ddd.OrdersDeviceManufacturerDescription IS NOT NULL AND itm.OrderDetailId = od.OrderDetailId
+) as odm
 '
 ,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mcf ON mc.MainCategoryName COLLATE DATABASE_DEFAULT = mcf.MainCategory COLLATE DATABASE_DEFAULT',' ')
 ,IIF(@SecondaryCategories IS NOT NULL,' JOIN #SecondaryCategories as scf ON sc.OrdersSecondaryCategoryName COLLATE DATABASE_DEFAULT   = scf.SecondaryCategory COLLATE DATABASE_DEFAULT ',' ')

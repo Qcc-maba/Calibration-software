@@ -81,8 +81,8 @@ SELECT DISTINCT
 		,o.SourceOrderId
 		,os.StatusId as OrderOverallStatusId
 	    ,o.[CustomerPackingExists]
-	    ,MAX(o.[ActualReturnDate]) as [ActualReturnDate]
-	    ,MAX(o.[ExpectedReturnDate]) as [ExpectedReturnDate]
+	    ,IIF(MAX(o.[ActualReturnDate]) > GETDATE()-100,MAX(o.[ActualReturnDate]),NULL) as [ActualReturnDate]
+	    ,IIF(MAX(o.[ExpectedReturnDate]) > GETDATE()-100,MAX(o.[ExpectedReturnDate]),NULL) as [ExpectedReturnDate]
 	    ,o.[PackageLocation]
 		,IIF(LEN(o.[ShipTypeDesc]) > 1,o.[ShipTypeDesc],NULL) as [ShipTypeDesc]
 		FROM [stg].[stg_Orders] as o
@@ -101,7 +101,7 @@ SELECT DISTINCT
 	    ,o.[PackageLocation]
 		,o.[ShipTypeDesc]
 	) AS source
-	ON dest.[OrderSourceId] = source.[OrderSourceId]
+	ON dest.[OrderSourceId] = source.[OrderSourceId] AND dest.[SourceId] = source.[SourceId]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -190,7 +190,7 @@ USING (
 	LEFT JOIN [dbo].[OrdersProductTypes] as pt ON pt.OrdersProductTypeName = o.DeviceType and pt.IsDeleted = 0
 	LEFT JOIN [dbo].[MainCategories] as mc ON o.MainCategorySourceId = mc.MainCategoryName and mc.IsDeleted = 0
 	LEFT JOIN [dbo].[SecondaryCategories] as sc ON o.SecondCategorySourceId = sc.SecondaryCategoryName and sc.IsDeleted = 0
-	WHERE o.OrderDetailId IS NOT NULL
+	WHERE o.OrderDetailId IS NOT NULL AND o.[PartName] IS NOT NULL
 	) AS source
 	ON dest.[OrderWorkPlanId] = source.[OrderWorkPlanId] AND source.OrderDetailSourceId = dest.[OrderDetailSourceId] 
 WHEN MATCHED AND

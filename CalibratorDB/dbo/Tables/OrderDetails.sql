@@ -21,7 +21,6 @@
     [MainCategoryId]        INT             NULL,
     [SecondaryCategoryId]   INT             NULL,
     [CalibratorId]          INT             NULL,
-    [IsChecked]             BIT             DEFAULT ((0)) NOT NULL,
     CONSTRAINT [PK_OrderDetails] PRIMARY KEY CLUSTERED ([OrderWorkPlanId] ASC, [OrderDetailId] ASC),
     CONSTRAINT [FK_OrderDetails_CalibratorId] FOREIGN KEY ([CalibratorId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_OrderDetails_OrdersMainCategoryId] FOREIGN KEY ([MainCategoryId]) REFERENCES [dbo].[MainCategories] ([ID]),

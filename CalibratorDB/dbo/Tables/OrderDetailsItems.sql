@@ -28,6 +28,7 @@
     [Accuracy]                   TINYINT         NULL,
     [IsManuallyAdded]            BIT             DEFAULT ((0)) NOT NULL,
     [Doc]                        INT             NULL,
+    [IsChecked]                  BIT             DEFAULT ((0)) NULL,
     CONSTRAINT [PK_OrderDetailsItems] PRIMARY KEY CLUSTERED ([OrderDetailId] ASC, [OrderDetailsItemId] ASC),
     CONSTRAINT [FK_OrderDetailsItems_CalibrationReportStatusId] FOREIGN KEY ([CalibrationReportStatusId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_OrderDetailsItems_CalibrationSpecificationId] FOREIGN KEY ([CalibrationSpecificationId]) REFERENCES [dbo].[MeasurementsSpecifications] ([ID]),
