@@ -258,13 +258,14 @@
     <Build Include="stg\Stored Procedures\MergeClientAccessoryOrderDetails.sql" />
     <Build Include="dbo\Functions\GetSourceFilterByEmail.sql" />
     <Build Include="dbo\Stored Procedures\GetWorkPlanData.sql" />
-    <Build Include="dbo\Stored Procedures\deprecated_GetCalibrationDeviceConfigurationData.sql" />
     <Build Include="dbo\Tables\CarDowntimePeriodHistory.sql" />
     <Build Include="dbo\Stored Procedures\utility_revertCarStatus.sql" />
     <Build Include="dbo\Stored Procedures\AssignMbaReportNumberForOrder.sql" />
     <Build Include="dbo\Stored Procedures\AssignValidatedStatusToOrderDevice.sql" />
     <Build Include="dbo\Stored Procedures\AssignOrderComment.sql" />
     <Build Include="dbo\Tables\CalibratorNotifications.sql" />
+    <Build Include="dbo\Stored Procedures\GetDevicesUngroupedByOrder.sql" />
+    <Build Include="dbo\Stored Procedures\GetDevicesGroupsByOrder.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
