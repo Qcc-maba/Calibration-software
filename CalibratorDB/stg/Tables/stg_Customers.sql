@@ -7,6 +7,7 @@
     [SourceSystem]    NVARCHAR (7)  NULL,
     [SignatureAmount] TINYINT       NULL,
     [ShipTypeDescr]   NVARCHAR (50) NULL,
-    [ReportRequired]  NVARCHAR (50) NULL
+    [ReportRequired]  NVARCHAR (50) NULL,
+    [CustomerCode]    NVARCHAR (50) NULL
 );
 

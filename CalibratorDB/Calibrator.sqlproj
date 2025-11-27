@@ -266,6 +266,7 @@
     <Build Include="dbo\Tables\CalibratorNotifications.sql" />
     <Build Include="dbo\Stored Procedures\GetDevicesUngroupedByOrder.sql" />
     <Build Include="dbo\Stored Procedures\GetDevicesGroupsByOrder.sql" />
+    <Build Include="dbo\Stored Procedures\AssingMabaComments.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

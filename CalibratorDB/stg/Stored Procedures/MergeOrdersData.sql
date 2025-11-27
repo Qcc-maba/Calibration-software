@@ -266,12 +266,11 @@ USING (
 	     o.[SerialNumber]
 		,od.OrderDetailId
 		,o.[ManufacturerNumber]
-		,o.[Devicemodel] as [DeviceModel]
+		,REVERSE(o.[Devicemodel]) as [DeviceModel]
 		,o.[SpecialCareTypeId]
 		,o.[InHouse] as [IsInHouse]
 		,o.[PartName]
 		,o.[MbaReportNumber]
-
 		,mf.[OrdersDeviceManufacturerId]
 		,c.[CustomerId]
 		,o.[KLINE]
@@ -284,6 +283,7 @@ USING (
 		,0 as [UpdateUserID]
 		,o.[Doc]
 		,o.[NextCalibrationDate]
+		,o.AdditionalDeviceNumber
 	FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as s ON o.SourceSystem = s.SourceName
 	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderSourceId = o.SourceOrderId AND wp.SourceId = s.SourceId
@@ -304,6 +304,7 @@ USING (
 		OR COALESCE(dest.[Doc],0) = source.[Doc]
  		OR COALESCE(dest.[ProductLocation],'')<> COALESCE(source.[ProductLocation],'')
 		OR COALESCE(dest.[NextCalibrationDate],'1900-01-01') = COALESCE(source.[NextCalibrationDate],'1900-01-01'))
+		OR COALESCE(dest.[AdditionalDeviceNumber],'')<> COALESCE(source.[AdditionalDeviceNumber],'')
  
 	THEN
 		UPDATE
@@ -317,6 +318,7 @@ USING (
 			,dest.[ProductLocation] = source.[ProductLocation]
 			,dest.[Doc] = source.[Doc]
 			,dest.[NextCalibrationDate] = source.[NextCalibrationDate]
+			,dest.[AdditionalDeviceNumber] = source.[AdditionalDeviceNumber]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -334,6 +336,7 @@ WHEN NOT MATCHED BY TARGET
 			,[ProductLocation]
 			,[Doc]
 			,[NextCalibrationDate]
+			,[AdditionalDeviceNumber]
 			)
 		VALUES (
 			 source.[OrderDetailId]
@@ -350,5 +353,6 @@ WHEN NOT MATCHED BY TARGET
 			,source.[ProductLocation]
 			,source.[Doc]
 			,source.[NextCalibrationDate]
+			,source.[AdditionalDeviceNumber]
 			);
 END

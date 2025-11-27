@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="144"
-  DTS:VersionGUID="{013A9E48-36E2-4556-924E-378B5568537A}">
+  DTS:VersionBuild="148"
+  DTS:VersionGUID="{61176DE3-17EA-4151-A611-2285084E0E89}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -36,7 +36,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge ClientAccessoryOrderDetails"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -52,7 +52,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Maba Comments"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -1444,6 +1444,7 @@ GROUP BY CUST</property>
 	SUBSTRING(system.dbo.tabula_hebconvert(st.STDES),1,50) as ShipTypeDescr,
 	TRY_CAST(c.MBA_SIGNAMOUNT AS TINYINT) as SignatureAmount,
     SUBSTRING(system.dbo.tabula_hebconvert(IIF(LEN(sp.[SPEC7]) &gt;=2,sp.[SPEC7],N'יש לשלוח את הדו״ח ללקוח')),1,50) as ReportRequired,   
+	SUBSTRING(c.CUSTNAME,1,50) as CustomerCode,
 	'MABA' as SourceSystem
 FROM amaba.dbo.CUSTOMERS as c
 LEFT JOIN amaba.dbo.CUSTSPEC as sp ON c.CUST = sp.CUST
@@ -1459,6 +1460,7 @@ SELECT
 	SUBSTRING(system.dbo.tabula_hebconvert(st.STDES),1,50) as ShipTypeDescr,
 	TRY_CAST(c.MBA_SIGNAMOUNT AS TINYINT) as SignatureAmount,
     SUBSTRING(system.dbo.tabula_hebconvert(IIF(LEN(sp.[SPEC7]) &gt;=2,sp.[SPEC7],N'יש לשלוח את הדו״ח ללקוח')),1,50) as ReportRequired,  
+	SUBSTRING(c.CUSTNAME,1,50) as CustomerCode,
 	'SEPHARM' as SourceSystem
 FROM sepharm.dbo.CUSTOMERS as c
 LEFT JOIN sepharm.dbo.CUSTSPEC as sp ON c.CUST = sp.CUST
@@ -1579,6 +1581,16 @@ WHERE c.CUST &gt; 0</property>
                           name="ReportRequired"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[CustomerCode]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerCode]"
+                          length="16"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[CustomerCode]"
+                          name="CustomerCode"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]"
                           dataType="wstr"
                           errorOrTruncationOperation="Conversion"
@@ -1629,6 +1641,11 @@ WHERE c.CUST &gt; 0</property>
                           dataType="wstr"
                           length="50"
                           name="ReportRequired" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerCode]"
+                          dataType="wstr"
+                          length="16"
+                          name="CustomerCode" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceSystem]"
                           dataType="wstr"
@@ -1687,6 +1704,12 @@ WHERE c.CUST &gt; 0</property>
                           length="50"
                           lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[ReportRequired]"
                           name="ReportRequired" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerCode]"
+                          dataType="wstr"
+                          length="16"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerCode]"
+                          name="CustomerCode" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceSystem]"
                           dataType="wstr"
@@ -1814,6 +1837,13 @@ WHERE c.CUST &gt; 0</property>
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[ReportRequired]"
                           lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[ReportRequired]" />
                         <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].Columns[CustomerCode]"
+                          cachedDataType="wstr"
+                          cachedLength="16"
+                          cachedName="CustomerCode"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerCode]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[CustomerCode]" />
+                        <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].Columns[SourceSystem]"
                           cachedDataType="wstr"
                           cachedLength="7"
@@ -1866,6 +1896,11 @@ WHERE c.CUST &gt; 0</property>
                           dataType="wstr"
                           length="50"
                           name="ReportRequired" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerCode]"
+                          dataType="wstr"
+                          length="50"
+                          name="CustomerCode" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -2551,6 +2586,7 @@ FROM cte</property>
       ,[CalibDate]
       ,[CustomerSourceId]
       ,[SerialNumber]
+      ,[AdditionalDeviceNumber]
       ,[ManufacturerNumber]
       ,SUBSTRING([Devicemodel],1,30) as [Devicemodel]
       ,[SpecialCareTypeId]
@@ -2586,6 +2622,7 @@ SELECT [SourceOrderId]
       ,[CalibDate]
       ,[CustomerSourceId]
       ,[SerialNumber]
+      ,[AdditionalDeviceNumber]
       ,[ManufacturerNumber]
       ,SUBSTRING([Devicemodel],1,30) as [Devicemodel]
       ,[SpecialCareTypeId]
@@ -2718,9 +2755,19 @@ SELECT [SourceOrderId]
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SerialNumber]"
-                          length="20"
+                          length="30"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SerialNumber]"
                           name="SerialNumber"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[AdditionalDeviceNumber]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[AdditionalDeviceNumber]"
+                          length="20"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[AdditionalDeviceNumber]"
+                          name="AdditionalDeviceNumber"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ManufacturerNumber]"
@@ -2994,8 +3041,13 @@ SELECT [SourceOrderId]
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SerialNumber]"
                           dataType="wstr"
-                          length="20"
+                          length="30"
                           name="SerialNumber" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[AdditionalDeviceNumber]"
+                          dataType="wstr"
+                          length="20"
+                          name="AdditionalDeviceNumber" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ManufacturerNumber]"
                           dataType="wstr"
@@ -3154,9 +3206,15 @@ SELECT [SourceOrderId]
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SerialNumber]"
                           dataType="wstr"
-                          length="20"
+                          length="30"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[SerialNumber]"
                           name="SerialNumber" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[AdditionalDeviceNumber]"
+                          dataType="wstr"
+                          length="20"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[AdditionalDeviceNumber]"
+                          name="AdditionalDeviceNumber" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ManufacturerNumber]"
                           dataType="wstr"
@@ -3406,10 +3464,17 @@ SELECT [SourceOrderId]
                         <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[SerialNumber]"
                           cachedDataType="wstr"
-                          cachedLength="20"
+                          cachedLength="30"
                           cachedName="SerialNumber"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SerialNumber]"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[SerialNumber]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[AdditionalDeviceNumber]"
+                          cachedDataType="wstr"
+                          cachedLength="20"
+                          cachedName="AdditionalDeviceNumber"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[AdditionalDeviceNumber]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[AdditionalDeviceNumber]" />
                         <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[ManufacturerNumber]"
                           cachedDataType="wstr"
@@ -3595,7 +3660,7 @@ SELECT [SourceOrderId]
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[SerialNumber]"
                           dataType="wstr"
-                          length="20"
+                          length="50"
                           name="SerialNumber" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ManufacturerNumber]"
@@ -3725,6 +3790,11 @@ SELECT [SourceOrderId]
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[NextCalibrationDate]"
                           dataType="dbTimeStamp"
                           name="NextCalibrationDate" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[AdditionalDeviceNumber]"
+                          dataType="wstr"
+                          length="100"
+                          name="AdditionalDeviceNumber" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -4237,7 +4307,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_Customers">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_Customers\Load stg table"
@@ -4265,9 +4335,7 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>

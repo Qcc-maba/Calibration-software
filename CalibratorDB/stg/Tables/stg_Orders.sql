@@ -3,7 +3,7 @@
     [ORDNAME]                    NVARCHAR (16)   NULL,
     [OpenDate]                   DATETIME        NULL,
     [CustomerSourceId]           INT             NULL,
-    [SerialNumber]               NVARCHAR (20)   NULL,
+    [SerialNumber]               NVARCHAR (50)   NULL,
     [ManufacturerNumber]         NVARCHAR (17)   NULL,
     [Devicemodel]                NVARCHAR (30)   NULL,
     [SpecialCareTypeId]          INT             NULL,
@@ -31,6 +31,7 @@
     [OrderDetailId]              INT             NULL,
     [ShipTypeDesc]               NVARCHAR (100)  NULL,
     [Doc]                        INT             NULL,
-    [NextCalibrationDate]        DATETIME2 (0)   NULL
+    [NextCalibrationDate]        DATETIME2 (0)   NULL,
+    [AdditionalDeviceNumber]     NVARCHAR (100)  NULL
 );
 

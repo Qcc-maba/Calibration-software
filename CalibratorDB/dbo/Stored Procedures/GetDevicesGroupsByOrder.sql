@@ -86,6 +86,7 @@ CONCAT(
 	,od.OrderLineCnt
 	,od.PartName
 	,odm.[StatusDescriptionHEB] as CalibrationStatus
+	,odm.[StatusDescriptionENG] as CalibrationStatusENG 
 	,itm.[IsChecked]
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
@@ -95,7 +96,7 @@ LEFT JOIN [dbo].[SecondaryCategories] sc ON od.SecondaryCategoryId = sc.ID
 LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
 OUTER APPLY
 (
-SELECT TOP 1 ddd.OrdersDeviceManufacturerName , cals.[StatusDescriptionHEB]
+SELECT TOP 1 ddd.OrdersDeviceManufacturerName , cals.[StatusDescriptionHEB], [StatusDescriptionENG] 
 FROM 
 [dbo].[OrderDetailsItems] as itm
 LEFT JOIN [dbo].[OrdersDeviceManufacturers] as ddd ON itm.OrdersDeviceManufacturerId = ddd.OrdersDeviceManufacturerId

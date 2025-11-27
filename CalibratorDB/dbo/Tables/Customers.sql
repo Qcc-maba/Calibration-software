@@ -13,10 +13,13 @@
     [SignatureAmount]      TINYINT       NULL,
     [ShipTypeDescr]        NVARCHAR (50) NULL,
     [ReportRequired]       NVARCHAR (50) NULL,
+    [CustomerCode]         NVARCHAR (50) NULL,
     CONSTRAINT [PK_Customers] PRIMARY KEY CLUSTERED ([CustomerId] ASC),
     CONSTRAINT [FK_Customers_SourceId] FOREIGN KEY ([SourceId]) REFERENCES [dbo].[Source] ([SourceId]),
     CONSTRAINT [FK_Customers_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
+
+
 
 
 

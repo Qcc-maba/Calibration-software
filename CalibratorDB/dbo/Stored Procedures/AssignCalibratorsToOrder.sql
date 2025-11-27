@@ -10,6 +10,7 @@ CREATE   PROCEDURE [dbo].[AssignCalibratorsToOrder]
 @StartDate DATETIME2(0),
 @CalibratorIDs NVARCHAR(300),
 @Note NVARCHAR(255),
+@CarId INT = NULL,
 @LoggedInUserEmail NVARCHAR(100) = NULL
 
 --exec dbo.AssignCalibratorsToOrder @OrderNumber = N'LA25100557', @StartDate = '2025-03-17 16:23:00', @CalibratorIDs = '2,6,7,8', @Note = N'test record'
@@ -60,8 +61,8 @@ SET UpdatedDate = GETDATE(),
     IsDeleted = 0
 WHERE OrderWorkPlanId = @WorkPlanId and IsDeleted = 1
 
-INSERT dbo.CalibratorsToWorkPlan(OrderWorkPlanId,CalibratorId,AssigmentDate,UpdateUserID)
-SELECT DISTINCT @WorkPlanId, c.CalibratorID, @StartDate,@LoggedInUserId
+INSERT dbo.CalibratorsToWorkPlan(OrderWorkPlanId,CalibratorId,AssigmentDate,UpdateUserID,CarId)
+SELECT DISTINCT @WorkPlanId, c.CalibratorID, @StartDate,@LoggedInUserId,@CarId
 FROM #CalibratorIDs as c 
 LEFT JOIN dbo.CalibratorsToWorkPlan as wp ON c.CalibratorID = wp.CalibratorId AND wp.OrderWorkPlanId = @WorkPlanId
 WHERE wp.CalibratorId IS NULL

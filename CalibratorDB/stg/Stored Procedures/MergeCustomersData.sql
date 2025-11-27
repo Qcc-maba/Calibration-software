@@ -22,6 +22,7 @@ USING (
 		,c.SignatureAmount		
 		,c.ShipTypeDescr
 		,c.ReportRequired
+		,c.CustomerCode
 	FROM stg.stg_Customers as c
 	JOIN dbo.Source as ss ON c.SourceSystem = ss.SourceName
 	) AS source
@@ -36,6 +37,7 @@ WHEN MATCHED
 		OR COALESCE(dest.[SignatureAmount],0) <> COALESCE(source.[SignatureAmount],0)
 		OR COALESCE(dest.[ShipTypeDescr],'') <> COALESCE(source.[ShipTypeDescr],'')
 		OR COALESCE(dest.[ReportRequired],'') <> COALESCE(source.[ReportRequired],'')
+		OR COALESCE(dest.[CustomerCode],'') <> COALESCE(source.[CustomerCode],'')
 		)
 	THEN
 		UPDATE
@@ -50,6 +52,7 @@ WHEN MATCHED
 			,dest.SignatureAmount = source.SignatureAmount
 			,dest.ShipTypeDescr = source.ShipTypeDescr
 			,dest.ReportRequired = source.ReportRequired
+			,dest.[CustomerCode] = source.[CustomerCode]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -63,6 +66,7 @@ WHEN NOT MATCHED BY TARGET
 			,[SignatureAmount]
 			,[ShipTypeDescr]
 			,[ReportRequired]
+			,[CustomerCode]
 			)
 		VALUES (
 			 source.[CustomerName]
@@ -75,5 +79,6 @@ WHEN NOT MATCHED BY TARGET
 			,source.SignatureAmount		
 			,source.ShipTypeDescr
 			,source.ReportRequired
+			,source.[CustomerCode]
 			);
 END

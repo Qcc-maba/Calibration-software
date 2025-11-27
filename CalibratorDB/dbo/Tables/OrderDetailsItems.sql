@@ -2,7 +2,7 @@
     [OrderDetailId]              INT             NOT NULL,
     [OrderDetailsItemId]         INT             IDENTITY (1, 1) NOT NULL,
     [NextCalibrationDate]        DATETIME2 (0)   NULL,
-    [SerialNumber]               NVARCHAR (100)  NULL,
+    [SerialNumber]               NVARCHAR (50)   NULL,
     [ManufacturerNumber]         NVARCHAR (100)  NULL,
     [DeviceModel]                NVARCHAR (100)  NULL,
     [AdditionalDeviceNumber]     NVARCHAR (100)  NULL,
