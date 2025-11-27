@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="148"
-  DTS:VersionGUID="{61176DE3-17EA-4151-A611-2285084E0E89}">
+  DTS:VersionBuild="151"
+  DTS:VersionGUID="{526887D2-5703-4280-A406-90F775265117}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -80,7 +80,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customer Remarks"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -96,7 +96,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Contacts Data"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="2">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -112,7 +112,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Data"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -128,7 +128,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Order Product Type"
-          DTS:ThreadHint="2">
+          DTS:ThreadHint="3">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -144,7 +144,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Device Manufacturers"
-          DTS:ThreadHint="3">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -2612,6 +2612,10 @@ FROM cte</property>
       ,SUBSTRING([ShipTypeDesc],1,50) as [ShipTypeDesc]
       ,[DOC] AS Doc
       ,[NextCalibrationDate]
+      ,[CurrentCalibrationStatus]
+      ,[CustomerReceivingDate]
+      ,[ShippingDoc]
+      ,SUBSTRING([ShippingAddress],1,150) as [ShippingAddress] 
   FROM [amaba].[dbo].[vwGetOrders_WorkPlan_Full_new]
 UNION ALL
 SELECT [SourceOrderId]
@@ -2648,6 +2652,10 @@ SELECT [SourceOrderId]
       ,SUBSTRING([ShipTypeDesc],1,50) as [ShipTypeDesc]
       ,[DOC] AS Doc
       ,[NextCalibrationDate]
+      ,[CurrentCalibrationStatus]
+      ,[CustomerReceivingDate]
+      ,[ShippingDoc]
+      ,SUBSTRING([ShippingAddress],1,150) as [ShippingAddress]
   FROM [sepharm].[dbo].[vwGetOrders_WorkPlan_Full_new]</property>
                     <property
                       dataType="System.Int32"
@@ -2733,7 +2741,7 @@ SELECT [SourceOrderId]
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CalibDate]"
-                          dataType="i4"
+                          dataType="dbTimeStamp"
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CalibDate]"
@@ -3006,6 +3014,46 @@ SELECT [SourceOrderId]
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[NextCalibrationDate]"
                           name="NextCalibrationDate"
                           truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CurrentCalibrationStatus]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CurrentCalibrationStatus]"
+                          length="2"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CurrentCalibrationStatus]"
+                          name="CurrentCalibrationStatus"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerReceivingDate]"
+                          dataType="dbTimeStamp2"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerReceivingDate]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerReceivingDate]"
+                          name="CustomerReceivingDate"
+                          scale="7"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ShippingDoc]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShippingDoc]"
+                          length="16"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ShippingDoc]"
+                          name="ShippingDoc"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ShippingAddress]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShippingAddress]"
+                          length="150"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ShippingAddress]"
+                          name="ShippingAddress"
+                          truncationRowDisposition="FailComponent" />
                       </outputColumns>
                       <externalMetadataColumns
                         isUsed="True">
@@ -3032,7 +3080,7 @@ SELECT [SourceOrderId]
                           name="OpenDate" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CalibDate]"
-                          dataType="i4"
+                          dataType="dbTimeStamp"
                           name="CalibDate" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerSourceId]"
@@ -3160,6 +3208,26 @@ SELECT [SourceOrderId]
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[NextCalibrationDate]"
                           dataType="dbTimeStamp"
                           name="NextCalibrationDate" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CurrentCalibrationStatus]"
+                          dataType="wstr"
+                          length="2"
+                          name="CurrentCalibrationStatus" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerReceivingDate]"
+                          dataType="dbTimeStamp2"
+                          name="CustomerReceivingDate"
+                          scale="7" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShippingDoc]"
+                          dataType="wstr"
+                          length="16"
+                          name="ShippingDoc" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ShippingAddress]"
+                          dataType="wstr"
+                          length="150"
+                          name="ShippingAddress" />
                       </externalMetadataColumns>
                     </output>
                     <output
@@ -3195,7 +3263,7 @@ SELECT [SourceOrderId]
                           name="OpenDate" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CalibDate]"
-                          dataType="i4"
+                          dataType="dbTimeStamp"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CalibDate]"
                           name="CalibDate" />
                         <outputColumn
@@ -3353,6 +3421,30 @@ SELECT [SourceOrderId]
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[NextCalibrationDate]"
                           name="NextCalibrationDate" />
                         <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CurrentCalibrationStatus]"
+                          dataType="wstr"
+                          length="2"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CurrentCalibrationStatus]"
+                          name="CurrentCalibrationStatus" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerReceivingDate]"
+                          dataType="dbTimeStamp2"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerReceivingDate]"
+                          name="CustomerReceivingDate"
+                          scale="7" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ShippingDoc]"
+                          dataType="wstr"
+                          length="16"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ShippingDoc]"
+                          name="ShippingDoc" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ShippingAddress]"
+                          dataType="wstr"
+                          length="150"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ShippingAddress]"
+                          name="ShippingAddress" />
+                        <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
                           dataType="i4"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
@@ -3451,7 +3543,7 @@ SELECT [SourceOrderId]
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[OpenDate]" />
                         <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CalibDate]"
-                          cachedDataType="i4"
+                          cachedDataType="dbTimeStamp"
                           cachedName="CalibDate"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CalibDate]"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CalibDate]" />
@@ -3637,6 +3729,34 @@ SELECT [SourceOrderId]
                           cachedName="NextCalibrationDate"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[NextCalibrationDate]"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[NextCalibrationDate]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CurrentCalibrationStatus]"
+                          cachedDataType="wstr"
+                          cachedLength="2"
+                          cachedName="CurrentCalibrationStatus"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CurrentCalibrationStatus]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CurrentCalibrationStatus]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[CustomerReceivingDate]"
+                          cachedDataType="dbTimeStamp2"
+                          cachedName="CustomerReceivingDate"
+                          cachedScale="7"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerReceivingDate]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[CustomerReceivingDate]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[ShippingDoc]"
+                          cachedDataType="wstr"
+                          cachedLength="16"
+                          cachedName="ShippingDoc"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ShippingDoc]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ShippingDoc]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[ShippingAddress]"
+                          cachedDataType="wstr"
+                          cachedLength="150"
+                          cachedName="ShippingAddress"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ShippingAddress]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ShippingAddress]" />
                       </inputColumns>
                       <externalMetadataColumns
                         isUsed="True">
@@ -3795,6 +3915,25 @@ SELECT [SourceOrderId]
                           dataType="wstr"
                           length="100"
                           name="AdditionalDeviceNumber" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CurrentCalibrationStatus]"
+                          dataType="wstr"
+                          length="10"
+                          name="CurrentCalibrationStatus" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[CustomerReceivingDate]"
+                          dataType="dbTimeStamp"
+                          name="CustomerReceivingDate" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ShippingDoc]"
+                          dataType="wstr"
+                          length="30"
+                          name="ShippingDoc" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ShippingAddress]"
+                          dataType="wstr"
+                          length="150"
+                          name="ShippingAddress" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -4417,7 +4556,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_Manufacturers">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
         <NodeLayout
           Size="161.6,41.6"
           Id="Package\Populate staging tables\Load data to stg_Manufacturers\Populate stg table"
@@ -4445,7 +4584,9 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -4473,13 +4614,13 @@ SELECT [SourceOrderId]
       <GraphLayout
         Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
-          Size="152,41.6"
-          Id="Package\Populate staging tables\Load data to stg_Orders\Get source data"
-          TopLeft="329.712116151522,122.290907469627" />
-        <NodeLayout
           Size="223.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging"
           TopLeft="289.999996473392,207.933330186672" />
+        <NodeLayout
+          Size="152,41.6"
+          Id="Package\Populate staging tables\Load data to stg_Orders\Get source data"
+          TopLeft="329.712116151522,122.290907469627" />
         <EdgeLayout
           Id="Package\Populate staging tables\Load data to stg_Orders.Paths[ADO NET Source Output]"
           TopLeft="403.656056312457,163.890907469627">

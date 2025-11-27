@@ -55,15 +55,17 @@ DROP TABLE IF EXISTS #OrderStatus
 CREATE TABLE #OrderStatus
 (
 StatusId INT NOT NULL,
-Code INT
+CodeINT INT,
+StatusType NVARCHAR(50)COLLATE Latin1_General_100_CI_AI_SC,
+Code NVARCHAR(255) COLLATE Latin1_General_100_CI_AI_SC
 )
-INSERT #OrderStatus (StatusId,Code)
-SELECT s.StatusId, TRY_CAST(s.Code AS INT) as Code
+INSERT #OrderStatus (StatusId,CodeINT,StatusType,Code)
+SELECT s.StatusId, TRY_CAST(s.Code AS INT) as CodeINT, sc.StatusDescriptionENG as StatusType, s.Code 
 FROM [Calibrator].[dbo].[Statuses] as s
 JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
-WHERE sc.StatusDescriptionENG = 'OrderStatus' AND TRY_CAST(s.Code AS INT) <> 0
+WHERE sc.StatusDescriptionENG IN('OrderStatus','ReportStatus','CalibrationStatuses')
 
-DECLARE @dt DATETIME2(0) = GETDATE()
+
 
 MERGE INTO [dbo].[OrderWorkPlans] AS dest
 USING (
@@ -88,7 +90,7 @@ SELECT DISTINCT
 		FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as ss ON o.[SourceSystem] = ss.SourceName
     LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = ss.SourceId and c.IsDeleted = 0
-	LEFT JOIN #OrderStatus AS os ON o.ORDSTATUS = os.Code
+	LEFT JOIN #OrderStatus AS os ON o.ORDSTATUS = os.Code AND os.StatusType = N'OrderStatus'
 	GROUP BY 	     
 	     o.ORDNAME
 		,o.OpenDate
@@ -284,12 +286,20 @@ USING (
 		,o.[Doc]
 		,o.[NextCalibrationDate]
 		,o.AdditionalDeviceNumber
+		,o.CalibDate as [ActualCalibrationDate]
+		,os.StatusId as CalibrationReportStatusId
+		,IIF(os2.Code <> N'CO',os2.StatusId,-1) as CalibrationStatusId
+		,o.CustomerReceivingDate
+		,IIF(LEN(o.ShippingDoc) > 1,o.ShippingDoc,NULL) as ShippingDoc
+		,IIF(LEN(o.ShippingAddress) > 1,o.ShippingAddress,NULL) as  ShippingAddress
 	FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as s ON o.SourceSystem = s.SourceName
 	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderSourceId = o.SourceOrderId AND wp.SourceId = s.SourceId
 	JOIN [dbo].[OrderDetails] as od ON wp.[OrderWorkPlanId] = od.[OrderWorkPlanId] AND o.[KLINE] = od.[KLINE] 
 	LEFT JOIN [dbo].[OrdersDeviceManufacturers] as mf ON mf.OrdersDeviceManufacturerName = o.DeviceManufacturerSourceId and mf.IsDeleted = 0
 	LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = s.SourceId and c.IsDeleted = 0
+	LEFT JOIN #OrderStatus AS os ON o.CurrentCalibrationStatus = os.Code AND os.StatusType = N'ReportStatus'
+	LEFT JOIN #OrderStatus AS os2 ON o.CurrentCalibrationStatus = os2.Code AND os2.StatusType = N'CalibrationStatuses'
 	WHERE o.OrderDetailId IS NOT NULL AND o.Doc IS NOT NULL
 	) AS source
 	ON dest.OrderDetailId = source.OrderDetailId AND source.[Doc] = dest.[Doc]
@@ -305,7 +315,14 @@ USING (
  		OR COALESCE(dest.[ProductLocation],'')<> COALESCE(source.[ProductLocation],'')
 		OR COALESCE(dest.[NextCalibrationDate],'1900-01-01') = COALESCE(source.[NextCalibrationDate],'1900-01-01'))
 		OR COALESCE(dest.[AdditionalDeviceNumber],'')<> COALESCE(source.[AdditionalDeviceNumber],'')
- 
+		OR COALESCE(dest.[ActualCalibrationDate],'1900-01-01') <> COALESCE(source.[ActualCalibrationDate],'1900-01-01')
+		OR COALESCE(dest.CustomerReceivingDate,'1900-01-01') <> COALESCE(source.CustomerReceivingDate,'1900-01-01')
+ 		--OR COALESCE(dest.CalibrationStatusId,0) = IIF(source.CalibrationStatusId = -1,dest.CalibrationStatusId,source.CalibrationStatusId) -- Calibration status can not be delivered, but on source report and calibration statuses same column 
+		OR COALESCE(dest.CalibrationReportStatusId,0) = source.[CalibrationReportStatusId]
+		OR COALESCE(dest.[ShippingDoc],'') = COALESCE(source.[ShippingDoc],'')
+		OR COALESCE(dest.[ShippingAddress],'') = COALESCE(source.[ShippingAddress],'')
+
+
 	THEN
 		UPDATE
 		SET  dest.[SerialNumber] = source.[SerialNumber]
@@ -319,6 +336,12 @@ USING (
 			,dest.[Doc] = source.[Doc]
 			,dest.[NextCalibrationDate] = source.[NextCalibrationDate]
 			,dest.[AdditionalDeviceNumber] = source.[AdditionalDeviceNumber]
+			,dest.[ActualCalibrationDate] = source.[ActualCalibrationDate]
+			,dest.[CalibrationReportStatusId] = IIF(dest.[UpdateUserID] = 0,source.[CalibrationReportStatusId],dest.[CalibrationReportStatusId])
+		   -- ,dest.[CalibrationStatusId] = IIF(dest.[UpdateUserID] = 0 and source.CalibrationStatusId > 0,source.CalibrationStatusId,dest.CalibrationStatusId) -- Calibration status can not be delivered, but on source report and calibration statuses same column 
+		    ,dest.[CustomerReceivingDate] = source.[CustomerReceivingDate]
+		    ,dest.[ShippingDoc] = source.[ShippingDoc]
+		    ,dest.[ShippingAddress] = source.[ShippingAddress]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -337,6 +360,12 @@ WHEN NOT MATCHED BY TARGET
 			,[Doc]
 			,[NextCalibrationDate]
 			,[AdditionalDeviceNumber]
+			,[ActualCalibrationDate]
+			,[CalibrationReportStatusId]
+		  --  ,[CalibrationStatusId]
+		    ,[CustomerReceivingDate]
+		    ,[ShippingDoc]
+		    ,[ShippingAddress]
 			)
 		VALUES (
 			 source.[OrderDetailId]
@@ -354,5 +383,11 @@ WHEN NOT MATCHED BY TARGET
 			,source.[Doc]
 			,source.[NextCalibrationDate]
 			,source.[AdditionalDeviceNumber]
+			,source.[ActualCalibrationDate]
+			,source.[CalibrationReportStatusId]
+		  --  ,NULLIF(source.[CalibrationStatusId],-1)
+		    ,source.[CustomerReceivingDate]
+		    ,source.[ShippingDoc]
+		    ,source.[ShippingAddress]
 			);
 END

@@ -32,6 +32,10 @@
     [ShipTypeDesc]               NVARCHAR (100)  NULL,
     [Doc]                        INT             NULL,
     [NextCalibrationDate]        DATETIME2 (0)   NULL,
-    [AdditionalDeviceNumber]     NVARCHAR (100)  NULL
+    [AdditionalDeviceNumber]     NVARCHAR (100)  NULL,
+    [CurrentCalibrationStatus]   NVARCHAR (10)   NULL,
+    [CustomerReceivingDate]      DATETIME2 (0)   NULL,
+    [ShippingDoc]                NVARCHAR (30)   NULL,
+    [ShippingAddress]            NVARCHAR (150)  NULL
 );
 
