@@ -16,7 +16,8 @@ p.OrderNumber,
 c.LicenseNumber,
 c.Model as ModelName,
 'not exists in db yet' as Mileage,
-cwp.AssignDate as [Date]
+cwp.AssignDate as [Date],
+c.Seats as NumberOfSeats
 FROM [dbo].[CarsToOrder] as cwp
 JOIN [dbo].[OrderWorkPlans] as p ON cwp.OrderWorkPlanId = p.OrderWorkPlanId 
 JOIN [dbo].[Cars] as c ON cwp.CarId = c.CarId

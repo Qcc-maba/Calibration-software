@@ -3,8 +3,9 @@
     [CalibratorNotificationId] INT            IDENTITY (1, 1) NOT NULL,
     [OrderWorkPlanId]          INT            NULL,
     [OrderDetailId]            INT            NULL,
+    [OrderDetailItemId]        INT            NULL,
     [NotificationText]         NVARCHAR (200) NULL,
-    [NotificationTypeId]       INT            NOT NULL,
+    [NotificationTypeId]       INT            NULL,
     [ResolvedDate]             DATETIME2 (0)  NULL,
     [CreatedDate]              DATETIME2 (0)  DEFAULT (getdate()) NOT NULL,
     [CreateUserId]             INT            NOT NULL,
@@ -17,6 +18,8 @@
     CONSTRAINT [FK_CalibratorNotifications_OrderWorkPlanId] FOREIGN KEY ([OrderWorkPlanId]) REFERENCES [dbo].[OrderWorkPlans] ([OrderWorkPlanId]),
     CONSTRAINT [FK_CalibratorNotifications_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
+
+
 
 
 GO

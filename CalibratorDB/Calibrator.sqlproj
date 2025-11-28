@@ -114,7 +114,6 @@
     <Build Include="dbo\Stored Procedures\GetLaboratoryViewDepartmentDelays.sql" />
     <Build Include="dbo\Stored Procedures\GetLaboratoryViewAgentsWaitingList.sql" />
     <Build Include="dbo\Stored Procedures\GetExternalWorkPlanData.sql" />
-    <Build Include="dbo\Stored Procedures\GetDevicesByOrder.sql" />
     <Build Include="dbo\Stored Procedures\CreateCalendarEvent.sql" />
     <Build Include="dbo\Stored Procedures\GetCalendarEvents.sql" />
     <Build Include="dbo\Stored Procedures\EditCalendarEvent.sql" />
@@ -266,7 +265,8 @@
     <Build Include="dbo\Tables\CalibratorNotifications.sql" />
     <Build Include="dbo\Stored Procedures\GetDevicesUngroupedByOrder.sql" />
     <Build Include="dbo\Stored Procedures\GetDevicesGroupsByOrder.sql" />
-    <Build Include="dbo\Stored Procedures\AssingMabaComments.sql" />
+    <Build Include="dbo\Stored Procedures\GetCalibratorNotification.sql" />
+    <Build Include="dbo\Stored Procedures\AssignCalibratorNotification.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

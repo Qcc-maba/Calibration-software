@@ -108,6 +108,9 @@ CONCAT(
 	,c.CustomerName
 	,cbl.Calibrators
 	,scs.StatusDescriptionHEB as SpecialTreatment
+	,itm.CustomerReceivingDate	
+	,itm.ShippingDoc	
+	,itm.ShippingAddress
 	,COUNT(1) OVER(PARTITION BY 1 ORDER BY op.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
