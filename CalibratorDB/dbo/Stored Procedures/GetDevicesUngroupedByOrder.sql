@@ -84,6 +84,15 @@ DeviceModel NVARCHAR(30)
 INSERT #DeviceModels(DeviceModel)
 SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceModels) as v
 
+
+DECLARE @StatusesForOrders NVARCHAR(MAX)
+
+SELECT @StatusesForOrders=STRING_AGG(s.StatusId,',')
+FROM [Calibrator].[dbo].[Statuses] as s
+JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
+WHERE sc.StatusDescriptionENG='OrderStatus' AND s.StatusDescriptionENG <> 'Executed'
+
+
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 'SELECT
@@ -136,7 +145,7 @@ SELECT [OrderWorkPlanId]
 ,IIF(@DeviceManufacturer IS NOT NULL,' JOIN #DeviceManufacturer as dmf ON ddd.[OrdersDeviceManufacturerDescription] COLLATE DATABASE_DEFAULT  = dmf.DeviceManufacturer COLLATE DATABASE_DEFAULT ',' ')
 ,IIF(@DeviceModels IS NOT NULL,' JOIN #DeviceModels as dm ON itm.DeviceModel COLLATE DATABASE_DEFAULT = dm.DeviceModel COLLATE DATABASE_DEFAULT ',' ')
 ,'
-WHERE 1=1
+WHERE op.OrderOverallStatusId IN(',@StatusesForOrders,') 
 '
 ,IIF(@OrderNumber IS NOT NULL,'AND op.OrderNumber = TRIM('''+@OrderNumber+''')',' ')
 ,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
