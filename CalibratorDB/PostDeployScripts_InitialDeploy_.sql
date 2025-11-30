@@ -20,6 +20,6 @@ GO
 GO
 :r".\CalibratorCertificationAuthorities.sql"
 GO
-:r".\PopulateMeasurmentUnits"
+:r".\PopulateMeasurmentUnits.sql"
 GO
-:r".\ListOfAllEquipment"
+:r".\ListOfAllEquipment.sql"

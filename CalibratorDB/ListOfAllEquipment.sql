@@ -2003,19 +2003,6 @@ VALUES
 (N'מבא',N'1-פויינטרים 8',N'פויינטרים 8',N'אוגר נתונים לטמפרטורה ולחות',N'מד טמפ'' ולחות משולב',N'',N'כיולי חוץ א.א',N'',N'',N'',N'',N'0',N'',N'',N'',N'2026-05-27 00:00:00',N'טמפרטורה ולחות',N'',N'טמפ''',N'ורוד')
 ) AS v([Company], [DeviceNumber], [ID], [DeviceDescription], [ProductDescription], [ManufacturerSerialNumber], [DeviceLocation], [Calibrator], [Manufacturer], [Model], [Status], [CalibrationIntervalMonths], [MabaSKU], [DeviceRange], [LastCalibrationReport], [NextCalibrationDate], [Department], [Subdepartment], [DisplayInArrangement], [Notes]);
 
-/*Insert Manufacturers*/
-
-INSERT INTO [dbo].[MeasurementDevicesManufacturers]
-           ([Name]
-           ,[CreatedDate]
-           ,[IsDeleted]
-           ,[UpdateUserID])
-
-SELECT DISTINCT t.Manufacturer, GETDATE(),0,0
-FROM #test as t
-LEFT JOIN [dbo].[MeasurementDevicesManufacturers] as mf ON t.Manufacturer = mf.Name
-WHERE mf.Name IS NULL AND t.Manufacturer IS NOT NULL AND LEN(t.Manufacturer) > 0
-
 /*Insert data for measurment devices for temperature and humidity*/
 
 DECLARE @SensorId INT, @LoggerId INT, @MainCategoryId INT
