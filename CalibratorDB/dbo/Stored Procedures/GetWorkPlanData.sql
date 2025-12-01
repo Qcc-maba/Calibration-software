@@ -204,6 +204,7 @@ CONCAT(
 		MAX(wp.CreatedDate) AS ReceivingDate,
 		MAX(wpstat.StatusDescriptionENG) AS WorkPlanStatus,
 		MAX(wp.CustomerComment) as CustomerComment,
+		wp.AssigmentDate AS [PlacementDate],
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
 	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')

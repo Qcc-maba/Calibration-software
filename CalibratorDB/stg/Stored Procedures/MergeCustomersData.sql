@@ -14,9 +14,9 @@ USING (
 	SELECT
 	     c.[CustomerID] as [CustomerIdFromSource]
 		,c.[CustomerName]
-		,c.[CustomerPhone]
-		,c.[CustomerCity]
-		,c.[CustomerAddress]
+		,NULLIF(c.[CustomerPhone],'') as [CustomerPhone]
+		,NULLIF(c.[CustomerCity],'') as [CustomerCity]
+		,NULLIF(c.[CustomerAddress],'') as [CustomerAddress]
 		,0 as [UpdateUserID]
 		,ss.SourceId
 		,c.SignatureAmount		

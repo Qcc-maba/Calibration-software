@@ -69,9 +69,4 @@ SELECT
 	@LoggedInUserId
 FROM #AssociatedEquipmentIDs as aei
 
-
-UPDATE [dbo].OrderWorkPlans
-SET AssigmentDate = @CheckDate
-WHERE OrderWorkPlanId = @OrderWorkPlanId
-
 END
