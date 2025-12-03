@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="151"
-  DTS:VersionGUID="{526887D2-5703-4280-A406-90F775265117}">
+  DTS:VersionBuild="156"
+  DTS:VersionGUID="{84CF5673-8B7E-4B81-9B4D-C62AFD8CB9E2}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -36,12 +36,12 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge ClientAccessoryOrderDetails"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
               SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
-              SQLTask:SqlStatementSource="EXEC [stg].[MergeClientAccessoryOrderDetails]" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
+              SQLTask:SqlStatementSource="EXEC [stg].[MergeClientAccessoryOrderDetailsItems]" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
           </DTS:ObjectData>
         </DTS:Executable>
         <DTS:Executable
@@ -52,7 +52,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Maba Comments"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -80,7 +80,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customer Remarks"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -96,7 +96,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Contacts Data"
-          DTS:ThreadHint="2">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -112,7 +112,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Data"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -128,7 +128,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Order Product Type"
-          DTS:ThreadHint="3">
+          DTS:ThreadHint="2">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -144,7 +144,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Orders Device Manufacturers"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="3">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -227,34 +227,30 @@
                       expressionType="Notify"
                       name="SqlCommand"
                       UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT 
+d.DOC as DOC_N, 
 sn.SERNUM AS SerialNumber,
-acn.KLINE,
 acn.QUANT/1000 as ItemsCount,
 SUBSTRING(system.dbo.tabula_hebconvert(LTRIM(RTRIM(ac.ACCDES))),1,100) as AccessoryDescription,
-o.ORD AS SourceOrderId, 
-acn.ACCSER AS AccessorySourceId,
+SUBSTRING(NULLIF(system.dbo.tabula_hebconvert(sn.LOCATION),''),1,100) as AccessoryLocation,
 'MABA' AS SourceSystem
 FROM amaba.dbo.DOCUMENTS as d
-JOIN amaba.dbo.ORDERS AS o ON d.ORD = o.ORD
 JOIN amaba.dbo.MBA_ACCSERNUM as acn on acn.DOC = d.DOC
 JOIN amaba.dbo.MBA_ACCESSORY as ac ON acn.ACCESSORY = ac.ACCESS
-JOIN amaba.dbo.SERNUMBERS as sn ON acn.SERN = sn.SERN
-WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1988-01-01') &gt;= GETDATE() -31
+LEFT JOIN amaba.dbo.SERNUMBERS as sn ON acn.SERN = sn.SERN
+WHERE DATEADD(n, d.UDATE, '1988-01-01')  &gt;= GETDATE() -31
 UNION ALL
 SELECT 
+d.DOC as DOC_N, 
 sn.SERNUM AS SerialNumber,
-acn.KLINE,
 acn.QUANT/1000 as ItemsCount,
 SUBSTRING(system.dbo.tabula_hebconvert(LTRIM(RTRIM(ac.ACCDES))),1,100) as AccessoryDescription,
-o.ORD AS SourceOrderId, 
-acn.ACCSER AS AccessorySourceId,
-'SEPHARM' AS SourceSystem
+SUBSTRING(NULLIF(system.dbo.tabula_hebconvert(sn.LOCATION),''),1,100) as AccessoryLocation,
+'MABA' AS SourceSystem
 FROM sepharm.dbo.DOCUMENTS as d
-JOIN sepharm.dbo.ORDERS AS o ON d.ORD = o.ORD
 JOIN sepharm.dbo.MBA_ACCSERNUM as acn on acn.DOC = d.DOC
 JOIN sepharm.dbo.MBA_ACCESSORY as ac ON acn.ACCESSORY = ac.ACCESS
-JOIN sepharm.dbo.SERNUMBERS as sn ON acn.SERN = sn.SERN
-WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1988-01-01') &gt;= GETDATE() -31</property>
+LEFT JOIN sepharm.dbo.SERNUMBERS as sn ON acn.SERN = sn.SERN
+WHERE DATEADD(n, d.UDATE, '1988-01-01')  &gt;= GETDATE() -31</property>
                     <property
                       dataType="System.Int32"
                       description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
@@ -292,6 +288,15 @@ WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1
                       name="ADO NET Source Output">
                       <outputColumns>
                         <outputColumn
+                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[DOC_N]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DOC_N]"
+                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[DOC_N]"
+                          name="DOC_N"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
                           refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[SerialNumber]"
                           dataType="wstr"
                           errorOrTruncationOperation="Conversion"
@@ -300,15 +305,6 @@ WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1
                           length="30"
                           lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[SerialNumber]"
                           name="SerialNumber"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[KLINE]"
-                          dataType="i4"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[KLINE]"
-                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[KLINE]"
-                          name="KLINE"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[ItemsCount]"
@@ -330,22 +326,14 @@ WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1
                           name="AccessoryDescription"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[SourceOrderId]"
-                          dataType="i4"
+                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[AccessoryLocation]"
+                          dataType="wstr"
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceOrderId]"
-                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[SourceOrderId]"
-                          name="SourceOrderId"
-                          truncationRowDisposition="FailComponent" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[AccessorySourceId]"
-                          dataType="i4"
-                          errorOrTruncationOperation="Conversion"
-                          errorRowDisposition="FailComponent"
-                          externalMetadataColumnId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[AccessorySourceId]"
-                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[AccessorySourceId]"
-                          name="AccessorySourceId"
+                          externalMetadataColumnId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[AccessoryLocation]"
+                          length="100"
+                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[AccessoryLocation]"
+                          name="AccessoryLocation"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]"
@@ -353,7 +341,7 @@ WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1
                           errorOrTruncationOperation="Conversion"
                           errorRowDisposition="FailComponent"
                           externalMetadataColumnId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceSystem]"
-                          length="7"
+                          length="4"
                           lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]"
                           name="SourceSystem"
                           truncationRowDisposition="FailComponent" />
@@ -361,14 +349,14 @@ WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1
                       <externalMetadataColumns
                         isUsed="True">
                         <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DOC_N]"
+                          dataType="i4"
+                          name="DOC_N" />
+                        <externalMetadataColumn
                           refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SerialNumber]"
                           dataType="wstr"
                           length="30"
                           name="SerialNumber" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[KLINE]"
-                          dataType="i4"
-                          name="KLINE" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[ItemsCount]"
                           dataType="i4"
@@ -379,17 +367,14 @@ WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1
                           length="100"
                           name="AccessoryDescription" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceOrderId]"
-                          dataType="i4"
-                          name="SourceOrderId" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[AccessorySourceId]"
-                          dataType="i4"
-                          name="AccessorySourceId" />
+                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[AccessoryLocation]"
+                          dataType="wstr"
+                          length="100"
+                          name="AccessoryLocation" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceSystem]"
                           dataType="wstr"
-                          length="7"
+                          length="4"
                           name="SourceSystem" />
                       </externalMetadataColumns>
                     </output>
@@ -399,16 +384,16 @@ WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1
                       name="ADO NET Source Error Output">
                       <outputColumns>
                         <outputColumn
+                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[DOC_N]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[DOC_N]"
+                          name="DOC_N" />
+                        <outputColumn
                           refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[SerialNumber]"
                           dataType="wstr"
                           length="30"
                           lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[SerialNumber]"
                           name="SerialNumber" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[KLINE]"
-                          dataType="i4"
-                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[KLINE]"
-                          name="KLINE" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[ItemsCount]"
                           dataType="i4"
@@ -421,19 +406,15 @@ WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1
                           lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[AccessoryDescription]"
                           name="AccessoryDescription" />
                         <outputColumn
-                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceOrderId]"
-                          dataType="i4"
-                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceOrderId]"
-                          name="SourceOrderId" />
-                        <outputColumn
-                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[AccessorySourceId]"
-                          dataType="i4"
-                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[AccessorySourceId]"
-                          name="AccessorySourceId" />
+                          refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[AccessoryLocation]"
+                          dataType="wstr"
+                          length="100"
+                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[AccessoryLocation]"
+                          name="AccessoryLocation" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceSystem]"
                           dataType="wstr"
-                          length="7"
+                          length="4"
                           lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceSystem]"
                           name="SourceSystem" />
                         <outputColumn
@@ -467,7 +448,7 @@ WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1
                       description="The Destination database table name."
                       expressionType="Notify"
                       name="TableOrViewName"
-                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">"stg"."stg_ClientAccessoryOrderDetails"</property>
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">"stg"."stg_ClientAccessoryOrderDetailsItems"</property>
                     <property
                       dataType="System.Int32"
                       description="Specify the number of rows per batch. The default is 0 which uses the same size as SSIS internal buffer. "
@@ -503,18 +484,18 @@ WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1
                       name="ADO NET Destination Input">
                       <inputColumns>
                         <inputColumn
+                          refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].Columns[DOC_N]"
+                          cachedDataType="i4"
+                          cachedName="DOC_N"
+                          externalMetadataColumnId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[DOC_N]"
+                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[DOC_N]" />
+                        <inputColumn
                           refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].Columns[SerialNumber]"
                           cachedDataType="wstr"
                           cachedLength="30"
                           cachedName="SerialNumber"
                           externalMetadataColumnId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[SerialNumber]"
                           lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[SerialNumber]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].Columns[KLINE]"
-                          cachedDataType="i4"
-                          cachedName="KLINE"
-                          externalMetadataColumnId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[KLINE]"
-                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[KLINE]" />
                         <inputColumn
                           refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].Columns[ItemsCount]"
                           cachedDataType="i4"
@@ -529,21 +510,16 @@ WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1
                           externalMetadataColumnId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[AccessoryDescription]"
                           lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[AccessoryDescription]" />
                         <inputColumn
-                          refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].Columns[SourceOrderId]"
-                          cachedDataType="i4"
-                          cachedName="SourceOrderId"
-                          externalMetadataColumnId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[SourceOrderId]"
-                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[SourceOrderId]" />
-                        <inputColumn
-                          refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].Columns[AccessorySourceId]"
-                          cachedDataType="i4"
-                          cachedName="AccessorySourceId"
-                          externalMetadataColumnId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[AccessorySourceId]"
-                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[AccessorySourceId]" />
+                          refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].Columns[AccessoryLocation]"
+                          cachedDataType="wstr"
+                          cachedLength="100"
+                          cachedName="AccessoryLocation"
+                          externalMetadataColumnId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[AccessoryLocation]"
+                          lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[AccessoryLocation]" />
                         <inputColumn
                           refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].Columns[SourceSystem]"
                           cachedDataType="wstr"
-                          cachedLength="7"
+                          cachedLength="4"
                           cachedName="SourceSystem"
                           externalMetadataColumnId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[SourceSystem]"
                           lineageId="Package\Populate staging tables\Load accessories\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]" />
@@ -556,9 +532,9 @@ WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1
                           length="30"
                           name="SerialNumber" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[KLINE]"
+                          refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[DOC_N]"
                           dataType="i4"
-                          name="KLINE" />
+                          name="DOC_N" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[ItemsCount]"
                           dataType="i4"
@@ -569,13 +545,10 @@ WHERE o.ORD &gt; 0 AND  o.ORDSTATUS IN (-2,-4,1,12) AND DATEADD(n, o.CURDATE, '1
                           length="200"
                           name="AccessoryDescription" />
                         <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[SourceOrderId]"
-                          dataType="i4"
-                          name="SourceOrderId" />
-                        <externalMetadataColumn
-                          refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[AccessorySourceId]"
-                          dataType="i4"
-                          name="AccessorySourceId" />
+                          refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[AccessoryLocation]"
+                          dataType="wstr"
+                          length="100"
+                          name="AccessoryLocation" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load accessories\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[SourceSystem]"
                           dataType="wstr"
@@ -2615,7 +2588,8 @@ FROM cte</property>
       ,[CurrentCalibrationStatus]
       ,[CustomerReceivingDate]
       ,[ShippingDoc]
-      ,SUBSTRING([ShippingAddress],1,150) as [ShippingAddress] 
+      ,SUBSTRING([ShippingAddress],1,150) as [ShippingAddress]
+      ,[DOC_N]
   FROM [amaba].[dbo].[vwGetOrders_WorkPlan_Full_new]
 UNION ALL
 SELECT [SourceOrderId]
@@ -2656,6 +2630,7 @@ SELECT [SourceOrderId]
       ,[CustomerReceivingDate]
       ,[ShippingDoc]
       ,SUBSTRING([ShippingAddress],1,150) as [ShippingAddress]
+      ,[DOC_N]
   FROM [sepharm].[dbo].[vwGetOrders_WorkPlan_Full_new]</property>
                     <property
                       dataType="System.Int32"
@@ -3054,6 +3029,15 @@ SELECT [SourceOrderId]
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ShippingAddress]"
                           name="ShippingAddress"
                           truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DOC_N]"
+                          dataType="i4"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DOC_N]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DOC_N]"
+                          name="DOC_N"
+                          truncationRowDisposition="FailComponent" />
                       </outputColumns>
                       <externalMetadataColumns
                         isUsed="True">
@@ -3228,6 +3212,10 @@ SELECT [SourceOrderId]
                           dataType="wstr"
                           length="150"
                           name="ShippingAddress" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DOC_N]"
+                          dataType="i4"
+                          name="DOC_N" />
                       </externalMetadataColumns>
                     </output>
                     <output
@@ -3444,6 +3432,11 @@ SELECT [SourceOrderId]
                           length="150"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ShippingAddress]"
                           name="ShippingAddress" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DOC_N]"
+                          dataType="i4"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DOC_N]"
+                          name="DOC_N" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
                           dataType="i4"
@@ -3757,6 +3750,12 @@ SELECT [SourceOrderId]
                           cachedName="ShippingAddress"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[ShippingAddress]"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[ShippingAddress]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[DOC_N]"
+                          cachedDataType="i4"
+                          cachedName="DOC_N"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DOC_N]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DOC_N]" />
                       </inputColumns>
                       <externalMetadataColumns
                         isUsed="True">
@@ -3934,6 +3933,10 @@ SELECT [SourceOrderId]
                           dataType="wstr"
                           length="150"
                           name="ShippingAddress" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DOC_N]"
+                          dataType="i4"
+                          name="DOC_N" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -3988,7 +3991,7 @@ SELECT [SourceOrderId]
       <DTS:ObjectData>
         <SQLTask:SqlTaskData
           SQLTask:Connection="{5D340525-F86F-4A09-8F4F-C17373323AB0}"
-          SQLTask:SqlStatementSource="TRUNCATE TABLE stg.stg_Orders&#xA;TRUNCATE TABLE stg.stg_CustomerContacts&#xA;TRUNCATE TABLE stg.stg_Customers&#xA;TRUNCATE TABLE stg.stg_Manufacturers&#xA;TRUNCATE TABLE stg.stg_CustomerRemarks&#xA;TRUNCATE TABLE stg.stg_MabaComments&#xA;TRUNCATE TABLE stg.stg_ClientAccessoryOrderDetails" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
+          SQLTask:SqlStatementSource="TRUNCATE TABLE stg.stg_Orders&#xA;TRUNCATE TABLE stg.stg_CustomerContacts&#xA;TRUNCATE TABLE stg.stg_Customers&#xA;TRUNCATE TABLE stg.stg_Manufacturers&#xA;TRUNCATE TABLE stg.stg_CustomerRemarks&#xA;TRUNCATE TABLE stg.stg_MabaComments&#xA;TRUNCATE TABLE stg.stg_ClientAccessoryOrderDetailsItems" xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" />
       </DTS:ObjectData>
     </DTS:Executable>
   </DTS:Executables>
@@ -4039,38 +4042,38 @@ SELECT [SourceOrderId]
       <GraphLayout
         Capacity="32" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
-          Size="244,41.6"
+          Size="244,41.3333333333334"
           Id="Package\Execute final merges\Merge ClientAccessoryOrderDetails"
           TopLeft="4.57407412466409,83.8962943610582" />
         <NodeLayout
-          Size="189.6,41.6"
+          Size="189.333333333334,41.3333333333334"
           Id="Package\Execute final merges\Merge Maba Comments"
           TopLeft="5.5,6.37036826772413" />
         <ContainerLayout
           HeaderHeight="43"
           IsExpanded="True"
-          PanelSize="253.6,204.8"
-          Size="253.6,248"
+          PanelSize="253.333333333334,205.333333333334"
+          Size="253.333333333334,248"
           Id="Package\Execute final merges"
           TopLeft="1558.4814519873,709.25925605172" />
         <NodeLayout
-          Size="200,41.6"
+          Size="200,41.3333333333334"
           Id="Package\Execute merges in sequence\Merge Customer Remarks"
           TopLeft="295.3,107.1" />
         <NodeLayout
-          Size="229.6,41.6"
+          Size="229.333333333334,41.3333333333334"
           Id="Package\Execute merges in sequence\Merge Customers Contacts Data"
           TopLeft="5.49999999999996,107.1" />
         <NodeLayout
-          Size="185.6,41.6"
+          Size="185.333333333334,41.3333333333334"
           Id="Package\Execute merges in sequence\Merge Customers Data"
           TopLeft="302.5,5.49999999999995" />
         <NodeLayout
-          Size="201.6,41.6"
+          Size="201.333333333334,41.3333333333334"
           Id="Package\Execute merges in sequence\Merge Order Product Type"
           TopLeft="572.199983335536,23.1999984089534" />
         <NodeLayout
-          Size="246.4,41.6"
+          Size="246.666666666667,41.3333333333334"
           Id="Package\Execute merges in sequence\Merge Orders Device Manufacturers"
           TopLeft="556.1,107.1" />
         <EdgeLayout
@@ -4144,51 +4147,51 @@ SELECT [SourceOrderId]
         <ContainerLayout
           HeaderHeight="43"
           IsExpanded="True"
-          PanelSize="818.4,201.6"
-          Size="818.4,244.8"
+          PanelSize="818.666666666667,202"
+          Size="818.666666666667,244.666666666667"
           Id="Package\Execute merges in sequence"
           TopLeft="1247.82217880052,313.56666666064" />
         <NodeLayout
-          Size="207.2,41.6"
+          Size="207.333333333334,41.3333333333334"
           Id="Package\Merge data to Orders tables"
           TopLeft="1549.68886149421,619.9" />
         <NodeLayout
-          Size="159.2,41.6"
+          Size="159.333333333334,41.3333333333334"
           Id="Package\Populate staging tables\Load accessories"
           TopLeft="1662.03330214438,4.33333214607509" />
         <NodeLayout
-          Size="239.2,41.6"
+          Size="239.333333333334,41.3333333333334"
           Id="Package\Populate staging tables\Load data to stg_CustomerContact"
           TopLeft="5.49999999999991,5.50000000000007" />
         <NodeLayout
-          Size="240,41.6"
+          Size="240,41.3333333333334"
           Id="Package\Populate staging tables\Load data to stg_CustomerRemark"
           TopLeft="305.1,5.50000000000007" />
         <NodeLayout
-          Size="208.8,41.6"
+          Size="208.666666666667,41.3333333333334"
           Id="Package\Populate staging tables\Load data to stg_Customers"
           TopLeft="605.7,5.50000000000007" />
         <NodeLayout
-          Size="235.2,41.6"
+          Size="235.333333333334,41.3333333333334"
           Id="Package\Populate staging tables\Load data to stg_maba comments"
           TopLeft="1389.1667029096,6.36666666063971" />
         <NodeLayout
-          Size="224.8,41.6"
+          Size="224.666666666667,41.3333333333334"
           Id="Package\Populate staging tables\Load data to stg_Manufacturers"
           TopLeft="874.7,5.49999999999995" />
         <NodeLayout
-          Size="190.4,41.6"
+          Size="190.666666666667,41.3333333333334"
           Id="Package\Populate staging tables\Load data to stg_Orders"
           TopLeft="1159.9,5.49999999999995" />
         <ContainerLayout
           HeaderHeight="43"
           IsExpanded="True"
-          PanelSize="1826.4,83.2"
-          Size="1826.4,126.4"
+          PanelSize="1826.66666666667,83.3333333333334"
+          Size="1826.66666666667,126.666666666667"
           Id="Package\Populate staging tables"
           TopLeft="742.988887583657,120.67777768336" />
         <NodeLayout
-          Size="173.6,41.6"
+          Size="173.333333333334,41.3333333333334"
           Id="Package\Truncate stg_Orders"
           TopLeft="1566.48886149421,5.49999999999973" />
         <EdgeLayout
@@ -4286,13 +4289,13 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load accessories">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
-          Size="152,41.6"
+          Size="152,41.3333333333334"
           Id="Package\Populate staging tables\Load accessories\Get source data"
           TopLeft="60.999999985099,60" />
         <NodeLayout
-          Size="161.6,41.6"
+          Size="161.333333333334,41.3333333333334"
           Id="Package\Populate staging tables\Load accessories\Populate stg table"
           TopLeft="60,167.999998390675" />
         <EdgeLayout
@@ -4314,14 +4317,20 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
     </LayoutInfo>
   </TaskHost>
+  <PipelineComponentMetadata
+    design-time-name="Package\Populate staging tables\Load accessories\Get source data">
+    <Properties>
+      <Property>
+        <Name>DataSourceViewID</Name>
+      </Property>
+    </Properties>
+  </PipelineComponentMetadata>
   <PipelineComponentMetadata
     design-time-name="Package\Populate staging tables\Load accessories\Populate stg table">
     <Properties>
@@ -4446,7 +4455,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_Customers">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_Customers\Load stg table"
@@ -4474,7 +4483,9 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -4614,11 +4625,11 @@ SELECT [SourceOrderId]
       <GraphLayout
         Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
-          Size="223.2,41.6"
+          Size="223.333333333334,41.3333333333334"
           Id="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging"
           TopLeft="289.999996473392,207.933330186672" />
         <NodeLayout
-          Size="152,41.6"
+          Size="152,41.3333333333334"
           Id="Package\Populate staging tables\Load data to stg_Orders\Get source data"
           TopLeft="329.712116151522,122.290907469627" />
         <EdgeLayout

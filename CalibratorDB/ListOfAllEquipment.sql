@@ -2116,3 +2116,28 @@ UPDATE [dbo].[MeasurementDevices]
 SET SerialNumber = REVERSE(SerialNumber)
 WHERE  PATINDEX(N'%[' + NCHAR(0x0590) + N'-' + NCHAR(0x05FF) + N']%', SerialNumber COLLATE Latin1_General_100_BIN2) > 0
 
+/* temp fix 
+UPDATE [dbo].[MeasurementDevices]
+SET MainClassId = 2
+
+WHERE Connection IS NOT NULL
+
+
+UPDATE [dbo].[MeasurementDevices]
+SET MainClassId = 7
+WHERE Description IN
+(
+N'צמת רגשי TC-K (לאוטוקלב)',
+N'צמת רגשי טמפרטורה לכיול',
+N'רגש חוט',
+N'רגש טמפ'' ולחות',
+N'רגש טמפ'' ולחות משולב',
+N'רגש טמפרטורה',
+N'רגש טמפרטורה ולחות',
+N'רגש טמפרטורה חוט',
+N'רגש טמפרטורה חוט',
+N'רגש מינוס 80 עד 250 מעלות')
+
+UPDATE [dbo].[MeasurementDevices]
+SET NextCalibration='2027-11-03 00:00:00'
+WHERE NextCalibration < GETDATE()*/

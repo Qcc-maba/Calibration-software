@@ -292,6 +292,7 @@ USING (
 		,o.CustomerReceivingDate
 		,IIF(LEN(o.ShippingDoc) > 1,o.ShippingDoc,NULL) as ShippingDoc
 		,IIF(LEN(o.ShippingAddress) > 1,o.ShippingAddress,NULL) as  ShippingAddress
+		,o.DOC_N
 	FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as s ON o.SourceSystem = s.SourceName
 	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderSourceId = o.SourceOrderId AND wp.SourceId = s.SourceId
@@ -321,6 +322,7 @@ USING (
 		OR COALESCE(dest.CalibrationReportStatusId,0) = source.[CalibrationReportStatusId]
 		OR COALESCE(dest.[ShippingDoc],'') = COALESCE(source.[ShippingDoc],'')
 		OR COALESCE(dest.[ShippingAddress],'') = COALESCE(source.[ShippingAddress],'')
+		OR COALESCE(dest.[DOC_N],0) = COALESCE(source.[DOC_N],0)
 
 
 	THEN
@@ -342,6 +344,7 @@ USING (
 		    ,dest.[CustomerReceivingDate] = source.[CustomerReceivingDate]
 		    ,dest.[ShippingDoc] = source.[ShippingDoc]
 		    ,dest.[ShippingAddress] = source.[ShippingAddress]
+			,dest.[DOC_N] = source.[DOC_N]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -366,6 +369,7 @@ WHEN NOT MATCHED BY TARGET
 		    ,[CustomerReceivingDate]
 		    ,[ShippingDoc]
 		    ,[ShippingAddress]
+			,[DOC_N]
 			)
 		VALUES (
 			 source.[OrderDetailId]
@@ -389,5 +393,6 @@ WHEN NOT MATCHED BY TARGET
 		    ,source.[CustomerReceivingDate]
 		    ,source.[ShippingDoc]
 		    ,source.[ShippingAddress]
+			,source.[DOC_N]
 			);
 END

@@ -12,8 +12,8 @@
   DTS:ObjectName="PostDeployDataMigration"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="67"
-  DTS:VersionGUID="{7C4C5B21-6EFE-4D71-9DAE-EEBA939BBFF5}">
+  DTS:VersionBuild="70"
+  DTS:VersionGUID="{536D43E1-6950-4ECB-B2E5-3D923E9DBDE9}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables>
@@ -5753,7 +5753,7 @@ ORDER  BY s.StatusDescriptionHEB</property>
                       description="The Destination database table name."
                       expressionType="Notify"
                       name="TableOrViewName"
-                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">"dbo"."CalibEquipmentMainClass"</property>
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">"dbo"."MeasurementDevicesMainClasses"</property>
                     <property
                       dataType="System.Int32"
                       description="Specify the number of rows per batch. The default is 0 which uses the same size as SSIS internal buffer. "
@@ -5789,13 +5789,6 @@ ORDER  BY s.StatusDescriptionHEB</property>
                       name="ADO NET Destination Input">
                       <inputColumns>
                         <inputColumn
-                          refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].Columns[Description]"
-                          cachedDataType="wstr"
-                          cachedLength="150"
-                          cachedName="Description"
-                          externalMetadataColumnId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[Description]"
-                          lineageId="Package\Sequence Container\Migrate EquipmentMainClass\Get data from tblInstrMainClass.Outputs[ADO NET Source Output].Columns[Description]" />
-                        <inputColumn
                           refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].Columns[UpdateUserID]"
                           cachedDataType="i4"
                           cachedName="UpdateUserID"
@@ -5806,45 +5799,40 @@ ORDER  BY s.StatusDescriptionHEB</property>
                           cachedDataType="wstr"
                           cachedLength="50"
                           cachedName="NameHe"
-                          externalMetadataColumnId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[EquipmentMainClassNameHEB]"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[NameHebrew]"
                           lineageId="Package\Sequence Container\Migrate EquipmentMainClass\Get data from tblInstrMainClass.Outputs[ADO NET Source Output].Columns[NameHe]" />
                         <inputColumn
                           refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].Columns[NameEn]"
                           cachedDataType="wstr"
                           cachedLength="50"
                           cachedName="NameEn"
-                          externalMetadataColumnId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[EquipmentMainClassNameENG]"
+                          externalMetadataColumnId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[NameEnglish]"
                           lineageId="Package\Sequence Container\Migrate EquipmentMainClass\Get data from tblInstrMainClass.Outputs[ADO NET Source Output].Columns[NameEn]" />
                       </inputColumns>
                       <externalMetadataColumns
                         isUsed="True">
                         <externalMetadataColumn
-                          refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[ID]"
+                          refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[Id]"
                           dataType="i4"
-                          name="ID" />
+                          name="Id" />
                         <externalMetadataColumn
-                          refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[EquipmentMainClassNameHEB]"
+                          refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[NameHebrew]"
                           dataType="wstr"
-                          length="50"
-                          name="EquipmentMainClassNameHEB" />
+                          length="255"
+                          name="NameHebrew" />
                         <externalMetadataColumn
-                          refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[Description]"
+                          refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[NameEnglish]"
                           dataType="wstr"
-                          length="150"
-                          name="Description" />
+                          length="255"
+                          name="NameEnglish" />
                         <externalMetadataColumn
-                          refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[EquipmentMainClassNameENG]"
-                          dataType="wstr"
-                          length="50"
-                          name="EquipmentMainClassNameENG" />
-                        <externalMetadataColumn
-                          refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[CreateDate]"
+                          refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[CreatedTime]"
                           dataType="dbTimeStamp"
-                          name="CreateDate" />
+                          name="CreatedTime" />
                         <externalMetadataColumn
-                          refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[UpdatedDate]"
+                          refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[UpdatedTime]"
                           dataType="dbTimeStamp"
-                          name="UpdatedDate" />
+                          name="UpdatedTime" />
                         <externalMetadataColumn
                           refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[UpdateUserID]"
                           dataType="i4"
@@ -5853,6 +5841,10 @@ ORDER  BY s.StatusDescriptionHEB</property>
                           refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[IsDeleted]"
                           dataType="bool"
                           name="IsDeleted" />
+                        <externalMetadataColumn
+                          refId="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass.Inputs[ADO NET Destination Input].ExternalColumns[MeasurementDevicesMainClassSourceId]"
+                          dataType="i4"
+                          name="MeasurementDevicesMainClassSourceId" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -7091,7 +7083,7 @@ ORDER BY 1</property>
     design-time-name="Package\Sequence Container\Migrate car data">
     <LayoutInfo>
       <GraphLayout
-        Capacity="16" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        Capacity="16" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
         <NodeLayout
           Size="150.4,41.6"
           Id="Package\Sequence Container\Migrate car data\Get list of users"
@@ -7131,7 +7123,9 @@ ORDER BY 1</property>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
         <EdgeLayout
@@ -7165,7 +7159,9 @@ ORDER BY 1</property>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
         <EdgeLayout
@@ -7199,7 +7195,9 @@ ORDER BY 1</property>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
         <EdgeLayout
@@ -7233,7 +7231,9 @@ ORDER BY 1</property>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -7871,7 +7871,7 @@ ORDER BY 1</property>
     design-time-name="Package\Sequence Container\Migrate EquipmentMainClass">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="216.8,41.6"
           Id="Package\Sequence Container\Migrate EquipmentMainClass\Insert to EquipmentMainClass"
@@ -7899,9 +7899,7 @@ ORDER BY 1</property>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -7927,7 +7925,7 @@ ORDER BY 1</property>
     design-time-name="Package\Sequence Container\Migrate EquipmentSubClass">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="212.8,41.6"
           Id="Package\Sequence Container\Migrate EquipmentSubClass\Insert to EquipmentSubClass"
@@ -7955,9 +7953,7 @@ ORDER BY 1</property>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -7983,7 +7979,7 @@ ORDER BY 1</property>
     design-time-name="Package\Sequence Container\Migrate users list">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Sequence Container\Migrate users list\Get User data"
@@ -8011,7 +8007,9 @@ ORDER BY 1</property>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>

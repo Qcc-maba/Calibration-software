@@ -252,9 +252,6 @@
     <Build Include="dbo\Stored Procedures\RemoveSensorFromLogger.sql" />
     <Build Include="dbo\Stored Procedures\SetOrderStatus.sql" />
     <Build Include="dbo\Tables\CalibratorsToCertificationAuthoritiesAuthorities.sql" />
-    <Build Include="stg\Tables\stg_ClientAccessoryOrderDetails.sql" />
-    <Build Include="dbo\Tables\ClientAccessoryOrderDetails.sql" />
-    <Build Include="stg\Stored Procedures\MergeClientAccessoryOrderDetails.sql" />
     <Build Include="dbo\Functions\GetSourceFilterByEmail.sql" />
     <Build Include="dbo\Stored Procedures\GetWorkPlanData.sql" />
     <Build Include="dbo\Tables\CarDowntimePeriodHistory.sql" />
@@ -267,6 +264,9 @@
     <Build Include="dbo\Stored Procedures\GetDevicesGroupsByOrder.sql" />
     <Build Include="dbo\Stored Procedures\GetCalibratorNotification.sql" />
     <Build Include="dbo\Stored Procedures\AssignCalibratorNotification.sql" />
+    <Build Include="stg\Tables\stg_ClientAccessoryOrderDetailsItems.sql" />
+    <Build Include="dbo\Tables\ClientAccessoryOrderDetailsItems.sql" />
+    <Build Include="stg\Stored Procedures\MergeClientAccessoryOrderDetailsItems.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
