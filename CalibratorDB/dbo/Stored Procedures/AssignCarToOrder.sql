@@ -95,4 +95,10 @@ SET AssignQuater0 = @part0db,
 WHERE CarId = @CarID AND OrderWorkPlanId = @OrderWorkPlanId 
 		AND AssignDate = @Date
 
+
+UPDATE [dbo].[OrderWorkPlans]
+SET AssigmentDate = @Date
+WHERE OrderNumber = @OrderNumber
+
+
 END
