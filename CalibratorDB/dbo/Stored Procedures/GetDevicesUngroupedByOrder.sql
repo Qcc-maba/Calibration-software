@@ -38,7 +38,7 @@ IF @Page IN (N'internal-orders') SET @ExtIntFilter = 1 -- IsInHouse = 0 for inte
 
 /*-------------------------------------------------*/	
 
-IF @OrderBy NOT IN 
+/*IF @OrderBy NOT IN 
 (N'OrderNumber',
 N'OrderId',N'OrderDetailId',N'OrderDetailsItemId',
 N'DeviceType',N'DepartmentId',N'MainCategory',N'SecondCategory',N'SerialNumber',N'AdditionalDeviceNumber',N'DeviceModel',N'MbaReportNumber',N'DeviceManufacturer',
@@ -49,7 +49,7 @@ THROW 51000, 'Incorrect value for parameter @OrderBy. Available values
 |OrderId|OrderDetailId|OrderDetailsItemId
 |DeviceType|DepartmentId|MainCategory|SecondCategory|SerialNumber|AdditionalDeviceNumber|DeviceModel|MbaReportNumber|DeviceManufacturer
 |CalibrationStatus|IsChecked|CustomerId|ActualCalibrationDate|CalibrationDeadline|CustomerName|Calibrators|SpecialTreatment
-', 1;
+', 1;*/
 
 DROP TABLE IF EXISTS #MainCategories
 CREATE TABLE #MainCategories
@@ -121,6 +121,8 @@ CONCAT(
 	,itm.ShippingDoc	
 	,itm.ShippingAddress
 	,c.CustomerAddress
+	,custeqv.details as AdditionalEquipment
+	,op.ShipTypeDesc as ShippingMethod
 	,COUNT(1) OVER(PARTITION BY 1 ORDER BY op.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
@@ -140,6 +142,25 @@ SELECT [OrderWorkPlanId]
   JOIN [dbo].[Users] as u ON c.[CalibratorId] = u.[ID]
   GROUP BY [OrderWorkPlanId]
 ) as cbl ON op.OrderWorkPlanId = cbl.[OrderWorkPlanId] 
+OUTER APPLY
+(
+SELECT
+    d.OrderDetailsItemId,
+    ''['' +
+    STRING_AGG(
+        CONCAT(''{'',
+       ''"ItemsCount":'', d.[ItemsCount],'','',
+       ''"AccessoryDescription":'',''"'',d.[AccessoryDescription],''",'',
+       ''"AccessoryLocation":'',''"'',d.[AccessoryLocation],''"'',
+       ''}''
+        ),
+        '',''
+    )
+    + '']'' AS details
+FROM [dbo].[ClientAccessoryOrderDetailsItems] AS d
+WHERE d.OrderDetailsItemId = itm.OrderDetailsItemId
+GROUP BY d.OrderDetailsItemId
+) as custeqv
 '
 ,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mcf ON mc.MainCategoryName COLLATE DATABASE_DEFAULT = mcf.MainCategory COLLATE DATABASE_DEFAULT',' ')
 ,IIF(@SecondaryCategories IS NOT NULL,' JOIN #SecondaryCategories as scf ON sc.SecondaryCategoryName COLLATE DATABASE_DEFAULT   = scf.SecondaryCategory COLLATE DATABASE_DEFAULT ',' ')

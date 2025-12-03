@@ -12,8 +12,8 @@ AS
 -- =============================================
 BEGIN
 
-IF @ApplyFilterByDevicesParents = 1 AND @CalibrationDeviceId IS NULL
-THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
+--IF @ApplyFilterByDevicesParents = 1 AND @CalibrationDeviceId IS NULL
+--THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
 
 	DECLARE @sql NVARCHAR(MAX) =
 	CONCAT(
@@ -49,7 +49,7 @@ THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
 		  ,u.MeasurementDeviceUnitGroupId
 	  FROM [dbo].[MeasurementDevices] as md
 	  '
-	  ,CASE WHEN @ApplyFilterByDevicesParents = 1 THEN ' JOIN [dbo].[MeasurementDeviceParents] as pf ON md.[ID] = pf.[MeasurementDeviceId] AND pf.[MeasurementDeviceParentId] ='+CAST(@CalibrationDeviceId as NVARCHAR(50))+'' ELSE ' ' END
+	--  ,CASE WHEN @ApplyFilterByDevicesParents = 1 THEN ' JOIN [dbo].[MeasurementDeviceParents] as pf ON md.[ID] = pf.[MeasurementDeviceId] AND pf.[MeasurementDeviceParentId] ='+CAST(@CalibrationDeviceId as NVARCHAR(50))+'' ELSE ' ' END
 	  ,'
 	  JOIN [dbo].[MeasurementDevicesMainClasses] as mc ON md.MainClassId = mc.Id
 	  LEFT JOIN [dbo].[MeasurementDeviceUnits] as u ON md.UnitId = u.MeasurementDeviceUnitId
@@ -59,8 +59,8 @@ THROW 51000, 'Provide @CalibrationDeviceId to get child devices.', 1;
 	  WHERE md.RemoveDate IS NULL AND md.IsDeleted = 0 /*AND md.Connection IS NOT NULL
 	  AND md.Connection <> N''',N'אוגר אלחוטי','''*/
 	  '
-	  ,CASE WHEN @MeasurementDevicesMainClassId IS NOT NULL AND @ApplyFilterByDevicesParents = 0 THEN' AND md.MainClassId = '+ +CAST(@MeasurementDevicesMainClassId as NVARCHAR(50))+' 'ELSE ' ' END
-	  ,CASE WHEN @CalibrationDeviceId IS NOT NULL AND @ApplyFilterByDevicesParents = 0 THEN' AND md.[ID] = '+ +CAST(@CalibrationDeviceId as NVARCHAR(50))+' 'ELSE ' ' END 
+	  ,CASE WHEN @MeasurementDevicesMainClassId IS NOT NULL/* AND @ApplyFilterByDevicesParents = 0*/ THEN' AND md.MainClassId = '+ +CAST(@MeasurementDevicesMainClassId as NVARCHAR(50))+' 'ELSE ' ' END
+	  ,CASE WHEN @CalibrationDeviceId IS NOT NULL /*AND @ApplyFilterByDevicesParents = 0*/ THEN' AND md.[ID] = '+ +CAST(@CalibrationDeviceId as NVARCHAR(50))+' 'ELSE ' ' END 
 	  )
 
 	PRINT @sql
