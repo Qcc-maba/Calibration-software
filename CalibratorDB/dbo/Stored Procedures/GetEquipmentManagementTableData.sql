@@ -136,17 +136,17 @@ CONCAT(
   ,CASE WHEN @StatusDescription IS NOT NULL THEN ' JOIN #StatusDescriptions as sdf ON ce.[MeasurementDeviceStatusId] = sdf.[StatusId] ' ELSE ' ' END
   ,'
   WHERE ce.IsDeleted = 0'
-  ,CASE WHEN @EquipmentName IS NOT NULL THEN' AND ce.[Description] = '''+ @EquipmentName+''' 'ELSE ' ' END
-  ,CASE WHEN @MabaID IS NOT NULL THEN' AND ce.[MabaID] LIKE ''%'+ @MabaID+'%'' 'ELSE ' ' END
-  ,CASE WHEN @DepartmentName IS NOT NULL THEN' AND d.[MainCategoryName] LIKE ''%'+ @DepartmentName+'%'' 'ELSE ' ' END
-  ,CASE WHEN @CarLicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] LIKE ''%'+ @CarLicenseNumber+'%'' 'ELSE ' ' END
-  ,CASE WHEN @MainCategory IS NOT NULL THEN' AND d.[MainCategoryName] LIKE ''%'+ @MainCategory+'%'' 'ELSE ' ' END
+  ,CASE WHEN @EquipmentName IS NOT NULL THEN' AND ce.[Description] = '''+ LTRIM(RTRIM(@EquipmentName))+''' 'ELSE ' ' END
+  ,CASE WHEN @MabaID IS NOT NULL THEN' AND ce.[MabaID] LIKE ''%'+ LTRIM(RTRIM(@MabaID))+'%'' 'ELSE ' ' END
+  ,CASE WHEN @DepartmentName IS NOT NULL THEN' AND d.[MainCategoryName] LIKE ''%'+ LTRIM(RTRIM(@DepartmentName))+'%'' 'ELSE ' ' END
+  ,CASE WHEN @CarLicenseNumber IS NOT NULL THEN' AND c.[LicenseNumber] LIKE ''%'+ LTRIM(RTRIM(@CarLicenseNumber))+'%'' 'ELSE ' ' END
+  ,CASE WHEN @MainCategory IS NOT NULL THEN' AND d.[MainCategoryName] LIKE ''%'+ LTRIM(RTRIM(@MainCategory))+'%'' 'ELSE ' ' END
   ,CASE WHEN @StatusId IS NOT NULL THEN' AND ce.[MeasurementDeviceStatusId] = '+CAST(@StatusId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @CalibratorId IS NOT NULL THEN' AND ce.[CalibratorId] = '+CAST(@CalibratorId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @CarId IS NOT NULL THEN' AND c.[CarId] = '+CAST(@CarId as NVARCHAR(50))+' 'ELSE ' ' END
   ,CASE WHEN @NextCalibrationDate IS NOT NULL AND @NextCalibrationDate > '1900-01-01' THEN' AND ce.[NextCalibration] = '''+CAST(@NextCalibrationDate as NVARCHAR(50))+''' 'ELSE ' ' END
-  ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ce.[Description],ce.[SerialNumber],s.StatusDescriptionHEB,u.FirstName,u.LastName,c.LicenseNumber,mc.NameHebrew,d.[MainCategoryName])  LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
-  ,CASE WHEN @SecondaryCategory IS NOT NULL THEN' AND ssc.[SecondaryCategoryName] LIKE ''%'+ @SecondaryCategory+'%'' 'ELSE ' ' END
+  ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ce.[MabaID],ce.[Description],ce.[SerialNumber],s.StatusDescriptionHEB,u.FirstName,u.LastName,c.LicenseNumber,mc.NameHebrew,d.[MainCategoryName])  LIKE N''%'+ LTRIM(RTRIM(@GlobalSearch)) +'%'''ELSE ' ' END
+  ,CASE WHEN @SecondaryCategory IS NOT NULL THEN' AND ssc.[SecondaryCategoryName] LIKE ''%'+ LTRIM(RTRIM(@SecondaryCategory))+'%'' 'ELSE ' ' END
 ,  'ORDER BY ' , QUOTENAME(@OrderBy) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END , '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT @sql

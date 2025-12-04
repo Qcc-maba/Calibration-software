@@ -72,12 +72,12 @@ CONCAT(
      op.OrderNumber
 	,od.OrderWorkPlanId as OrderId
 	,od.OrderDetailId
-	,itm.OrderDetailsItemId
+	--,itm.OrderDetailsItemId
 	,opt.OrdersProductTypeName AS DeviceType
 	,mc.ID AS DepartmentId
 	,mc.MainCategoryName as MainCategory
 	,sc.SecondaryCategoryName AS SecondCategory
-	,itm.OrderDetailsItemId
+	--,itm.OrderDetailsItemId
 	--,itm.SerialNumber
 	--,itm.DeviceModel
 	--,itm.MbaReportNumber
@@ -87,7 +87,7 @@ CONCAT(
 	,od.PartName
 	,odm.[StatusDescriptionHEB] as CalibrationStatus
 	,odm.[StatusDescriptionENG] as CalibrationStatusENG 
-	,itm.[IsChecked]
+	--,itm.[IsChecked]
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
 LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId

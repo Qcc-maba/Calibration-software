@@ -5,7 +5,7 @@
 -- Create date: 03/04/2025
 -- Description:	Get work plan data
 -- =============================================
-CREATE   PROCEDURE [dbo].[GetWorkPlanData] 
+CREATE   PROCEDURE [dbo].[GetWorkPlanData]
     @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
     @RowsOfPage AS INT = 1000,                 -- Result page size
     @OrderBy AS NVARCHAR(MAX) = 'OrderNumber',      -- OrderBy column
@@ -205,6 +205,7 @@ CONCAT(
 		MAX(wpstat.StatusDescriptionENG) AS WorkPlanStatus,
 		MAX(wp.CustomerComment) as CustomerComment,
 		wp.AssigmentDate AS [PlacementDate],
+		NULL AS BoxesCount, -- will be populated during packet process
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
 	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')

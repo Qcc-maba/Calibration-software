@@ -57,15 +57,17 @@ CREATE TABLE #OrderStatus
 StatusId INT NOT NULL,
 CodeINT INT,
 StatusType NVARCHAR(50)COLLATE Latin1_General_100_CI_AI_SC,
-Code NVARCHAR(255) COLLATE Latin1_General_100_CI_AI_SC
+Code NVARCHAR(255) COLLATE Latin1_General_100_CI_AI_SC,
+StatusDescriptionENG NVARCHAR(255) COLLATE Latin1_General_100_CI_AI_SC
 )
-INSERT #OrderStatus (StatusId,CodeINT,StatusType,Code)
-SELECT s.StatusId, TRY_CAST(s.Code AS INT) as CodeINT, sc.StatusDescriptionENG as StatusType, s.Code 
+INSERT #OrderStatus (StatusId,CodeINT,StatusType,Code,StatusDescriptionENG)
+SELECT s.StatusId, TRY_CAST(s.Code AS INT) as CodeINT, sc.StatusDescriptionENG as StatusType, s.Code ,s.StatusDescriptionENG
 FROM [Calibrator].[dbo].[Statuses] as s
 JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
 WHERE sc.StatusDescriptionENG IN('OrderStatus','ReportStatus','CalibrationStatuses')
 
-
+DECLARE @InintialOrderStatus INT  
+SELECT @InintialOrderStatus = StatusId FROM #OrderStatus as os WHERE os.StatusType = N'OrderStatus' AND os.StatusDescriptionENG = 'WaitingForCalibration'
 
 MERGE INTO [dbo].[OrderWorkPlans] AS dest
 USING (
@@ -81,7 +83,7 @@ SELECT DISTINCT
 		,o.SourceOrderId as [OrderSourceId]
 		,ss.[SourceId]
 		,o.SourceOrderId
-		,os.StatusId as OrderOverallStatusId
+		,@InintialOrderStatus as OrderOverallStatusId
 	    ,o.[CustomerPackingExists]
 	    ,IIF(MAX(o.[ActualReturnDate]) > GETDATE()-100,MAX(o.[ActualReturnDate]),NULL) as [ActualReturnDate]
 	    ,IIF(MAX(o.[ExpectedReturnDate]) > GETDATE()-100,MAX(o.[ExpectedReturnDate]),NULL) as [ExpectedReturnDate]
@@ -90,7 +92,6 @@ SELECT DISTINCT
 		FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as ss ON o.[SourceSystem] = ss.SourceName
     LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = ss.SourceId and c.IsDeleted = 0
-	LEFT JOIN #OrderStatus AS os ON o.ORDSTATUS = os.Code AND os.StatusType = N'OrderStatus'
 	GROUP BY 	     
 	     o.ORDNAME
 		,o.OpenDate
@@ -98,7 +99,6 @@ SELECT DISTINCT
 		,o.SourceOrderId
 		,ss.[SourceId]
 		,o.SourceOrderId
-	    ,os.StatusId
 	    ,o.[CustomerPackingExists]	
 	    ,o.[PackageLocation]
 		,o.[ShipTypeDesc]
@@ -195,7 +195,7 @@ USING (
 	WHERE o.OrderDetailId IS NOT NULL AND o.[PartName] IS NOT NULL
 	) AS source
 	ON dest.[OrderWorkPlanId] = source.[OrderWorkPlanId] AND source.OrderDetailSourceId = dest.[OrderDetailSourceId] 
-WHEN MATCHED AND
+/*WHEN MATCHED AND
 	(
 		  COALESCE(dest.[SpecialCareTypeId],0) <> COALESCE(source.[SpecialCareTypeId],0)
 		OR COALESCE(dest.[IsInHouse],0) <> COALESCE(source.[IsInHouse],0)
@@ -219,7 +219,7 @@ WHEN MATCHED AND
 			,dest.[VPRICE] = source.[VPRICE]
 			,dest.[PRICE] = source.[PRICE]
 			,dest.[MainCategoryId] = source.[MainCategoryId]
-			,dest.[SecondaryCategoryId] = source.[SecondaryCategoryId]
+			,dest.[SecondaryCategoryId] = source.[SecondaryCategoryId]*/
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -272,7 +272,7 @@ USING (
 		,o.[SpecialCareTypeId]
 		,o.[InHouse] as [IsInHouse]
 		,o.[PartName]
-		,o.[MbaReportNumber]
+		,NULL AS [MbaReportNumber]
 		,mf.[OrdersDeviceManufacturerId]
 		,c.[CustomerId]
 		,o.[KLINE]
@@ -286,10 +286,10 @@ USING (
 		,o.[Doc]
 		,o.[NextCalibrationDate]
 		,o.AdditionalDeviceNumber
-		,o.CalibDate as [ActualCalibrationDate]
-		,os.StatusId as CalibrationReportStatusId
-		,IIF(os2.Code <> N'CO',os2.StatusId,-1) as CalibrationStatusId
-		,o.CustomerReceivingDate
+		,NULL /*o.CalibDate*/ as [ActualCalibrationDate]
+		--,os.StatusId as CalibrationReportStatusId
+		--,IIF(os2.Code <> N'CO',os2.StatusId,-1) as CalibrationStatusId
+		,NULL AS CustomerReceivingDate
 		,IIF(LEN(o.ShippingDoc) > 1,o.ShippingDoc,NULL) as ShippingDoc
 		,IIF(LEN(o.ShippingAddress) > 1,o.ShippingAddress,NULL) as  ShippingAddress
 		,o.DOC_N
@@ -299,12 +299,12 @@ USING (
 	JOIN [dbo].[OrderDetails] as od ON wp.[OrderWorkPlanId] = od.[OrderWorkPlanId] AND o.[KLINE] = od.[KLINE] 
 	LEFT JOIN [dbo].[OrdersDeviceManufacturers] as mf ON mf.OrdersDeviceManufacturerName = o.DeviceManufacturerSourceId and mf.IsDeleted = 0
 	LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = s.SourceId and c.IsDeleted = 0
-	LEFT JOIN #OrderStatus AS os ON o.CurrentCalibrationStatus = os.Code AND os.StatusType = N'ReportStatus'
-	LEFT JOIN #OrderStatus AS os2 ON o.CurrentCalibrationStatus = os2.Code AND os2.StatusType = N'CalibrationStatuses'
+	--LEFT JOIN #OrderStatus AS os ON o.CurrentCalibrationStatus = os.Code AND os.StatusType = N'ReportStatus'
+	--LEFT JOIN #OrderStatus AS os2 ON o.CurrentCalibrationStatus = os2.Code AND os2.StatusType = N'CalibrationStatuses'
 	WHERE o.OrderDetailId IS NOT NULL AND o.Doc IS NOT NULL
 	) AS source
 	ON dest.OrderDetailId = source.OrderDetailId AND source.[Doc] = dest.[Doc]
- WHEN MATCHED
+/* WHEN MATCHED
         AND (COALESCE(dest.[SerialNumber],'') = COALESCE(source.[SerialNumber],'')
 		OR COALESCE(dest.[ManufacturerNumber],'') = COALESCE(source.[ManufacturerNumber],'')
 		OR COALESCE(dest.[DeviceModel],'') = COALESCE(source.[DeviceModel],'')
@@ -344,7 +344,7 @@ USING (
 		    ,dest.[CustomerReceivingDate] = source.[CustomerReceivingDate]
 		    ,dest.[ShippingDoc] = source.[ShippingDoc]
 		    ,dest.[ShippingAddress] = source.[ShippingAddress]
-			,dest.[DOC_N] = source.[DOC_N]
+			,dest.[DOC_N] = source.[DOC_N]*/
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -364,8 +364,8 @@ WHEN NOT MATCHED BY TARGET
 			,[NextCalibrationDate]
 			,[AdditionalDeviceNumber]
 			,[ActualCalibrationDate]
-			,[CalibrationReportStatusId]
-		  --  ,[CalibrationStatusId]
+		--	,[CalibrationReportStatusId]
+		--  ,[CalibrationStatusId]
 		    ,[CustomerReceivingDate]
 		    ,[ShippingDoc]
 		    ,[ShippingAddress]
@@ -388,8 +388,8 @@ WHEN NOT MATCHED BY TARGET
 			,source.[NextCalibrationDate]
 			,source.[AdditionalDeviceNumber]
 			,source.[ActualCalibrationDate]
-			,source.[CalibrationReportStatusId]
-		  --  ,NULLIF(source.[CalibrationStatusId],-1)
+		--	,source.[CalibrationReportStatusId]
+		--  ,NULLIF(source.[CalibrationStatusId],-1)
 		    ,source.[CustomerReceivingDate]
 		    ,source.[ShippingDoc]
 		    ,source.[ShippingAddress]

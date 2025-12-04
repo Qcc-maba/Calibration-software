@@ -13,7 +13,7 @@ AS
 IF @CheckDate IS NULL SET @CheckDate = GETDATE()
 
 SELECT c.[ID]
-      ,COALESCE(c.[Description],'N/A') AS Title
+      ,CONCAT(COALESCE(c.[Description],'N/A'), ' ',c.MabaID) AS Title
 	  ,c.[MainClassId]
 	  ,c.[SubClassId]
 	  ,c.[MainCategoryId] as [DepartmentId]
