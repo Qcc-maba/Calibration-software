@@ -205,7 +205,7 @@ CONCAT(
 		MAX(wpstat.StatusDescriptionENG) AS WorkPlanStatus,
 		MAX(wp.CustomerComment) as CustomerComment,
 		wp.AssigmentDate AS [PlacementDate],
-		NULL AS BoxesCount, -- will be populated during packet process
+		MIN(boxcnt.BoxesCount) as BoxesCount,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
 	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
@@ -263,6 +263,16 @@ CONCAT(
 	 FROM [dbo].[OrderDetails]
 	 GROUP BY OrderWorkPlanId 
 	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
+	OUTER APPLY
+	(
+	SELECT COUNT(DISTINCT pb.PackingBoxId) as BoxesCount
+	FROM [dbo].[PackingBox] as pb
+	LEFT JOIN [dbo].[PackingBoxToOrderDetailsItems] as itm ON pb.PackingBoxId = itm.PackingBoxId
+	LEFT JOIN [dbo].[OrderDetailsItems] as oi ON itm.OrderDetailsItemId = oi.OrderDetailsItemId
+	LEFT JOIN [dbo].[OrderDetails] as od ON oi.OrderDetailId = od.OrderDetailId
+	WHERE od.OrderWorkPlanId = wp.OrderWorkPlanId
+	GROUP BY od.OrderWorkPlanId
+	) as boxcnt
 	WHERE wp.OrderOverallStatusId IN(',@StatusesForOrders,') '
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
 	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND wp.AssigmentDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
@@ -300,6 +310,5 @@ CONCAT(
 PRINT LEN(@sql)
 PRINT CAST(@sql as VARCHAR(MAX))
 EXEC (@sql)
---EXEC sp_executesql @sql
 
 END

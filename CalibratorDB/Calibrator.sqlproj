@@ -267,6 +267,10 @@
     <Build Include="stg\Tables\stg_ClientAccessoryOrderDetailsItems.sql" />
     <Build Include="dbo\Tables\ClientAccessoryOrderDetailsItems.sql" />
     <Build Include="stg\Stored Procedures\MergeClientAccessoryOrderDetailsItems.sql" />
+    <Build Include="dbo\Tables\PackingBoxToOrderDetailsItems.sql" />
+    <Build Include="dbo\Tables\PackingBox.sql" />
+    <Build Include="dbo\Stored Procedures\SetOrderItemsDetailsStatus.sql" />
+    <Build Include="dbo\Stored Procedures\AssignOrderDetailItemsToBox.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
