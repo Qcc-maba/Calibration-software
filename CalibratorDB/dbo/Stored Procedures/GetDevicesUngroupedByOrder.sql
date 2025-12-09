@@ -36,6 +36,27 @@ IF @Page IN (N'external-schedule',N'external-orders',N'coordinator-orders') SET 
 
 IF @Page IN (N'internal-orders') SET @ExtIntFilter = 1 -- IsInHouse = 0 for internal orders
 
+IF @Page = 'packing'
+BEGIN
+   
+	DROP TABLE IF EXISTS #AwaitingCollectionOrders
+	CREATE TABLE #AwaitingCollectionOrders(OrderWorkPlanId INT)
+
+	INSERT #AwaitingCollectionOrders(OrderWorkPlanId)
+	SELECT od.OrderWorkPlanId
+	FROM [dbo].[OrderDetails] as od
+	JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
+	LEFT JOIN [dbo].[Statuses] as scs ON itm.CalibrationStatusId = scs.StatusId
+	GROUP BY od.OrderWorkPlanId
+	HAVING MIN(COALESCE(scs.StatusDescriptionENG,'N/A')) = MAX(COALESCE(scs.StatusDescriptionENG,'N/A'))
+	AND MAX(COALESCE(scs.StatusDescriptionENG,'N/A')) ='AwaitingCollection'
+
+	CREATE UNIQUE CLUSTERED INDEX IDX_AwaitingCollectionOrders ON #AwaitingCollectionOrders(OrderWorkPlanId)
+
+
+
+END
+
 /*-------------------------------------------------*/	
 
 /*IF @OrderBy NOT IN 
@@ -169,6 +190,7 @@ GROUP BY d.OrderDetailsItemId
 ,'
 WHERE op.OrderOverallStatusId IN(',@StatusesForOrders,') 
 '
+,IIF(@Page = 'packing','AND NOT EXISTS (SELECT 1 FROM #AwaitingCollectionOrders as f WHERE f.OrderWorkPlanId = op.OrderWorkPlanId)','')
 ,IIF(@OrderNumber IS NOT NULL,'AND op.OrderNumber = TRIM('''+@OrderNumber+''')',' ')
 ,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
  ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(op.OrderNumber,opt.OrdersProductTypeName,mc.MainCategoryName,sc.SecondaryCategoryName,itm.SerialNumber,itm.AdditionalDeviceNumber,itm.DeviceModel,itm.MbaReportNumber,ddd.OrdersDeviceManufacturerDescription,cals.[StatusDescriptionHEB],c.CustomerName,cbl.Calibrators,scs.StatusDescriptionHEB) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END

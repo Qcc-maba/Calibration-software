@@ -102,9 +102,9 @@ ELSE
 			MAX(st.StatusDescriptionHEB) as [StatusHEB],
 			MAX(ee.EventDescription) as [EventDescription],
 			wp.[OrderNumber] as [AssignedToOrderNumber],
-			STRING_AGG(cc.[AuthorityName],'', '') as CalibratorAuthorityName,
+			MAX(can.[CalibratorAuthorityName]) as CalibratorAuthorityName,
 			u.LocationArea,
-			ud.[MainCategoryName] as DepartmentName,
+			STRING_AGG(ud.[MainCategoryName],'', '') as DepartmentName,
 			NULL AS OrderDetailsMbaReportNumber
 		  FROM [dbo].[Users] as u
 		  JOIN [dbo].[UserRoles] as ur ON  u.UserRoleId = ur.UserRoleId AND ur.UserRoleName IN (N''Calibrator'',N''ExternalCalibrator'')
@@ -122,8 +122,15 @@ ELSE
 			LEFT JOIN [dbo].[Statuses] as st ON COALESCE(ca.AvailabilityStatusId,',@AvailableStatus,')  = st.StatusId
 			) as st ON u.ID =  st.UserId AND st.rn = 1
 		  LEFT JOIN [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId AND od.IsCancelled = 0
-		  LEFT JOIN [dbo].[CalibratorsToCertificationAuthoritiesAuthorities] as ctc ON u.ID = ctc.CalibratorId
-		  LEFT JOIN [dbo].[CalibratorCertificationAuthorities] as cc ON ctc.CalibratorCertificationAuthorityId = cc.ID'
+		  OUTER APPLY
+		  (
+		  SELECT STRING_AGG(cc.[AuthorityName],'', '') as CalibratorAuthorityName
+		  FROM [dbo].[CalibratorsToCertificationAuthoritiesAuthorities] as ctc
+		  LEFT JOIN [dbo].[CalibratorCertificationAuthorities] as cc ON ctc.CalibratorCertificationAuthorityId = cc.ID   
+		  WHERE ctc.IsDeleted = 0 AND u.ID = ctc.CalibratorId
+		  GROUP BY ctc.CalibratorId
+		  ) as can
+		  '
 		  ,CASE WHEN @SecondCategories IS NOT NULL THEN ' JOIN #SecondCategories as sc ON cp.OrderWorkPlanId = sc.OrderWorkPlanId ' ELSE ' ' END
 		  ,CASE WHEN @CertificationAuthoritiesIdsList IS NOT NULL THEN ' JOIN #CertificationAuthoritiesIdsList as s ON u.ID = s.CalibratorId ' ELSE ' ' END
 		   ,' WHERE u.IsActive = 1 AND u.ID > 0 '
@@ -133,9 +140,8 @@ ELSE
 			u.[FirstName],
 			u.[LastName],
 			wp.[OrderNumber],
-			u.LocationArea,
-			ud.[MainCategoryName]
-		   '
+			u.LocationArea
+			'
 		  ,CASE WHEN @MainCategory IS NOT NULL THEN' AND od.[MainCategory] = '''+ @MainCategory+''' 'ELSE ' ' END
 		)
 		PRINT @sql
