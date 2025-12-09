@@ -15,7 +15,8 @@ CREATE   PROCEDURE [dbo].[GetDevicesUngroupedByOrder]
     @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
     @RowsOfPage AS INT = 10,                 -- Result page size
     @OrderBy AS NVARCHAR(MAX) = 'OrderNumber',      -- OrderBy column
-    @OrderByAsc AS BIT = 1                   -- OrderBy direction (ASC/DESC)
+    @OrderByAsc AS BIT = 1,                   -- OrderBy direction (ASC/DESC)
+	@OrderWorkPlanIds NVARCHAR(MAX) = NULL
 AS
 BEGIN
 
@@ -131,6 +132,7 @@ CONCAT(
 	,itm.MbaReportNumber
 	,ddd.OrdersDeviceManufacturerDescription as DeviceManufacturer
 	,cals.[StatusDescriptionHEB] as CalibrationStatus
+	,ordst.[StatusDescriptionHEB] as OrderStatus
 	,itm.[IsChecked]
 	,op.[CustomerId]
 	,itm.[ActualCalibrationDate]
@@ -155,6 +157,7 @@ LEFT JOIN [dbo].[SecondaryCategories] sc ON od.SecondaryCategoryId = sc.ID
 LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
 LEFT JOIN [dbo].[OrdersDeviceManufacturers] as ddd ON itm.OrdersDeviceManufacturerId = ddd.OrdersDeviceManufacturerId
 LEFT JOIN [dbo].[Statuses] as cals ON cals.[StatusId] = itm.[CalibrationStatusId]
+LEFT JOIN [dbo].[Statuses] as ordst ON ordst.[StatusId] = op.[OrderOverallStatusId]
 LEFT JOIN 
 (
 SELECT [OrderWorkPlanId]
@@ -183,6 +186,7 @@ WHERE d.OrderDetailsItemId = itm.OrderDetailsItemId
 GROUP BY d.OrderDetailsItemId
 ) as custeqv
 '
+,IIF(@OrderWorkPlanIds IS NOT NULL,' JOIN STRING_SPLIT('''+@OrderWorkPlanIds+''','','') as wpf ON op.OrderWorkPlanId = wpf.value',' ')
 ,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mcf ON mc.MainCategoryName COLLATE DATABASE_DEFAULT = mcf.MainCategory COLLATE DATABASE_DEFAULT',' ')
 ,IIF(@SecondaryCategories IS NOT NULL,' JOIN #SecondaryCategories as scf ON sc.SecondaryCategoryName COLLATE DATABASE_DEFAULT   = scf.SecondaryCategory COLLATE DATABASE_DEFAULT ',' ')
 ,IIF(@DeviceManufacturer IS NOT NULL,' JOIN #DeviceManufacturer as dmf ON ddd.[OrdersDeviceManufacturerDescription] COLLATE DATABASE_DEFAULT  = dmf.DeviceManufacturer COLLATE DATABASE_DEFAULT ',' ')
