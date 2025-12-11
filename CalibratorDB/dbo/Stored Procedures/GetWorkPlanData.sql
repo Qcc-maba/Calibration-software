@@ -208,7 +208,7 @@ CONCAT(
 		MAX(CAST(CustomerPackingExists as TINYINT)) as CustomerPackingExists,
 		MAX(ExpectedReturnDate) as ExpectedReturnDate,
 		MAX(ActualReturnDate) as ActualReturnDate,
-		MAX(ctwp.OrderDetailsMbaReportNumber) as CalibratorMabaNumber, 
+		COALESCE(MIN(ctwp.OrderDetailsMbaReportNumber),MIN(ctwpdef.OrderDetailsMbaReportNumber))as CalibratorMabaNumber, 
 	    COALESCE(MAX(clst.StatusDescriptionENG),''',@ClientConfirmationStatusDefault,''') as ClientConfirmationStatus,
 		MAX(wp.ShipTypeDesc) AS ShipTypeDesc,
 		MAX(c.ReportRequired) AS PrintedReport,
@@ -230,6 +230,7 @@ CONCAT(
 	  LEFT JOIN [dbo].[Statuses] as clst ON wp.[ClientConfirmationStatusId] = clst.[StatusId]
 	  LEFT JOIN [dbo].[MainCategories] as mcf ON od.MainCategoryId	= mcf.ID
 	  LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = wp.[OrderWorkPlanId] AND ctwp.[CalibratorId] = ',@LoggedInUserId,' AND ctwp.IsDeleted = 0
+	  LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwpdef ON ctwpdef.[OrderWorkPlanId] = wp.[OrderWorkPlanId] AND ctwpdef.IsDeleted = 0
 	  LEFT JOIN [dbo].[SecondaryCategories] as scf ON od.SecondaryCategoryId = scf.ID
 	  LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON itm.[OrdersDeviceManufacturerId] = dm.[OrdersDeviceManufacturerId]
 	',IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
@@ -282,7 +283,7 @@ CONCAT(
 	LEFT JOIN [dbo].[PackingBoxToOrderDetailsItems] as itm ON pb.PackingBoxId = itm.PackingBoxId
 	LEFT JOIN [dbo].[OrderDetailsItems] as oi ON itm.OrderDetailsItemId = oi.OrderDetailsItemId
 	LEFT JOIN [dbo].[OrderDetails] as od ON oi.OrderDetailId = od.OrderDetailId
-	WHERE od.OrderWorkPlanId = wp.OrderWorkPlanId
+	WHERE od.OrderWorkPlanId = wp.OrderWorkPlanId AND pb.IsDeleted = 0 AND itm.IsDeleted = 0 
 	GROUP BY od.OrderWorkPlanId
 	) as boxcnt
 	WHERE wp.OrderOverallStatusId IN(',@StatusesForOrders,') '

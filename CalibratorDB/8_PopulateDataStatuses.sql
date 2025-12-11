@@ -33,6 +33,7 @@ USING (
 		('CalibrationStatuses','','Delivered',N'נשלח'),
 		('CalibrationStatuses','','Stopped',N'הופסק'),
 		('CalibrationStatuses','','Adjusted',N'כויל'),
+		('CalibrationStatuses','','ReadyForDelivery',N'ממתין לאיסוף'),
 		('CalibrationStatuses','','WaitingForPacking',N'ממתין לאריזה'),
 		('CalibrationStatuses','','ReadyForPacking',N'מוכן לאריזה'),
 		('CalibratedUnitsStatus','','Functional',N'תקין'),

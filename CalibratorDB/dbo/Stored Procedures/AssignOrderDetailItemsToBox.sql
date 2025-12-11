@@ -63,6 +63,8 @@ ELSE
 			[UpdatedDate] = GETDATE(),
 			[IsDeleted] = @IsDelete
 		OUTPUT deleted.PackingBoxId INTO @Tmp
+		WHERE BarCode = @BarCode
+
 	IF @IsDelete = 1
 		UPDATE pbi
 			SET pbi.IsDeleted = @IsDelete
