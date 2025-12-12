@@ -1,5 +1,4 @@
-﻿USE [Calibrator]
-GO
+﻿
 INSERT [dbo].[CustomerSupportDepartmentParts] ([Id], [Item], [Description], [Department], [Average]) VALUES (1, N'130501-0', N'מד קדח-כיול בהסמכה-במבא', N'אורך שונות', 10)
 GO
 INSERT [dbo].[CustomerSupportDepartmentParts] ([Id], [Item], [Description], [Department], [Average]) VALUES (2, N'130502-0', N'מד קדח פין מפציל/טלסקופי-כיול בהסמכה-במבא', N'אורך שונות', 10)

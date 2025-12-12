@@ -21,8 +21,8 @@ CREATE TABLE #CarStatusesFilter
 (StatusId INT)
 INSERT #CarStatusesFilter(StatusId)
 SELECT s.StatusId
-  FROM [Calibrator].[dbo].[Statuses] as s
-  JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
+  FROM [dbo].[Statuses] as s
+  JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
 WHERE s.StatusDescriptionENG IN
 (
 'Available'

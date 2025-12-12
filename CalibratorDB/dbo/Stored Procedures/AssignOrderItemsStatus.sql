@@ -27,8 +27,8 @@ DECLARE @StatusId INT,@StatusCategoryId INT
 SELECT 
 @StatusId = s.StatusId,
 @StatusCategoryId = sc.StatusCategoryId
-FROM [Calibrator].[dbo].[Statuses] as s
-JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
+FROM [dbo].[Statuses] as s
+JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
 WHERE s.StatusDescriptionENG = @StatusName AND sc.StatusDescriptionENG = @StatusCategoryName
 
 IF NOT EXISTS (

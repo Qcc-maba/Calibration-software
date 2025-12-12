@@ -62,8 +62,8 @@ StatusDescriptionENG NVARCHAR(255) COLLATE Latin1_General_100_CI_AI_SC
 )
 INSERT #OrderStatus (StatusId,CodeINT,StatusType,Code,StatusDescriptionENG)
 SELECT s.StatusId, TRY_CAST(s.Code AS INT) as CodeINT, sc.StatusDescriptionENG as StatusType, s.Code ,s.StatusDescriptionENG
-FROM [Calibrator].[dbo].[Statuses] as s
-JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
+FROM [dbo].[Statuses] as s
+JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
 WHERE sc.StatusDescriptionENG IN('OrderStatus','ReportStatus','CalibrationStatuses')
 
 DECLARE @InintialOrderStatus INT  

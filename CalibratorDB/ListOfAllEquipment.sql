@@ -2078,15 +2078,15 @@ SELECT t.[ID] AS [MabaID]
 		WHEN TRY_CAST(t.NextCalibrationDate AS DATETIME2(0)) <= GETDATE()
 			THEN (
 					SELECT TOP 1 s.StatusId
-					FROM [Calibrator].[dbo].[Statuses] AS s
-					JOIN [Calibrator].[dbo].[StatusesCategories] AS sc ON s.StatusCategoryId = sc.StatusCategoryId
+					FROM [dbo].[Statuses] AS s
+					JOIN [dbo].[StatusesCategories] AS sc ON s.StatusCategoryId = sc.StatusCategoryId
 					WHERE sc.StatusDescriptionENG = N'MeasurementDeviceStatus'
 						AND s.StatusDescriptionENG = N'NotCalibrated'
 					)
 		ELSE (
 				SELECT TOP 1 s.StatusId
-				FROM [Calibrator].[dbo].[Statuses] AS s
-				JOIN [Calibrator].[dbo].[StatusesCategories] AS sc ON s.StatusCategoryId = sc.StatusCategoryId
+				FROM [dbo].[Statuses] AS s
+				JOIN [dbo].[StatusesCategories] AS sc ON s.StatusCategoryId = sc.StatusCategoryId
 				WHERE sc.StatusDescriptionENG = N'MeasurementDeviceStatus'
 					AND s.StatusDescriptionENG = N'Available'
 				)

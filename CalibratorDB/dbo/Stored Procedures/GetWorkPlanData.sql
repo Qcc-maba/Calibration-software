@@ -172,8 +172,8 @@ BEGIN
 	DECLARE @StatusesForOrders NVARCHAR(MAX)
 
 	SELECT @StatusesForOrders=STRING_AGG(s.StatusId,',')
-	FROM [Calibrator].[dbo].[Statuses] as s
-	JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
+	FROM [dbo].[Statuses] as s
+	JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
 	WHERE sc.StatusDescriptionENG='OrderStatus' AND s.StatusDescriptionENG <> 'Executed'
 
 	DROP TABLE IF EXISTS #OrderNumbers
@@ -193,8 +193,8 @@ BEGIN
 		DECLARE @ClientConfirmationStatus NVARCHAR(MAX)
 
 		SELECT @ClientConfirmationStatus=STRING_AGG(s.StatusId,',')
-		FROM [Calibrator].[dbo].[Statuses] as s
-		JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
+		FROM [dbo].[Statuses] as s
+		JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
 		WHERE sc.StatusDescriptionENG='ClientConfirmationStatus' AND s.StatusDescriptionENG = 'Rejected'
 	END
 

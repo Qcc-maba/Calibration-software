@@ -30,8 +30,8 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 DECLARE @StatusCategoryId INT
 SELECT @StatusCategoryId = s.StatusCategoryId
-FROM [Calibrator].[dbo].[Statuses] as s
-JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
+FROM [dbo].[Statuses] as s
+JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
 WHERE sc.StatusDescriptionENG = N'CalibrationStatuses' AND s.StatusDescriptionENG = N'CalibrationFailed'
 
 UPDATE [dbo].[OrderDetailsItems]
