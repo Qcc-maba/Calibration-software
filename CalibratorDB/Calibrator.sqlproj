@@ -271,6 +271,9 @@
     <Build Include="dbo\Tables\PackingBox.sql" />
     <Build Include="dbo\Stored Procedures\SetOrderItemsDetailsStatus.sql" />
     <Build Include="dbo\Stored Procedures\AssignOrderDetailItemsToBox.sql" />
+    <Build Include="dbo\Stored Procedures\GetPackingInfo.sql" />
+    <Build Include="stg\Tables\stg_CustomerSites.sql" />
+    <Build Include="dbo\Tables\CustomerSites.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

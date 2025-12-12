@@ -81,4 +81,68 @@ WHEN NOT MATCHED BY TARGET
 			,source.ReportRequired
 			,source.[CustomerCode]
 			);
+
+MERGE INTO [dbo].[CustomerSites] AS dest
+USING (
+	SELECT 
+	     cust.[CustomerId]
+		,NULLIF(cs.[CustomerSiteAddress],'') as [CustomerSiteAddress]
+		,NULLIF(cs.[CustomerSiteState],'') as [CustomerSiteState]
+		,NULLIF(cs.[CustomerSiteZIP],'') as [CustomerSiteZIP]
+		,NULLIF(cs.[CustomerSitePhone],'') as [CustomerSitePhone]
+		,NULLIF(cs.[CustomerSiteDescription],'') as [CustomerSiteDescription]
+		,cs.[CustomerSiteCode]
+		,GETDATE() AS [CreateDate]
+		,GETDATE() AS [UpdatedDate]
+		,0 as [UpdateUserID]
+		,0 as [IsDeleted]
+		,s.SourceId
+	FROM stg.stg_CustomerSites as cs
+	JOIN dbo.Source as s ON cs.SourceSystem = s.SourceName
+	JOIN dbo.Customers as cust ON cust.CustomerIdFromSource = cs.[CustomerId] AND s.SourceId = cust.SourceId
+	) AS source
+	ON dest.[CustomerId] = source.[CustomerId] AND dest.[CustomerSiteCode] = source.[CustomerSiteCode]
+WHEN MATCHED AND 
+	(
+	   COALESCE(dest.[CustomerSiteAddress],'') <> COALESCE(source.[CustomerSiteAddress],'')
+	OR COALESCE(dest.[CustomerSiteState],'') <>  COALESCE(source.[CustomerSiteState],'')
+	OR COALESCE(dest.[CustomerSiteZIP],'') <> COALESCE(source.[CustomerSiteZIP],'')
+	OR COALESCE(dest.[CustomerSitePhone],'') <> COALESCE(source.[CustomerSitePhone],'')
+	OR COALESCE(dest.[CustomerSiteDescription],'') <>  COALESCE(source.[CustomerSiteDescription],'')
+	)
+	THEN
+		UPDATE
+		SET  dest.[CustomerSiteAddress] = source.[CustomerSiteAddress]
+			,dest.[CustomerSiteState] = source.[CustomerSiteState]
+			,dest.[CustomerSiteZIP] = source.[CustomerSiteZIP]
+			,dest.[CustomerSitePhone] = source.[CustomerSitePhone]
+			,dest.[CustomerSiteDescription] = source.[CustomerSiteDescription]
+			,dest.[UpdatedDate] = source.[UpdatedDate]
+			,dest.[UpdateUserID] = source.[UpdateUserID]
+WHEN NOT MATCHED BY TARGET
+	THEN
+		INSERT (
+			[CustomerId]
+			,[CustomerSiteAddress]
+			,[CustomerSiteState]
+			,[CustomerSiteZIP]
+			,[CustomerSitePhone]
+			,[CustomerSiteDescription]
+			,[CustomerSiteCode]
+			,[CreateDate]
+			,[UpdateUserID]
+			,[SourceId]
+			)
+		VALUES (
+			source.[CustomerId]
+			,source.[CustomerSiteAddress]
+			,source.[CustomerSiteState]
+			,source.[CustomerSiteZIP]
+			,source.[CustomerSitePhone]
+			,source.[CustomerSiteDescription]
+			,source.[CustomerSiteCode]
+			,source.[CreateDate]
+			,source.[UpdateUserID]
+			,source.[SourceId]
+			);
 END

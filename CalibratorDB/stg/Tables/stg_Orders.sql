@@ -37,6 +37,7 @@
     [CustomerReceivingDate]      DATETIME2 (0)   NULL,
     [ShippingDoc]                NVARCHAR (30)   NULL,
     [ShippingAddress]            NVARCHAR (150)  NULL,
-    [DOC_N]                      INT             NULL
+    [DOC_N]                      INT             NULL,
+    [DESTCODE]                   INT             NULL
 );
 

@@ -89,9 +89,11 @@ SELECT DISTINCT
 	    ,IIF(MAX(o.[ExpectedReturnDate]) > GETDATE()-100,MAX(o.[ExpectedReturnDate]),NULL) as [ExpectedReturnDate]
 	    ,o.[PackageLocation]
 		,IIF(LEN(o.[ShipTypeDesc]) > 1,o.[ShipTypeDesc],NULL) as [ShipTypeDesc]
+		,cs.CustomerSiteId
 		FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as ss ON o.[SourceSystem] = ss.SourceName
-    LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = ss.SourceId and c.IsDeleted = 0
+    LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = ss.SourceId AND c.IsDeleted = 0
+	LEFT JOIN [dbo].[CustomerSites] as cs ON c.CustomerId = cs.CustomerId AND cs.CustomerSiteCode = o.[DESTCODE] AND cs.IsDeleted = 0
 	GROUP BY 	     
 	     o.ORDNAME
 		,o.OpenDate
@@ -102,6 +104,7 @@ SELECT DISTINCT
 	    ,o.[CustomerPackingExists]	
 	    ,o.[PackageLocation]
 		,o.[ShipTypeDesc]
+		,cs.CustomerSiteId
 	) AS source
 	ON dest.[OrderSourceId] = source.[OrderSourceId] AND dest.[SourceId] = source.[SourceId]
 WHEN NOT MATCHED BY TARGET
@@ -123,6 +126,7 @@ WHEN NOT MATCHED BY TARGET
 			,[ExpectedReturnDate]
 			,[PackageLocation]
 			,[ShipTypeDesc]
+			,[CustomerSiteId]
 			)
 		VALUES (
 			 source.[OrderNumber]
@@ -141,6 +145,7 @@ WHEN NOT MATCHED BY TARGET
 			,source.[ExpectedReturnDate]
 			,source.[PackageLocation]
 			,source.[ShipTypeDesc]
+			,source.[CustomerSiteId]
 			)
 WHEN MATCHED AND
 	(
@@ -149,7 +154,8 @@ WHEN MATCHED AND
 		  COALESCE(dest.[ActualReturnDate],'1900-01-01') <> COALESCE(source.[ActualReturnDate],'1900-01-01') OR
 		  COALESCE(dest.[ExpectedReturnDate],'1900-01-01') <> COALESCE(source.[ExpectedReturnDate],'1900-01-01') OR
 		  COALESCE(dest.[PackageLocation],'') = COALESCE(source.[PackageLocation],'') OR
-		  COALESCE(dest.[ShipTypeDesc],'') = COALESCE(source.[ShipTypeDesc],'')
+		  COALESCE(dest.[ShipTypeDesc],'') = COALESCE(source.[ShipTypeDesc],'') OR
+		  COALESCE(dest.[CustomerSiteId],0) <> COALESCE(source.[CustomerSiteId],0)
 	)
 	THEN
 		UPDATE
@@ -159,7 +165,8 @@ WHEN MATCHED AND
 			dest.[ActualReturnDate] = source.[ActualReturnDate],
 			dest.[ExpectedReturnDate] = source.[ExpectedReturnDate],
 			dest.[PackageLocation] = source.[PackageLocation],
-			dest.[ShipTypeDesc] = source.[ShipTypeDesc];
+			dest.[ShipTypeDesc] = source.[ShipTypeDesc],
+			dest.[CustomerSiteId] = source.[CustomerSiteId];
 
 	
 MERGE INTO [dbo].[OrderDetails] AS dest

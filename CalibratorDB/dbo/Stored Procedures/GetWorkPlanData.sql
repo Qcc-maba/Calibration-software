@@ -32,7 +32,8 @@ CREATE   PROCEDURE [dbo].[GetWorkPlanData]
 	@CarsIds NVARCHAR(MAX) = NULL,
 	@Notes NVARCHAR(255) = NULL,
 	@Page NVARCHAR(100),
-	@LoggedInUserEmail NVARCHAR(50) = NULL
+	@LoggedInUserEmail NVARCHAR(50) = NULL,
+	@ExcludeRejectedOrders BIT = 0
 AS
 
 BEGIN
@@ -186,6 +187,17 @@ BEGIN
 	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderNumber = sp.value
 	WHERE wp.IsCancelled = 0 
 
+
+	IF @ExcludeRejectedOrders = 1
+	BEGIN
+		DECLARE @ClientConfirmationStatus NVARCHAR(MAX)
+
+		SELECT @ClientConfirmationStatus=STRING_AGG(s.StatusId,',')
+		FROM [Calibrator].[dbo].[Statuses] as s
+		JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
+		WHERE sc.StatusDescriptionENG='ClientConfirmationStatus' AND s.StatusDescriptionENG = 'Rejected'
+	END
+
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 'SELECT wp.[OrderNumber] AS [OrderNumber],
@@ -194,7 +206,7 @@ CONCAT(
 		wp.[OrderWorkPlanId],
         spc.[SpecialCares],
         c.[CustomerName] as [ClientName],
-        c.[CustomerCity] as [Location],
+        IIF(css.CustomerSiteId IS NOT NULL,CONCAT_WS('', '',css.CustomerSiteAddress,css.CustomerSiteState,css.CustomerSiteZIP), CONCAT_WS('', '',c.CustomerAddress, c.CustomerCity)) as [Location],
         wp.[WorkPlanOpenDate] as [WorkPlanOpenDate],
 		sp.StatusDescriptionENG AS SpecialCareENG,
 		sp.StatusDescriptionHEB AS SpecialCareHEB, 
@@ -233,6 +245,7 @@ CONCAT(
 	  LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwpdef ON ctwpdef.[OrderWorkPlanId] = wp.[OrderWorkPlanId] AND ctwpdef.IsDeleted = 0
 	  LEFT JOIN [dbo].[SecondaryCategories] as scf ON od.SecondaryCategoryId = scf.ID
 	  LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON itm.[OrdersDeviceManufacturerId] = dm.[OrdersDeviceManufacturerId]
+	  LEFT JOIN [dbo].[CustomerSites] as css ON css.CustomerSiteId = wp.CustomerSiteId
 	',IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
 	 ,IIF(@MainCategory IS NOT NULL,' JOIN #MainCategory as mainc ON od.MainCategoryId = mainc.ID ',' ')
 	 ,IIF(@SecondCategory IS NOT NULL,' JOIN #SecondCategory as secc ON od.SecondaryCategoryId = secc.ID ',' ')
@@ -285,11 +298,12 @@ CONCAT(
 	LEFT JOIN [dbo].[OrderDetails] as od ON oi.OrderDetailId = od.OrderDetailId
 	WHERE od.OrderWorkPlanId = wp.OrderWorkPlanId AND pb.IsDeleted = 0 AND itm.IsDeleted = 0 
 	GROUP BY od.OrderWorkPlanId
-	) as boxcnt
+	) as boxcnt 
 	WHERE wp.OrderOverallStatusId IN(',@StatusesForOrders,') '
+	,CASE WHEN @ExcludeRejectedOrders = 1 THEN ' AND COALESCE(wp.ClientConfirmationStatusId,0) NOT IN ('+@ClientConfirmationStatus+') 'ELSE ' ' END
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
 	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND wp.AssigmentDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
-	,CASE WHEN @Location  IS NOT NULL THEN ' AND c.CustomerCity LIKE N''%'+@Location +'%'' 'ELSE ' ' END
+	,CASE WHEN @Location  IS NOT NULL THEN ' AND IIF(css.CustomerSiteId IS NOT NULL,CONCAT_WS('', '',css.CustomerSiteAddress,css.CustomerSiteState,css.CustomerSiteZIP), CONCAT_WS('', '',c.CustomerAddress, c.CustomerCity)) LIKE N''%'+@Location +'%'' 'ELSE ' ' END
 	,CASE WHEN @ProductType IS NOT NULL THEN ' AND od.PartName LIKE N''%'+ @ProductType +'%'' 'ELSE ' ' END
 	,CASE WHEN @ProducedIn IS NOT NULL THEN ' AND dm.OrdersDeviceManufacturerDescription LIKE N''%'+ @ProducedIn +'%'' 'ELSE ' ' END
 	,CASE WHEN @DeviceModel IS NOT NULL THEN ' AND itm.DeviceModel LIKE N''%'+ @DeviceModel +'%'' 'ELSE ' ' END
@@ -308,7 +322,7 @@ CONCAT(
 	wp.[OrderWorkPlanId],
 	spc.[SpecialCares],
 	c.[CustomerName], 
-	c.[CustomerCity],
+	IIF(css.CustomerSiteId IS NOT NULL,CONCAT_WS('', '',css.CustomerSiteAddress,css.CustomerSiteState,css.CustomerSiteZIP), CONCAT_WS('', '',c.CustomerAddress, c.CustomerCity)),
 	wp.[WorkPlanOpenDate],
 	co.[Cars],
     coh.EquipmentIds,

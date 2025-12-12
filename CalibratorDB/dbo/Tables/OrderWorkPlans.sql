@@ -21,6 +21,7 @@
     [AssigmentDate]              DATETIME2 (0)  NULL,
     [ShipTypeDesc]               NVARCHAR (100) NULL,
     [CustomerComment]            NVARCHAR (200) NULL,
+    [CustomerSiteId]             INT            NULL,
     CONSTRAINT [PK_OrderWorkPlans] PRIMARY KEY CLUSTERED ([OrderWorkPlanId] ASC),
     CONSTRAINT [FK_OrdersHeaders_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_OrdersHeaders_UpdatedByUserId] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID]),
