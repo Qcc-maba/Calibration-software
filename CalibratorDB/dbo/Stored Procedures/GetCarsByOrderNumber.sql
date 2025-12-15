@@ -6,12 +6,26 @@
 -- =============================================
 CREATE    Procedure [dbo].[GetCarsByOrderNumber]
 @OrderNumber NVARCHAR(100),
-@CarAssignDate DATETIME2(0) = NULL
+@CarAssignDate DATETIME2(0) = NULL,
+@LoggedInUserEmail NVARCHAR(100) = NULL
 
 /*
 EXEC [dbo].[GetCarsByOrderNumber] @OrderNumber = 'LA25105420'
 */
 AS
+
+DECLARE @WorkPlanFilter INT = NULL
+
+IF @CarAssignDate IS NOT NULL AND @LoggedInUserEmail IS NOT NULL
+	SET @WorkPlanFilter = (
+		SELECT  TOP (1) calwp.OrderWorkPlanId
+		FROM [dbo].[Users] as u
+		JOIN [dbo].[UserRoles] as ur ON u.UserRoleId = ur.UserRoleId
+		JOIN [dbo].[CalibratorsToWorkPlan] as calwp ON u.ID = calwp.CalibratorId
+		WHERE u.Email=@LoggedInUserEmail AND ur.UserRoleName = 'Calibrator' AND calwp.AssigmentDate = @CarAssignDate
+	)
+
+
 SELECT 
 c.CarId,
 p.OrderNumber,
@@ -32,3 +46,4 @@ WHERE p.OrderWorkPlanId = ctwp.OrderWorkPlanId AND ctwp.CarId = cwp.CarId AND ct
 ) as acto
 WHERE p.OrderNumber = @OrderNumber AND cwp.IsDeleted = 0 AND p.IsCancelled = 0
 AND (@CarAssignDate IS NULL OR cwp.AssignDate = @CarAssignDate)
+AND ( @WorkPlanFilter IS NULL OR cwp.OrderWorkPlanId = @WorkPlanFilter)
