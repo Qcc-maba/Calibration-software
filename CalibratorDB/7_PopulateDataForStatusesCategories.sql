@@ -16,7 +16,8 @@ FROM (
 	(N'EventTypes',''),
 	(N'UserStatus',''),
 	(N'Position',''),
-	(N'ClientConfirmationStatus','')
+	(N'ClientConfirmationStatus',''),
+	(N'CalibratorNotificationType','')
 	) ds ([StatusDescriptionENG],[StatusDescriptionHEB])
 	) AS source
 	ON dest.[StatusDescriptionENG] = source.[StatusDescriptionENG]

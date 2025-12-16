@@ -96,7 +96,12 @@ USING (
 		('Position','CTO','ChiefTechnologyOfficer',N'מנהל טכני'),
 		('ClientConfirmationStatus','','Pending',N'בהמתנה'),
 		('ClientConfirmationStatus','','Confirmed',N'מאושר'),
-		('ClientConfirmationStatus','','Rejected',N'נדחה')
+		('ClientConfirmationStatus','','Rejected',N'נדחה'),
+		('CalibratorNotificationType','','NewOrderNotification',N'הזמנה חדשה'),
+		('CalibratorNotificationType','','DelayOrderNotification',N'הזמנה נדחתה'),
+		('CalibratorNotificationType','','CancelOrderNotification',N'הזמנה בוטלה'),
+		('CalibratorNotificationType','','ValidatorCommentNotification',N'הערת ביקורת'),
+		('CalibratorNotificationType','','SecondSignatureNotification',N'חתימה שניה')
 		) ds ([StatusCategory],[Code],[StatusDescriptionENG],[StatusDescriptionHEB])
 		JOIN [dbo].[StatusesCategories] as sc ON ds.StatusCategory = sc.StatusDescriptionENG
 	) AS source
