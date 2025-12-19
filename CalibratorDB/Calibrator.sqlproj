@@ -274,6 +274,9 @@
     <Build Include="dbo\Stored Procedures\GetPackingInfo.sql" />
     <Build Include="stg\Tables\stg_CustomerSites.sql" />
     <Build Include="dbo\Tables\CustomerSites.sql" />
+    <Build Include="dbo\Functions\GetStatusesByCategory.sql" />
+    <Build Include="dbo\Stored Procedures\UpdateCalibratorNotification.sql" />
+    <Build Include="dbo\Stored Procedures\CreateCalibratorNotification.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

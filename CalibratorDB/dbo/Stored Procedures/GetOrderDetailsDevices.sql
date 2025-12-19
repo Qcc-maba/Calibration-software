@@ -8,7 +8,8 @@
 CREATE   PROCEDURE [dbo].[GetOrderDetailsDevices] 
 @OrderWorkPlanId INT =41,
 @OrderDetailId INT = NULL,
-@LoggedInUserEmail NVARCHAR(50) = NULL
+@LoggedInUserEmail NVARCHAR(50) = NULL,
+@OrderDetailsItems INT =NULL
 AS
 
 DECLARE @LoggedInUserId INT = 0
@@ -99,7 +100,7 @@ FROM [dbo].[MeasurementDevicesToOrderHeaders] as mdt
 JOIN [dbo].[MeasurementDevices] as md ON mdt.MeasurementDeviceId = md.ID
 GROUP BY mdt.[OrderWorkPlanId]
 ) as e ON e.[OrderWorkPlanId] = wp.[OrderWorkPlanId]
-WHERE wp.[OrderWorkPlanId] = @OrderWorkPlanId
+WHERE wp.[OrderWorkPlanId] = @OrderWorkPlanId 
 )
 SELECT
 FIRST_VALUE(r.[OrderWorkPlanId]) OVER(ORDER BY r.[OrderWorkPlanId] DESC) as [OrderWorkPlanId],
@@ -148,5 +149,6 @@ LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[
 LEFT JOIN [dbo].[OrdersProductTypes] as opt2 ON r.[OrdersProductTypeId] = opt2.[OrdersProductTypeId]
 LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
 LEFT JOIN [dbo].[OrderDetailsItems] as odi ON n.OrderDetailId = odi.OrderDetailId AND odi.[OrderDetailsItemId] = r.[OrderDetailsItemId]
+WHERE (@OrderDetailsItems IS NULL OR r.OrderDetailsItemId = @OrderDetailsItems)
 ORDER BY [OrderDetailId]
 option (maxrecursion 0)

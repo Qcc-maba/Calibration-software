@@ -1,51 +1,39 @@
 ﻿-- =============================================
 -- Author:		Eduard Kudlaiev
--- Create date: 28/11/2025
--- Description:	This SP should show assigned notifications.
--- JiraLink: 
+-- Create date: 19/12/2025
+-- Description:	Get calibrator notification data
 -- =============================================
 
-CREATE   PROCEDURE [dbo].[GetCalibratorNotification]
-@CalibratorNotificationId INT = NULL,
-@OrderWorkPlanId INT = NULL,
-@OrderDetailId INT = NULL,
-@OrderDetailItemId INT = NULL
+CREATE   PROCEDURE dbo.GetCalibratorNotification
+@CalibratorId INT,
+@PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
+@RowsOfPage AS INT = 10,                 -- Result page size
+@OrderBy AS NVARCHAR(MAX) = 'CreatedDate',      -- OrderBy column
+@OrderByAsc AS BIT = 0                  -- OrderBy direction (ASC/DESC)
+
+-- EXEC dbo.GetCalibratorNotification @CalibratorId = 13, @OrderBy= N'CreatedDate', @OrderByAsc=0
+
 AS
-BEGIN
 
-SET NOCOUNT ON;
-
-IF (@CalibratorNotificationId IS NULL AND @OrderWorkPlanId IS NULL AND @OrderDetailId IS NULL AND @OrderDetailItemId IS NULL)
-THROW 51000, 'Please provide @CalibratorNotificationId or @OrderWorkPlanId or @OrderDetailId or @OrderDetailItemId as one of it required parameter.', 1;
-
-DECLARE @sql NVARCHAR(MAX)
-
-SET @sql = 
+DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 '
-SELECT 
-       cn.[CalibratorId]
-      ,CONCAT(c.FirstName,'' '',c.LastName) as Calibrator
+SELECT cn.[CalibratorId]  
       ,cn.[CalibratorNotificationId]
       ,cn.[OrderWorkPlanId]
       ,cn.[OrderDetailId]
       ,cn.[OrderDetailItemId]
       ,cn.[NotificationText]
       ,cn.[NotificationTypeId]
+      ,st.[StatusDescriptionHEB] as [NotificationType]
       ,cn.[ResolvedDate]
       ,cn.[CreatedDate]
-      ,cn.[CreateUserId] AS ValidatorId
-      ,CONCAT(c1.FirstName,'' '',c1.LastName) as Calibrator
-  FROM [dbo].[CalibratorNotifications] as cn
-  LEFT JOIN [dbo].[Users] as c ON cn.[CalibratorId] = c.[ID]
-  LEFT JOIN [dbo].[Users] as c1 ON cn.[CreateUserId] = c1.[ID]
-  WHERE cn.[IsDeleted] = 0'
- ,CASE WHEN @CalibratorNotificationId IS NOT NULL THEN ' AND cn.CalibratorNotificationId = '''+CAST(@CalibratorNotificationId as NVARCHAR(MAX)) +''' 'ELSE ' ' END
- ,CASE WHEN @OrderWorkPlanId IS NOT NULL THEN ' AND cn.OrderWorkPlanId = '''+CAST(@OrderWorkPlanId as NVARCHAR(MAX)) +''' 'ELSE ' ' END
- ,CASE WHEN @OrderDetailId IS NOT NULL THEN ' AND cn.OrderDetailId = '''+CAST(@OrderDetailId as NVARCHAR(MAX)) +''' 'ELSE ' ' END
- ,CASE WHEN @OrderDetailItemId IS NOT NULL THEN ' AND cn.OrderDetailItemId = '''+CAST(@OrderDetailItemId as NVARCHAR(MAX)) +''' 'ELSE ' ' END
-)
-PRINT(@sql)
-EXEC sp_executesql @sql
-
-END
+      ,cn.[IsRead]
+FROM [dbo].[CalibratorNotifications] as cn
+LEFT JOIN [dbo].[Statuses] as st ON cn.[NotificationTypeId] = st.StatusId
+WHERE cn.[CalibratorId] =', @CalibratorId,'
+AND cn.[IsDeleted] = 0'
+,  ' ORDER BY [' , @OrderBy , CASE WHEN @OrderByAsc = 1 THEN '] ASC' WHEN @OrderByAsc = 0 THEN '] DESC'  ELSE '' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
+PRINT LEN(@sql)
+PRINT CAST(@sql as VARCHAR(MAX))
+EXEC (@sql)

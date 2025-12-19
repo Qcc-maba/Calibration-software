@@ -12,12 +12,16 @@
     [UpdatedDate]              DATETIME2 (0)  NULL,
     [UpdateUserID]             INT            NULL,
     [IsDeleted]                BIT            DEFAULT ((0)) NOT NULL,
+    [IsRead]                   BIT            DEFAULT ((0)) NULL,
+    [RedirectPage]             NVARCHAR (200) NULL,
     CONSTRAINT [FK_CalibratorNotifications_CalibratorId] FOREIGN KEY ([CalibratorId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_CalibratorNotifications_CreateUserId] FOREIGN KEY ([CreateUserId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_CalibratorNotifications_NotificationTypeId] FOREIGN KEY ([NotificationTypeId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_CalibratorNotifications_OrderWorkPlanId] FOREIGN KEY ([OrderWorkPlanId]) REFERENCES [dbo].[OrderWorkPlans] ([OrderWorkPlanId]),
     CONSTRAINT [FK_CalibratorNotifications_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
+
+
 
 
 

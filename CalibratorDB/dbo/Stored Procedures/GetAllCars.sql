@@ -34,7 +34,7 @@ CREATE TABLE #ce
 (
 [StartDate] DATE,
 [EndDate] DATE,
-[EventType] NVARCHAR(50) COLLATE Latin1_General_100_CI_AI_SC NOT NULL
+[EventType] NVARCHAR(500) COLLATE Latin1_General_100_CI_AI_SC NOT NULL
 )
 INSERT #ce([StartDate],[EndDate],[EventType])
 SELECT 
@@ -52,8 +52,8 @@ CREATE TABLE #DateRange
 (
 ID INT NOT NULL,
 MabaNumber INT NULL,
-Model NVARCHAR(20) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
-LicenseNumber NVARCHAR(11) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+Model NVARCHAR(50) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+LicenseNumber NVARCHAR(50) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
 Seats TINYINT NOT NULL,
 DayDate DATE NOT NULL,
 CarStatusId INT

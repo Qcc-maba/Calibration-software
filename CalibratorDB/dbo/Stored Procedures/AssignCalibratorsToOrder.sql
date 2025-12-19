@@ -55,17 +55,16 @@ UPDATE [dbo].[OrderWorkPlans]
 SET Notes = @Note
 WHERE OrderWorkPlanId = @WorkPlanId
 
-UPDATE dbo.CalibratorsToWorkPlan
-SET UpdatedDate = GETDATE(),
-    UpdateUserID = @LoggedInUserId,
-    IsDeleted = 0
-WHERE OrderWorkPlanId = @WorkPlanId and IsDeleted = 1
+--UPDATE dbo.CalibratorsToWorkPlan
+--SET UpdatedDate = GETDATE(),
+--    UpdateUserID = @LoggedInUserId,
+--    IsDeleted = 1
+--WHERE OrderWorkPlanId = @WorkPlanId and IsDeleted = 0
 
 INSERT dbo.CalibratorsToWorkPlan(OrderWorkPlanId,CalibratorId,AssigmentDate,UpdateUserID,CarId)
 SELECT DISTINCT @WorkPlanId, c.CalibratorID, @StartDate,@LoggedInUserId,@CarId
 FROM #CalibratorIDs as c 
-LEFT JOIN dbo.CalibratorsToWorkPlan as wp ON c.CalibratorID = wp.CalibratorId AND wp.OrderWorkPlanId = @WorkPlanId
-WHERE wp.CalibratorId IS NULL
+JOIN dbo.CalibratorsToWorkPlan as wp ON c.CalibratorID = wp.CalibratorId 
 
 
 END
