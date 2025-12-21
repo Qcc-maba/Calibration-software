@@ -8,7 +8,6 @@
     [CreatedByUserId]            INT            NULL,
     [UpdateUserID]               INT            NULL,
     [Notes]                      NVARCHAR (255) NULL,
-    [OrderSourceId]              INT            NULL,
     [SourceId]                   TINYINT        NULL,
     [OrderStatusId]              INT            NULL,
     [CustomerId]                 INT            NULL,
@@ -22,6 +21,10 @@
     [ShipTypeDesc]               NVARCHAR (100) NULL,
     [CustomerComment]            NVARCHAR (200) NULL,
     [CustomerSiteId]             INT            NULL,
+    [BK_DOC_N]                   INT            NULL,
+    [BK_KLINE]                   INT            NULL,
+    [BK_PART]                    INT            NULL,
+    [OrderSourceId]              INT            NULL,
     CONSTRAINT [PK_OrderWorkPlans] PRIMARY KEY CLUSTERED ([OrderWorkPlanId] ASC),
     CONSTRAINT [FK_OrdersHeaders_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_OrdersHeaders_UpdatedByUserId] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID]),
@@ -31,4 +34,9 @@
     CONSTRAINT [FK_OrderWorkPlans_OrderStatusId] FOREIGN KEY ([OrderStatusId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_OrderWorkPlans_SourceId] FOREIGN KEY ([SourceId]) REFERENCES [dbo].[Source] ([SourceId])
 );
+
+
+GO
+CREATE NONCLUSTERED INDEX [NC_IDX_BK_OrderWorkPlans]
+    ON [dbo].[OrderWorkPlans]([BK_DOC_N] ASC, [BK_PART] ASC, [BK_KLINE] ASC) WHERE ([BK_DOC_N] IS NOT NULL AND [BK_PART] IS NOT NULL AND [BK_KLINE] IS NOT NULL);
 

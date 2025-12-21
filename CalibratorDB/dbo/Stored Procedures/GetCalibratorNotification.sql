@@ -4,7 +4,7 @@
 -- Description:	Get calibrator notification data
 -- =============================================
 
-CREATE   PROCEDURE dbo.GetCalibratorNotification
+CREATE   PROCEDURE [dbo].[GetCalibratorNotification]
 @CalibratorId INT,
 @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
 @RowsOfPage AS INT = 10,                 -- Result page size
@@ -29,6 +29,7 @@ SELECT cn.[CalibratorId]
       ,cn.[ResolvedDate]
       ,cn.[CreatedDate]
       ,cn.[IsRead]
+      ,cn.[RedirectPage]
 FROM [dbo].[CalibratorNotifications] as cn
 LEFT JOIN [dbo].[Statuses] as st ON cn.[NotificationTypeId] = st.StatusId
 WHERE cn.[CalibratorId] =', @CalibratorId,'
