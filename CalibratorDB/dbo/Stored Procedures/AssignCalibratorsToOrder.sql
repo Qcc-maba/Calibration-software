@@ -36,6 +36,7 @@ CalibratorID INT
 
 INSERT #CalibratorIDs(CalibratorID)
 SELECT Value FROM dbo.ParseCSVToTable(@CalibratorIDs)
+WHERE Value > 0
 
 --- Check if all users are valid
 if EXISTS (
@@ -64,7 +65,25 @@ WHERE OrderWorkPlanId = @WorkPlanId
 INSERT dbo.CalibratorsToWorkPlan(OrderWorkPlanId,CalibratorId,AssigmentDate,UpdateUserID,CarId)
 SELECT DISTINCT @WorkPlanId, c.CalibratorID, @StartDate,@LoggedInUserId,@CarId
 FROM #CalibratorIDs as c 
-JOIN dbo.CalibratorsToWorkPlan as wp ON c.CalibratorID = wp.CalibratorId 
+
+
+INSERT INTO [dbo].[CalibratorNotifications]
+        ([CalibratorId]
+        ,[OrderWorkPlanId]
+        ,[NotificationText]
+        ,[CreatedDate]
+        ,[CreateUserId]
+        ,[IsDeleted]
+        ,[NotificationTypeId])
+SELECT
+        c.CalibratorID
+        ,@WorkPlanId
+        ,CONCAT('Order ',@OrderNumber,' was assigned.') AS [NotificationText]
+        ,GETDATE()
+        ,0
+        ,0
+        ,(SELECT StatusId FROM [dbo].[Statuses] WHERE StatusDescriptionENG='NewOrderNotification')
+FROM #CalibratorIDs as c
 
 
 END

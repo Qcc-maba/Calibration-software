@@ -33,6 +33,8 @@
     [ShippingDoc]                NVARCHAR (30)   NULL,
     [ShippingAddress]            NVARCHAR (150)  NULL,
     [DOC_N]                      INT             NULL,
+    [ActualReturnDate]           DATETIME2 (0)   NULL,
+    [ExpectedReturnDate]         DATETIME2 (0)   NULL,
     CONSTRAINT [PK_OrderDetailsItems] PRIMARY KEY CLUSTERED ([OrderDetailId] ASC, [OrderDetailsItemId] ASC),
     CONSTRAINT [FK_OrderDetailsItems_CalibrationReportStatusId] FOREIGN KEY ([CalibrationReportStatusId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_OrderDetailsItems_CalibrationSpecificationId] FOREIGN KEY ([CalibrationSpecificationId]) REFERENCES [dbo].[MeasurementsSpecifications] ([ID]),

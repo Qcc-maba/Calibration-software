@@ -36,10 +36,34 @@ INSERT #OrderIDs(OrderNumber)
 SELECT Value FROM dbo.ParseCSVToTable(@OrderIDs)
 
 IF @Canceled IS NOT NULL
-UPDATE o
-SET o.IsCancelled = 1
-FROM [dbo].[OrderWorkPlans] as o
-JOIN #OrderIDs as upd ON o.OrderNumber = upd.OrderNumber
+BEGIN
+
+    UPDATE o
+    SET o.IsCancelled = 1
+    FROM [dbo].[OrderWorkPlans] as o
+    JOIN #OrderIDs as upd ON o.OrderNumber = upd.OrderNumber
+    
+    INSERT INTO [dbo].[CalibratorNotifications]
+           ([CalibratorId]
+           ,[OrderWorkPlanId]
+           ,[NotificationText]
+           ,[CreatedDate]
+           ,[CreateUserId]
+           ,[IsDeleted]
+           ,[NotificationTypeId])
+    SELECT
+            cwp.CalibratorID
+           ,o.OrderWorkPlanId
+           ,CONCAT('Order ',LTRIM(RTRIM(o.OrderNumber)),' was cancelled.') AS [NotificationText]
+           ,GETDATE()
+           ,0
+           ,0
+           ,(SELECT StatusId FROM [dbo].[Statuses] WHERE StatusDescriptionENG='CancelOrderNotification')
+    FROM [dbo].[OrderWorkPlans] as o
+    JOIN #OrderIDs as upd ON o.OrderNumber = upd.OrderNumber
+    JOIN [dbo].[CalibratorsToWorkPlan] as cwp ON o.OrderWorkPlanId = cwp.OrderWorkPlanId
+
+END
 
 IF @OrderStatus IS NOT NULL
 UPDATE o
@@ -52,5 +76,27 @@ UPDATE o
 SET o.ClientConfirmationStatusId = @ClientConfirmationStatus
 FROM [dbo].[OrderWorkPlans] as o
 JOIN #OrderIDs as upd ON o.OrderNumber = upd.OrderNumber
+
+IF EXISTS (SELECT 1 FROM [dbo].[Statuses] WHERE StatusId = @ClientConfirmationStatus AND StatusDescriptionENG='Pending')
+
+INSERT INTO [dbo].[CalibratorNotifications]
+        ([CalibratorId]
+        ,[OrderWorkPlanId]
+        ,[NotificationText]
+        ,[CreatedDate]
+        ,[CreateUserId]
+        ,[IsDeleted]
+        ,[NotificationTypeId])
+SELECT
+        cwp.CalibratorID
+        ,o.OrderWorkPlanId
+        ,CONCAT('Order ',LTRIM(RTRIM(o.OrderNumber)),' was delayed.') AS [NotificationText]
+        ,GETDATE()
+        ,0
+        ,0
+        ,(SELECT StatusId FROM [dbo].[Statuses] WHERE StatusDescriptionENG='DelayOrderNotification')
+FROM [dbo].[OrderWorkPlans] as o
+JOIN #OrderIDs as upd ON o.OrderNumber = upd.OrderNumber
+JOIN [dbo].[CalibratorsToWorkPlan] as cwp ON o.OrderWorkPlanId = cwp.OrderWorkPlanId
 
 END

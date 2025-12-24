@@ -1,4 +1,5 @@
-﻿-- =============================================
+﻿
+-- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 28/11/2025
 -- Description:	This SP should assign notification for calibrator.
@@ -8,7 +9,7 @@
 CREATE   PROCEDURE [dbo].[AssignCalibratorNotification]
 @LoggedInUserEmail NVARCHAR(100),
 @CalibratorNotificationId INT = NULL,
-@CalibratorId INT = NULL,
+@CalibratorIds NVARCHAR(MAX) = NULL,
 @OrderWorkPlanId INT = NULL,
 @OrderDetailId INT = NULL,
 @OrderDetailItemId INT = NULL,
@@ -20,21 +21,23 @@ BEGIN
 
 SET NOCOUNT ON;
 
+DROP TABLE IF EXISTS #CalibratorIDs
+CREATE TABLE #CalibratorIDs
+(
+CalibratorID INT
+)
 
-DECLARE @LoggedInUserId INT 
+INSERT #CalibratorIDs(CalibratorID)
+SELECT Value FROM dbo.ParseCSVToTable(@CalibratorIds)
+WHERE LEN(Value) > 0
+
+DECLARE @LoggedInUserId INT = 0
 DECLARE @SourceId TINYINT
 
 SELECT 
  @LoggedInUserId  = d.UserId 
 ,@SourceId = d.SourceId
 FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
-
---- Check if all users are valid
-if NOT EXISTS (
-SELECT 1 FROM [dbo].[Users] as ul
-WHERE ul.ID = @CalibratorId AND ul.IsActive = 1
-) AND @CalibratorId IS NOT NULL
-THROW 51000, 'Incorrect or inactive calibrators were found.', 1;
 
 /*Delete record*/
 IF (@CalibratorNotificationId IS NOT NULL AND @IsDeleted = 1)
@@ -60,8 +63,8 @@ IF @CalibratorNotificationId IS NULL
            ,[CreatedDate]
            ,[CreateUserId]
            ,[IsDeleted])
-    VALUES (
-            @CalibratorId
+    SELECT
+            CalibratorID
            ,@OrderWorkPlanId
            ,@OrderDetailId
            ,@OrderDetailItemId
@@ -69,16 +72,16 @@ IF @CalibratorNotificationId IS NULL
            ,GETDATE()
            ,@LoggedInUserId
            ,0
-           )
-ELSE 
-    UPDATE [dbo].[CalibratorNotifications]
-    SET [CalibratorId] = @CalibratorId,
-        [OrderWorkPlanId] = @OrderWorkPlanId,
-        [OrderDetailId] = @OrderDetailId,
-        [OrderDetailItemId] = @OrderDetailItemId,
-        [NotificationText] = @NotificationText,
-        [UpdatedDate] = GETDATE(),
-        [UpdateUserID] = @LoggedInUserId
-    WHERE [CalibratorNotificationId] = @CalibratorNotificationId
+    FROM #CalibratorIDs
+--ELSE 
+--    UPDATE [dbo].[CalibratorNotifications] as 
+--    SET [CalibratorId] = @CalibratorId,
+--        [OrderWorkPlanId] = @OrderWorkPlanId,
+--        [OrderDetailId] = @OrderDetailId,
+--        [OrderDetailItemId] = @OrderDetailItemId,
+--        [NotificationText] = @NotificationText,
+--        [UpdatedDate] = GETDATE(),
+--        [UpdateUserID] = @LoggedInUserId
+--    WHERE [CalibratorNotificationId] = @CalibratorNotificationId
 
 END

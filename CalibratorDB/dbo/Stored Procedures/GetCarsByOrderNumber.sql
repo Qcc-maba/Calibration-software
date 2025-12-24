@@ -14,17 +14,12 @@ EXEC [dbo].[GetCarsByOrderNumber] @OrderNumber = 'LA25105420'
 */
 AS
 
-DECLARE @WorkPlanFilter INT = NULL
+DECLARE @CalibratorId INT = NULL
 
-IF @CarAssignDate IS NOT NULL AND @LoggedInUserEmail IS NOT NULL
-	SET @WorkPlanFilter = (
-		SELECT  TOP (1) calwp.OrderWorkPlanId
-		FROM [dbo].[Users] as u
-		JOIN [dbo].[UserRoles] as ur ON u.UserRoleId = ur.UserRoleId
-		JOIN [dbo].[CalibratorsToWorkPlan] as calwp ON u.ID = calwp.CalibratorId
-		WHERE u.Email=@LoggedInUserEmail AND ur.UserRoleName = 'Calibrator' AND calwp.AssigmentDate = @CarAssignDate
-	)
-
+SELECT @CalibratorId = u.ID 
+FROM [dbo].[Users] as u
+JOIN [dbo].[UserRoles] as ur ON u.UserRoleId = ur.UserRoleId
+WHERE u.Email=@LoggedInUserEmail AND ur.UserRoleName = 'Calibrator' 
 
 SELECT 
 c.CarId,
@@ -43,7 +38,7 @@ OUTER APPLY
 SELECT STRING_AGG(ctwp.CalibratorId,',') as AssignedCalibrators
 FROM [dbo].[CalibratorsToWorkPlan] as ctwp
 WHERE p.OrderWorkPlanId = ctwp.OrderWorkPlanId AND ctwp.CarId = cwp.CarId AND ctwp.AssigmentDate = cwp.AssignDate and ctwp.IsDeleted = 0 
+  AND (@CalibratorId IS NULL OR ctwp.CalibratorId = @CalibratorId)
 ) as acto
 WHERE p.OrderNumber = @OrderNumber AND cwp.IsDeleted = 0 AND p.IsCancelled = 0
 AND (@CarAssignDate IS NULL OR cwp.AssignDate = @CarAssignDate)
-AND ( @WorkPlanFilter IS NULL OR cwp.OrderWorkPlanId = @WorkPlanFilter)

@@ -142,7 +142,7 @@ CONCAT(
 	,itm.[IsChecked]
 	,op.[CustomerId]
 	,itm.[ActualCalibrationDate]
-	,op.ExpectedReturnDate as CalibrationDeadline
+	,itm.ExpectedReturnDate as CalibrationDeadline
 	,c.CustomerName
 	,cbl.Calibrators
 	,scs.StatusDescriptionHEB as SpecialTreatment

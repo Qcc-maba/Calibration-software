@@ -65,13 +65,13 @@ BEGIN
 	--validator-orders
 	/*-------------------------------------------------*/
 
-	IF @OrderBy NOT IN 
-	(N'OrderNumber',N'SpecialCares',N'ClientName',N'Location',N'WorkPlanOpenDate',
-	N'Cars',N'Calibrators',N'EquipmentNames',N'Notes',N'MainCategory',N'CalibDate',N'ClientConfirmationStatus',N'ExpectedReturnDate',
-	N'ActualReturnDate',N'CustomerPackingExists',N'PrintedReport',N'ReceivingDate',N'WorkPlanStatus')
-	THROW 51000, 'Incorrect value for parameter @OrderBy. Available values |OrderNumber|SpecialCares|ClientName|
-	ExpectedReturnDate|ActualReturnDate
-	|Location|WorkPlanOpenDate|Cars|Calibrators|EquipmentNames|Notes|MainCategory|CalibDate|ClientConfirmationStatus', 1;
+	--IF @OrderBy NOT IN 
+	--(N'OrderNumber',N'SpecialCares',N'ClientName',N'Location',N'WorkPlanOpenDate',
+	--N'Cars',N'Calibrators',N'EquipmentNames',N'Notes',N'MainCategory',N'CalibDate',N'ClientConfirmationStatus',N'ExpectedReturnDate',
+	--N'ActualReturnDate',N'CustomerPackingExists',N'PrintedReport',N'ReceivingDate',N'WorkPlanStatus')
+	--THROW 51000, 'Incorrect value for parameter @OrderBy. Available values |OrderNumber|SpecialCares|ClientName|
+	--ExpectedReturnDate|ActualReturnDate
+	--|Location|WorkPlanOpenDate|Cars|Calibrators|EquipmentNames|Notes|MainCategory|CalibDate|ClientConfirmationStatus', 1;
 
 	IF @OrderBy IN (N'Cars')
 		BEGIN
@@ -217,9 +217,9 @@ CONCAT(
         wp.Notes as Notes,
 		MIN(mcat.[MainCategoryName]) as MainCategory,
 		wp.[IsCancelled],
-		MAX(CAST(CustomerPackingExists as TINYINT)) as CustomerPackingExists,
-		MAX(ExpectedReturnDate) as ExpectedReturnDate,
-		MAX(ActualReturnDate) as ActualReturnDate,
+		MAX(CAST(od.CustomerPackingExists as TINYINT)) as CustomerPackingExists,
+		MAX(itm.ExpectedReturnDate) as ExpectedReturnDate,
+		MAX(itm.ActualReturnDate) as ActualReturnDate,
 		COALESCE(MIN(ctwp.OrderDetailsMbaReportNumber),MIN(ctwpdef.OrderDetailsMbaReportNumber))as CalibratorMabaNumber, 
 	    COALESCE(MAX(clst.StatusDescriptionENG),''',@ClientConfirmationStatusDefault,''') as ClientConfirmationStatus,
 		MAX(wp.ShipTypeDesc) AS ShipTypeDesc,
@@ -245,7 +245,7 @@ CONCAT(
 	  LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwpdef ON ctwpdef.[OrderWorkPlanId] = wp.[OrderWorkPlanId] AND ctwpdef.IsDeleted = 0
 	  LEFT JOIN [dbo].[SecondaryCategories] as scf ON od.SecondaryCategoryId = scf.ID
 	  LEFT JOIN [dbo].[OrdersDeviceManufacturers] as dm ON itm.[OrdersDeviceManufacturerId] = dm.[OrdersDeviceManufacturerId]
-	  LEFT JOIN [dbo].[CustomerSites] as css ON css.CustomerSiteId = wp.CustomerSiteId
+	  LEFT JOIN [dbo].[CustomerSites] as css ON css.CustomerSiteId = od.CustomerSiteId
 	',IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
 	 ,IIF(@MainCategory IS NOT NULL,' JOIN #MainCategory as mainc ON od.MainCategoryId = mainc.ID ',' ')
 	 ,IIF(@SecondCategory IS NOT NULL,' JOIN #SecondCategory as secc ON od.SecondaryCategoryId = secc.ID ',' ')
