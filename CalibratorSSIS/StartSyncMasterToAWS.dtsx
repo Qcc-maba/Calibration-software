@@ -12,8 +12,8 @@
   DTS:ObjectName="StartSyncMasterToAWS"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="14"
-  DTS:VersionGUID="{84599167-F341-463C-BE27-7624392858E8}">
+  DTS:VersionBuild="15"
+  DTS:VersionGUID="{EF182141-9BF7-40A9-87E6-84B56E8D5110}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -49,6 +49,33 @@
         <ExecutePackageTask>
           <UseProjectReference>True</UseProjectReference>
           <PackageName>DepartmentDelaysToAWS.dtsx</PackageName>
+        </ExecutePackageTask>
+      </DTS:ObjectData>
+    </DTS:Executable>
+    <DTS:Executable
+      DTS:refId="Package\MeasurmentDevicesSyncToAWS"
+      DTS:CreationName="Microsoft.ExecutePackageTask"
+      DTS:Description="Execute Package Task"
+      DTS:DTSID="{9473AA5A-4BBC-4BA8-9576-CFC3EEBBED4E}"
+      DTS:ExecutableType="Microsoft.ExecutePackageTask"
+      DTS:LocaleID="-1"
+      DTS:ObjectName="MeasurmentDevicesSyncToAWS"
+      DTS:TaskContact="Microsoft Corporation; Microsoft SQL Server; Microsoft Corporation; All Rights Reserved;http://www.microsoft.com/sql/support/default.asp;1">
+      <DTS:Variables />
+      <DTS:ObjectData>
+        <ExecutePackageTask>
+          <UseProjectReference>True</UseProjectReference>
+          <PackageName>MeasurmentDevicesSyncToAWS.dtsx</PackageName>
+          <EncryptedData
+            Type="http://www.w3.org/2001/04/xmlenc#Element"
+            Salt="1xamvGYZoq4="
+            IV="hKUH/fUSvDDXIY6w7fAMDg==" xmlns="http://www.w3.org/2001/04/xmlenc#">
+            <EncryptionMethod
+              Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" />
+            <CipherData>
+              <CipherValue>hKUH/fUSvDDXIY6w7fAMDggCKnuXZWJZaXH0thg88oQjkZC7v8yr6yQGlo7ccGsk/cub9QeGPvW1pJi0qpSk+6QvODpljTR5EenxC3Hva3Y=</CipherValue>
+            </CipherData>
+          </EncryptedData>
         </ExecutePackageTask>
       </DTS:ObjectData>
     </DTS:Executable>
@@ -94,6 +121,10 @@
           Size="168.8,41.6"
           Id="Package\OrdersSyncToAWS"
           TopLeft="288.333317579496,122.199999150236" />
+        <NodeLayout
+          Size="232,41.6"
+          Id="Package\MeasurmentDevicesSyncToAWS"
+          TopLeft="755.833292036423,120.466665828957" />
       </GraphLayout>
     </LayoutInfo>
   </Package>
