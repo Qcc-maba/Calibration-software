@@ -277,6 +277,8 @@
     <Build Include="dbo\Functions\GetStatusesByCategory.sql" />
     <Build Include="dbo\Stored Procedures\UpdateCalibratorNotification.sql" />
     <Build Include="dbo\Stored Procedures\CreateCalibratorNotification.sql" />
+    <Build Include="stg\Tables\stg_MeasurementDevicesCorrections.sql" />
+    <Build Include="stg\Stored Procedures\MergeMeasurementDevicesCorrection.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

@@ -1,6 +1,7 @@
-﻿CREATE PROCEDURE stg.MergeCarsToOnPrem
+﻿CREATE PROCEDURE [stg].[MergeCarsToOnPrem]
 AS
-MERGE INTO [dbo].[Cars] AS dest
+SELECT 1
+/*MERGE INTO [dbo].[Cars] AS dest
 USING (
 	SELECT [CarId]
 		,[MabaNumber]
@@ -73,3 +74,4 @@ WHEN NOT MATCHED BY TARGET
 			,source.[IsDeleted]
 			,source.[CarId]
 			);
+*/

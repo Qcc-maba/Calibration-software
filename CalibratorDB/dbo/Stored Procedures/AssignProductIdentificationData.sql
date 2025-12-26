@@ -81,33 +81,33 @@ BEGIN
 		END
 
 	UPDATE [dbo].[OrderDetails] 
-	SET [OrdersProductTypeId] = @OrdersProductTypeId
-		,[MainCategoryId] = @OrdersMainCategoryId
-		,[SecondaryCategoryId] = @OrdersSecondaryCategoryId
+	SET [OrdersProductTypeId] = IIF(@OrdersProductTypeId IS NULL,[OrdersProductTypeId], @OrdersProductTypeId)
+		,[MainCategoryId] = IIF(@OrdersMainCategoryId IS NULL,[MainCategoryId], @OrdersMainCategoryId)
+		,[SecondaryCategoryId] =IIF(@OrdersSecondaryCategoryId IS NULL,[SecondaryCategoryId],@OrdersSecondaryCategoryId)
 	WHERE OrderDetailId = @OrderDetailId-- AND [OrdersProductTypeId] <> @OrdersProductTypeId
 
 	UPDATE [dbo].[OrderDetails] 
-	SET [OrderLineCnt] = @OrderLineCnt_new
+	SET [OrderLineCnt] = IIF(@OrderLineCnt_new IS NULL,[OrderLineCnt], @OrderLineCnt_new)
 	WHERE OrderDetailId = @OrderDetailId AND [OrderLineCnt] <> COALESCE(@OrderLineCnt_new,[OrderLineCnt])
 
 	UPDATE [dbo].[OrderDetailsItems]
 			SET 
-			 [ActualCalibrationDate] = @ActualCalibrationDate
-			,[NextCalibrationDate] = @NextCalibrationDate
-			,[SerialNumber] = @SerialNumber
-			,[ManufacturerNumber] = @ManufacturerNumber
-			,[DeviceModel] = @DeviceModel
-			,[AdditionalDeviceNumber] = @AdditionalDeviceNumber
-			,[OrdersDeviceManufacturerId] = @OrdersDeviceManufacturerId
-			,[CalibrationSpecificationId] = @CalibrationSpecificationId
-			,[SpecificationReferenceId] = @SpecificationReferenceId
-			,[MeasurementUnitId] = @MeasurementUnitId
-			,[MeasurementPoints] = @MeasurementPoints
-			,[MeasurementValueList] = @MeasurementValueList
+			 [ActualCalibrationDate] = IIF(@ActualCalibrationDate IS NULL,[ActualCalibrationDate],@ActualCalibrationDate)
+			,[NextCalibrationDate] = IIF(@NextCalibrationDate IS NULL,[NextCalibrationDate],@NextCalibrationDate)
+			,[SerialNumber] = IIF(@SerialNumber IS NULL,[SerialNumber],@SerialNumber)
+			,[ManufacturerNumber] = IIF(@ManufacturerNumber IS NULL,[ManufacturerNumber],@ManufacturerNumber)
+			,[DeviceModel] = IIF(@DeviceModel IS NULL,[DeviceModel],@DeviceModel)
+			,[AdditionalDeviceNumber] = IIF(@AdditionalDeviceNumber IS NULL,[AdditionalDeviceNumber],@AdditionalDeviceNumber)
+			,[OrdersDeviceManufacturerId] = IIF(@OrdersDeviceManufacturerId IS NULL,[OrdersDeviceManufacturerId],@OrdersDeviceManufacturerId)
+			,[CalibrationSpecificationId] = IIF(@CalibrationSpecificationId IS NULL,[CalibrationSpecificationId],@CalibrationSpecificationId)
+			,[SpecificationReferenceId] = IIF(@SpecificationReferenceId IS NULL,[SpecificationReferenceId],@SpecificationReferenceId)
+			,[MeasurementUnitId] = IIF(@MeasurementUnitId IS NULL,[MeasurementUnitId],@MeasurementUnitId)
+			,[MeasurementPoints] = IIF(@MeasurementPoints IS NULL,[MeasurementPoints],@MeasurementPoints)
+			,[MeasurementValueList] = IIF(@MeasurementValueList IS NULL,[MeasurementValueList],@MeasurementValueList)
 			,[UpdatedDate] = GETDATE()
 			,[UpdateUserID] = @UserId
-			,[Accuracy] = @Accuracy
-			,[MbaReportNumber] = @MbaReportNumber
+			,[Accuracy] = IIF(@Accuracy IS NULL,[Accuracy],@Accuracy)
+			,[MbaReportNumber] = IIF(@MbaReportNumber IS NULL,[MbaReportNumber],@MbaReportNumber)
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
 	IF NOT EXISTS (SELECT 1 FROM [dbo].[CalibrationProcessComments] WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted))

@@ -33,12 +33,14 @@ acto.AssignedCalibrators
 FROM [dbo].[CarsToOrder] as cwp
 JOIN [dbo].[OrderWorkPlans] as p ON cwp.OrderWorkPlanId = p.OrderWorkPlanId 
 JOIN [dbo].[Cars] as c ON cwp.CarId = c.CarId
-OUTER APPLY
+CROSS APPLY
 (
-SELECT STRING_AGG(ctwp.CalibratorId,',') as AssignedCalibrators
+SELECT ctwp.CalibratorId,STRING_AGG(ctwp.CalibratorId,',') as AssignedCalibrators
 FROM [dbo].[CalibratorsToWorkPlan] as ctwp
 WHERE p.OrderWorkPlanId = ctwp.OrderWorkPlanId AND ctwp.CarId = cwp.CarId AND ctwp.AssigmentDate = cwp.AssignDate and ctwp.IsDeleted = 0 
   AND (@CalibratorId IS NULL OR ctwp.CalibratorId = @CalibratorId)
+GROUP BY ctwp.CalibratorId
 ) as acto
 WHERE p.OrderNumber = @OrderNumber AND cwp.IsDeleted = 0 AND p.IsCancelled = 0
 AND (@CarAssignDate IS NULL OR cwp.AssignDate = @CarAssignDate)
+AND (@CalibratorId IS NULL OR acto.CalibratorId = @CalibratorId)

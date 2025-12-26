@@ -1,5 +1,7 @@
 ﻿CREATE PROCEDURE [etl].[MergeCarsToOnPrem]
 AS
+SELECT 1
+/*
 MERGE INTO [dbo].[Cars] AS dest
 USING (
 	SELECT 
@@ -76,3 +78,4 @@ WHEN NOT MATCHED BY TARGET
 			,source.[IsDeleted]
 			,source.[CarId]
 			);
+*/

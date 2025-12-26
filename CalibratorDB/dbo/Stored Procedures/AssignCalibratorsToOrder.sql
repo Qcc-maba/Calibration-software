@@ -53,7 +53,7 @@ WHERE wp.OrderNumber = @OrderNumber
 
 
 UPDATE [dbo].[OrderWorkPlans]
-SET Notes = @Note
+SET Notes = IIF(@Note IS NULL,Notes,@Note)
 WHERE OrderWorkPlanId = @WorkPlanId
 
 --UPDATE dbo.CalibratorsToWorkPlan
@@ -65,7 +65,13 @@ WHERE OrderWorkPlanId = @WorkPlanId
 INSERT dbo.CalibratorsToWorkPlan(OrderWorkPlanId,CalibratorId,AssigmentDate,UpdateUserID,CarId)
 SELECT DISTINCT @WorkPlanId, c.CalibratorID, @StartDate,@LoggedInUserId,@CarId
 FROM #CalibratorIDs as c 
-
+WHERE NOT EXISTS
+(SELECT 1 FROM dbo.CalibratorsToWorkPlan as cwp 
+WHERE cwp.OrderWorkPlanId = @WorkPlanId 
+AND cwp.CalibratorID =c.CalibratorID 
+AND cwp.AssigmentDate = CAST(@StartDate as DATE)
+AND cwp.CarId = @CarId
+)
 
 INSERT INTO [dbo].[CalibratorNotifications]
         ([CalibratorId]
