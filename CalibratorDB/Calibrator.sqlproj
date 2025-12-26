@@ -291,16 +291,6 @@
     <None Include="PopulateMeasurmentUnits.sql" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="hebutils">
-      <HintPath>Assemblies\hebutils.dll</HintPath>
-      <SqlAssemblyName>hebutils</SqlAssemblyName>
-      <IsModelAware>True</IsModelAware>
-      <GenerateSqlClrDdl>False</GenerateSqlClrDdl>
-      <SqlOwnerName>dbo</SqlOwnerName>
-      <SqlPermissionSet>SAFE</SqlPermissionSet>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
     <PostDeploy Include="7_PopulateDataForStatusesCategories.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </PostDeploy>
