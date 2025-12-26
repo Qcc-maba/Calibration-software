@@ -73,7 +73,7 @@ END
 DECLARE @IsActive BIT 
 
 SELECT @IsActive = IIF(StatusDescriptionENG='Active',1,0)
-  FROM [Calibrator].[dbo].[Statuses] as s
+  FROM [dbo].[Statuses] as s
 WHERE s.StatusId = @UserStatusId
 
 DROP TABLE IF EXISTS #DepartmentIdsList

@@ -139,8 +139,8 @@ BEGIN
 	DECLARE @StatusesForOrders NVARCHAR(MAX)
 
 	SELECT @StatusesForOrders=STRING_AGG(s.StatusId,',')
-	FROM [Calibrator].[dbo].[Statuses] as s
-	JOIN [Calibrator].[dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
+	FROM [dbo].[Statuses] as s
+	JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
 	WHERE sc.StatusDescriptionENG='OrderStatus' AND s.StatusDescriptionENG <> 'Executed'
 
 DECLARE @sql NVARCHAR(MAX) =
