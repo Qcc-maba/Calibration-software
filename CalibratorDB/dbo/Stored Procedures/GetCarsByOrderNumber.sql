@@ -33,7 +33,7 @@ acto.AssignedCalibrators
 FROM [dbo].[CarsToOrder] as cwp
 JOIN [dbo].[OrderWorkPlans] as p ON cwp.OrderWorkPlanId = p.OrderWorkPlanId 
 JOIN [dbo].[Cars] as c ON cwp.CarId = c.CarId
-CROSS APPLY
+OUTER APPLY
 (
 SELECT ctwp.CalibratorId,STRING_AGG(ctwp.CalibratorId,',') as AssignedCalibrators
 FROM [dbo].[CalibratorsToWorkPlan] as ctwp
