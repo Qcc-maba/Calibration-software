@@ -289,6 +289,7 @@
     <None Include="ListOfAllEquipment.sql" />
     <None Include="CalibratorCertificationAuthorities.sql" />
     <None Include="PopulateMeasurmentUnits.sql" />
+    <None Include="SqlSchemaCompare.scmp" />
   </ItemGroup>
   <ItemGroup>
     <PostDeploy Include="7_PopulateDataForStatusesCategories.sql">
