@@ -26,7 +26,9 @@ CREATE   PROCEDURE [dbo].[AssignProductIdentificationData]
 @CalibrationProcessComment NVARCHAR(MAX) = NULL,
 @OrderLineCnt_new INT = NULL,
 @Accuracy TINYINT = NULL,
-@MbaReportNumber NVARCHAR(100) =NULL
+@MbaReportNumber NVARCHAR(100) =NULL,
+@StickerAmount TINYINT = NULL,
+@StickerTypeId INT = NULL
 AS
 BEGIN 
 
@@ -55,6 +57,8 @@ BEGIN
 					   ,[Accuracy]
 					   ,[IsManuallyAdded]
 					   ,[MbaReportNumber]
+					   ,[StickerAmount]
+					   ,[StickerTypeId]
 					)
 				 SELECT
 					@OrderDetailId,	
@@ -75,7 +79,9 @@ BEGIN
 					@UserId,
 					@Accuracy,
 					1,
-					@MbaReportNumber
+					@MbaReportNumber,
+					@StickerAmount,
+					@StickerTypeId
 				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
 
 		END
@@ -108,6 +114,8 @@ BEGIN
 			,[UpdateUserID] = @UserId
 			,[Accuracy] = IIF(@Accuracy IS NULL,[Accuracy],@Accuracy)
 			,[MbaReportNumber] = IIF(@MbaReportNumber IS NULL,[MbaReportNumber],@MbaReportNumber)
+			,[StickerAmount] = IIF(@StickerAmount IS NULL,[StickerAmount],@StickerAmount)
+			,[StickerTypeId] = IIF(@StickerTypeId IS NULL,[StickerTypeId],@StickerTypeId)
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
 	IF NOT EXISTS (SELECT 1 FROM [dbo].[CalibrationProcessComments] WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted))
@@ -131,8 +139,8 @@ BEGIN
 	END
 		UPDATE [dbo].[CalibrationProcessComments]
 			SET [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
-			  ,[CalibrationProcessComment] = COMPRESS(@CalibrationProcessComment)
-			  ,[TextHash] = BINARY_CHECKSUM([CalibrationProcessComment])
+			  ,[CalibrationProcessComment] = IIF(@CalibrationProcessComment IS NULL,[CalibrationProcessComment],COMPRESS(@CalibrationProcessComment))
+			  ,[TextHash] = BINARY_CHECKSUM(IIF(@CalibrationProcessComment IS NULL,[CalibrationProcessComment],@CalibrationProcessComment))
 			  ,[UpdatedDate] = GETDATE()
 			  ,[UpdateUserID] = @UserId
 		WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) AND [TextHash] <> BINARY_CHECKSUM(@CalibrationProcessComment)

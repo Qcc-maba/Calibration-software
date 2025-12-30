@@ -152,6 +152,8 @@ CONCAT(
 	,c.CustomerAddress
 	,custeqv.details as AdditionalEquipment
 	,op.ShipTypeDesc as ShippingMethod
+	,itm.[StickerAmount]
+	,stist.[StatusDescriptionHEB] as [StickerType]
 	,COUNT(1) OVER(PARTITION BY 1 ORDER BY op.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
@@ -164,6 +166,7 @@ LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.Orde
 LEFT JOIN [dbo].[OrdersDeviceManufacturers] as ddd ON itm.OrdersDeviceManufacturerId = ddd.OrdersDeviceManufacturerId
 LEFT JOIN [dbo].[Statuses] as cals ON cals.[StatusId] = itm.[CalibrationStatusId]
 LEFT JOIN [dbo].[Statuses] as ordst ON ordst.[StatusId] = op.[OrderOverallStatusId]
+LEFT JOIN [dbo].[Statuses] as stist ON ordst.[StatusId] = itm.[StickerTypeId]
 LEFT JOIN 
 (
 SELECT [OrderWorkPlanId]

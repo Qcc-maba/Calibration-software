@@ -101,7 +101,10 @@ USING (
 		('CalibratorNotificationType','','DelayOrderNotification',N'הזמנה נדחתה'),
 		('CalibratorNotificationType','','CancelOrderNotification',N'הזמנה בוטלה'),
 		('CalibratorNotificationType','','ValidatorCommentNotification',N'הערת ביקורת'),
-		('CalibratorNotificationType','','SecondSignatureNotification',N'חתימה שניה')
+		('CalibratorNotificationType','','SecondSignatureNotification',N'חתימה שניה'),
+		('StickerType','','Big',N'גדולה'),
+		('StickerType','','Small',N'קטנה'),
+		('StickerType','','Both',N'גדול וקטן')
 		) ds ([StatusCategory],[Code],[StatusDescriptionENG],[StatusDescriptionHEB])
 		JOIN [dbo].[StatusesCategories] as sc ON ds.StatusCategory = sc.StatusDescriptionENG
 	) AS source

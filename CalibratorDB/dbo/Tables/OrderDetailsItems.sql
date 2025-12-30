@@ -35,6 +35,8 @@
     [DOC_N]                      INT             NULL,
     [ActualReturnDate]           DATETIME2 (0)   NULL,
     [ExpectedReturnDate]         DATETIME2 (0)   NULL,
+    [StickerAmount]              TINYINT         NULL,
+    [StickerTypeId]              INT             NULL,
     CONSTRAINT [PK_OrderDetailsItems] PRIMARY KEY CLUSTERED ([OrderDetailId] ASC, [OrderDetailsItemId] ASC),
     CONSTRAINT [FK_OrderDetailsItems_CalibrationReportStatusId] FOREIGN KEY ([CalibrationReportStatusId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_OrderDetailsItems_CalibrationSpecificationId] FOREIGN KEY ([CalibrationSpecificationId]) REFERENCES [dbo].[MeasurementsSpecifications] ([ID]),
@@ -43,6 +45,7 @@
     CONSTRAINT [FK_OrderDetailsItems_MeasurementUnitId] FOREIGN KEY ([MeasurementUnitId]) REFERENCES [dbo].[MeasurementDeviceUnits] ([MeasurementDeviceUnitId]),
     CONSTRAINT [FK_OrderDetailsItems_OrdersDeviceManufacturerId] FOREIGN KEY ([OrdersDeviceManufacturerId]) REFERENCES [dbo].[OrdersDeviceManufacturers] ([OrdersDeviceManufacturerId]),
     CONSTRAINT [FK_OrderDetailsItems_SpecificationReferenceId] FOREIGN KEY ([SpecificationReferenceId]) REFERENCES [dbo].[SpecificationReference] ([ID]),
+    CONSTRAINT [FK_OrderDetailsItems_StickerTypeId] FOREIGN KEY ([StickerTypeId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_OrderDetailsItems_UpdatedByUserId] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
 
