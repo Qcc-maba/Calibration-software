@@ -12,12 +12,12 @@ USING (
 			('Calibrator',N'כייל','Calibrator',1),
 			('Operation Manager',N'מנהל תפעול','OperationManager',1),
 			('Coordinator',N'משבץ','Coordinator',1),
-			('Internal Validator',N'ולידטור','InternalValidator',1),
-			('External Validator',N'ולידטור','ExternalValidator',1),
+			('Internal Validator',N'ביקורת פנים','InternalValidator',1),
+			('External Validator',N'ביקורת חוץ','ExternalValidator',1),
 			('Customer ',N'לקוח','Customer ',1),
 			('Customer support',N'שירות לקוחות','CustomerSupport',1),
 			('Packing',N'אריזה','Packing',1),
-			('Logistic Manager',N'מנהל לוגיסטי','LogisticManager',1),
+			('Logistics Manager',N'מנהל לוגיסטי','LogisticsManager',1),
 			('Driver',N'נהג','Driver',1)
 		) ds ([UserRoleDescriptionENG],[UserRoleDescriptionHEB],[UserRoleName],[IsApplicationRole])
 	) AS source

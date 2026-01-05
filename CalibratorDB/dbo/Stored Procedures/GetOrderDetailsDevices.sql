@@ -6,7 +6,7 @@
 -- JiraLink: 
 -- =============================================
 CREATE   PROCEDURE [dbo].[GetOrderDetailsDevices] 
-@OrderWorkPlanId INT =41,
+@OrderWorkPlanId INT,
 @OrderDetailId INT = NULL,
 @LoggedInUserEmail NVARCHAR(50) = NULL,
 @OrderDetailsItems INT =NULL
@@ -79,6 +79,9 @@ scs.[StatusDescriptionHEB] as [CalibrationStatusHEB],
 odi.Accuracy,
 odi.IsManuallyAdded,
 odi.IsChecked,
+odi.StickerAmount,
+odi.StickerTypeId,
+stit.StatusDescriptionHEB as StickerType,
 ROW_NUMBER() OVER( PARTITION BY odi.OrderDetailId ORDER BY odi.OrderDetailId) as rn
  FROM [dbo].[OrderWorkPlans] as wp 
 JOIN  [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId
@@ -92,6 +95,7 @@ LEFT JOIN [dbo].[MeasurementsSpecifications] mc ON odi.[CalibrationSpecification
 LEFT JOIN [dbo].[SpecificationReference] as sr ON odi.[SpecificationReferenceId] = sr.ID
 LEFT JOIN [dbo].[MeasurementDeviceUnits] as mu ON odi.[MeasurementUnitId] = mu.MeasurementDeviceUnitId
 LEFT JOIN [dbo].[Statuses] as scs ON odi.[CalibrationStatusId] = scs.StatusId
+LEFT JOIN [dbo].[Statuses] as stit ON odi.StickerTypeId = stit.StatusId
 LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = wp.[OrderWorkPlanId] AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
 LEFT JOIN
 (
@@ -142,7 +146,10 @@ r.[CalibrationStatus],
 r.[CalibrationStatusHEB],
 r.[Accuracy],
 r.[IsManuallyAdded],
-r.IsChecked
+r.IsChecked,
+r.StickerAmount,
+r.StickerTypeId,
+r.StickerType
 FROM  numbers as n
 LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt 
 LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[OrdersProductTypeId]

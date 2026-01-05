@@ -103,7 +103,10 @@ BEGIN
 	INSERT #AssignedCalibrators([OrderWorkPlanId])
 	SELECT DISTINCT wp.OrderWorkPlanId FROM dbo.ParseCSVToTable(@AssignedCalibratorsIds) as f
 	JOIN [dbo].[CalibratorsToWorkPlan] as wp ON wp.CalibratorId = f.Value and wp.IsDeleted = 0
-	
+	--WHERE 
+	--(
+	--	(@DateFrom IS NULL AND @DateTo IS NULL) OR (wp.AssigmentDate BETWEEN @DateFrom AND @DateTo)
+	--)
 	IF EXISTS (SELECT 1 FROM dbo.ParseCSVToTable(@AssignedCalibratorsIds) WHERE [Value] = -1)
 	INSERT #AssignedCalibrators([OrderWorkPlanId])
 	SELECT DISTINCT wp.[OrderWorkPlanId]
