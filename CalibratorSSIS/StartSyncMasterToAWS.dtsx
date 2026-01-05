@@ -12,8 +12,8 @@
   DTS:ObjectName="StartSyncMasterToAWS"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="14"
-  DTS:VersionGUID="{84599167-F341-463C-BE27-7624392858E8}">
+  DTS:VersionBuild="15"
+  DTS:VersionGUID="{5954A76C-B485-4622-845C-5A26F5C2DDE4}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -49,6 +49,33 @@
         <ExecutePackageTask>
           <UseProjectReference>True</UseProjectReference>
           <PackageName>DepartmentDelaysToAWS.dtsx</PackageName>
+        </ExecutePackageTask>
+      </DTS:ObjectData>
+    </DTS:Executable>
+    <DTS:Executable
+      DTS:refId="Package\Measurment correction sync"
+      DTS:CreationName="Microsoft.ExecutePackageTask"
+      DTS:Description="Execute Package Task"
+      DTS:DTSID="{9337951F-F6B8-4A8A-BF5B-BEE106B6C683}"
+      DTS:ExecutableType="Microsoft.ExecutePackageTask"
+      DTS:LocaleID="-1"
+      DTS:ObjectName="Measurment correction sync"
+      DTS:TaskContact="Microsoft Corporation; Microsoft SQL Server; Microsoft Corporation; All Rights Reserved;http://www.microsoft.com/sql/support/default.asp;1">
+      <DTS:Variables />
+      <DTS:ObjectData>
+        <ExecutePackageTask>
+          <UseProjectReference>True</UseProjectReference>
+          <PackageName>MeasurmentDevicesSyncToAWS.dtsx</PackageName>
+          <EncryptedData
+            Type="http://www.w3.org/2001/04/xmlenc#Element"
+            Salt="sZSkxlpGv6I="
+            IV="rgsZFIUL/5sZgxQIos2bBg==" xmlns="http://www.w3.org/2001/04/xmlenc#">
+            <EncryptionMethod
+              Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" />
+            <CipherData>
+              <CipherValue>rgsZFIUL/5sZgxQIos2bBspFB9jcvqBkwtMgYQ9VM2nJ2JfC12sLY5V8Tv5MI/mDl77ZE1RYqcBZYQG9S4HVr0Te/XD9qgkBzsR0naxjVW4=</CipherValue>
+            </CipherData>
+          </EncryptedData>
         </ExecutePackageTask>
       </DTS:ObjectData>
     </DTS:Executable>
@@ -94,6 +121,10 @@
           Size="168.8,41.6"
           Id="Package\OrdersSyncToAWS"
           TopLeft="288.333317579496,122.199999150236" />
+        <NodeLayout
+          Size="208.8,41.6"
+          Id="Package\Measurment correction sync"
+          TopLeft="755.833292036423,119.599999168317" />
       </GraphLayout>
     </LayoutInfo>
   </Package>
