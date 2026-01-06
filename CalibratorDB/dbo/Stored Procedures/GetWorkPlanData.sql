@@ -45,7 +45,7 @@ BEGIN
 
 	SELECT 
 	 @LoggedInUserId  = d.UserId 
-	,@SourceId = d.SourceId
+	,@SourceId = COALESCE(d.SourceId,0)
 	FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 	/*
@@ -190,7 +190,6 @@ BEGIN
 	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderNumber = sp.value
 	WHERE wp.IsCancelled = 0 
 
-
 	IF @ExcludeRejectedOrders = 1
 	BEGIN
 		DECLARE @ClientConfirmationStatus NVARCHAR(MAX)
@@ -303,6 +302,7 @@ CONCAT(
 	GROUP BY od.OrderWorkPlanId
 	) as boxcnt 
 	WHERE wp.OrderOverallStatusId IN(',@StatusesForOrders,') '
+	,CASE WHEN @LoggedInUserEmail IS NOT NULL AND @SourceId IS NOT NULL THEN ' AND wp.SourceId = '+CAST(@SourceId AS NVARCHAR(50))  ELSE ' ' END
 	,CASE WHEN @ExcludeRejectedOrders = 1 THEN ' AND COALESCE(wp.ClientConfirmationStatusId,0) NOT IN ('+@ClientConfirmationStatus+') 'ELSE ' ' END
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
 	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND wp.AssigmentDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END

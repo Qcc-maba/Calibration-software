@@ -33,6 +33,7 @@
     [WorkRangeMax]              NUMERIC (18, 6) NULL,
     [Resolution]                INT             NULL,
     [Manufacturer]              NVARCHAR (100)  NULL,
+    [ConnectionPoints]          INT             NULL,
     CONSTRAINT [PK_MeasurementDevices] PRIMARY KEY CLUSTERED ([ID] ASC) WITH (FILLFACTOR = 90),
     CONSTRAINT [FK_MeasurementDevices_CalibratorId] FOREIGN KEY ([CalibratorId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_MeasurementDevices_MainCategoryId] FOREIGN KEY ([MainCategoryId]) REFERENCES [dbo].[MainCategories] ([ID]),

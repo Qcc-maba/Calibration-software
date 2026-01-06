@@ -129,7 +129,7 @@ USING (
 		,o.[SpecialCareTypeId]
 		,CASE 
 			WHEN RIGHT(o.[PartName], 2) IN ('-7','-8','-9') AND TRY_CAST(RIGHT(o.[PartName], 2) AS INT) IS NOT NULL THEN 0 
-			WHEN RIGHT(o.[PartName], 2) IN ('-3','-0','-1') AND TRY_CAST(RIGHT(o.[PartName], 2) AS INT) IS NOT NULL THEN 1 
+			WHEN RIGHT(o.[PartName], 2) IN ('-3','-0','-1') AND TRY_CAST(RIGHT(o.[PartName], 2) AS INT) IS NOT NULL THEN 1 --10 should be external 
 		ELSE NULL END  as [IsInHouse]
 		,o.[PartName]
 		--,o.[KLINE]
