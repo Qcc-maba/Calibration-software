@@ -1,5 +1,6 @@
 ﻿
 
+
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 03/04/2025
@@ -45,7 +46,7 @@ BEGIN
 
 	SELECT 
 	 @LoggedInUserId  = d.UserId 
-	,@SourceId = COALESCE(d.SourceId,0)
+	,@SourceId = d.SourceId
 	FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
 	/*
@@ -93,7 +94,24 @@ BEGIN
 
 		SET @OrderByAsc = NULL
 		END	
+    /*Apply filter by orders on external order page to get only orders assigned by calibrator for specific date*/
+	DECLARE @FilterExternalOrdersForCalibrator BIT = 0
+    IF @Page = N'external-orders' AND @DateFrom IS NOT NULL AND @DateTo IS NOT NULL
+		BEGIN
+			SET @FilterExternalOrdersForCalibrator = 1
 
+			DROP TABLE IF EXISTS #FilterExternalOrdersForCalibrator
+			CREATE TABLE #FilterExternalOrdersForCalibrator
+			(
+			[OrderWorkPlanId] INT
+			)
+			INSERT #FilterExternalOrdersForCalibrator([OrderWorkPlanId])
+			SELECT DISTINCT cal.OrderWorkPlanId 
+			FROM [dbo].[CalibratorsToWorkPlan] as cal
+			JOIN [dbo].[CarsToOrder] as c ON cal.OrderWorkPlanId = c.OrderWorkPlanId AND cal.AssigmentDate = c.AssignDate
+			WHERE (cal.CalibratorId = @LoggedInUserId OR @SourceId IS NULL)
+			AND cal.AssigmentDate >= @DateFrom AND cal.AssigmentDate <=@DateTo
+		END
 
 	DROP TABLE IF EXISTS #AssignedCalibrators
 	CREATE TABLE #AssignedCalibrators
@@ -103,10 +121,7 @@ BEGIN
 	INSERT #AssignedCalibrators([OrderWorkPlanId])
 	SELECT DISTINCT wp.OrderWorkPlanId FROM dbo.ParseCSVToTable(@AssignedCalibratorsIds) as f
 	JOIN [dbo].[CalibratorsToWorkPlan] as wp ON wp.CalibratorId = f.Value and wp.IsDeleted = 0
-	--WHERE 
-	--(
-	--	(@DateFrom IS NULL AND @DateTo IS NULL) OR (wp.AssigmentDate BETWEEN @DateFrom AND @DateTo)
-	--)
+
 	IF EXISTS (SELECT 1 FROM dbo.ParseCSVToTable(@AssignedCalibratorsIds) WHERE [Value] = -1)
 	INSERT #AssignedCalibrators([OrderWorkPlanId])
 	SELECT DISTINCT wp.[OrderWorkPlanId]
@@ -233,6 +248,7 @@ CONCAT(
 		MIN(boxcnt.BoxesCount) as BoxesCount,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
+	,IIF(@FilterExternalOrdersForCalibrator = 1,' JOIN #FilterExternalOrdersForCalibrator as filo ON wp.OrderWorkPlanId = filo.OrderWorkPlanId ',' ')
 	,IIF(@AssignedCalibratorsIds IS NOT NULL,' JOIN #AssignedCalibrators as ac ON wp.OrderWorkPlanId = ac.OrderWorkPlanId ',' ')
 	,IIF(@EquipmentIds IS NOT NULL,' JOIN #EquipmentId as eid ON wp.OrderWorkPlanId = eid.OrderWorkPlanId ',' ')
 	,IIF(@CarsIds IS NOT NULL,' JOIN #CarsIds as cid ON wp.OrderWorkPlanId = cid.OrderWorkPlanId ',' ')
@@ -316,7 +332,7 @@ CONCAT(
 	,CASE WHEN @WorkPlanOpenDate IS NOT NULL THEN ' AND wp.WorkPlanOpenDate = '''+CAST(@WorkPlanOpenDate as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Notes IS NOT NULL THEN ' AND wp.Notes LIKE N''%'+ @Notes +'%'''ELSE ' ' END
 	,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
-	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL 
+	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL AND @Page <> N'external-orders'
 		  THEN ' AND wp.[AssigmentDate] >= '''+CAST(@DateFrom AS NVARCHAR(MAX))+''' AND wp.[AssigmentDate] <= '''+CAST(@DateTo AS NVARCHAR(MAX))+''''
 	  ELSE ' ' END
 	,'GROUP BY wp.AssigmentDate,

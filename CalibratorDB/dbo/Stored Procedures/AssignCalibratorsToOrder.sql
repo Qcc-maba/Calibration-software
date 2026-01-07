@@ -1,4 +1,5 @@
-﻿-- =============================================
+﻿
+-- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 17/03/2025
 -- Description:	This SP should assign calibrators to a specific order. 
@@ -63,7 +64,7 @@ WHERE OrderWorkPlanId = @WorkPlanId
 --WHERE OrderWorkPlanId = @WorkPlanId and IsDeleted = 0
 
 INSERT dbo.CalibratorsToWorkPlan(OrderWorkPlanId,CalibratorId,AssigmentDate,UpdateUserID,CarId)
-SELECT DISTINCT @WorkPlanId, c.CalibratorID, @StartDate,@LoggedInUserId,@CarId
+SELECT DISTINCT @WorkPlanId, c.CalibratorID, CAST(@StartDate as DATE),@LoggedInUserId,@CarId
 FROM #CalibratorIDs as c 
 WHERE NOT EXISTS
 (SELECT 1 FROM dbo.CalibratorsToWorkPlan as cwp 
