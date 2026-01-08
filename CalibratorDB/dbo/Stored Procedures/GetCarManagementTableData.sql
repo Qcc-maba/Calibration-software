@@ -118,6 +118,7 @@ SELECT
 	s.[StatusDescriptionHEB]
 FROM [dbo].[CarDowntimePeriodHistory] as ct
 JOIN [dbo].[Statuses] as s ON ct.StatusId = s.StatusId
+WHERE ct.IsDeleted = 0
 )
 SELECT c.[CarId]
       ,c.[Model]

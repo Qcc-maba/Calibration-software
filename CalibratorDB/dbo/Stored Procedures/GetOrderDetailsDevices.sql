@@ -149,13 +149,26 @@ r.[IsManuallyAdded],
 r.IsChecked,
 r.StickerAmount,
 r.StickerTypeId,
-r.StickerType
+r.StickerType,
+ds.EnvironmentalConditions
 FROM  numbers as n
 LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt 
 LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[OrdersProductTypeId]
 LEFT JOIN [dbo].[OrdersProductTypes] as opt2 ON r.[OrdersProductTypeId] = opt2.[OrdersProductTypeId]
 LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
 LEFT JOIN [dbo].[OrderDetailsItems] as odi ON n.OrderDetailId = odi.OrderDetailId AND odi.[OrderDetailsItemId] = r.[OrderDetailsItemId]
+OUTER APPLY
+(
+SELECT 
+	ShortNameEn as MeasurementDeviceUnitEn,
+	ShortNameHe as MeasurementDeviceUnitHeb,
+	ic.NominalValue,
+	ic.Tolerance
+FROM [dbo].[CalibrationEnvironmentalConditions] as ic
+JOIN [dbo].[MeasurementDeviceUnits] as mu ON ic.MeasurementDeviceUnitId = mu.MeasurementDeviceUnitId
+WHERE ic.OrderDetailsItemId = r.[OrderDetailsItemId]
+FOR JSON PATH
+) as ds(EnvironmentalConditions)
 WHERE (@OrderDetailsItems IS NULL OR r.OrderDetailsItemId = @OrderDetailsItems)
 ORDER BY [OrderDetailId]
 option (maxrecursion 0)

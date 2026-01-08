@@ -80,6 +80,19 @@ CROSS JOIN [dbo].[Cars] as c
 WHERE DATEADD(DAY,d-1,@StartWeekDate) <= @EndWeekDate AND c.IsDeleted = 0
 AND c.CarStatusId IN (SELECT StatusId FROM #CarStatusesFilter)
 
+;WITH CarDownTime
+AS
+(
+SELECT 
+	ct.[CarId],
+	ct.[TreatmentStartDate],
+	ct.[TreatmentEndDate],
+	s.StatusDescriptionENG,
+	s.StatusDescriptionHEB
+FROM [dbo].[CarDowntimePeriodHistory] as ct
+JOIN [dbo].[Statuses] as s ON ct.StatusId = s.StatusId
+WHERE ct.IsDeleted = 0 AND @StartWeekDate <= ct.[TreatmentEndDate] AND  @EndWeekDate >=ct.[TreatmentStartDate]
+)
 SELECT dr.ID as CarId,
 	dr.MabaNumber,
 	dr.Model,
@@ -92,8 +105,8 @@ SELECT dr.ID as CarId,
 	cto.AssignQuater1,
 	cto.AssignQuater2,
 	cto.AssignQuater3,
-	s.StatusDescriptionENG as CarStatusENG,
-	s.StatusDescriptionHEB as CarStatusHEB,
+	COALESCE(cdnt.StatusDescriptionENG,s.StatusDescriptionENG) as CarStatusENG,
+	COALESCE(cdnt.StatusDescriptionHEB,s.StatusDescriptionHEB) as CarStatusHEB,
 	CASE 
 		WHEN ce.EventType = 'CompanyEventMandatory' THEN 1 
 		WHEN ce.EventType = 'CompanyEventOptional' THEN 2
@@ -110,6 +123,12 @@ SELECT TOP 1 [EventType]
 FROM #ce as ce
 WHERE ce.[StartDate] <= dr.DayDate AND ce.[EndDate] >= dr.DayDate 
 ) as ce
+OUTER APPLY
+(
+SELECT TOP 1 cd.StatusDescriptionENG, cd.StatusDescriptionHEB
+FROM CarDownTime as cd
+WHERE dr.ID = cd.[CarId] AND dr.DayDate BETWEEN cd.[TreatmentStartDate] AND cd.[TreatmentEndDate]
+) as cdnt 
 --WHERE s.StatusDescriptionENG = 'Available'
 ORDER BY dr.Id ,dr.DayDate
 

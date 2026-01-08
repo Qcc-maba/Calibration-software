@@ -92,14 +92,18 @@ BEGIN TRY
 
 	UPDATE [dbo].[Cars]
 	   SET 
-		   [Model] = COALESCE(@Model,'')
-		  ,[LicenseNumber] = COALESCE(@LicenseNumber,'')
-		  ,[Seats] = COALESCE(@NumberOfSeats,0)
-		  ,[TreatmentPeriod] = @TreatmentPeriod
-		  ,[NextTreatmentDate] = @NextTreatmentDate
-		  ,[NextYearlyTestDate] = @NextTestDate
+		   [Model] = COALESCE(@Model,[Model])
+		  ,[LicenseNumber] = COALESCE(@LicenseNumber,[LicenseNumber])
+		  ,[Seats] = COALESCE(@NumberOfSeats,[Seats])
+		  ,[TreatmentPeriod] = COALESCE(@TreatmentPeriod,[TreatmentPeriod])
+		  ,[NextTreatmentDate] = COALESCE(@NextTreatmentDate,[NextTreatmentDate])
+		  ,[NextYearlyTestDate] = COALESCE(@NextTestDate,[NextYearlyTestDate])
 		  ,[OwnerId] = COALESCE(@OwnerId,[OwnerId])
-		  ,[CarStatusId] = COALESCE(@StatusId,0)
+		  ,[CarStatusId] = CASE 
+								WHEN @StatusDescription IN (N'Treatment',N'UnAvailable') AND CAST(GETDATE() AS DATE) = @DowntimePeriodStartDate THEN @StatusId
+								WHEN @StatusDescription IN (N'Available',N'Sold') THEN @StatusId
+								ELSE [CarStatusId]
+						   END
 		  ,[UpdatedDate] = GETDATE()
 		  ,[UpdateUserID] = @LoggedInUserId
 		  ,[AssignedCalibratorId] = @AssignedCalibrator

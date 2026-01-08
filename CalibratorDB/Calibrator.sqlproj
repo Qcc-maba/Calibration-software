@@ -279,6 +279,8 @@
     <Build Include="dbo\Stored Procedures\CreateCalibratorNotification.sql" />
     <Build Include="stg\Tables\stg_MeasurementDevicesCorrections.sql" />
     <Build Include="stg\Stored Procedures\MergeMeasurementDevicesCorrection.sql" />
+    <Build Include="dbo\Tables\CalibrationEnvironmentalConditions.sql" />
+    <Build Include="dbo\Stored Procedures\AssignCalibrationEnvironmentalConditions.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
