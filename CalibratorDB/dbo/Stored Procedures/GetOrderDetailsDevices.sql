@@ -166,7 +166,7 @@ SELECT
 	ic.Tolerance
 FROM [dbo].[CalibrationEnvironmentalConditions] as ic
 JOIN [dbo].[MeasurementDeviceUnits] as mu ON ic.MeasurementDeviceUnitId = mu.MeasurementDeviceUnitId
-WHERE ic.OrderDetailsItemId = r.[OrderDetailsItemId]
+WHERE ic.OrderDetailsItemId = r.[OrderDetailsItemId] and ic.IsDeleted = 0
 FOR JSON PATH
 ) as ds(EnvironmentalConditions)
 WHERE (@OrderDetailsItems IS NULL OR r.OrderDetailsItemId = @OrderDetailsItems)

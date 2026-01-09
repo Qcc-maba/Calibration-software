@@ -78,7 +78,7 @@ SELECT
 FROM cte as dt
 CROSS JOIN [dbo].[Cars] as c
 WHERE DATEADD(DAY,d-1,@StartWeekDate) <= @EndWeekDate AND c.IsDeleted = 0
-AND c.CarStatusId IN (SELECT StatusId FROM #CarStatusesFilter)
+--AND c.CarStatusId IN (SELECT StatusId FROM #CarStatusesFilter)
 
 ;WITH CarDownTime
 AS

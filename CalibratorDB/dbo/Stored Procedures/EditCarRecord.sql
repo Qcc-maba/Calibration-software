@@ -100,7 +100,7 @@ BEGIN TRY
 		  ,[NextYearlyTestDate] = COALESCE(@NextTestDate,[NextYearlyTestDate])
 		  ,[OwnerId] = COALESCE(@OwnerId,[OwnerId])
 		  ,[CarStatusId] = CASE 
-								WHEN @StatusDescription IN (N'Treatment',N'UnAvailable') AND CAST(GETDATE() AS DATE) = @DowntimePeriodStartDate THEN @StatusId
+								WHEN @StatusDescription IN (N'Treatment',N'UnAvailable') AND CAST(GETDATE() AS DATE) BETWEEN @DowntimePeriodStartDate AND @DowntimePeriodEndDate THEN @StatusId
 								WHEN @StatusDescription IN (N'Available',N'Sold') THEN @StatusId
 								ELSE [CarStatusId]
 						   END

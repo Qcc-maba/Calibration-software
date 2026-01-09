@@ -12,7 +12,8 @@
 -- =============================================
 CREATE    PROCEDURE [dbo].[AssignCalibrationEnvironmentalConditions]
 @ConditionsJson NVARCHAR(MAX),
-@LoggedInUserEmail NVARCHAR(50)
+@LoggedInUserEmail NVARCHAR(50),
+@IsDelete BIT = NULL
 
 AS
 
@@ -28,45 +29,48 @@ SELECT
 ,@SourceId = d.SourceId
 FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
-MERGE INTO [dbo].[CalibrationEnvironmentalConditions] AS dest
-USING (
-	SELECT 
-		OrderDetailsItemId,
-		MeasurementDeviceUnitId,
-		NominalValue,
-		Tolerance
-	FROM OPENJSON (@ConditionsJson) WITH (
-		OrderDetailsItemId INT '$.OrderDetailsItemId',
-		MeasurementDeviceUnitId INT'$.MeasurementDeviceUnitId',
-		NominalValue DECIMAL(18,6) '$.NominalValue',
-		Tolerance DECIMAL(18,6) '$.Tolerance'
-	)
-	) AS source
-	ON dest.[OrderDetailsItemId] = source.[OrderDetailsItemId]
-		AND dest.[MeasurementDeviceUnitId] = source.[MeasurementDeviceUnitId]
-WHEN MATCHED
-	THEN
-		UPDATE
-		SET  dest.[NominalValue] = source.[NominalValue]
-			,dest.[Tolerance] = source.[Tolerance]
-			,dest.[UpdatedDate] = GETDATE()
-			,dest.[UpdateUserID] = @LoggedInUserId
-WHEN NOT MATCHED BY TARGET
-	THEN
-		INSERT (
-			[OrderDetailsItemId]
-			,[MeasurementDeviceUnitId]
-			,[NominalValue]
-			,[Tolerance]
-			,[CreateDate]
-			,[UpdateUserID]
-			)
-		VALUES (
-			source.[OrderDetailsItemId]
-			,source.[MeasurementDeviceUnitId]
-			,source.[NominalValue]
-			,source.[Tolerance]
-			,GETDATE()
-			,@LoggedInUserId
-			);
+
+	MERGE INTO [dbo].[CalibrationEnvironmentalConditions] AS dest
+	USING (
+		SELECT 
+			OrderDetailsItemId,
+			MeasurementDeviceUnitId,
+			NominalValue,
+			Tolerance
+		FROM OPENJSON (@ConditionsJson) WITH (
+			OrderDetailsItemId INT '$.OrderDetailsItemId',
+			MeasurementDeviceUnitId INT'$.MeasurementDeviceUnitId',
+			NominalValue DECIMAL(18,6) '$.NominalValue',
+			Tolerance DECIMAL(18,6) '$.Tolerance'
+		)
+		) AS source
+		ON dest.[OrderDetailsItemId] = source.[OrderDetailsItemId]
+			AND dest.[MeasurementDeviceUnitId] = source.[MeasurementDeviceUnitId]
+	WHEN MATCHED
+		THEN
+			UPDATE
+			SET  dest.[NominalValue] = source.[NominalValue]
+				,dest.[Tolerance] = source.[Tolerance]
+				,dest.[UpdatedDate] = GETDATE()
+				,dest.[UpdateUserID] = @LoggedInUserId
+				,dest.[IsDeleted] = IIF(@IsDelete IS NULL, 0, 1)
+	WHEN NOT MATCHED BY TARGET
+		THEN
+			INSERT (
+				[OrderDetailsItemId]
+				,[MeasurementDeviceUnitId]
+				,[NominalValue]
+				,[Tolerance]
+				,[CreateDate]
+				,[UpdateUserID]
+				)
+			VALUES (
+				source.[OrderDetailsItemId]
+				,source.[MeasurementDeviceUnitId]
+				,source.[NominalValue]
+				,source.[Tolerance]
+				,GETDATE()
+				,@LoggedInUserId
+				);
+
 END
