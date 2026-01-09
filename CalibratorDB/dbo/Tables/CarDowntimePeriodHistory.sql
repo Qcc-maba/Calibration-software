@@ -6,6 +6,7 @@
     [UpdateUserID]       INT           NOT NULL,
     [StatusId]           INT           NOT NULL,
     [IsDeleted]          BIT           DEFAULT ((0)) NOT NULL,
+    [CreatedDate]        DATETIME2 (0) DEFAULT (getdate()) NOT NULL,
     PRIMARY KEY CLUSTERED ([CarId] ASC, [DateOfChange] DESC),
     CONSTRAINT [FK_CarDowntimePeriodHistory_StatusId] FOREIGN KEY ([StatusId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_CarsTreatmentTracking_SourceId] FOREIGN KEY ([CarId]) REFERENCES [dbo].[Cars] ([CarId]),

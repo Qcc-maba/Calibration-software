@@ -11,35 +11,41 @@ SET NOCOUNT ON;
 
 DECLARE 
 	@AvailableStatusId INT,
-	@TreatmentStatusId INT
+	@TreatmentStatusId INT,
+	@UnAvailableStatusId INT
 
 SELECT 
 @TreatmentStatusId = MAX(IIF(s.StatusDescriptionENG = 'Treatment', s.StatusId,NULL)),
+@UnAvailableStatusId = MAX(IIF(s.StatusDescriptionENG = 'UnAvailable', s.StatusId,NULL)),
 @AvailableStatusId = MAX(IIF(s.StatusDescriptionENG = 'Available', s.StatusId,NULL))
 FROM [dbo].[Statuses] AS s 
 JOIN [dbo].[StatusesCategories] AS c ON s.[StatusCategoryId] = c.[StatusCategoryId]
 WHERE c.StatusDescriptionENG = 'CarStatus'
 
-
-;WITH CarStatus
-AS
-(
-SELECT c.CarId, IIF(st.TreatmentEndDate < GETDATE(),@AvailableStatusId,-1) as CarStatusId
-FROM [dbo].[Cars] as c
-JOIN [dbo].[Statuses] as s ON c.CarStatusId = s.StatusId
-CROSS APPLY
-(
-SELECT TOP 1 ct.TreatmentEndDate
-FROM  [dbo].[CarDowntimePeriodHistory] as ct
-WHERE c.CarId = ct.CarId 
-ORDER BY ct.DateOfChange DESC
-) as st
-WHERE s.StatusDescriptionENG IN (N'Treatment',N'UnAvailable')
-)
 UPDATE c
 SET
-    CarStatusId = @AvailableStatusId,
-	UpdatedDate	=GETDATE(),
-	UpdateUserID = 0
+c.CarStatusId = CASE 
+					WHEN c.CarStatusId IN (@TreatmentStatusId,@UnAvailableStatusId) AND stt.StatusId IS NULL THEN @AvailableStatusId
+					WHEN c.CarStatusId NOT IN (@TreatmentStatusId,@UnAvailableStatusId) AND stt.StatusId IS NOT NULL THEN stt.StatusId
+					ELSE c.CarStatusId
+				END 
+
 FROM [dbo].[Cars] as c
-JOIN CarStatus as cs On c.CarId = cs.CarId AND cs.CarStatusId > 0
+LEFT JOIN
+(
+SELECT TOP 1 WITH TIES
+ct.CarId, ct.StatusId, ct.TreatmentStartDate, ct.TreatmentEndDate
+FROM  [dbo].[CarDowntimePeriodHistory] as ct
+WHERE GETDATE() BETWEEN ct.TreatmentStartDate AND ct.TreatmentEndDate
+AND ct.IsDeleted = 0
+ORDER BY 
+ROW_NUMBER() OVER
+(
+    PARTITION BY ct.CarId ORDER BY ct.CarId, ct.CreatedDate DESC
+)
+) as stt ON stt.CarId = c.CarId
+WHERE c.CarStatusId <> CASE 
+							WHEN c.CarStatusId IN (@TreatmentStatusId,@UnAvailableStatusId) AND stt.StatusId IS NULL THEN @AvailableStatusId
+							WHEN c.CarStatusId NOT IN (@TreatmentStatusId,@UnAvailableStatusId) AND stt.StatusId IS NOT NULL THEN stt.StatusId
+							ELSE c.CarStatusId
+						END
