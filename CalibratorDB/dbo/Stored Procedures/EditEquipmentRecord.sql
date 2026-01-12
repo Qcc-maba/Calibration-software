@@ -13,11 +13,17 @@ CREATE   PROCEDURE [dbo].[EditEquipmentRecord]
 ,@MainCategoryId INT = NULL
 ,@SecondaryCategoryId INT = NULL
 ,@NextCalibrationDate DATE = NULL
+,@CalibrationDate DATE = NULL
 ,@CarId INT = NULL
 ,@LoggedInUserEmail NVARCHAR(50) = NULL
 ,@DisplayToCoordinator BIT = NULL
 ,@Manufacturer NVARCHAR(100) NULL
 ,@MabaID NVARCHAR(50) = NULL
+,@Channels NVARCHAR(100)=NULL
+,@StabilityTime DECIMAL(16,8)=NULL
+,@StabilitySize DECIMAL(16,8)=NULL
+,@MainClassId INT = NULL
+
 /*
 EXEC dbo.EditEquipmentRecord
 @ID = 1
@@ -80,20 +86,25 @@ BEGIN TRY
 		DECLARE @PrevCarId INT = (SELECT TOP 1 CarId FROM [dbo].[CarsToEquipment] WHERE IsDeleted = 0 AND [MeasurementDeviceId] = @ID ORDER BY CreatedDate DESC)
 
 		UPDATE [dbo].[MeasurementDevices]
-		   SET [MainCategoryId] = @MainCategoryId 
-		      ,[SecondaryCategoryId] = @SecondaryCategoryId
-			  ,[MeasurementDeviceStatusId] = @StatusId
-			  ,[Description] = @EquipmentName
-			  ,[SerialNumber] = @SerialNumber
-			  ,[CalibratorId] = @CalibratorId
-			  ,[MainClassId] = NULL
+		   SET [MainCategoryId] = COALESCE(@MainCategoryId,[MainCategoryId])
+		      ,[SecondaryCategoryId] = COALESCE(@SecondaryCategoryId,[SecondaryCategoryId])
+			  ,[MeasurementDeviceStatusId] = COALESCE(@StatusId,[MeasurementDeviceStatusId])
+			  ,[Description] = COALESCE(@EquipmentName,[Description])
+			  ,[SerialNumber] =COALESCE( @SerialNumber,[SerialNumber])
+			  ,[CalibratorId] = COALESCE(@CalibratorId,[CalibratorId])
+			  ,[MainClassId] = COALESCE(@MainClassId,[MainClassId])
 			  ,[SubClassId] = NULL
-			  ,[NextCalibration] = @NextCalibrationDate
+			  ,[NextCalibration] = COALESCE(@NextCalibrationDate,[NextCalibration])
 			  ,[UpdateDate] = GETDATE()
-			  ,[UpdateUserID] = @LoggedInUserId
-			  ,[DisplayToCoordinator] = @DisplayToCoordinator
-			  ,[Manufacturer] = @Manufacturer
-			  ,[MabaID] = @MabaID
+			  ,[UpdateUserID] = COALESCE(@LoggedInUserId,[UpdateUserID])
+			  ,[DisplayToCoordinator] = COALESCE(@DisplayToCoordinator,[DisplayToCoordinator])
+			  ,[Manufacturer] = COALESCE(@Manufacturer,[Manufacturer])
+			  ,[MabaID] = COALESCE(@MabaID,[MabaID])
+			  ,[CalibrationDate] = COALESCE(@CalibrationDate,[CalibrationDate])
+			  ,[Channels] = COALESCE(@Channels,[Channels])
+			  ,[StabilityTime] = COALESCE(@StabilityTime,[StabilityTime])
+			  ,[StabilitySize] = COALESCE(@StabilitySize,[StabilitySize])
+
 		 WHERE ID = @ID
 
 		IF @PrevCarId IS NOT NULL 

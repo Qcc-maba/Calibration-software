@@ -150,7 +150,8 @@ r.IsChecked,
 r.StickerAmount,
 r.StickerTypeId,
 r.StickerType,
-ds.EnvironmentalConditions
+ds.EnvironmentalConditions,
+odi.SecondCalibratorId
 FROM  numbers as n
 LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt 
 LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[OrdersProductTypeId]

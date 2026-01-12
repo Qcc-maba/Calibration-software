@@ -28,7 +28,8 @@ CREATE   PROCEDURE [dbo].[AssignProductIdentificationData]
 @Accuracy TINYINT = NULL,
 @MbaReportNumber NVARCHAR(100) =NULL,
 @StickerAmount TINYINT = NULL,
-@StickerTypeId INT = NULL
+@StickerTypeId INT = NULL,
+@SecondCalibratorId INT = NULL
 AS
 BEGIN 
 
@@ -59,6 +60,7 @@ BEGIN
 					   ,[MbaReportNumber]
 					   ,[StickerAmount]
 					   ,[StickerTypeId]
+					   ,[SecondCalibratorId]
 					)
 				 SELECT
 					@OrderDetailId,	
@@ -81,7 +83,8 @@ BEGIN
 					1,
 					@MbaReportNumber,
 					@StickerAmount,
-					@StickerTypeId
+					@StickerTypeId,
+					@SecondCalibratorId
 				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
 
 		END
@@ -116,6 +119,7 @@ BEGIN
 			,[MbaReportNumber] = IIF(@MbaReportNumber IS NULL,[MbaReportNumber],@MbaReportNumber)
 			,[StickerAmount] = IIF(@StickerAmount IS NULL,[StickerAmount],@StickerAmount)
 			,[StickerTypeId] = IIF(@StickerTypeId IS NULL,[StickerTypeId],@StickerTypeId)
+			,[SecondCalibratorId] = COALESCE(@SecondCalibratorId,[SecondCalibratorId])
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
 	IF NOT EXISTS (SELECT 1 FROM [dbo].[CalibrationProcessComments] WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted))

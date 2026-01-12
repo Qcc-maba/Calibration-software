@@ -12,11 +12,15 @@ CREATE   PROCEDURE [dbo].[CreateEquipmentRecord]
 ,@MainCategoryId INT = NULL
 ,@SecondaryCategoryId INT = NULL
 ,@NextCalibrationDate DATE = NULL
+,@CalibrationDate DATE = NULL
 ,@CarId INT = NULL
 ,@LoggedInUserEmail NVARCHAR(50) = NULL
 ,@DisplayToCoordinator BIT NULL = 1
 ,@Manufacturer NVARCHAR(100) NULL
 ,@MabaID NVARCHAR(50) = NULL
+,@Channels NVARCHAR(100)=NULL
+,@StabilityTime DECIMAL(16,8)=NULL
+,@StabilitySize DECIMAL(16,8)=NULL
 /*
 EXEC dbo.CreateEquipmentRecord
  @StatusId = 39
@@ -83,6 +87,10 @@ BEGIN TRY
 				   ,[SourceId]
 				   ,[DisplayToCoordinator]
 				   ,[Manufacturer]
+				   ,[CalibrationDate]
+				   ,[Channels]
+				   ,[StabilityTime]
+				   ,[StabilitySize]
 				   )
 		VALUES 
 		(
@@ -100,6 +108,10 @@ BEGIN TRY
 		,@SourceId
 		,@DisplayToCoordinator
 		,@Manufacturer
+		,@CalibrationDate
+		,@Channels
+		,@StabilityTime
+		,@StabilitySize
 		)
 		DECLARE @EquipmentId INT
 		SELECT @EquipmentId = SCOPE_IDENTITY()
