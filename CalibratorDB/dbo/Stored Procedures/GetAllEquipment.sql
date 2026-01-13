@@ -7,7 +7,8 @@
 -- =============================================
 CREATE   PROCEDURE [dbo].[GetAllEquipment]
 @MainCategoryId INT = NULL,
-@CheckDate DATE = NULL
+@CheckDate DATE = NULL,
+@MainClassId INT = NULL
 AS
 
 IF @CheckDate IS NULL SET @CheckDate = GETDATE()
@@ -43,3 +44,4 @@ LEFT JOIN [dbo].[OrderWorkPlans] as op ON op.OrderWorkPlanId = coh.OrderWorkPlan
 LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mdmc ON c.MainClassId = mdmc.Id
 WHERE c.IsDeleted = 0  /*AND COALESCE(s.StatusDescriptionENG,'Available') = 'Available'*/ AND coh.MeasurementDeviceId IS NULL
 AND (@MainCategoryId IS NULL OR c.[MainCategoryId]  = @MainCategoryId)
+AND (@MainClassId IS NULL OR c.MainClassId  = @MainClassId)

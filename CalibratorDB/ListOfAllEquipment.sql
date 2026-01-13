@@ -2269,4 +2269,29 @@ NULL AS [DeviceRange],
 [ConnectionPoints]
 FROM cte
 
+--simulate bath
 
+UPDATE [dbo].[MeasurementDevices]
+SET MainClassId = 5
+WHERE Mabaid IN
+(
+'21-26',
+'21-36',
+'21-55',
+'21-125',
+'21-128',
+'21-263',
+'21-172',
+'18-172',
+'21-293',
+'21-262',
+'21-321',
+'21-333',
+'21-353',
+'21-12',
+'21-481',
+'21-480',
+'21-468',
+'21-567',
+'21-701',
+'21-710')
