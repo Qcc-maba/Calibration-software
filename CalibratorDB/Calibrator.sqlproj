@@ -281,6 +281,10 @@
     <Build Include="stg\Stored Procedures\MergeMeasurementDevicesCorrection.sql" />
     <Build Include="dbo\Tables\CalibrationEnvironmentalConditions.sql" />
     <Build Include="dbo\Stored Procedures\AssignCalibrationEnvironmentalConditions.sql" />
+    <Build Include="dbo\Tables\COMPortSettings.sql" />
+    <Build Include="dbo\Tables\CalibratorWorkstationSettings.sql" />
+    <Build Include="dbo\Stored Procedures\GetWorkstationSettingsRecord.sql" />
+    <Build Include="dbo\Stored Procedures\CreateWorkstationSettingsRecord.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
