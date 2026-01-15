@@ -16,11 +16,12 @@ CREATE   PROCEDURE [dbo].[CreateEquipmentRecord]
 ,@CarId INT = NULL
 ,@LoggedInUserEmail NVARCHAR(50) = NULL
 ,@DisplayToCoordinator BIT NULL = 1
-,@Manufacturer NVARCHAR(100) NULL
+,@Manufacturer NVARCHAR(100) =NULL
 ,@MabaID NVARCHAR(50) = NULL
-,@Channels NVARCHAR(100)=NULL
-,@StabilityTime DECIMAL(16,8)=NULL
-,@StabilitySize DECIMAL(16,8)=NULL
+,@Channels NVARCHAR(100) = NULL
+,@StabilityTime DECIMAL(16,8) = NULL
+,@StabilitySize DECIMAL(16,8) = NULL
+,@MainClassId INT = NULL
 /*
 EXEC dbo.CreateEquipmentRecord
  @StatusId = 39
@@ -101,7 +102,7 @@ BEGIN TRY
 		,@EquipmentName
 		,@SerialNumber
 		,@CalibratorId
-		,NULL
+		,@MainClassId
 		,NULL
 		,NULLIF(@NextCalibrationDate,'1900-01-01')
 		,@LoggedInUserId
