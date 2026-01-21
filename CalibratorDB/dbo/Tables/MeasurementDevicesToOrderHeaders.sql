@@ -7,8 +7,10 @@
     [IsDeleted]           BIT           DEFAULT ((0)) NOT NULL,
     [UpdateUserID]        INT           NULL,
     [AssigmentDate]       DATE          DEFAULT (getdate()) NOT NULL,
+    [CarId]               INT           NOT NULL,
     CONSTRAINT [PK_CalibEquipmentsToOrderHeaders] PRIMARY KEY CLUSTERED ([OrderWorkPlanId] ASC, [MeasurementDeviceId] ASC, [CreateDate] ASC),
     CONSTRAINT [FK_MeasurementDevicesToOrderHeaders_CalibEquipmentId] FOREIGN KEY ([MeasurementDeviceId]) REFERENCES [dbo].[MeasurementDevices] ([ID]),
+    CONSTRAINT [FK_MeasurementDevicesToOrderHeaders_CarId] FOREIGN KEY ([CarId]) REFERENCES [dbo].[Cars] ([CarId]),
     CONSTRAINT [FK_MeasurementDevicesToOrderHeaders_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_MeasurementDevicesToOrderHeaders_OrderWorkPlanId] FOREIGN KEY ([OrderWorkPlanId]) REFERENCES [dbo].[OrderWorkPlans] ([OrderWorkPlanId]),
     CONSTRAINT [FK_MeasurementDevicesToOrderHeaders_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])

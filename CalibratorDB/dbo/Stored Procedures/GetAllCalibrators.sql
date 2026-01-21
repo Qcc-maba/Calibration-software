@@ -9,7 +9,8 @@ CREATE   PROCEDURE [dbo].[GetAllCalibrators]
 @SecondCategories NVARCHAR(MAX) = NULL, 
 @CertificationAuthoritiesIdsList NVARCHAR(MAX) = NULL,
 @CheckDate DATE = NULL,
-@OrderWorkPlanId INT = NULL
+@OrderWorkPlanId INT = NULL,
+@IncludeTeamLeaders BIT = 0
 --EXEC dbo.GetAllCalibrators
 
 AS 	
@@ -89,6 +90,12 @@ ELSE
 		AND ce.IsDeleted = 0 AND ctp.IsDeleted = 0
 		GROUP BY ctp.UserId
 
+		DECLARE @UserRoleIdFilter NVARCHAR(MAX) 
+
+		SELECt @UserRoleIdFilter = STRING_AGG(UserRoleId,',')
+		FROM [dbo].[UserRoles]
+		WHERE UserRoleName = 'Calibrator'
+		OR (@IncludeTeamLeaders = 1 AND UserRoleName='TeamLeader')
 
 		DECLARE @sql NVARCHAR(MAX) =
 		CONCAT(
@@ -105,9 +112,9 @@ ELSE
 			MAX(can.[CalibratorAuthorityName]) as CalibratorAuthorityName,
 			u.LocationArea,
 			STRING_AGG(ud.[MainCategoryName],'', '') as DepartmentName,
-			NULL AS OrderDetailsMbaReportNumber
+			MAX(cp.OrderDetailsMbaReportNumber) AS OrderDetailsMbaReportNumber
 		  FROM [dbo].[Users] as u
-		  JOIN [dbo].[UserRoles] as ur ON  u.UserRoleId = ur.UserRoleId AND ur.UserRoleName IN (N''Calibrator'',N''ExternalCalibrator'')
+		  JOIN [dbo].[UserRoles] as ur ON  u.UserRoleId = ur.UserRoleId AND ur.UserRoleId IN ('+@UserRoleIdFilter+')
 		  LEFT JOIN [dbo].[UsersToDepartments] as utd ON u.ID = utd.UserId
 		  LEFT JOIN [dbo].[MainCategories] as ud ON ud.ID = utd.MainCategoryId
 		  LEFT JOIN [dbo].[CalibratorsToWorkPlan] cp ON u.[ID] = cp.CalibratorId AND cp.IsDeleted = 0 AND cp.AssigmentDate = ''',@CheckDate,'''

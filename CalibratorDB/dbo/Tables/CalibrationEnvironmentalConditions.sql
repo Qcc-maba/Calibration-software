@@ -7,6 +7,8 @@
     [UpdatedDate]             DATETIME2 (0)   NULL,
     [UpdateUserID]            INT             NULL,
     [IsDeleted]               BIT             DEFAULT ((0)) NOT NULL,
+    [MinToleranceBorder]      DECIMAL (18, 6) NULL,
+    [MaxToleranceBorder]      DECIMAL (18, 6) NULL,
     PRIMARY KEY CLUSTERED ([OrderDetailsItemId] DESC, [MeasurementDeviceUnitId] ASC),
     CONSTRAINT [FK_CalibrationEnvironmentalConditions_MeasurementDeviceUnitId] FOREIGN KEY ([MeasurementDeviceUnitId]) REFERENCES [dbo].[MeasurementDeviceUnits] ([MeasurementDeviceUnitId])
 );

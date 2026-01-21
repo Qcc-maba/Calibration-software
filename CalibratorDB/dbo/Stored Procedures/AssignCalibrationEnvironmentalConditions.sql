@@ -6,11 +6,11 @@
 --Json example
 --'
 --[
---  {"OrderDetailsItemId": 1254,"MeasurementDeviceUnitId": 12, "NominalValue": 30,"Tolerance": 12.54},
---  {"OrderDetailsItemId": 1255,"MeasurementDeviceUnitId": 10,"NominalValue": 33,"Tolerance": 1.54 }
+--  {"OrderDetailsItemId": 1254,"MeasurementDeviceUnitId": 12, "NominalValue": 30,"Tolerance": 12.54,"MinToleranceBorder": 1.54,"MaxToleranceBorder": 1.54},
+--  {"OrderDetailsItemId": 1255,"MeasurementDeviceUnitId": 10,"NominalValue": 33,"Tolerance": 1.54,"MinToleranceBorder": 1.54,"MaxToleranceBorder": 1.54 }
 --]'
 -- =============================================
-CREATE    PROCEDURE [dbo].[AssignCalibrationEnvironmentalConditions]
+Create      PROCEDURE [dbo].[AssignCalibrationEnvironmentalConditions]
 @ConditionsJson NVARCHAR(MAX),
 @LoggedInUserEmail NVARCHAR(50),
 @IsDelete BIT = NULL
@@ -36,12 +36,16 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 			OrderDetailsItemId,
 			MeasurementDeviceUnitId,
 			NominalValue,
-			Tolerance
+			Tolerance,
+			MinToleranceBorder,
+			MaxToleranceBorder
 		FROM OPENJSON (@ConditionsJson) WITH (
 			OrderDetailsItemId INT '$.OrderDetailsItemId',
 			MeasurementDeviceUnitId INT'$.MeasurementDeviceUnitId',
 			NominalValue DECIMAL(18,6) '$.NominalValue',
-			Tolerance DECIMAL(18,6) '$.Tolerance'
+			Tolerance DECIMAL(18,6) '$.Tolerance',
+			MinToleranceBorder DECIMAL(18,6) '$.MinToleranceBorder',
+			MaxToleranceBorder DECIMAL(18,6) '$.MaxToleranceBorder'
 		)
 		) AS source
 		ON dest.[OrderDetailsItemId] = source.[OrderDetailsItemId]
@@ -51,6 +55,8 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 			UPDATE
 			SET  dest.[NominalValue] = source.[NominalValue]
 				,dest.[Tolerance] = source.[Tolerance]
+				,dest.[MinToleranceBorder] = source.[MinToleranceBorder]
+				,dest.[MaxToleranceBorder] = source.[MaxToleranceBorder]
 				,dest.[UpdatedDate] = GETDATE()
 				,dest.[UpdateUserID] = @LoggedInUserId
 				,dest.[IsDeleted] = IIF(@IsDelete IS NULL, 0, 1)
@@ -61,6 +67,8 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 				,[MeasurementDeviceUnitId]
 				,[NominalValue]
 				,[Tolerance]
+				,[MinToleranceBorder]
+				,[MaxToleranceBorder]
 				,[CreateDate]
 				,[UpdateUserID]
 				)
@@ -69,6 +77,8 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 				,source.[MeasurementDeviceUnitId]
 				,source.[NominalValue]
 				,source.[Tolerance]
+				,source.[MinToleranceBorder]
+				,source.[MaxToleranceBorder]
 				,GETDATE()
 				,@LoggedInUserId
 				);

@@ -32,7 +32,12 @@ CREATE   PROCEDURE [dbo].[AssignProductIdentificationData]
 @SecondCalibratorId INT = NULL,
 @MainCalibratorId INT = NULL,
 @Volume DECIMAL(16,4) = NULL,
-@VisualCheck NVARCHAR(200) = NULL
+@VisualCheck NVARCHAR(200) = NULL,
+@ShouldShowGraphV BIT = NULL, 
+@ShouldShowCertificateIcon BIT = NULL,
+@RequiredProbability TINYINT = NULL,
+@ReportLanguage NVARCHAR(50) = NULL,
+@SiteAddress NVARCHAR(100) = NULL
 AS
 BEGIN 
 
@@ -67,6 +72,11 @@ BEGIN
 					   ,[MainCalibratorId]
 					   ,[Volume]
 					   ,[VisualCheck]
+					   ,[ShouldShowGraphV]
+					   ,[ShouldShowCertificateIcon]
+					   ,[RequiredProbability]
+					   ,[ReportLanguage]
+					   ,[SiteAddress]
 					)
 				 SELECT
 					@OrderDetailId,	
@@ -93,7 +103,12 @@ BEGIN
 					@SecondCalibratorId,
 					@MainCalibratorId,
 					@Volume,
-					@VisualCheck
+					@VisualCheck,
+					@ShouldShowGraphV,
+					@ShouldShowCertificateIcon,
+					@RequiredProbability,
+					@ReportLanguage,
+					@SiteAddress
 				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
 
 		END
@@ -132,6 +147,11 @@ BEGIN
 			,[MainCalibratorId] = COALESCE(@MainCalibratorId,[MainCalibratorId])
 			,[Volume] = COALESCE(@Volume,[Volume])
 			,[VisualCheck] = COALESCE(@VisualCheck,[VisualCheck])
+			,[ShouldShowGraphV] = COALESCE(@ShouldShowGraphV,[ShouldShowGraphV])
+			,[ShouldShowCertificateIcon] = COALESCE(@ShouldShowCertificateIcon,[ShouldShowCertificateIcon])
+			,[RequiredProbability] = COALESCE(@RequiredProbability,[RequiredProbability])
+			,[ReportLanguage] = COALESCE(@ReportLanguage,[ReportLanguage])
+			,[SiteAddress] = COALESCE(@SiteAddress,[SiteAddress])
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
 	IF NOT EXISTS (SELECT 1 FROM [dbo].[CalibrationProcessComments] WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted))

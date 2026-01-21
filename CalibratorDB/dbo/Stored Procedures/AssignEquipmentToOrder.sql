@@ -8,8 +8,8 @@ CREATE   PROCEDURE [dbo].[AssignEquipmentToOrder]
 @OrderID NVARCHAR(100),
 @EquipmentIDs NVARCHAR(MAX)='',
 @CheckDate DATE = NULL,
-@LoggedInUserEmail NVARCHAR(100) = NULL
-
+@LoggedInUserEmail NVARCHAR(100) = NULL,
+@CarId INT
 /*
 EXEC dbo.AssignEquipmentToOrder @OrderID = 'SO25000153', @EquipmentIDs = '578,579'
 */
@@ -60,13 +60,15 @@ INSERT [dbo].[MeasurementDevicesToOrderHeaders]
 OrderWorkPlanId,
 MeasurementDeviceId,
 AssigmentDate,
-UpdateUserID
+UpdateUserID,
+CarId
 )
 SELECT 
     @OrderWorkPlanId,
 	EquipmentId,
 	@CheckDate,
-	@LoggedInUserId
+	@LoggedInUserId,
+	@CarId
 FROM #AssociatedEquipmentIDs as aei
 
 END

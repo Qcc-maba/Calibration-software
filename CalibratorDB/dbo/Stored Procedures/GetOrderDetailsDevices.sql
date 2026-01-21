@@ -6,7 +6,7 @@
 -- Description:	Get all devices assosiated to orders details
 -- JiraLink: 
 -- =============================================
-CREATE   PROCEDURE [dbo].[GetOrderDetailsDevices] 
+CREATE   PROCEDURE [dbo].[GetOrderDetailsDevices]
 @OrderWorkPlanId INT,
 @OrderDetailId INT = NULL,
 @LoggedInUserEmail NVARCHAR(50) = NULL,
@@ -155,20 +155,29 @@ ds.EnvironmentalConditions,
 odi.SecondCalibratorId,
 odi.MainCalibratorId,
 odi.Volume,
-odi.VisualCheck
+odi.VisualCheck,
+odi.ShouldShowGraphV, 
+odi.ShouldShowCertificateIcon,
+odi.RequiredProbability,
+odi.ReportLanguage,
+COALESCE(odi.SiteAddress,cs.CustomerSiteAddress) as SiteAddress
 FROM  numbers as n
 LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt 
 LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[OrdersProductTypeId]
 LEFT JOIN [dbo].[OrdersProductTypes] as opt2 ON r.[OrdersProductTypeId] = opt2.[OrdersProductTypeId]
 LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
 LEFT JOIN [dbo].[OrderDetailsItems] as odi ON n.OrderDetailId = odi.OrderDetailId AND odi.[OrderDetailsItemId] = r.[OrderDetailsItemId]
+LEFT JOIN [dbo].[OrderDetails] as od ON od.OrderDetailId = odi.OrderDetailId
+LEFT JOIN [dbo].[CustomerSites] as cs ON od.CustomerSiteId = cs.CustomerSiteId
 OUTER APPLY
 (
 SELECT 
 	ShortNameEn as MeasurementDeviceUnitEn,
 	ShortNameHe as MeasurementDeviceUnitHeb,
 	ic.NominalValue,
-	ic.Tolerance
+	ic.Tolerance,
+	ic.MinToleranceBorder,
+	ic.MaxToleranceBorder
 FROM [dbo].[CalibrationEnvironmentalConditions] as ic
 JOIN [dbo].[MeasurementDeviceUnits] as mu ON ic.MeasurementDeviceUnitId = mu.MeasurementDeviceUnitId
 WHERE ic.OrderDetailsItemId = r.[OrderDetailsItemId] and ic.IsDeleted = 0
