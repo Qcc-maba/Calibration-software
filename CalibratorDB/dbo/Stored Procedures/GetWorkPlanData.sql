@@ -108,7 +108,7 @@ BEGIN
 			INSERT #FilterExternalOrdersForCalibrator([OrderWorkPlanId])
 			SELECT DISTINCT cal.OrderWorkPlanId 
 			FROM [dbo].[CalibratorsToWorkPlan] as cal
-			JOIN [dbo].[CarsToOrder] as c ON cal.OrderWorkPlanId = c.OrderWorkPlanId AND cal.AssigmentDate = c.AssignDate
+			JOIN [dbo].[CarsToOrder] as c ON cal.OrderWorkPlanId = c.OrderWorkPlanId AND cal.AssigmentDate = c.AssignDate AND c.IsDeleted = 0
 			WHERE (cal.CalibratorId = @LoggedInUserId OR @SourceId IS NULL)
 			AND cal.AssigmentDate >= @DateFrom AND cal.AssigmentDate <=@DateTo
 		END

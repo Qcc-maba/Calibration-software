@@ -68,7 +68,7 @@ SELECT  @part0db =  COALESCE(@part0db,AssignQuater0),
 		@exists = 1
 FROM [dbo].[CarsToOrder] as cto
 WHERE cto.CarId = @CarID AND cto.OrderWorkPlanId = @OrderWorkPlanId 
-		AND cto.AssignDate = @Date
+		AND cto.AssignDate = @Date AND cto.IsDeleted = 0
 
 IF @exists IS NULL
 
@@ -93,7 +93,7 @@ SET AssignQuater0 = @part0db,
 	UpdatedDate = GETDATE(),
 	UpdateUserID = @LoggedInUserId
 WHERE CarId = @CarID AND OrderWorkPlanId = @OrderWorkPlanId 
-		AND AssignDate = @Date
+		AND AssignDate = @Date AND IsDeleted = 0
 
 
 UPDATE [dbo].[OrderWorkPlans]

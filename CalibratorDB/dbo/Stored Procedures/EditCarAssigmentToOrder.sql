@@ -61,6 +61,6 @@ SET AssignQuater0 = IIF(@part0db = 0,NULL,AssignQuater0),
 	AssignQuater3 = IIF(@part3db = 0,NULL,AssignQuater3),
 	UpdatedDate = GETDATE(),
 	UpdateUserID = @LoggedInUserId
-WHERE CarId = @CarID AND AssignDate = @Date
+WHERE CarId = @CarID AND AssignDate = @Date AND IsDeleted = 0
 
 END

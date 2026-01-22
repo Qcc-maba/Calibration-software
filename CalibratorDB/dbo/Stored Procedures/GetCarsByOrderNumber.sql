@@ -4,9 +4,10 @@
 -- Description:	Get info about cars assigned for specific order
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-123
 -- =============================================
-CREATE    Procedure [dbo].[GetCarsByOrderNumber]
+CREATE     Procedure [dbo].[GetCarsByOrderNumber]
 @OrderNumber NVARCHAR(100),
-@CarAssignDate DATETIME2(0) = NULL,
+@AssignStartDate DATETIME2(0) = NULL,
+@AssignEndDate DATETIME2(0) = NULL,
 @LoggedInUserEmail NVARCHAR(100) = NULL
 
 /*
@@ -42,5 +43,5 @@ WHERE p.OrderWorkPlanId = ctwp.OrderWorkPlanId AND ctwp.CarId = cwp.CarId AND ct
 GROUP BY ctwp.CalibratorId
 ) as acto
 WHERE p.OrderNumber = @OrderNumber AND cwp.IsDeleted = 0 AND p.IsCancelled = 0
-AND (@CarAssignDate IS NULL OR cwp.AssignDate = @CarAssignDate)
+AND (@AssignStartDate IS NULL OR (cwp.AssignDate >= @AssignStartDate AND cwp.AssignDate <= @AssignEndDate))
 AND (@CalibratorId IS NULL OR acto.CalibratorId = @CalibratorId)

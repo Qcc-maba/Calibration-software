@@ -160,6 +160,7 @@ odi.ShouldShowGraphV,
 odi.ShouldShowCertificateIcon,
 odi.RequiredProbability,
 odi.ReportLanguage,
+CONCAT(u.FirstName,' ',u.LastName) as CalibratorFullName,
 COALESCE(odi.SiteAddress,cs.CustomerSiteAddress) as SiteAddress
 FROM  numbers as n
 LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt 
@@ -167,6 +168,7 @@ LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[
 LEFT JOIN [dbo].[OrdersProductTypes] as opt2 ON r.[OrdersProductTypeId] = opt2.[OrdersProductTypeId]
 LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
 LEFT JOIN [dbo].[OrderDetailsItems] as odi ON n.OrderDetailId = odi.OrderDetailId AND odi.[OrderDetailsItemId] = r.[OrderDetailsItemId]
+LEFT JOIN [dbo].[Users] as u ON odi.MainCalibratorId = u.ID
 LEFT JOIN [dbo].[OrderDetails] as od ON od.OrderDetailId = odi.OrderDetailId
 LEFT JOIN [dbo].[CustomerSites] as cs ON od.CustomerSiteId = cs.CustomerSiteId
 OUTER APPLY
