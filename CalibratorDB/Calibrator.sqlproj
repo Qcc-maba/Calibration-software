@@ -290,6 +290,9 @@
     <Build Include="dbo\Stored Procedures\AssignAdditionalEquipmentForOrderDetailsItems.sql" />
     <Build Include="dbo\Stored Procedures\RemoveCarAssignment.sql" />
     <Build Include="dbo\Stored Procedures\DeleteCalibratorSensorChannelAssignment.sql" />
+    <Build Include="dbo\Tables\CalibrationCycles.sql" />
+    <Build Include="dbo\Stored Procedures\GetCalibrationCycles.sql" />
+    <Build Include="dbo\Stored Procedures\AddCalibrationCycle.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
