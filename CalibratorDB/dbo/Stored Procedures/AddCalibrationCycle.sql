@@ -9,6 +9,7 @@ CREATE   PROCEDURE [dbo].[AddCalibrationCycle]
 @OrderDetailsItemId INT,
 @CalibrationCycleStartDate DATETIME2(0),
 @CalibrationCycleEndDate DATETIME2(0),
+@CalibrationCycleName NVARCHAR(200),
 @CalibrationCycleStatusId INT
 /*
 EXEC [dbo].[AddCalibrationCycle]
@@ -33,13 +34,15 @@ INSERT INTO [dbo].[CalibrationCycles]
            ,[CalibrationCycleEndDate]
            ,[CalibrationCycleStatusId]
            ,[CreatedUserID]
+           ,[CalibrationCycleName]
            )
      VALUES
            (@OrderDetailsItemId,
             @CalibrationCycleStartDate,
             @CalibrationCycleEndDate,
             @CalibrationCycleStatusId,
-            @UserId
+            @UserId,
+            @CalibrationCycleName
             )
 
 

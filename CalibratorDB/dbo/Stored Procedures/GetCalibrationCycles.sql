@@ -25,6 +25,7 @@ SELECT
 	,cc.[CalibrationCycleEndDate]
 	,cc.[CalibrationCycleStatusId]
 	,cc.[CreatedUserID]
+	,cc.[CalibrationCycleName]
 	,ROW_NUMBER() OVER( PARTITION BY cc.[OrderDetailsItemId] ORDER BY [CalibrationCycleStartDate]) as CycleNumber
 	,ROW_NUMBER() OVER( PARTITION BY cc.[OrderDetailsItemId] ORDER BY [CalibrationCycleStartDate] DESC) as LatestCycle
 FROM [dbo].[CalibrationCycles] as cc
@@ -36,7 +37,8 @@ SELECT
 	,ds.[CalibrationCycleEndDate]
 	,ds.[CalibrationCycleStatusId]
 	,ds.[CreatedUserID]
-	,ds.CycleNumber
+	,ds.[CycleNumber]
+	,ds.[CalibrationCycleName]
 	,oi.CalibrationSpecificationId 
 	,ms.Name as CalibrationSpecification
 	,oi.MeasurementUnitId
