@@ -7,6 +7,7 @@
 -- =============================================
 CREATE       Procedure [dbo].[DeleteCalibratorSensorChannelAssignment]
 @SensorMeasurementDeviceId INT,
+@LoggerMeasurementDeviceId INT,
 --@CalibratorId INT,
 @ChannelNumber INT,
 @LoggedInUserEmail NVARCHAR(100) 
@@ -25,8 +26,10 @@ WHERE u.Email=@LoggedInUserEmail
 	SET IsDeleted = 1,
 		UpdateUserID = @UserId,
 		UpdatedDate = GETDATE()
-	FROM dbo.LoggerToCalibrator as ltc
-	JOIN dbo.SensorToLoggerToCalibrator as stc ON stc.LoggerToCalibratorId = ltc.LoggerToCalibratorId AND stc.IsDeleted =0
-	LEFT JOIN dbo.ChannelsToSensorForCalibratoration as cts ON cts.SensorToLoggerToCalibratorId = stc.SensorToLoggerToCalibratorId AND cts.IsDeleted =0
-	WHERE stc.SensorMeasurementDeviceId=@SensorMeasurementDeviceId AND AssignedCalibratorId = @UserId AND ChannelNumber = @ChannelNumber
+	FROM [dbo].[ChannelsToSensorRelation] as cts
+	WHERE cts.LoggerMeasurementDeviceId = @LoggerMeasurementDeviceId
+	      AND cts.SensorMeasurementDeviceId = @SensorMeasurementDeviceId
+		  AND cts.ChannelNumber = @ChannelNumber
+		  AND cts.IsDeleted = 0
+
 END

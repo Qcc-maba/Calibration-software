@@ -30,6 +30,7 @@ SELECT c.[ID]
 	  ,c.[MabaID]
 	  ,c.[CalibrationDate]
 	  ,c.[Channels]
+	  ,ach.AassignedChannels
 	  ,c.[StabilityTime]
 	  ,c.[StabilitySize]
 	  ,c.[CalibrationDate]
@@ -42,6 +43,13 @@ LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mc ON c.MainClassId = mc.Id
 LEFT JOIN [dbo].[MeasurementDevicesToOrderHeaders] as coh ON c.ID = coh.MeasurementDeviceId AND coh.IsDeleted = 0 AND coh.AssigmentDate = @CheckDate
 LEFT JOIN [dbo].[OrderWorkPlans] as op ON op.OrderWorkPlanId = coh.OrderWorkPlanId AND op.IsCancelled = 0  
 LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mdmc ON c.MainClassId = mdmc.Id
+LEFT JOIN 
+(
+SELECT sr.SensorMeasurementDeviceId, STRING_AGG(sr.ChannelNumber,',') as AassignedChannels
+FROM [dbo].[ChannelsToSensorRelation] as sr
+WHERE sr.IsDeleted = 0
+GROUP BY sr.SensorMeasurementDeviceId
+) as ach ON c.ID = ach.SensorMeasurementDeviceId
 WHERE c.IsDeleted = 0  /*AND COALESCE(s.StatusDescriptionENG,'Available') = 'Available'*/ AND coh.MeasurementDeviceId IS NULL
 AND (@MainCategoryId IS NULL OR c.[MainCategoryId]  = @MainCategoryId)
 AND (@MainClassId IS NULL OR c.MainClassId  = @MainClassId)

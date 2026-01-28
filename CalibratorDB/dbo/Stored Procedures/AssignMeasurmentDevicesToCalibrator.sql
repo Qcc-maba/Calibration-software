@@ -28,14 +28,6 @@ SELECT
 ,@SourceId = d.SourceId
 FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
-
---if NOT EXISTS (
---SELECT 1 FROM dbo.Users as u
---JOIN dbo.UserRoles as ur ON u.UserRoleId = ur.UserRoleId
---WHERE u.ID = @LoggedInUserId AND ur.UserRoleName IN (N'SuperAdmin',N'ExternalCalibrator',N'Calibrator')
---)
---THROW 51000, 'Incorrect user email passed. User is not a calibrator.', 1;
-
 if NOT EXISTS (
 SELECT 1 FROM dbo.MeasurementDevices as md
 JOIN dbo.MeasurementDevicesMainClasses as mc ON md.MainClassId = mc.Id
@@ -66,139 +58,44 @@ BEGIN TRY
 	
 	BEGIN TRAN
 
-	MERGE INTO [dbo].[LoggerToCalibrator] AS dest
-	USING (
-		SELECT 
-			 @LoggedInUserId as [AssignedCalibratorId]
-			,@FlowRate as [FlowRate]
-			,@Interval as [Interval]
-			,@LoggerMeasurementDeviceId as [LoggerMeasurementDeviceId]
-			,@CommunicationProtocol as [CommunicationProtocol]
-			,@CommunicationDetails as [CommunicationDetails]
-			,@LoggedInUserId as [UpdateUserID]
-		) AS source
-		ON 
-			dest.[AssignedCalibratorId] = source.[AssignedCalibratorId] 
-			AND dest.[LoggerMeasurementDeviceId] = source.[LoggerMeasurementDeviceId]
-			AND dest.IsDeleted = 0
-	WHEN MATCHED AND (
-	       dest.[FlowRate] <> source.[FlowRate]
-		   OR dest.[Interval] <> source.[Interval]
-		   OR dest.[CommunicationProtocol] <> source.[CommunicationProtocol]
-		   OR dest.[CommunicationDetails] <> source.[CommunicationDetails])
-		THEN
-			UPDATE
-			SET 
-				 dest.[FlowRate] = source.[FlowRate]
-				,dest.[Interval] = source.[Interval]
-				,dest.[CommunicationProtocol] = source.[CommunicationProtocol]
-				,dest.[CommunicationDetails] = source.[CommunicationDetails]
-				,dest.[UpdatedDate] = GETDATE()
-				,dest.[UpdateUserID] = source.[UpdateUserID]
-	WHEN NOT MATCHED 
-		THEN
-			INSERT (
-				 [AssignedCalibratorId]
-				,[FlowRate]
-				,[Interval]
-				,[LoggerMeasurementDeviceId]
-				,[CommunicationProtocol]
-				,[CommunicationDetails]
-				,[UpdateUserID]
-				)
-			VALUES (
-				 source.[AssignedCalibratorId]
-				,source.[FlowRate]
-				,source.[Interval]
-				,source.[LoggerMeasurementDeviceId]
-				,source.[CommunicationProtocol]
-				,source.[CommunicationDetails]
-				,source.[UpdateUserID]
-				);
-
-	DECLARE @LoggerToCalibratorId INT = 0
-	SELECT @LoggerToCalibratorId = l.LoggerToCalibratorId FROM [dbo].[LoggerToCalibrator] as l 
-		WHERE l.[AssignedCalibratorId] = @LoggedInUserId AND l.[LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
-
-
-	MERGE INTO [dbo].[SensorToLoggerToCalibrator] AS dest
-	USING (
-		SELECT 
-			 @LoggerToCalibratorId as [LoggerToCalibratorId]
-			,@SensorMeasurementDeviceId AS [SensorMeasurementDeviceId]
-			,@UnitId AS [UnitId]
-			,@WorkRangeUnitId as [WorkRangeUnitId]
-			,@LoggedInUserId as [UpdateUserID]
-		) AS source
-		ON dest.[LoggerToCalibratorId] = source.[LoggerToCalibratorId] 
-		   AND dest.[SensorMeasurementDeviceId] = source.[SensorMeasurementDeviceId]
-		   AND dest.IsDeleted = 0
-	WHEN MATCHED AND (
-			COALESCE(dest.[UnitId],0) <> COALESCE(source.[UnitId],0)
-			OR COALESCE(dest.[WorkRangeUnitId],0) <> COALESCE(source.[WorkRangeUnitId],0))
-		THEN
-			UPDATE
-			SET 	     
-				 dest.[UnitId] = source.[UnitId]
-				,dest.[WorkRangeUnitId] = source.[WorkRangeUnitId]
-				,dest.[UpdatedDate] = GETDATE()
-				,dest.[UpdateUserID] = source.[UpdateUserID]
-	WHEN NOT MATCHED
-		THEN
-			INSERT (
-				 [LoggerToCalibratorId]
-				,[SensorMeasurementDeviceId]
-				,[UnitId]
-				,[WorkRangeUnitId]
-				,[UpdateUserID]
-				)
-			VALUES (
-				 source.[LoggerToCalibratorId]
-				,source.[SensorMeasurementDeviceId]
-				,source.[UnitId]
-				,source.[WorkRangeUnitId]
-				,source.[UpdateUserID]
-				);
-
-	DECLARE @SensorToLoggerToCalibratorId INT = 0
-	SELECT @SensorToLoggerToCalibratorId = sl.SensorToLoggerToCalibratorId FROM [dbo].[SensorToLoggerToCalibrator] as sl
-	WHERE sl.LoggerToCalibratorId = @LoggerToCalibratorId AND sl.SensorMeasurementDeviceId = @SensorMeasurementDeviceId AND sl.IsDeleted = 0
-
-	UPDATE dest
-	SET  dest.[UpdatedDate] = GETDATE()
-		,dest.[UpdateUserID] = @LoggedInUserId
-		,dest.[IsDeleted] = 1
-	FROM [dbo].[ChannelsToSensorForCalibratoration] as dest
-	LEFT JOIN #Channels as c ON dest.[SensorToLoggerToCalibratorId] = @SensorToLoggerToCalibratorId
-	                            AND dest.[ChannelNumber] = c.ChannelNumber
-								AND dest.IsDeleted = 0
-	WHERE c.ChannelNumber IS NULL AND dest.[SensorToLoggerToCalibratorId] = @SensorToLoggerToCalibratorId
-  
+	UPDATE [dbo].[MeasurementDevices]
+	SET FlowRate = @FlowRate,
+		Interval = @Interval,
+		Connection = @CommunicationProtocol,
+		IP = @CommunicationDetails,
+		UpdateDate = GETDATE(),
+		UpdateUserID = @LoggedInUserId
+	WHERE ID = @LoggerMeasurementDeviceId
 	
-	MERGE INTO [dbo].[ChannelsToSensorForCalibratoration] AS dest
-	USING (
-		SELECT 
-		     @SensorToLoggerToCalibratorId as [SensorToLoggerToCalibratorId]
-			,ch.[ChannelNumber]
-			,@LoggedInUserId as [UpdateUserID]
-		FROM #Channels as ch
-		) AS source
-		ON dest.[SensorToLoggerToCalibratorId] = source.[SensorToLoggerToCalibratorId]
-		   AND dest.[ChannelNumber] = source.[ChannelNumber]
-		   AND dest.IsDeleted = 0
-	WHEN NOT MATCHED 
-		THEN
-			INSERT (
-				[SensorToLoggerToCalibratorId]
-				,[ChannelNumber]
-				,[UpdateUserID]
-				)
-			VALUES (
-				source.[SensorToLoggerToCalibratorId]
-				,source.[ChannelNumber]
-				,source.[UpdateUserID]
-				);
+	INSERT [dbo].[SensorToLoggerRelation](
+	[SensorMeasurementDeviceId],
+	[LoggerMeasurementDeviceId])
+	SELECT @SensorMeasurementDeviceId ,@LoggerMeasurementDeviceId 
+	WHERE NOT EXISTS (SELECT 1 FROM [dbo].[SensorToLoggerRelation] 
+					  WHERE [SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
+	                  AND [LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
+					  AND [IsDeleted] = 0)
+	
+--Insert new data
+	INSERT [dbo].[ChannelsToSensorRelation]([SensorMeasurementDeviceId],[LoggerMeasurementDeviceId],[ChannelNumber])
+	SELECT @SensorMeasurementDeviceId,@LoggerMeasurementDeviceId, c.ChannelNumber
+	FROM #Channels as c
+	LEFT JOIN [dbo].[ChannelsToSensorRelation] as cr ON cr.[SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
+	                                                AND cr.[LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
+													AND c.ChannelNumber = cr.ChannelNumber
+							
+	WHERE cr.[SensorMeasurementDeviceId] IS NULL
 
+--In case if it was previously assigned revert deleted flag
+    UPDATE cr
+	SET IsDeleted = 0,
+		UpdatedDate = GETDATE(),
+		UpdateUserID = @LoggedInUserId
+	FROM #Channels as c
+	LEFT JOIN [dbo].[ChannelsToSensorRelation] as cr ON cr.[SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
+	                                                AND cr.[LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
+													AND c.ChannelNumber = cr.ChannelNumber
+													AND cr.IsDeleted = 1
 
 	COMMIT
 END TRY
@@ -208,23 +105,3 @@ BEGIN CATCH
 	ROLLBACK
 END CATCH 
 END
-
-/*
---Select calibrators
-SELECT * FROM Users
-WHERE UserRoleId =3
-
-
---Select logger
-SELECT * FROM [dbo].[MeasurementDevices]
-WHERE MainClassId = 7 AND IsDeleted = 0
-
---Select sensor
-SELECT * FROM [dbo].[MeasurementDevices]
-WHERE MainClassId = 2 AND IsDeleted = 0
-
---test
-SELECT * FROM [dbo].[LoggerToCalibrator]
-SELECT * FROM [dbo].[SensorToLoggerToCalibrator]
-SELECT * FROM [dbo].[ChannelsToSensorForCalibratoration] 
-*/

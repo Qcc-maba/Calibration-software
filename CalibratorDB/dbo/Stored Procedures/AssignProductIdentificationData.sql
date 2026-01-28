@@ -154,7 +154,7 @@ BEGIN
 			,[SiteAddress] = COALESCE(@SiteAddress,[SiteAddress])
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
-	IF NOT EXISTS (SELECT 1 FROM [dbo].[CalibrationProcessComments] WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted))
+	IF NOT EXISTS (SELECT 1 FROM [dbo].[CalibrationProcessComments] WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) AND LEN(LTRIM(RTRIM(@CalibrationProcessComment))) > 1)
 	  BEGIN
 		  INSERT [dbo].[CalibrationProcessComments]
 			(
@@ -180,6 +180,7 @@ BEGIN
 			  ,[UpdatedDate] = GETDATE()
 			  ,[UpdateUserID] = @UserId
 		WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) AND [TextHash] <> BINARY_CHECKSUM(@CalibrationProcessComment)
+		AND LEN(LTRIM(RTRIM(@CalibrationProcessComment))) > 1
 
 		SELECT COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) as OrderDetailsItemId
 END

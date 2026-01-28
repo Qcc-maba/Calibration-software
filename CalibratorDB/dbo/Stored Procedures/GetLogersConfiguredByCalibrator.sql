@@ -18,13 +18,15 @@ SELECT
 ,@SourceId = d.SourceId
 FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
-	SELECT ltc.LoggerMeasurementDeviceId,
+	SELECT ltc.ID as LoggerMeasurementDeviceId,
 	       ltc.FlowRate,	
 		   ltc.Interval,	
-		   ltc.CommunicationProtocol,	
-		   ltc.CommunicationDetails,
-		   SUM(1) OVER( PARTITION BY ltc.AssignedCalibratorId) as CountAssignedLoggers
-	FROM dbo.LoggerToCalibrator as ltc
-	WHERE ltc.AssignedCalibratorId = @LoggedInUserId AND IsDeleted =0
+		   ltc.Connection as CommunicationProtocol,	
+		   ltc.IP AS CommunicationDetails,
+		   SUM(1) OVER( PARTITION BY ltc.ID) as CountAssignedLoggers
+	FROM dbo.MeasurementDevices as ltc
+	JOIN dbo.MeasurementDevicesMainClasses as mc ON ltc.MainClassId = mc.Id
+	JOIN dbo.SensorToLoggerRelation as srl ON ltc.ID = srl.LoggerMeasurementDeviceId AND srl.IsDeleted = 0
+	WHERE mc.NameEnglish = 'Data logger' AND ltc.IsDeleted =0
 
 END

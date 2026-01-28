@@ -1,4 +1,4 @@
-﻿CREATE   PROCEDURE [dbo].[GetSensorsConfiguredByCalibrator]
+﻿CREATE   PROCEDURE [dbo].[GetSensorsConfiguredByCalibrator] 
 @LoggedInUserEmail NVARCHAR(100),
 @SensorMeasurementDeviceId INT = NULL
 AS
@@ -15,28 +15,31 @@ SET NOCOUNT ON;
 DECLARE @LoggedInUserId INT 
 DECLARE @SourceId TINYINT
 
+
 SELECT 
  @LoggedInUserId  = d.UserId 
 ,@SourceId = d.SourceId
 FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
-	SELECT ltc.LoggerMeasurementDeviceId,
-	       ltc.CommunicationDetails,
-		   ltc.CommunicationProtocol,
-	       stc.SensorMeasurementDeviceId,	
-	       stc.UnitId,
-		   stc.WorkRangeUnitId,
-           STRING_AGG(cts.ChannelNumber,',') as ChannelList
-	FROM dbo.LoggerToCalibrator as ltc
-	JOIN dbo.SensorToLoggerToCalibrator as stc ON stc.LoggerToCalibratorId = ltc.LoggerToCalibratorId AND stc.IsDeleted =0
-	LEFT JOIN dbo.ChannelsToSensorForCalibratoration as cts ON cts.SensorToLoggerToCalibratorId = stc.SensorToLoggerToCalibratorId AND cts.IsDeleted =0
-	WHERE ltc.AssignedCalibratorId = @LoggedInUserId AND ltc.IsDeleted =0 AND stc.IsDeleted =0 AND  cts.IsDeleted =0
-		  AND (stc.SensorMeasurementDeviceId = @SensorMeasurementDeviceId OR @SensorMeasurementDeviceId IS NULL)
-	GROUP BY
-		   ltc.LoggerMeasurementDeviceId,
-	       ltc.CommunicationDetails,
-		   ltc.CommunicationProtocol,
-		   stc.SensorMeasurementDeviceId,	
-	       stc.UnitId,
-		   stc.WorkRangeUnitId
+	SELECT srl.LoggerMeasurementDeviceId as  LoggerMeasurementDeviceId,
+	       ltc.IP AS CommunicationDetails,
+		   ltc.Connection as CommunicationProtocol,
+	       srl.SensorMeasurementDeviceId as SensorMeasurementDeviceId,	
+	       ltc.UnitId,
+		   ltc.WorkRangeUnitId,
+           STRING_AGG(csr.ChannelNumber,',') as ChannelList
+	FROM dbo.MeasurementDevices as ltc
+	JOIN dbo.MeasurementDevicesMainClasses as mc ON ltc.MainClassId = mc.Id
+	JOIN dbo.SensorToLoggerRelation as srl ON ltc.ID = srl.SensorMeasurementDeviceId AND srl.IsDeleted = 0
+	JOIN dbo.ChannelsToSensorRelation as csr ON csr.SensorMeasurementDeviceId = srl.SensorMeasurementDeviceId AND csr.LoggerMeasurementDeviceId = srl.LoggerMeasurementDeviceId AND csr.IsDeleted = 0
+    WHERE  mc.NameEnglish = 'Sensor' AND ltc.IsDeleted =0 
+	AND (@SensorMeasurementDeviceId IS NULL OR ltc.ID = @SensorMeasurementDeviceId)
+	GROUP BY 
+	srl.LoggerMeasurementDeviceId,
+	ltc.IP,
+	ltc.Connection,
+	srl.SensorMeasurementDeviceId,
+	ltc.UnitId,
+	ltc.WorkRangeUnitId
+
 END
