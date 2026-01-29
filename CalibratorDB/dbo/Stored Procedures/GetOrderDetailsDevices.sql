@@ -6,7 +6,7 @@
 -- Description:	Get all devices assosiated to orders details
 -- JiraLink: 
 -- =============================================
-CREATE   PROCEDURE [dbo].[GetOrderDetailsDevices]
+CREATE   PROCEDURE [dbo].[GetOrderDetailsDevices] 
 @OrderWorkPlanId INT,
 @OrderDetailId INT = NULL,
 @LoggedInUserEmail NVARCHAR(50) = NULL,
@@ -74,7 +74,7 @@ mu.ShortNameHe as [MeasurementUnit],
 odi.[MeasurementPoints],	
 odi.[MeasurementValueList],	
 odi.[ProductLocation],
-e.[EquipmentNames],
+--e.[EquipmentNames], will be deprecated
 scs.[StatusDescriptionENG] as [CalibrationStatus],
 scs.[StatusDescriptionHEB] as [CalibrationStatusHEB],
 odi.Accuracy,
@@ -98,13 +98,14 @@ LEFT JOIN [dbo].[MeasurementDeviceUnits] as mu ON odi.[MeasurementUnitId] = mu.M
 LEFT JOIN [dbo].[Statuses] as scs ON odi.[CalibrationStatusId] = scs.StatusId
 LEFT JOIN [dbo].[Statuses] as stit ON odi.StickerTypeId = stit.StatusId
 LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = wp.[OrderWorkPlanId] AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
-LEFT JOIN
-(
-SELECT mdt.[OrderWorkPlanId], STRING_AGG(md.Description,', ') as EquipmentNames
-FROM [dbo].[MeasurementDevicesToOrderHeaders] as mdt
-JOIN [dbo].[MeasurementDevices] as md ON mdt.MeasurementDeviceId = md.ID
-GROUP BY mdt.[OrderWorkPlanId]
-) as e ON e.[OrderWorkPlanId] = wp.[OrderWorkPlanId]
+--will be deprecated
+--LEFT JOIN
+--(
+--SELECT mdt.[OrderWorkPlanId], STRING_AGG(md.Description,', ') as EquipmentNames
+--FROM [dbo].[MeasurementDevicesToOrderHeaders] as mdt
+--JOIN [dbo].[MeasurementDevices] as md ON mdt.MeasurementDeviceId = md.ID
+--GROUP BY mdt.[OrderWorkPlanId]
+--) as e ON e.[OrderWorkPlanId] = wp.[OrderWorkPlanId]
 WHERE wp.[OrderWorkPlanId] = @OrderWorkPlanId 
 )
 SELECT
@@ -142,7 +143,7 @@ r.[MeasurementUnit],
 r.[MeasurementPoints],	
 r.[MeasurementValueList],	
 r.[ProductLocation],
-r.[EquipmentNames],
+--r.[EquipmentNames],
 r.[CalibrationStatus],
 r.[CalibrationStatusHEB],
 r.[Accuracy],
@@ -161,7 +162,8 @@ odi.ShouldShowCertificateIcon,
 odi.RequiredProbability,
 odi.ReportLanguage,
 CONCAT(u.FirstName,' ',u.LastName) as CalibratorFullName,
-COALESCE(odi.SiteAddress,cs.CustomerSiteAddress) as SiteAddress
+COALESCE(odi.SiteAddress,cs.CustomerSiteAddress) as SiteAddress,
+odi.ProductLocation
 FROM  numbers as n
 LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt 
 LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[OrdersProductTypeId]

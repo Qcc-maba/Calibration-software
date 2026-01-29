@@ -26,9 +26,19 @@ SELECT
 	,cc.[CalibrationCycleStatusId]
 	,cc.[CreatedUserID]
 	,cc.[CalibrationCycleName]
+	,cc.[UnitId]	
+	,mu.[LongNameHe] as UnitName
+	,cc.[TestedValue]
+	,sr.[SpecificationReferences]
 	,ROW_NUMBER() OVER( PARTITION BY cc.[OrderDetailsItemId] ORDER BY [CalibrationCycleStartDate]) as CycleNumber
 	,ROW_NUMBER() OVER( PARTITION BY cc.[OrderDetailsItemId] ORDER BY [CalibrationCycleStartDate] DESC) as LatestCycle
 FROM [dbo].[CalibrationCycles] as cc
+LEFT JOIN [dbo].[MeasurementDeviceUnits] as mu ON cc.[UnitId] = mu.MeasurementDeviceUnitId
+OUTER APPLY
+(
+SELECT STRING_AGG(Name,', ') as SpecificationReferences
+FROM [dbo].[SpecificationReference] WHERE ID IN (SELECT value FROM STRING_SPLIT(cc.SpecificationReferenceIds,','))
+) as sr
 WHERE cc.[OrderDetailsItemId] = @OrderDetailsItemId AND cc.IsDeleted = 0
 )
 SELECT 
@@ -39,14 +49,12 @@ SELECT
 	,ds.[CreatedUserID]
 	,ds.[CycleNumber]
 	,ds.[CalibrationCycleName]
-	,oi.CalibrationSpecificationId 
-	,ms.Name as CalibrationSpecification
-	,oi.MeasurementUnitId
-	,mdu.ShortNameHe
+	,ds.[UnitId]	
+	,ds.[UnitName]
+	,ds.[TestedValue]
+	,ds.[SpecificationReferences]
 FROM ds
 JOIN [dbo].[OrderDetailsItems] as oi ON ds.[OrderDetailsItemId] = oi.[OrderDetailsItemId] 
-LEFT JOIN [dbo].[MeasurementsSpecifications] as ms ON oi.CalibrationSpecificationId = ms.ID AND ms.IsDeleted = 0
-LEFT JOIN [dbo].[MeasurementDeviceUnits] as mdu ON oi.MeasurementUnitId = mdu.MeasurementDeviceUnitId AND mdu.IsDeleted = 0
 WHERE (@ShowOnlyLatest = 0 OR ds.LatestCycle = 1)
 
 

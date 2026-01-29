@@ -23,7 +23,6 @@ CREATE   PROCEDURE [dbo].[AssignProductIdentificationData]
 @MeasurementUnitId INT= NULL,
 @MeasurementPoints INT= NULL,
 @MeasurementValueList NVARCHAR(MAX) = NULL,
-@CalibrationProcessComment NVARCHAR(MAX) = NULL,
 @OrderLineCnt_new INT = NULL,
 @Accuracy TINYINT = NULL,
 @MbaReportNumber NVARCHAR(100) =NULL,
@@ -37,7 +36,8 @@ CREATE   PROCEDURE [dbo].[AssignProductIdentificationData]
 @ShouldShowCertificateIcon BIT = NULL,
 @RequiredProbability TINYINT = NULL,
 @ReportLanguage NVARCHAR(50) = NULL,
-@SiteAddress NVARCHAR(100) = NULL
+@SiteAddress NVARCHAR(100) = NULL,
+@ProductLocation NVARCHAR(50) = NULL
 AS
 BEGIN 
 
@@ -77,6 +77,7 @@ BEGIN
 					   ,[RequiredProbability]
 					   ,[ReportLanguage]
 					   ,[SiteAddress]
+					   ,[ProductLocation]
 					)
 				 SELECT
 					@OrderDetailId,	
@@ -108,7 +109,8 @@ BEGIN
 					@ShouldShowCertificateIcon,
 					@RequiredProbability,
 					@ReportLanguage,
-					@SiteAddress
+					@SiteAddress,
+					@ProductLocation
 				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
 
 		END
@@ -152,35 +154,8 @@ BEGIN
 			,[RequiredProbability] = COALESCE(@RequiredProbability,[RequiredProbability])
 			,[ReportLanguage] = COALESCE(@ReportLanguage,[ReportLanguage])
 			,[SiteAddress] = COALESCE(@SiteAddress,[SiteAddress])
+			,[ProductLocation] = COALESCE(@ProductLocation,[ProductLocation])
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
-	IF NOT EXISTS (SELECT 1 FROM [dbo].[CalibrationProcessComments] WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) AND LEN(LTRIM(RTRIM(@CalibrationProcessComment))) > 1)
-	  BEGIN
-		  INSERT [dbo].[CalibrationProcessComments]
-			(
-			   [OrderDetailsItemId]
-			  ,[CalibrationProcessComment]
-			  ,[TextHash]
-			  ,[CreateDate]
-			  ,[UpdateUserID]
-			  ,[IsDeleted]
-		   )
-		   SELECT
-			COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted),
-			COMPRESS(@CalibrationProcessComment),
-			BINARY_CHECKSUM(@CalibrationProcessComment),
-			GETDATE(),
-			@UserId,
-			0
-	END
-		UPDATE [dbo].[CalibrationProcessComments]
-			SET [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
-			  ,[CalibrationProcessComment] = IIF(@CalibrationProcessComment IS NULL,[CalibrationProcessComment],COMPRESS(@CalibrationProcessComment))
-			  ,[TextHash] = BINARY_CHECKSUM(IIF(@CalibrationProcessComment IS NULL,[CalibrationProcessComment],@CalibrationProcessComment))
-			  ,[UpdatedDate] = GETDATE()
-			  ,[UpdateUserID] = @UserId
-		WHERE [OrderDetailsItemId] = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) AND [TextHash] <> BINARY_CHECKSUM(@CalibrationProcessComment)
-		AND LEN(LTRIM(RTRIM(@CalibrationProcessComment))) > 1
-
-		SELECT COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) as OrderDetailsItemId
+	SELECT COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) as OrderDetailsItemId
 END
