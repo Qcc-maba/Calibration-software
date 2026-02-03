@@ -18,7 +18,8 @@ SELECT
 ,@SourceId = d.SourceId
 FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
-	SELECT ltc.ID as LoggerMeasurementDeviceId,
+	SELECT DISTINCT
+	       ltc.ID as LoggerMeasurementDeviceId,
 	       ltc.FlowRate,	
 		   ltc.Interval,	
 		   ltc.Connection as CommunicationProtocol,	

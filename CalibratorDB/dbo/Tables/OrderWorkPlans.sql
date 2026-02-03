@@ -13,7 +13,6 @@
     [CustomerId]                 INT            NULL,
     [OrderOverallStatusId]       INT            NULL,
     [ClientConfirmationStatusId] INT            NULL,
-    [AssigmentDate]              DATETIME2 (0)  NULL,
     [ShipTypeDesc]               NVARCHAR (100) NULL,
     [CustomerComment]            NVARCHAR (200) NULL,
     [BK_DOC_N]                   INT            NULL,
@@ -29,6 +28,8 @@
     CONSTRAINT [FK_OrderWorkPlans_OrderStatusId] FOREIGN KEY ([OrderStatusId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_OrderWorkPlans_SourceId] FOREIGN KEY ([SourceId]) REFERENCES [dbo].[Source] ([SourceId])
 );
+
+
 
 
 

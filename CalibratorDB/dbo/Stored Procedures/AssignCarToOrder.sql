@@ -70,35 +70,92 @@ FROM [dbo].[CarsToOrder] as cto
 WHERE cto.CarId = @CarID AND cto.OrderWorkPlanId = @OrderWorkPlanId 
 		AND cto.AssignDate = @Date AND cto.IsDeleted = 0
 
-IF @exists IS NULL
+BEGIN TRY
+	BEGIN TRAN
+		IF @exists IS NULL
 
-INSERT [dbo].[CarsToOrder](CarId,OrderWorkPlanId,AssignDate,AssignQuater0,AssignQuater1,AssignQuater2,AssignQuater3,UpdateUserID)
-SELECT @CarID as CarID, 
-	   @OrderWorkPlanId as OrderWorkPlanId,
-	   @Date as AssignDate,
-	   @part0db as AssignQuater0,
-	   @part1db as AssignQuater1,
-	   @part2db as AssignQuater2,
-	   @part3db as AssignQuater3,
-	   @LoggedInUserId
-
-
-ELSE
-
-UPDATE [dbo].[CarsToOrder]
-SET AssignQuater0 = @part0db,
-	AssignQuater1 = @part1db,
-	AssignQuater2 = @part2db,
-	AssignQuater3 = @part3db,
-	UpdatedDate = GETDATE(),
-	UpdateUserID = @LoggedInUserId
-WHERE CarId = @CarID AND OrderWorkPlanId = @OrderWorkPlanId 
-		AND AssignDate = @Date AND IsDeleted = 0
+		INSERT [dbo].[CarsToOrder](CarId,OrderWorkPlanId,AssignDate,AssignQuater0,AssignQuater1,AssignQuater2,AssignQuater3,UpdateUserID)
+		SELECT @CarID as CarID, 
+			   @OrderWorkPlanId as OrderWorkPlanId,
+			   @Date as AssignDate,
+			   @part0db as AssignQuater0,
+			   @part1db as AssignQuater1,
+			   @part2db as AssignQuater2,
+			   @part3db as AssignQuater3,
+			   @LoggedInUserId
 
 
+		ELSE
+
+		UPDATE [dbo].[CarsToOrder]
+		SET AssignQuater0 = @part0db,
+			AssignQuater1 = @part1db,
+			AssignQuater2 = @part2db,
+			AssignQuater3 = @part3db,
+			UpdatedDate = GETDATE(),
+			UpdateUserID = @LoggedInUserId
+		WHERE CarId = @CarID AND OrderWorkPlanId = @OrderWorkPlanId 
+				AND AssignDate = @Date AND IsDeleted = 0
+		
+		IF EXISTS (SELECT 1 FROM [dbo].[MeasurementDevicesToOrderHeaders] WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId IS NULL AND AssigmentDate IS NULL AND IsDeleted = 0)
+			UPDATE [dbo].[MeasurementDevicesToOrderHeaders]
+			SET CarId = @CarID,
+				AssigmentDate = @Date
+			WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId IS NULL AND AssigmentDate IS NULL
+		
+		IF NOT EXISTS (SELECT 1 FROM [dbo].[MeasurementDevicesToOrderHeaders] WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId = @CarID AND AssigmentDate = @Date AND IsDeleted = 0)
+			INSERT INTO [dbo].[MeasurementDevicesToOrderHeaders]
+					   ([OrderWorkPlanId]
+					   ,[MeasurementDeviceId]
+					   ,[CreatedByUserId]
+					   ,[AssigmentDate]
+					   ,[CarId])
+
+			SELECT TOP 1 WITH TIES
+					@OrderWorkPlanId,
+					[MeasurementDeviceId],
+					@LoggedInUserId,
+					@Date,
+					@CarID
+			FROM [dbo].[MeasurementDevicesToOrderHeaders] 
+			WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId = @CarID AND IsDeleted = 0
+			ORDER BY RANK() OVER(PARTITION BY OrderWorkPlanId ORDER BY AssigmentDate)
+
+		IF EXISTS (SELECT 1 FROM [dbo].[CalibratorsToWorkPlan] WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId IS NULL AND AssigmentDate IS NULL AND IsDeleted = 0)
+			UPDATE [dbo].[CalibratorsToWorkPlan]
+			SET CarId = @CarID,
+				AssigmentDate = @Date
+			WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId IS NULL AND AssigmentDate IS NULL
+
+		IF NOT EXISTS (SELECT 1 FROM [dbo].[CalibratorsToWorkPlan] WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId = @CarID AND AssigmentDate = @Date AND IsDeleted = 0)
+			INSERT INTO [dbo].[CalibratorsToWorkPlan]
+					   ([OrderWorkPlanId]
+					   ,[CalibratorId]
+					   ,[UpdateUserID]
+					   ,[AssigmentDate]
+					   ,[CarId])
+
+			SELECT TOP 1 WITH TIES
+					@OrderWorkPlanId,
+					[CalibratorId],
+					@LoggedInUserId,
+					@Date,
+					@CarID
+			FROM [dbo].[CalibratorsToWorkPlan] 
+			WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId = @CarID AND IsDeleted = 0
+			ORDER BY RANK() OVER(PARTITION BY OrderWorkPlanId ORDER BY AssigmentDate)
+
+	COMMIT
+END TRY
+
+BEGIN CATCH
+	ROLLBACK
+END CATCH
+
+/*
 UPDATE [dbo].[OrderWorkPlans]
 SET AssigmentDate = @Date
 WHERE OrderNumber = @OrderNumber
-
+*/
 
 END

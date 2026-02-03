@@ -9,7 +9,7 @@ CREATE   PROCEDURE [dbo].[AssignEquipmentToOrder]
 @EquipmentIDs NVARCHAR(MAX)='',
 @CheckDate DATE = NULL,
 @LoggedInUserEmail NVARCHAR(100) = NULL,
-@CarId INT
+@CarId INT = NULL
 /*
 EXEC dbo.AssignEquipmentToOrder @OrderID = 'SO25000153', @EquipmentIDs = '578,579'
 */
@@ -23,7 +23,7 @@ SELECT
  @LoggedInUserId  = d.UserId 
 ,@SourceId = d.SourceId
 FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
-IF @CheckDate IS NULL SET @CheckDate = GETDATE()
+
 
 SET NOCOUNT ON;
 
@@ -68,7 +68,7 @@ SELECT
 	EquipmentId,
 	@CheckDate,
 	@LoggedInUserId,
-	@CarId
+	NULLIF(@CarId,0)
 FROM #AssociatedEquipmentIDs as aei
 
 END

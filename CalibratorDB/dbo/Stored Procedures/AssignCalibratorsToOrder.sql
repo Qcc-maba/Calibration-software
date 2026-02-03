@@ -7,10 +7,10 @@
 
 CREATE   PROCEDURE [dbo].[AssignCalibratorsToOrder]
 @OrderNumber NCHAR(12),
-@StartDate DATETIME2(0),
+@StartDate DATETIME2(0) = NULL,
 @CalibratorIDs NVARCHAR(300),
 @Note NVARCHAR(255),
-@CarId INT,
+@CarId INT = NULL,
 @LoggedInUserEmail NVARCHAR(100) = NULL
 
 --exec dbo.AssignCalibratorsToOrder @OrderNumber = N'LA25100557', @StartDate = '2025-03-17 16:23:00', @CalibratorIDs = '2,6,7,8', @Note = N'test record'
@@ -56,11 +56,6 @@ UPDATE [dbo].[OrderWorkPlans]
 SET Notes = IIF(@Note IS NULL,Notes,@Note)
 WHERE OrderWorkPlanId = @WorkPlanId
 
---UPDATE dbo.CalibratorsToWorkPlan
---SET UpdatedDate = GETDATE(),
---    UpdateUserID = @LoggedInUserId,
---    IsDeleted = 1
---WHERE OrderWorkPlanId = @WorkPlanId and IsDeleted = 0
 
 INSERT dbo.CalibratorsToWorkPlan(OrderWorkPlanId,CalibratorId,AssigmentDate,UpdateUserID,CarId)
 SELECT DISTINCT @WorkPlanId, c.CalibratorID, CAST(@StartDate as DATE),@LoggedInUserId,@CarId
@@ -69,8 +64,8 @@ WHERE NOT EXISTS
 (SELECT 1 FROM dbo.CalibratorsToWorkPlan as cwp 
 WHERE cwp.OrderWorkPlanId = @WorkPlanId 
 AND cwp.CalibratorID =c.CalibratorID 
-AND cwp.AssigmentDate = CAST(@StartDate as DATE)
-AND cwp.CarId = @CarId
+AND ( @StartDate IS NULL OR cwp.AssigmentDate = CAST(@StartDate as DATE))
+AND (@CarId IS NULL OR cwp.CarId = @CarId)
 )
 
 INSERT INTO [dbo].[CalibratorNotifications]

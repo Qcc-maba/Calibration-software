@@ -218,7 +218,7 @@ BEGIN
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 'SELECT wp.[OrderNumber] AS [OrderNumber],
-        wp.AssigmentDate AS [CalibDate],
+        NULL AS [CalibDate],
 		wp.[CustomerId] as [CustomerId], 
 		wp.[OrderWorkPlanId],
         spc.[SpecialCares],
@@ -244,7 +244,7 @@ CONCAT(
 		MAX(wp.CreatedDate) AS ReceivingDate,
 		MAX(wpstat.StatusDescriptionENG) AS WorkPlanStatus,
 		MAX(wp.CustomerComment) as CustomerComment,
-		wp.AssigmentDate AS [PlacementDate],
+		MAX(co.[PlacementDate]) AS [PlacementDate],
 		MIN(boxcnt.BoxesCount) as BoxesCount,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
     FROM [dbo].[OrderWorkPlans] as wp'
@@ -277,10 +277,19 @@ CONCAT(
 		  ) as maincat
 	 GROUP BY maincat.OrderWorkPlanId
 	) as mcat ON wp.OrderWorkPlanId = mcat.OrderWorkPlanId
-	LEFT JOIN 
-	(  SELECT co.OrderWorkPlanId,STRING_AGG(co.CarId,'','') as [Cars]
+	'
+	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL AND @Page <> N'external-orders' THEN '' ELSE 'LEFT' END
+	,'
+	JOIN 
+	(  SELECT co.OrderWorkPlanId,STRING_AGG(co.CarId,'','') as [Cars], STRING_AGG(co.AssignDate,'','') as PlacementDate
 		FROM [dbo].[CarsToOrder] as co 
 		WHERE co.IsDeleted = 0
+	'
+	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL AND @Page <> N'external-orders'
+		  THEN ' AND co.[AssignDate] >= '''+CAST(@DateFrom AS NVARCHAR(MAX))+''' AND co.[AssignDate] <= '''+CAST(@DateTo AS NVARCHAR(MAX))+''''
+	  ELSE ' ' END
+	,
+	'
 		GROUP BY co.OrderWorkPlanId
 	 ) as co ON wp.OrderWorkPlanId = co.OrderWorkPlanId
 	LEFT JOIN 
@@ -321,7 +330,7 @@ CONCAT(
 	,CASE WHEN @LoggedInUserEmail IS NOT NULL AND @SourceId IS NOT NULL THEN ' AND wp.SourceId = '+CAST(@SourceId AS NVARCHAR(50))  ELSE ' ' END
 	,CASE WHEN @ExcludeRejectedOrders = 1 THEN ' AND COALESCE(wp.ClientConfirmationStatusId,0) NOT IN ('+@ClientConfirmationStatus+') 'ELSE ' ' END
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
-	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND wp.AssigmentDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
+--	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND wp.AssigmentDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Location  IS NOT NULL THEN ' AND IIF(css.CustomerSiteId IS NOT NULL,CONCAT_WS('', '',css.CustomerSiteAddress,css.CustomerSiteState,css.CustomerSiteZIP), CONCAT_WS('', '',c.CustomerAddress, c.CustomerCity)) LIKE N''%'+@Location +'%'' 'ELSE ' ' END
 	,CASE WHEN @ProductType IS NOT NULL THEN ' AND od.PartName LIKE N''%'+ @ProductType +'%'' 'ELSE ' ' END
 	,CASE WHEN @ProducedIn IS NOT NULL THEN ' AND dm.OrdersDeviceManufacturerDescription LIKE N''%'+ @ProducedIn +'%'' 'ELSE ' ' END
@@ -332,10 +341,7 @@ CONCAT(
 	,CASE WHEN @WorkPlanOpenDate IS NOT NULL THEN ' AND wp.WorkPlanOpenDate = '''+CAST(@WorkPlanOpenDate as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Notes IS NOT NULL THEN ' AND wp.Notes LIKE N''%'+ @Notes +'%'''ELSE ' ' END
 	,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
-	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL AND @Page <> N'external-orders'
-		  THEN ' AND wp.[AssigmentDate] >= '''+CAST(@DateFrom AS NVARCHAR(MAX))+''' AND wp.[AssigmentDate] <= '''+CAST(@DateTo AS NVARCHAR(MAX))+''''
-	  ELSE ' ' END
-	,'GROUP BY wp.AssigmentDate,
+	,'GROUP BY 
 	wp.[CustomerId],
 	wp.[OrderNumber], 
 	wp.[OrderWorkPlanId],
