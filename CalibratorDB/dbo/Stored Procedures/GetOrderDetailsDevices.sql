@@ -63,8 +63,6 @@ od.[MainCategoryId],
 omc.[MainCategoryName] as [OrdersMainCategory],
 od.SecondaryCategoryId as [OrdersSecondaryCategoryId],
 oc.[SecondaryCategoryName] as [OrdersSecondaryCategory],
-odi.[OrdersDeviceManufacturerId],	
-odf.[OrdersDeviceManufacturerDescription] as [OrdersDeviceManufacturer],
 odi.[CalibrationSpecificationId],
 mc.Name as [CalibrationSpecification],
 odi.[SpecificationReferenceId],	
@@ -91,7 +89,6 @@ LEFT JOIN [dbo].[OrderDetailsItems] as odi ON od.OrderDetailId = odi.OrderDetail
 LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.[OrdersProductTypeId] = opt.[OrdersProductTypeId]
 LEFT JOIN [dbo].[MainCategories] as omc ON od.[MainCategoryId] = omc.ID
 LEFT JOIN [dbo].[SecondaryCategories] as oc ON od.[SecondaryCategoryId] = oc.ID
-LEFT JOIN [dbo].[OrdersDeviceManufacturers] as odf ON odi.[OrdersDeviceManufacturerId] = odf.OrdersDeviceManufacturerId
 LEFT JOIN [dbo].[MeasurementsSpecifications] mc ON odi.[CalibrationSpecificationId] = mc.ID
 LEFT JOIN [dbo].[SpecificationReference] as sr ON odi.[SpecificationReferenceId] = sr.ID
 LEFT JOIN [dbo].[MeasurementDeviceUnits] as mu ON odi.[MeasurementUnitId] = mu.MeasurementDeviceUnitId
@@ -132,8 +129,6 @@ r.[MainCategoryId] as [OrdersMainCategoryId],
 r.[OrdersMainCategory],
 r.[OrdersSecondaryCategoryId],	
 r.[OrdersSecondaryCategory],
-r.[OrdersDeviceManufacturerId],	
-r.[OrdersDeviceManufacturer],
 r.[CalibrationSpecificationId],	
 r.[CalibrationSpecification],
 r.[SpecificationReferenceId],	
@@ -163,7 +158,9 @@ odi.RequiredProbability,
 odi.ReportLanguage,
 CONCAT(u.FirstName,' ',u.LastName) as CalibratorFullName,
 COALESCE(odi.SiteAddress,cs.CustomerSiteAddress) as SiteAddress,
-odi.ProductLocation
+odi.ProductLocation,
+odi.[OrdersDeviceManufacturer],
+odi.[ControllerType]
 FROM  numbers as n
 LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt 
 LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[OrdersProductTypeId]

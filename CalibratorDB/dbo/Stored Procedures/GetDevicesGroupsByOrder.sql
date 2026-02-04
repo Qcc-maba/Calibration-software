@@ -4,7 +4,7 @@
 -- Create date: 06/03/2025
 -- Description:	Get devices by order number
 -- =============================================
-CREATE PROCEDURE [dbo].[GetDevicesGroupsByOrder]
+CREATE PROCEDURE [dbo].[GetDevicesGroupsByOrder] 
 	@OrderNumber NVARCHAR(20),
 	@MainCategories NVARCHAR(MAX) = NULL,
 	@SecondaryCategories NVARCHAR(MAX) = NULL,
@@ -96,12 +96,10 @@ LEFT JOIN [dbo].[SecondaryCategories] sc ON od.SecondaryCategoryId = sc.ID
 LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
 OUTER APPLY
 (
-SELECT TOP 1 ddd.OrdersDeviceManufacturerName , cals.[StatusDescriptionHEB], [StatusDescriptionENG] 
+SELECT TOP 1 itm.OrdersDeviceManufacturer as OrdersDeviceManufacturerName , cals.[StatusDescriptionHEB], [StatusDescriptionENG] 
 FROM 
 [dbo].[OrderDetailsItems] as itm
-LEFT JOIN [dbo].[OrdersDeviceManufacturers] as ddd ON itm.OrdersDeviceManufacturerId = ddd.OrdersDeviceManufacturerId
 LEFT JOIN [dbo].[Statuses] as cals ON cals.[StatusId] = itm.[CalibrationStatusId]
-WHERE ddd.OrdersDeviceManufacturerDescription IS NOT NULL AND itm.OrderDetailId = od.OrderDetailId
 ) as odm
 '
 ,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mcf ON mc.MainCategoryName COLLATE DATABASE_DEFAULT = mcf.MainCategory COLLATE DATABASE_DEFAULT',' ')

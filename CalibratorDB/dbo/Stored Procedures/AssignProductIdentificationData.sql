@@ -16,7 +16,7 @@ CREATE   PROCEDURE [dbo].[AssignProductIdentificationData]
 @AdditionalDeviceNumber NVARCHAR(100)= NULL,
 @OrdersMainCategoryId INT= NULL,
 @OrdersSecondaryCategoryId INT= NULL,
-@OrdersDeviceManufacturerId INT= NULL,
+@OrdersDeviceManufacturer NVARCHAR(100) = NULL,
 @OrdersProductTypeId INT= NULL,
 @CalibrationSpecificationId INT= NULL,
 @SpecificationReferenceId INT= NULL,
@@ -37,7 +37,8 @@ CREATE   PROCEDURE [dbo].[AssignProductIdentificationData]
 @RequiredProbability TINYINT = NULL,
 @ReportLanguage NVARCHAR(50) = NULL,
 @SiteAddress NVARCHAR(100) = NULL,
-@ProductLocation NVARCHAR(50) = NULL
+@ProductLocation NVARCHAR(50) = NULL,
+@ControllerType NVARCHAR(40) = NULL
 AS
 BEGIN 
 
@@ -55,7 +56,6 @@ BEGIN
 					   ,[ManufacturerNumber]
 					   ,[DeviceModel]
 					   ,[AdditionalDeviceNumber]
-					   ,[OrdersDeviceManufacturerId]
 					   ,[CalibrationSpecificationId]
 					   ,[SpecificationReferenceId]
 					   ,[MeasurementUnitId]
@@ -78,6 +78,8 @@ BEGIN
 					   ,[ReportLanguage]
 					   ,[SiteAddress]
 					   ,[ProductLocation]
+					   ,[OrdersDeviceManufacturer] 
+					   ,[ControllerType]
 					)
 				 SELECT
 					@OrderDetailId,	
@@ -87,8 +89,6 @@ BEGIN
 					@ManufacturerNumber,
 					@DeviceModel,	
 					@AdditionalDeviceNumber,
-					@OrdersDeviceManufacturerId,
-
 					@CalibrationSpecificationId,
 					@SpecificationReferenceId,
 					@MeasurementUnitId,
@@ -110,7 +110,9 @@ BEGIN
 					@RequiredProbability,
 					@ReportLanguage,
 					@SiteAddress,
-					@ProductLocation
+					@ProductLocation,
+					@OrdersDeviceManufacturer,
+					@ControllerType
 				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
 
 		END
@@ -133,7 +135,6 @@ BEGIN
 			,[ManufacturerNumber] = IIF(@ManufacturerNumber IS NULL,[ManufacturerNumber],@ManufacturerNumber)
 			,[DeviceModel] = IIF(@DeviceModel IS NULL,[DeviceModel],@DeviceModel)
 			,[AdditionalDeviceNumber] = IIF(@AdditionalDeviceNumber IS NULL,[AdditionalDeviceNumber],@AdditionalDeviceNumber)
-			,[OrdersDeviceManufacturerId] = IIF(@OrdersDeviceManufacturerId IS NULL,[OrdersDeviceManufacturerId],@OrdersDeviceManufacturerId)
 			,[CalibrationSpecificationId] = IIF(@CalibrationSpecificationId IS NULL,[CalibrationSpecificationId],@CalibrationSpecificationId)
 			,[SpecificationReferenceId] = IIF(@SpecificationReferenceId IS NULL,[SpecificationReferenceId],@SpecificationReferenceId)
 			,[MeasurementUnitId] = IIF(@MeasurementUnitId IS NULL,[MeasurementUnitId],@MeasurementUnitId)
@@ -155,6 +156,8 @@ BEGIN
 			,[ReportLanguage] = COALESCE(@ReportLanguage,[ReportLanguage])
 			,[SiteAddress] = COALESCE(@SiteAddress,[SiteAddress])
 			,[ProductLocation] = COALESCE(@ProductLocation,[ProductLocation])
+			,[OrdersDeviceManufacturer] = COALESCE(@OrdersDeviceManufacturer,[OrdersDeviceManufacturer])
+			,[ControllerType] = COALESCE(@ControllerType,[ControllerType])
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
 	SELECT COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) as OrderDetailsItemId

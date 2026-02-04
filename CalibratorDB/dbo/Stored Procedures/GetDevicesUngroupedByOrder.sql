@@ -8,7 +8,7 @@ CREATE   PROCEDURE [dbo].[GetDevicesUngroupedByOrder]
 	@OrderNumber NVARCHAR(20) = NULL,
 	@MainCategories NVARCHAR(MAX) = NULL,
 	@SecondaryCategories NVARCHAR(MAX) = NULL,
-	@DeviceManufacturer NVARCHAR(MAX) = NULL,
+	@DeviceManufacturer NVARCHAR(50) = NULL,
 	@DeviceModels NVARCHAR(MAX) = NULL,
 	@GlobalSearch NVARCHAR(MAX) = NULL,
 	@Page NVARCHAR(100) = 'coordinator-orders',
@@ -95,14 +95,6 @@ SecondaryCategory NVARCHAR(50)
 INSERT #SecondaryCategories(SecondaryCategory)
 SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@SecondaryCategories) as v
 
-DROP TABLE IF EXISTS #DeviceManufacturer
-CREATE TABLE #DeviceManufacturer
-(
-DeviceManufacturer NVARCHAR(255) 
-)
-INSERT #DeviceManufacturer(DeviceManufacturer)
-SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceManufacturer) as v
-
 DROP TABLE IF EXISTS #DeviceModels
 CREATE TABLE #DeviceModels
 (
@@ -135,7 +127,7 @@ CONCAT(
     ,itm.AdditionalDeviceNumber
 	,itm.DeviceModel
 	,itm.MbaReportNumber
-	,ddd.OrdersDeviceManufacturerDescription as DeviceManufacturer
+	,itm. OrdersDeviceManufacturer as DeviceManufacturer
 	,cals.[StatusDescriptionHEB] as CalibrationStatus
 	,ordst.[StatusDescriptionHEB] as OrderStatus
 	,ordst.[StatusDescriptionENG] as OrderStatusENG
@@ -163,7 +155,6 @@ LEFT JOIN [dbo].[Customers] as c ON op.[CustomerId] = c.[CustomerId]
 LEFT JOIN [dbo].[MainCategories] as mc ON od.MainCategoryId = mc.ID
 LEFT JOIN [dbo].[SecondaryCategories] sc ON od.SecondaryCategoryId = sc.ID
 LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
-LEFT JOIN [dbo].[OrdersDeviceManufacturers] as ddd ON itm.OrdersDeviceManufacturerId = ddd.OrdersDeviceManufacturerId
 LEFT JOIN [dbo].[Statuses] as cals ON cals.[StatusId] = itm.[CalibrationStatusId]
 LEFT JOIN [dbo].[Statuses] as ordst ON ordst.[StatusId] = op.[OrderOverallStatusId]
 LEFT JOIN [dbo].[Statuses] as stist ON ordst.[StatusId] = itm.[StickerTypeId]
@@ -198,13 +189,13 @@ GROUP BY d.OrderDetailsItemId
 ,IIF(@OrderWorkPlanIds IS NOT NULL,' JOIN STRING_SPLIT('''+@OrderWorkPlanIds+''','','') as wpf ON op.OrderWorkPlanId = wpf.value',' ')
 ,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mcf ON mc.MainCategoryName COLLATE DATABASE_DEFAULT = mcf.MainCategory COLLATE DATABASE_DEFAULT',' ')
 ,IIF(@SecondaryCategories IS NOT NULL,' JOIN #SecondaryCategories as scf ON sc.SecondaryCategoryName COLLATE DATABASE_DEFAULT   = scf.SecondaryCategory COLLATE DATABASE_DEFAULT ',' ')
-,IIF(@DeviceManufacturer IS NOT NULL,' JOIN #DeviceManufacturer as dmf ON ddd.[OrdersDeviceManufacturerDescription] COLLATE DATABASE_DEFAULT  = dmf.DeviceManufacturer COLLATE DATABASE_DEFAULT ',' ')
 ,IIF(@DeviceModels IS NOT NULL,' JOIN #DeviceModels as dm ON itm.DeviceModel COLLATE DATABASE_DEFAULT = dm.DeviceModel COLLATE DATABASE_DEFAULT ',' ')
 ,'
 WHERE op.OrderOverallStatusId IN(',@StatusesForOrders,') 
 '
 ,IIF(@ExcludeAwaitingCollectionOrders = 1,'AND NOT EXISTS (SELECT 1 FROM #AwaitingCollectionOrders as f WHERE f.OrderWorkPlanId = op.OrderWorkPlanId)','')
 ,IIF(@OrderNumber IS NOT NULL,'AND op.OrderNumber = TRIM('''+@OrderNumber+''')',' ')
+,IIF(@DeviceManufacturer IS NOT NULL,'AND itm.OrdersDeviceManufacturer LIKE ''%'+@DeviceManufacturer+'%''',' ')
 ,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
  ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(op.OrderNumber,opt.OrdersProductTypeName,mc.MainCategoryName,sc.SecondaryCategoryName,itm.SerialNumber,itm.AdditionalDeviceNumber,itm.DeviceModel,itm.MbaReportNumber,ddd.OrdersDeviceManufacturerDescription,cals.[StatusDescriptionHEB],c.CustomerName,cbl.Calibrators,scs.StatusDescriptionHEB) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
 ,  'ORDER BY ' , @OrderBy , CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
