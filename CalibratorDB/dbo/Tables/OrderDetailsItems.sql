@@ -48,6 +48,7 @@
     [SiteAddress]                NVARCHAR (100)  NULL,
     [OrdersDeviceManufacturer]   NVARCHAR (100)  NULL,
     [ControllerType]             NVARCHAR (40)   NULL,
+    [DiagramMapLink]             NVARCHAR (300)  NULL,
     CONSTRAINT [PK_OrderDetailsItems] PRIMARY KEY CLUSTERED ([OrderDetailId] ASC, [OrderDetailsItemId] ASC),
     CONSTRAINT [FK_OrderDetailsItems_CalibrationReportStatusId] FOREIGN KEY ([CalibrationReportStatusId]) REFERENCES [dbo].[Statuses] ([StatusId]),
     CONSTRAINT [FK_OrderDetailsItems_CalibrationSpecificationId] FOREIGN KEY ([CalibrationSpecificationId]) REFERENCES [dbo].[MeasurementsSpecifications] ([ID]),

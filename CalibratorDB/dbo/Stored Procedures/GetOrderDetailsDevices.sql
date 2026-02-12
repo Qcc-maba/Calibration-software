@@ -160,7 +160,8 @@ CONCAT(u.FirstName,' ',u.LastName) as CalibratorFullName,
 COALESCE(odi.SiteAddress,cs.CustomerSiteAddress) as SiteAddress,
 odi.ProductLocation,
 odi.[OrdersDeviceManufacturer],
-odi.[ControllerType]
+odi.[ControllerType],
+odi.[DiagramMapLink]
 FROM  numbers as n
 LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt 
 LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[OrdersProductTypeId]

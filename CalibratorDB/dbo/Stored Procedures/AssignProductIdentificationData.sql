@@ -38,7 +38,8 @@ CREATE   PROCEDURE [dbo].[AssignProductIdentificationData]
 @ReportLanguage NVARCHAR(50) = NULL,
 @SiteAddress NVARCHAR(100) = NULL,
 @ProductLocation NVARCHAR(50) = NULL,
-@ControllerType NVARCHAR(40) = NULL
+@ControllerType NVARCHAR(40) = NULL,
+@DiagramMapLink NVARCHAR(200) = NULL
 AS
 BEGIN 
 
@@ -80,6 +81,7 @@ BEGIN
 					   ,[ProductLocation]
 					   ,[OrdersDeviceManufacturer] 
 					   ,[ControllerType]
+					   ,[DiagramMapLink]
 					)
 				 SELECT
 					@OrderDetailId,	
@@ -112,7 +114,8 @@ BEGIN
 					@SiteAddress,
 					@ProductLocation,
 					@OrdersDeviceManufacturer,
-					@ControllerType
+					@ControllerType,
+					@DiagramMapLink
 				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
 
 		END
@@ -158,6 +161,7 @@ BEGIN
 			,[ProductLocation] = COALESCE(@ProductLocation,[ProductLocation])
 			,[OrdersDeviceManufacturer] = COALESCE(@OrdersDeviceManufacturer,[OrdersDeviceManufacturer])
 			,[ControllerType] = COALESCE(@ControllerType,[ControllerType])
+			,[DiagramMapLink] = IIF(@DiagramMapLink ='',NULL,COALESCE(@DiagramMapLink,[DiagramMapLink]))
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
 	SELECT COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) as OrderDetailsItemId

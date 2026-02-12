@@ -32,7 +32,7 @@ SELECT
  @LoggedInUserId  = d.UserId 
 ,@SourceId = d.SourceId
 FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
-
+/*
 IF @LoggedInUserEmail IS NOT NULL
 BEGIN
 
@@ -52,7 +52,7 @@ BEGIN
 	SELECT d.MainCategoryId FROM [dbo].[UsersToDepartments] as d
 	WHERE d.UserId = @LoggedInUserId
 	)
-END
+END*/
 
 
 IF @OrderBy NOT IN (N'EventTypeId',N'StartDate',N'EndDate')
@@ -66,9 +66,13 @@ CONCAT(
     FROM dbo.CalendarEvents AS ce
 	JOIN [dbo].[Statuses] as ss ON ce.EventTypeId = ss.StatusId
 	LEFT JOIN dbo.CalendarEventsToParticipants as p ON ce.CalendarEventId = p.CalendarEventId and p.IsDeleted = 0'
-     ,CASE WHEN @LoggedInUserId <> 0 THEN ' JOIN #CalendarEventFilteredByDepartment as f ON ce.CalendarEventId = f.CalendarEventId ' ELSE ' ' END,
-    'WHERE ce.IsDeleted = 0 AND
+   --  ,CASE WHEN @LoggedInUserId <> 0 THEN ' JOIN #CalendarEventFilteredByDepartment as f ON ce.CalendarEventId = f.CalendarEventId ' ELSE ' ' END,
+	,
+	'WHERE ce.IsDeleted = 0 AND
 	ce.StartDate >= ''',@StartDate,''' AND ce.StartDate <= ''',@EndDate,'''
+    '
+	,IIF(@LoggedInUserId IS NOT NULL,'AND ce.UpdateUserID = '+CAST(@LoggedInUserId as NVARCHAR(MAX)),'')
+	,'
 	GROUP BY ce.CalendarEventId,ce.EventTypeId, ss.StatusDescriptionENG , ss.StatusDescriptionHEB ,ce.StartDate, ce.EndDate, ce.Comments,ce.UpdateUserID
     ORDER BY ' + QUOTENAME(@OrderBy) + CASE WHEN @OrderByAsc = 1 THEN ' ASC' ELSE ' DESC' END + '
     OFFSET ',(@PageNumber -1) * @RowsPerPage,' ROWS FETCH NEXT ', @RowsPerPage ,'ROWS ONLY; ')

@@ -293,6 +293,8 @@
     <Build Include="dbo\Stored Procedures\AssignCalibrationProcessComments.sql" />
     <Build Include="dbo\Stored Procedures\GetEquipmentAssignedToOrder.sql" />
     <Build Include="dbo\Stored Procedures\GetCarAssignmentByDateRange.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllProducedIn.sql" />
+    <Build Include="dbo\Stored Procedures\GetAllMeasurementDevicesManufacturers.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

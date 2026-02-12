@@ -8,7 +8,7 @@
 -- =============================================
 CREATE   PROCEDURE [dbo].[GetWorkPlanData]
     @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
-    @RowsOfPage AS INT = 1000,                 -- Result page size
+    @RowsOfPage AS INT = 50,                 -- Result page size
     @OrderBy AS NVARCHAR(MAX) = 'OrderNumber',      -- OrderBy column
     @OrderByAsc AS BIT = 1,                  -- OrderBy direction (ASC/DESC)
     -- Filter parameters (all nullable)
