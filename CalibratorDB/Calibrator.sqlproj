@@ -189,7 +189,6 @@
     <Build Include="stg\Stored Procedures\MergeCustomersData.sql" />
     <Build Include="stg\Stored Procedures\MergeCustomersContactsData.sql" />
     <Build Include="stg\Tables\stg_Manufacturers.sql" />
-    <Build Include="stg\Stored Procedures\MergeOrdersDeviceManufacturers.sql" />
     <Build Include="stg\Tables\stg_CustomerRemarks.sql" />
     <Build Include="dbo\Tables\CustomerRemarks.sql" />
     <Build Include="stg\Stored Procedures\MergeCustomerRemarks.sql" />

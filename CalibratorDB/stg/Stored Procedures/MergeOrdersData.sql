@@ -251,7 +251,6 @@ USING (
 		,o.[InHouse] as [IsInHouse]
 		,o.[PartName]
 		,NULL AS [MbaReportNumber]
-		,mf.[OrdersDeviceManufacturerId]
 		,c.[CustomerId]
 		,o.[KLINE]
 		,o.[SERN]
@@ -273,11 +272,11 @@ USING (
 		,o.DOC_N
 	    ,IIF(o.[ActualReturnDate] > GETDATE()-100,o.[ActualReturnDate],NULL) as [ActualReturnDate]
 	    ,IIF(o.[ExpectedReturnDate] > GETDATE()-100,o.[ExpectedReturnDate],NULL) as [ExpectedReturnDate]
+		,o.OrdersDeviceManufacturer
 	FROM [stg].[stg_Orders] as o
 	JOIN [dbo].[Source] as s ON o.SourceSystem = s.SourceName
 	JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderSourceId = o.SourceOrderId
 	JOIN [dbo].[OrderDetails] as od ON wp.[OrderWorkPlanId] = od.[OrderWorkPlanId] AND od.OrderDetailSourceId = o.OrderDetailId
-	LEFT JOIN [dbo].[OrdersDeviceManufacturers] as mf ON mf.OrdersDeviceManufacturerName = o.DeviceManufacturerSourceId and mf.IsDeleted = 0
 	LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = s.SourceId and c.IsDeleted = 0
 	--LEFT JOIN #OrderStatus AS os ON o.CurrentCalibrationStatus = os.Code AND os.StatusType = N'ReportStatus'
 	--LEFT JOIN #OrderStatus AS os2 ON o.CurrentCalibrationStatus = os2.Code AND os2.StatusType = N'CalibrationStatuses'
@@ -289,7 +288,6 @@ USING (
 		OR COALESCE(dest.[ManufacturerNumber],'') = COALESCE(source.[ManufacturerNumber],'')
 		OR COALESCE(dest.[DeviceModel],'') = COALESCE(source.[DeviceModel],'')
 		OR COALESCE(dest.[MbaReportNumber],'') = COALESCE(source.[MbaReportNumber],'')
-		OR COALESCE(dest.[OrdersDeviceManufacturerId],0) = COALESCE(source.[OrdersDeviceManufacturerId],0)
 		OR COALESCE(dest.[UpdatedDate],'1900-01-01') = source.[UpdatedDate]
 		OR COALESCE(dest.[UpdateUserID],0) = source.[UpdateUserID]
 		OR COALESCE(dest.[Doc],0) = source.[Doc]
@@ -313,7 +311,6 @@ USING (
 			,dest.[ManufacturerNumber] = source.[ManufacturerNumber]
 			,dest.[DeviceModel] = source.[DeviceModel]
 			,dest.[MbaReportNumber] = source.[MbaReportNumber]
-			,dest.[OrdersDeviceManufacturerId] = source.[OrdersDeviceManufacturerId]
 			,dest.[UpdatedDate] = source.[UpdatedDate]
 			,dest.[UpdateUserID] = source.[UpdateUserID]
 			,dest.[ProductLocation] = source.[ProductLocation]
@@ -338,7 +335,6 @@ WHEN NOT MATCHED BY TARGET
 			,[ManufacturerNumber]
 			,[DeviceModel]
 			,[MbaReportNumber]
-			,[OrdersDeviceManufacturerId]
 			,[CreatedDate]
 			,[UpdatedDate]
 			,[CreatedByUserId]
@@ -357,6 +353,7 @@ WHEN NOT MATCHED BY TARGET
 			,[DOC_N]
 			,[ActualReturnDate]
 			,[ExpectedReturnDate]
+			,[OrdersDeviceManufacturer]
 			)
 		VALUES (
 			 source.[OrderDetailId]
@@ -364,7 +361,6 @@ WHEN NOT MATCHED BY TARGET
 			,source.[ManufacturerNumber]
 			,source.[DeviceModel]
 			,source.[MbaReportNumber]
-			,source.[OrdersDeviceManufacturerId]
 			,source.[CreatedDate]
 			,source.[UpdatedDate]
 			,source.[CreatedByUserId]
@@ -383,6 +379,7 @@ WHEN NOT MATCHED BY TARGET
 			,source.[DOC_N]
 			,source.[ActualReturnDate]
 			,source.[ExpectedReturnDate]
+			,source.[OrdersDeviceManufacturer]
 			);
 
 			

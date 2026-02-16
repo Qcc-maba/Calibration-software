@@ -7,7 +7,6 @@
     [DeviceModel]                NVARCHAR (100)  NULL,
     [AdditionalDeviceNumber]     NVARCHAR (100)  NULL,
     [MbaReportNumber]            NVARCHAR (100)  NULL,
-    [OrdersDeviceManufacturerId] INT             NULL,
     [SERN]                       INT             NULL,
     [CalibrationSpecificationId] INT             NULL,
     [SpecificationReferenceId]   INT             NULL,
