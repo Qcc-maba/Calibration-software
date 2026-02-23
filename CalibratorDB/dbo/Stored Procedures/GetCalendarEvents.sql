@@ -62,10 +62,14 @@ DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 ' SELECT ce.CalendarEventId, ce.EventTypeId, ss.StatusDescriptionENG AS TitleENG, ss.StatusDescriptionHEB as TitleHEB, ce.StartDate, ce.EndDate, ce.Comments,
     COALESCE(STRING_AGG(p.UserId,'', ''),'''') as ParticipantsIds, 
-	ce.UpdateUserID as CreatedByUserId
+	ce.UpdateUserID as CreatedByUserId,
+	MIN(u.FirstName) as CreatedByUserFirstname,	
+	MIN(u.LastName) as CreatedByUserLastname 
     FROM dbo.CalendarEvents AS ce
 	JOIN [dbo].[Statuses] as ss ON ce.EventTypeId = ss.StatusId
-	LEFT JOIN dbo.CalendarEventsToParticipants as p ON ce.CalendarEventId = p.CalendarEventId and p.IsDeleted = 0'
+	LEFT JOIN dbo.CalendarEventsToParticipants as p ON ce.CalendarEventId = p.CalendarEventId and p.IsDeleted = 0
+	LEFT JOIN dbo.Users as u ON ce.UpdateUserID = u.ID
+	'
    --  ,CASE WHEN @LoggedInUserId <> 0 THEN ' JOIN #CalendarEventFilteredByDepartment as f ON ce.CalendarEventId = f.CalendarEventId ' ELSE ' ' END,
 	,
 	'WHERE ce.IsDeleted = 0 AND
