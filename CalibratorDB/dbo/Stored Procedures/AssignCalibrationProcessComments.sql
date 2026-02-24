@@ -10,7 +10,8 @@ CREATE   PROCEDURE [dbo].[AssignCalibrationProcessComments]
 @CalibrationProcessCommentId INT = NULL,
 @CalibrationProcessComment NVARCHAR(MAX) = NULL,
 @IsInternal BIT = 1,
-@CalibrationProcessCommentIdToDelete NVARCHAR(MAX) = NULL
+@CalibrationProcessCommentIdToDelete NVARCHAR(MAX) = NULL,
+@CustomerSpecialInstructionsAttachment NVARCHAR(200) = NULL
 AS
 BEGIN
 
@@ -35,6 +36,7 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 			  ,[UpdateUserID]
 			  ,[IsDeleted]
 			  ,[IsInternal]
+			  ,[CustomerSpecialInstructionsAttachment]
 		   )
 		   SELECT
 			@OrderDetailsItemId,
@@ -43,7 +45,8 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 			GETDATE(),
 			@LoggedInUserId,
 			0,
-			@IsInternal
+			@IsInternal,
+			@CustomerSpecialInstructionsAttachment
 			WHERE @IsInternal = 0 OR
 			NOT EXISTS (SELECT 1 FROM [dbo].[CalibrationProcessComments] 
 				WHERE [OrderDetailsItemId] = @OrderDetailsItemId AND LEN(LTRIM(RTRIM(@CalibrationProcessComment))) > 1 AND IsInternal = 1)
@@ -54,6 +57,7 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 			  ,[TextHash] = BINARY_CHECKSUM(IIF(@CalibrationProcessComment IS NULL,[CalibrationProcessComment],@CalibrationProcessComment))
 			  ,[UpdatedDate] = GETDATE()
 			  ,[UpdateUserID] = @LoggedInUserId
+			  ,[CustomerSpecialInstructionsAttachment] = COALESCE(@CustomerSpecialInstructionsAttachment,[CustomerSpecialInstructionsAttachment])
 		WHERE OrderDetailsItemId = @OrderDetailsItemId  AND CalibrationProcessCommentId = @CalibrationProcessCommentId
 	
 	IF @CalibrationProcessCommentIdToDelete IS NOT NULL
