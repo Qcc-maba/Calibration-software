@@ -15,7 +15,6 @@ SET NOCOUNT ON;
 SELECT OrderDetailsItemId
       ,CalibrationProcessCommentId
       ,CAST(DECOMPRESS([CalibrationProcessComment]) as NVARCHAR(MAX)) as [CalibrationProcessComment]
-      ,[CustomerSpecialInstructionsAttachment] as [CustomerSpecialInstructionsAttachment]
   FROM [dbo].[CalibrationProcessComments]
   WHERE [IsDeleted] = 0 AND OrderDetailsItemId = @OrderDetailsItemId AND IsInternal = @IsInternal
 

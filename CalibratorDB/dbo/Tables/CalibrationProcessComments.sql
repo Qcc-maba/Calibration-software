@@ -1,14 +1,13 @@
 ﻿CREATE TABLE [dbo].[CalibrationProcessComments] (
-    [OrderDetailsItemId]                    INT             NOT NULL,
-    [CalibrationProcessCommentId]           INT             IDENTITY (1, 1) NOT NULL,
-    [CalibrationProcessComment]             VARBINARY (MAX) NULL,
-    [TextHash]                              INT             NULL,
-    [CreateDate]                            DATETIME2 (0)   DEFAULT (getdate()) NOT NULL,
-    [UpdatedDate]                           DATETIME2 (0)   NULL,
-    [UpdateUserID]                          INT             NULL,
-    [IsDeleted]                             BIT             DEFAULT ((0)) NOT NULL,
-    [IsInternal]                            BIT             NOT NULL,
-    [CustomerSpecialInstructionsAttachment] NVARCHAR (200)  NULL,
+    [OrderDetailsItemId]          INT             NOT NULL,
+    [CalibrationProcessCommentId] INT             IDENTITY (1, 1) NOT NULL,
+    [CalibrationProcessComment]   VARBINARY (MAX) NULL,
+    [TextHash]                    INT             NULL,
+    [CreateDate]                  DATETIME2 (0)   DEFAULT (getdate()) NOT NULL,
+    [UpdatedDate]                 DATETIME2 (0)   NULL,
+    [UpdateUserID]                INT             NULL,
+    [IsDeleted]                   BIT             DEFAULT ((0)) NOT NULL,
+    [IsInternal]                  BIT             NOT NULL,
     PRIMARY KEY CLUSTERED ([OrderDetailsItemId] ASC, [CalibrationProcessCommentId] ASC),
     CONSTRAINT [FK_CalibrationProcessComments_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );

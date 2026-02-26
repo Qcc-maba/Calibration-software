@@ -294,6 +294,8 @@
     <Build Include="dbo\Stored Procedures\GetCarAssignmentByDateRange.sql" />
     <Build Include="dbo\Stored Procedures\GetAllProducedIn.sql" />
     <Build Include="dbo\Stored Procedures\GetAllMeasurementDevicesManufacturers.sql" />
+    <Build Include="dbo\Stored Procedures\AssignCustomerRemarksSpecialInstructionsAttachment.sql" />
+    <Build Include="dbo\Stored Procedures\GetCustomerDashboardData.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

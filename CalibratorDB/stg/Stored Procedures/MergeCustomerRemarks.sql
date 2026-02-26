@@ -23,7 +23,7 @@ USING (
 	JOIN [dbo].[Source] as ss ON cr.SourceSystem = ss.SourceName
 	JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = cr.CUST AND c.[SourceId] = ss.[SourceId]
 	) AS source
-	ON 	dest.[CustomerIdFromSource] = source.[CustomerIdFromSource]
+	ON 	dest.[CustomerId] = source.[CustomerId]
 		AND dest.[SourceId] = source.[SourceId]
 WHEN MATCHED
 	AND dest.[TextHash] <> source.[TextHash]
