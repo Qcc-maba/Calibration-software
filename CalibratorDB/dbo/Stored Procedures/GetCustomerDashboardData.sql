@@ -8,7 +8,7 @@ CREATE   PROCEDURE dbo.GetCustomerDashboardData
 @RowsOfPage AS INT = 50,                 -- Result page size
 @OrderBy AS NVARCHAR(MAX) = 'CalibratioinDate',      -- OrderBy column
 @OrderByAsc AS BIT = 0,                  -- OrderBy direction (ASC/DESC)
-@LoggedInUserEmail NVARCHAR(50)='',
+@LoggedInUserEmail NVARCHAR(50),
 @GlobalSearch NVARCHAR(200) = NULL
 AS
 

@@ -1,10 +1,5 @@
 ﻿-- =============================================
--- Author:		Eduard Kudlaiev
--- Create date: 16/06/2025
--- Description:	
--- JiraLink: 
--- =============================================
-CREATE    PROCEDURE [dbo].[GetCalibrationProcessComments]
+CREATE     PROCEDURE [dbo].[GetCalibrationProcessComments]
 @OrderDetailsItemId INT,
 @IsInternal BIT = 1
 AS

@@ -296,6 +296,9 @@
     <Build Include="dbo\Stored Procedures\GetAllMeasurementDevicesManufacturers.sql" />
     <Build Include="dbo\Stored Procedures\AssignCustomerRemarksSpecialInstructionsAttachment.sql" />
     <Build Include="dbo\Stored Procedures\GetCustomerDashboardData.sql" />
+    <Build Include="dbo\Stored Procedures\GetCalibrationValuesForOrderDetailItem.sql" />
+    <Build Include="dbo\Stored Procedures\CreateOrderWorkPlans.sql" />
+    <Build Include="dbo\Stored Procedures\CreateOrderDetails.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
