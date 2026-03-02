@@ -36,7 +36,7 @@ SELECT c.[ID]
 	  ,c.[CalibrationDate]
 	  ,c.[NextCalibration]
 	  ,mdmc.[NameHebrew] as DeviceMainClass
-	  ,wp.OrderWorkPlanIds
+	  ,wp.OrderWorkPlanId
 FROM [dbo].[MeasurementDevices] as c
 LEFT JOIN [dbo].[MainCategories] as mmc ON c.[MainCategoryId] = mmc.ID
 LEFT JOIN [dbo].[Statuses] as s ON c.MeasurementDeviceStatusId = s.StatusId
@@ -46,11 +46,11 @@ LEFT JOIN [dbo].[OrderWorkPlans] as op ON op.OrderWorkPlanId = coh.OrderWorkPlan
 LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mdmc ON c.MainClassId = mdmc.Id
 LEFT JOIN
 (
-SELECT md.ID, STRING_AGG(oi.OrderWorkPlanId,',') WITHIN GROUP (ORDER BY md.ID) as OrderWorkPlanIds
+SELECT  TOP 1 WITH TIES md.ID, oi.OrderWorkPlanId
 FROM [dbo].[OrderDetailsItems] as itm
 JOIN [dbo].[OrderDetails] as oi ON itm.OrderDetailId = oi.OrderDetailId
 JOIN [dbo].[MeasurementDevices] as md ON md.SerialNumber = itm.SerialNumber
-GROUP BY md.ID
+ORDER BY ROW_NUMBER() OVER( PARTITION BY md.ID ORDER BY oi.OrderWorkPlanId DESC)
 ) as wp ON c.ID = wp.ID
 LEFT JOIN 
 (

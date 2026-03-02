@@ -299,6 +299,7 @@
     <Build Include="dbo\Stored Procedures\GetCalibrationValuesForOrderDetailItem.sql" />
     <Build Include="dbo\Stored Procedures\CreateOrderWorkPlans.sql" />
     <Build Include="dbo\Stored Procedures\CreateOrderDetails.sql" />
+    <Build Include="dbo\Stored Procedures\GetCustomerUpcommingCalibrationInfo.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

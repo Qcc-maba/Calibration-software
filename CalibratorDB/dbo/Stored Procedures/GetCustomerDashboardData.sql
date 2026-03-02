@@ -3,7 +3,7 @@
 -- Create date: 26/02/2026
 -- Description:	Get customer dashboad data
 -- =============================================
-CREATE   PROCEDURE dbo.GetCustomerDashboardData
+CREATE   PROCEDURE [dbo].[GetCustomerDashboardData] 
 @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
 @RowsOfPage AS INT = 50,                 -- Result page size
 @OrderBy AS NVARCHAR(MAX) = 'CalibratioinDate',      -- OrderBy column
@@ -12,13 +12,16 @@ CREATE   PROCEDURE dbo.GetCustomerDashboardData
 @GlobalSearch NVARCHAR(200) = NULL
 AS
 
-DECLARE @LoggedInUserId INT = 0
+DECLARE @CustomerId INT = 0
 DECLARE @SourceId TINYINT
 
+
+
 SELECT 
-	@LoggedInUserId  = d.UserId 
+	@CustomerId  = d.CustomerId 
 ,@SourceId = d.SourceId
-FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
+FROM [dbo].[CustomerContacts] as d
+WHERE CustomerContactEmail = @LoggedInUserEmail 
 
 DROP TABLE IF EXISTS #CustomerOrdersIds
 CREATE TABLE #CustomerOrdersIds
@@ -29,7 +32,7 @@ OrderWorkPlanId INT NOT NULL
 INSERT #CustomerOrdersIds(OrderWorkPlanId)
 SELECT wp.OrderWorkPlanId
 FROM [dbo].[OrderWorkPlans] as wp
-WHERE wp.[CustomerId] = 2159--@LoggedInUserId
+WHERE wp.[CustomerId] = @CustomerId
 
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
@@ -40,6 +43,7 @@ AS
 SELECT 
 COALESCE(clst.StatusDescriptionHEB,N'''+N'מחכה לכיול'+''') as DeviceStatus
 ,itm.ActualCalibrationDate as CalibratioinDate
+,itm.NextCalibrationDate
 ,od.OrderWorkPlanId
 ,IIF(od.IsInHouse = 1,N'''+N'מעבדה'+''',N'''+N'לקוח'+''') as CalibratioinLocation
 ,pt.OrdersProductTypeName as DeviceDescription
@@ -72,6 +76,7 @@ AS
 SELECT 
 d.DeviceStatus
 ,d.CalibratioinDate
+,d.NextCalibrationDate
 ,d.CalibratioinLocation
 ,d.DeviceDescription
 ,d.SerialNumber
@@ -91,6 +96,7 @@ FROM ds as d
 SELECT 
 ds.DeviceStatus
 ,ds.CalibratioinDate
+,ds.NextCalibrationDate
 ,ds.CalibratioinLocation
 ,ds.DeviceDescription
 ,ds.SerialNumber
