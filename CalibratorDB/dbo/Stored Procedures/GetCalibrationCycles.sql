@@ -9,7 +9,7 @@ CREATE   PROCEDURE [dbo].[GetCalibrationCycles]
 @ShowOnlyLatest BIT = 0 
 /*
 EXEC [dbo].[GetCalibrationCycles]
-@OrderDetailsItemId = 1300,
+@OrderDetailsItemId = 3077,
 @ShowOnlyLatest = 1
 */
 AS
@@ -30,6 +30,7 @@ SELECT
 	,mu.[LongNameHe] as UnitName
 	,cc.[TestedValue]
 	,sr.[SpecificationReferences]
+	,cc.[CalibrationCycleNameStatusId]
 	,ROW_NUMBER() OVER( PARTITION BY cc.[OrderDetailsItemId] ORDER BY [CalibrationCycleStartDate]) as CycleNumber
 	,ROW_NUMBER() OVER( PARTITION BY cc.[OrderDetailsItemId] ORDER BY [CalibrationCycleStartDate] DESC) as LatestCycle
 FROM [dbo].[CalibrationCycles] as cc
@@ -53,6 +54,7 @@ SELECT
 	,ds.[UnitName]
 	,ds.[TestedValue]
 	,ds.[SpecificationReferences]
+	,ds.[CalibrationCycleNameStatusId]
 FROM ds
 JOIN [dbo].[OrderDetailsItems] as oi ON ds.[OrderDetailsItemId] = oi.[OrderDetailsItemId] 
 WHERE (@ShowOnlyLatest = 0 OR ds.LatestCycle = 1)

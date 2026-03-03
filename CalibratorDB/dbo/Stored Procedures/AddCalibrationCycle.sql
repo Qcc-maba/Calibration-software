@@ -13,7 +13,8 @@ CREATE   PROCEDURE [dbo].[AddCalibrationCycle]
 @UnitId INT,
 @TestedValue DECIMAL(18,6),
 @SpecificationReferenceIds NVARCHAR(100),
-@CalibrationCycleStatusId INT = NULL
+@CalibrationCycleStatusId INT = NULL,
+@CalibrationCycleNameStatusId INT = NULL
 /*
 EXEC [dbo].[AddCalibrationCycle]
 @UserEmail='sinova_calibrator@gmail.com',
@@ -21,6 +22,7 @@ EXEC [dbo].[AddCalibrationCycle]
 @CalibrationCycleStartDate ='2025-11-29 11:23:18',
 @CalibrationCycleEndDate ='2025-11-29 11:33:18',
 @CalibrationCycleStatusId =21 -- can be retrieved EXEC [dbo].[GetStatusByCategory] 'CalibrationStatuses'
+@CalibrationCycleNameStatusId = 111 --can be retrieved EXEC [dbo].[GetStatusByCategory] 'CalibrationCycleName'
 */
 AS
 BEGIN
@@ -41,6 +43,7 @@ INSERT INTO [dbo].[CalibrationCycles]
            ,[UnitId]
            ,[TestedValue]
            ,[SpecificationReferenceIds]
+           ,[CalibrationCycleNameStatusId]
            )
      VALUES
            (@OrderDetailsItemId,
@@ -51,7 +54,8 @@ INSERT INTO [dbo].[CalibrationCycles]
             @CalibrationCycleName,
             @UnitId,
             @TestedValue,
-            @SpecificationReferenceIds
+            @SpecificationReferenceIds,
+            @CalibrationCycleNameStatusId
             )
 
 

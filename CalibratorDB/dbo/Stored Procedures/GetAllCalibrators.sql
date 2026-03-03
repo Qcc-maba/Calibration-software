@@ -78,15 +78,20 @@ ELSE
 		CREATE TABLE #Events
 		(
 		UserId INT PRIMARY KEY,
-		EventDescription NVARCHAR(300)
+		EventDescriptionHEB NVARCHAR(300) COLLATE Latin1_General_100_CI_AI_SC,
+		EventDescriptionENG NVARCHAR(300) COLLATE Latin1_General_100_CI_AI_SC,
+		EventStatusId int
 		)
-		INSERT #Events (UserId,EventDescription)
+		INSERT #Events (UserId,EventDescriptionHEB,EventDescriptionENG,EventStatusId)
 		SELECT 
-		ctp.UserId , STRING_AGG(s.StatusDescriptionHEB,',') as EventDescription
+		ctp.UserId , 
+		STRING_AGG(s.StatusDescriptionHEB,',') as EventDescriptionHEB, 
+		STRING_AGG(s.StatusDescriptionENG,',') as EventDescriptionENG,
+		MAX(ce.EventTypeId) as EventStatusId
 		FROM [dbo].[CalendarEvents] as ce
 		JOIN [dbo].[CalendarEventsToParticipants] as ctp ON ce.CalendarEventId = ctp.CalendarEventId
 		JOIN [dbo].[Statuses] as s ON ce.EventTypeId = s.StatusId
-		WHERE CAST([ce].[StartDate] AS DATE) <= @CheckDate AND CAST([ce].[EndDate] AS DATE) >= @CheckDate
+		WHERE CAST([ce].[StartDate] AS DATE) >= @CheckDate AND CAST([ce].[EndDate] AS DATE) <= @CheckDate
 		AND ce.IsDeleted = 0 AND ctp.IsDeleted = 0
 		GROUP BY ctp.UserId
 
@@ -104,10 +109,10 @@ ELSE
 			u.[ID],
 			u.[FirstName],
 			u.[LastName],
-			MAX(st.AvailabilityStatusId) as AvailabilityStatusId,
-			MAX(st.StatusDescriptionENG)	as [StatusENG],
-			MAX(st.StatusDescriptionHEB) as [StatusHEB],
-			MAX(ee.EventDescription) as [EventDescription],
+			MAX(COALESCE(ee.EventStatusId,st.AvailabilityStatusId)) as AvailabilityStatusId,
+			MAX(COALESCE(ee.EventDescriptionENG,st.StatusDescriptionENG))	as [StatusENG],
+			MAX(COALESCE(ee.EventDescriptionHEB,st.StatusDescriptionHEB)) as [StatusHEB],
+			MAX(ee.EventDescriptionHEB) as [EventDescription],
 			wp.[OrderNumber] as [AssignedToOrderNumber],
 			MAX(can.[CalibratorAuthorityName]) as CalibratorAuthorityName,
 			u.LocationArea,
