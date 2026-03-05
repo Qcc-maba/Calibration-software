@@ -39,6 +39,7 @@
     [StabilitySize]             DECIMAL (16, 8) NULL,
     [FlowRate]                  NVARCHAR (20)   NULL,
     [Interval]                  INT             NULL,
+    [CalibrationIntervalMonths] TINYINT         NULL,
     CONSTRAINT [PK_MeasurementDevices] PRIMARY KEY CLUSTERED ([ID] ASC) WITH (FILLFACTOR = 90),
     CONSTRAINT [FK_MeasurementDevices_CalibratorId] FOREIGN KEY ([CalibratorId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_MeasurementDevices_MainCategoryId] FOREIGN KEY ([MainCategoryId]) REFERENCES [dbo].[MainCategories] ([ID]),
