@@ -23,6 +23,8 @@ BEGIN
 
 SET NOCOUNT ON;
 
+--IF @OrderNumber IS NULL OR @OrderWorkPlanIds IS NULL 
+--	THROW 51000, 'Parameters @OrderNumber or @OrderWorkPlanIds should be specified.',1
 /*
 Filter logic by page
 /coordinator-orders - @page = ‘coordinator-orders’ 
@@ -32,6 +34,7 @@ Filter logic by page
 /external-orders - @page = 'external-orders'
 */
 /*-------------------------------------------------*/
+
 DECLARE @ExtIntFilter BIT = NULL
 
 IF @Page IN (N'external-schedule',N'external-orders',N'coordinator-orders') SET @ExtIntFilter = 0 -- IsInHouse = 0 for external orders
@@ -146,7 +149,7 @@ CONCAT(
 	,op.ShipTypeDesc as ShippingMethod
 	,itm.[StickerAmount]
 	,stist.[StatusDescriptionHEB] as [StickerType]
-	,COUNT(1) OVER(PARTITION BY 1 ORDER BY op.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
+	,COUNT(1) OVER() as ItemsCount
 FROM [dbo].[OrderDetails] as od
 JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
 LEFT JOIN [dbo].[Statuses] as scs ON od.SpecialCareTypeId = scs.StatusId
@@ -157,15 +160,16 @@ LEFT JOIN [dbo].[SecondaryCategories] sc ON od.SecondaryCategoryId = sc.ID
 LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
 LEFT JOIN [dbo].[Statuses] as cals ON cals.[StatusId] = itm.[CalibrationStatusId]
 LEFT JOIN [dbo].[Statuses] as ordst ON ordst.[StatusId] = op.[OrderOverallStatusId]
-LEFT JOIN [dbo].[Statuses] as stist ON ordst.[StatusId] = itm.[StickerTypeId]
-LEFT JOIN 
+LEFT JOIN [dbo].[Statuses] as stist ON stist.[StatusId] = itm.[StickerTypeId]
+OUTER APPLY
 (
 SELECT [OrderWorkPlanId]
       ,STRING_AGG(CONCAT(u.FirstName,'' '',u.LastName),'','') as Calibrators
   FROM [dbo].[CalibratorsToWorkPlan] as c
   JOIN [dbo].[Users] as u ON c.[CalibratorId] = u.[ID]
+  WHERE op.OrderWorkPlanId = c.[OrderWorkPlanId] 
   GROUP BY [OrderWorkPlanId]
-) as cbl ON op.OrderWorkPlanId = cbl.[OrderWorkPlanId] 
+) as cbl 
 OUTER APPLY
 (
 SELECT
