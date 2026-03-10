@@ -1,7 +1,4 @@
-﻿
-
-
--- =============================================
+﻿-- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 03/04/2025
 -- Description:	Get work plan data
@@ -215,6 +212,116 @@ BEGIN
 		WHERE sc.StatusDescriptionENG='ClientConfirmationStatus' AND s.StatusDescriptionENG = 'Rejected'
 	END
 
+	-------------------------------------------------------------------------
+	-- Pre-calculate metrics that use STRING_AGG into temp tables
+	-------------------------------------------------------------------------
+
+	-- 1. Main Category Names
+	DROP TABLE IF EXISTS #MainCatNames;
+	CREATE TABLE #MainCatNames (
+		OrderWorkPlanId INT,
+		MainCategoryName NVARCHAR(400) COLLATE Latin1_General_100_CI_AI_SC
+	);
+	INSERT INTO #MainCatNames (OrderWorkPlanId, MainCategoryName)
+	SELECT maincat.OrderWorkPlanId, STRING_AGG(maincat.MainCategoryName,',') as MainCategoryName
+	FROM (
+		SELECT DISTINCT wp.OrderWorkPlanId, mcf.MainCategoryName 
+		FROM [dbo].[OrderWorkPlans] as wp  
+		JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
+		JOIN [dbo].[MainCategories] as mcf ON od.MainCategoryId = mcf.ID
+	) as maincat
+	GROUP BY maincat.OrderWorkPlanId;
+
+	CREATE UNIQUE CLUSTERED INDEX UC_IDX_MainCatNames ON #MainCatNames(OrderWorkPlanId)
+
+	-- 2. Cars and Placement Dates
+	DROP TABLE IF EXISTS #CarsAndPlacement;
+	CREATE TABLE #CarsAndPlacement (
+		OrderWorkPlanId INT,
+		Cars NVARCHAR(400) COLLATE Latin1_General_100_CI_AI_SC,
+		PlacementDate NVARCHAR(800) COLLATE Latin1_General_100_CI_AI_SC
+	);
+	IF @DateFrom IS NOT NULL AND @DateTo IS NOT NULL AND @Page <> N'external-orders'
+	BEGIN
+		INSERT INTO #CarsAndPlacement (OrderWorkPlanId, Cars, PlacementDate)
+		SELECT co.OrderWorkPlanId, STRING_AGG(CAST(co.CarId as NVARCHAR(MAX)),','), STRING_AGG(CAST(co.AssignDate as NVARCHAR(MAX)),',')
+		FROM [dbo].[CarsToOrder] as co 
+		WHERE co.IsDeleted = 0 AND co.[AssignDate] >= @DateFrom AND co.[AssignDate] <= @DateTo
+		GROUP BY co.OrderWorkPlanId;
+	END
+	ELSE
+	BEGIN
+		INSERT INTO #CarsAndPlacement (OrderWorkPlanId, Cars, PlacementDate)
+		SELECT co.OrderWorkPlanId, STRING_AGG(CAST(co.CarId as NVARCHAR(MAX)),','), STRING_AGG(CAST(co.AssignDate as NVARCHAR(MAX)),',')
+		FROM [dbo].[CarsToOrder] as co 
+		WHERE co.IsDeleted = 0
+		GROUP BY co.OrderWorkPlanId;
+	END
+	CREATE UNIQUE CLUSTERED INDEX UC_IDX_CarsAndPlacement ON #CarsAndPlacement(OrderWorkPlanId)
+
+	-- 3. Calibrators
+	DROP TABLE IF EXISTS #WorkPlanCalibrators;
+	CREATE TABLE #WorkPlanCalibrators (
+		OrderWorkPlanId INT,
+		Calibrators NVARCHAR(800) COLLATE Latin1_General_100_CI_AI_SC
+	);
+	INSERT INTO #WorkPlanCalibrators (OrderWorkPlanId, Calibrators)
+	SELECT cwp.OrderWorkPlanId, STRING_AGG(CONCAT(u.FirstName,' ',u.LastName),',') as Calibrators
+	FROM [dbo].[CalibratorsToWorkPlan] as cwp
+	JOIN [dbo].[Users] as u ON cwp.CalibratorId = u.ID
+	WHERE cwp.IsDeleted = 0
+	GROUP BY cwp.OrderWorkPlanId;
+	
+	CREATE UNIQUE CLUSTERED INDEX UC_IDX_WorkPlanCalibrators ON #WorkPlanCalibrators(OrderWorkPlanId)
+
+
+	-- 4. Statuses (SpecialCareTypeId Statuses)
+	DROP TABLE IF EXISTS #WorkPlanStatuses;
+	CREATE TABLE #WorkPlanStatuses (
+		OrderWorkPlanId INT,
+		StatusDescriptionENG NVARCHAR(800) COLLATE Latin1_General_100_CI_AI_SC,
+		StatusDescriptionHEB NVARCHAR(800) COLLATE Latin1_General_100_CI_AI_SC
+	);
+	INSERT INTO #WorkPlanStatuses (OrderWorkPlanId, StatusDescriptionENG, StatusDescriptionHEB)
+	SELECT OrderWorkPlanId, STRING_AGG(StatusDescriptionENG,',') AS StatusDescriptionENG, STRING_AGG(StatusDescriptionHEB,',') AS StatusDescriptionHEB
+	FROM (
+		SELECT DISTINCT od.OrderWorkPlanId, s.StatusDescriptionENG, s.StatusDescriptionHEB
+		FROM [dbo].[OrderDetails] as od
+		JOIN [dbo].[Statuses] as s ON od.SpecialCareTypeId = s.StatusId
+	) ds 
+	GROUP BY OrderWorkPlanId;
+
+	CREATE UNIQUE CLUSTERED INDEX UC_IDX_WorkPlanStatuses ON #WorkPlanStatuses(OrderWorkPlanId)
+
+	-- 5. Equipment
+	DROP TABLE IF EXISTS #WorkPlanEquipment;
+	CREATE TABLE #WorkPlanEquipment (
+		OrderWorkPlanId INT,
+		EquipmentIds NVARCHAR(800) COLLATE Latin1_General_100_CI_AI_SC,
+		EquipmentNames NVARCHAR(800) COLLATE Latin1_General_100_CI_AI_SC
+	);
+	INSERT INTO #WorkPlanEquipment (OrderWorkPlanId, EquipmentIds, EquipmentNames)
+	SELECT coh.OrderWorkPlanId, STRING_AGG(CAST(coh.MeasurementDeviceId AS NVARCHAR(MAX)),', ') as EquipmentIds, STRING_AGG(ce.Description,', ') as EquipmentNames
+	FROM [dbo].[MeasurementDevicesToOrderHeaders] as coh
+	JOIN [dbo].[MeasurementDevices] as ce ON coh.MeasurementDeviceId = ce.ID AND ce.IsDeleted = 0
+	WHERE coh.IsDeleted = 0 
+	GROUP BY coh.OrderWorkPlanId;
+
+	CREATE UNIQUE CLUSTERED INDEX UC_IDX_WorkPlanEquipment ON #WorkPlanEquipment(OrderWorkPlanId)
+
+	-- 6. Special Cares
+	DROP TABLE IF EXISTS #WorkPlanSpecialCares;
+	CREATE TABLE #WorkPlanSpecialCares (
+		OrderWorkPlanId INT,
+		SpecialCares NVARCHAR(800) COLLATE Latin1_General_100_CI_AI_SC
+	);
+	INSERT INTO #WorkPlanSpecialCares (OrderWorkPlanId, SpecialCares)
+	SELECT OrderWorkPlanId, STRING_AGG(CAST(SpecialCareTypeId AS NVARCHAR(MAX)),',') as SpecialCares
+	FROM [dbo].[OrderDetails]
+	GROUP BY OrderWorkPlanId;
+
+	CREATE UNIQUE CLUSTERED INDEX UC_IDX_WorkPlanSpecialCares ON #WorkPlanSpecialCares(OrderWorkPlanId)
+
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 'SELECT wp.[OrderNumber] AS [OrderNumber],
@@ -266,55 +373,15 @@ CONCAT(
 	',IIF(@SpecialCareTypeIds IS NOT NULL,' JOIN #SpecialCareTypes as sct ON od.SpecialCareTypeId = sct.SpecialCareTypeId ',' ')
 	 ,IIF(@MainCategory IS NOT NULL,' JOIN #MainCategory as mainc ON od.MainCategoryId = mainc.ID ',' ')
 	 ,IIF(@SecondCategory IS NOT NULL,' JOIN #SecondCategory as secc ON od.SecondaryCategoryId = secc.ID ',' ')
-	,'LEFT JOIN 
-	  (SELECT maincat.OrderWorkPlanId, STRING_AGG(maincat.MainCategoryName,'','') as MainCategoryName
-	  FROM (
-		  SELECT DISTINCT wp.OrderWorkPlanId, CAST(mcf.MainCategoryName AS NVARCHAR(MAX)) as MainCategoryName
-		  FROM [dbo].[OrderWorkPlans] as wp  
-		  JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
-		  JOIN [dbo].[MainCategories] as mcf ON od.MainCategoryId	= mcf.ID
-		  ) as maincat
-	 GROUP BY maincat.OrderWorkPlanId
-	) as mcat ON wp.OrderWorkPlanId = mcat.OrderWorkPlanId
+	,'LEFT JOIN #MainCatNames as mcat ON wp.OrderWorkPlanId = mcat.OrderWorkPlanId
 	'
 	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL AND @Page <> N'external-orders' THEN '' ELSE 'LEFT' END
 	,'
-	JOIN 
-	(  SELECT co.OrderWorkPlanId,STRING_AGG(co.CarId,'','') as [Cars], STRING_AGG(co.AssignDate,'','') as PlacementDate
-		FROM [dbo].[CarsToOrder] as co 
-		WHERE co.IsDeleted = 0
-	'
-	,CASE WHEN @DateFrom IS NOT NULL AND @DateTo IS NOT NULL AND @Page <> N'external-orders'
-		  THEN ' AND co.[AssignDate] >= '''+CAST(@DateFrom AS NVARCHAR(MAX))+''' AND co.[AssignDate] <= '''+CAST(@DateTo AS NVARCHAR(MAX))+''''
-	  ELSE ' ' END
-	,
-	'
-		GROUP BY co.OrderWorkPlanId
-	 ) as co ON wp.OrderWorkPlanId = co.OrderWorkPlanId
-	LEFT JOIN 
-	(	SELECT cwp.OrderWorkPlanId,STRING_AGG(CONCAT(u.FirstName,'' '',u.LastName),'','') as Calibrators
-		FROM [dbo].[CalibratorsToWorkPlan] as cwp
-		JOIN [dbo].[Users] as u ON cwp.CalibratorId = u.ID
-		WHERE cwp.IsDeleted = 0	GROUP BY cwp.OrderWorkPlanId
-	 ) as cwp ON wp.OrderWorkPlanId = cwp.OrderWorkPlanId
-	LEFT JOIN 
-	( SELECT OrderWorkPlanId,STRING_AGG(StatusDescriptionENG,'','') AS StatusDescriptionENG,
-	 STRING_AGG(StatusDescriptionHEB,'','') AS StatusDescriptionHEB
-	 FROM (SELECT DISTINCT od.OrderWorkPlanId, s.StatusDescriptionENG, s.StatusDescriptionHEB
-	 FROM [dbo].[OrderDetails] as od
-	 JOIN [dbo].[Statuses] as s ON od.SpecialCareTypeId = s.StatusId
-	 ) ds GROUP BY OrderWorkPlanId
-	) as sp ON wp.OrderWorkPlanId = sp.OrderWorkPlanId
-	LEFT JOIN 
-	( SELECT coh.OrderWorkPlanId, STRING_AGG(coh.MeasurementDeviceId,'', '') as EquipmentIds, STRING_AGG(ce.Description,'', '') as EquipmentNames
-	  FROM [dbo].[MeasurementDevicesToOrderHeaders] as coh
-	  JOIN [dbo].[MeasurementDevices] as ce ON coh.MeasurementDeviceId = ce.ID AND ce.IsDeleted = 0
-	  WHERE coh.IsDeleted = 0 GROUP BY coh.OrderWorkPlanId
-	)as coh ON wp.OrderWorkPlanId = coh.OrderWorkPlanId
-	LEFT JOIN (SELECT OrderWorkPlanId,STRING_AGG(SpecialCareTypeId,'','') as SpecialCares
-	 FROM [dbo].[OrderDetails]
-	 GROUP BY OrderWorkPlanId 
-	) as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId
+	JOIN #CarsAndPlacement as co ON wp.OrderWorkPlanId = co.OrderWorkPlanId
+	LEFT JOIN #WorkPlanCalibrators as cwp ON wp.OrderWorkPlanId = cwp.OrderWorkPlanId
+	LEFT JOIN #WorkPlanStatuses as sp ON wp.OrderWorkPlanId = sp.OrderWorkPlanId
+	LEFT JOIN #WorkPlanEquipment as coh ON wp.OrderWorkPlanId = coh.OrderWorkPlanId
+	LEFT JOIN #WorkPlanSpecialCares as spc ON wp.OrderWorkPlanId = spc.OrderWorkPlanId	
 	OUTER APPLY
 	(
 	SELECT COUNT(DISTINCT pb.PackingBoxId) as BoxesCount

@@ -36,7 +36,6 @@ SELECT c.[ID]
 	  ,c.[CalibrationDate]
 	  ,c.[NextCalibration]
 	  ,mdmc.[NameHebrew] as DeviceMainClass
-	  ,wp.OrderWorkPlanId
 FROM [dbo].[MeasurementDevices] as c
 LEFT JOIN [dbo].[MainCategories] as mmc ON c.[MainCategoryId] = mmc.ID
 LEFT JOIN [dbo].[Statuses] as s ON c.MeasurementDeviceStatusId = s.StatusId
@@ -44,14 +43,6 @@ LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mc ON c.MainClassId = mc.Id
 LEFT JOIN [dbo].[MeasurementDevicesToOrderHeaders] as coh ON c.ID = coh.MeasurementDeviceId AND coh.IsDeleted = 0 AND coh.AssigmentDate = @CheckDate
 LEFT JOIN [dbo].[OrderWorkPlans] as op ON op.OrderWorkPlanId = coh.OrderWorkPlanId AND op.IsCancelled = 0  
 LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mdmc ON c.MainClassId = mdmc.Id
-LEFT JOIN
-(
-SELECT  TOP 1 WITH TIES md.ID, oi.OrderWorkPlanId
-FROM [dbo].[OrderDetailsItems] as itm
-JOIN [dbo].[OrderDetails] as oi ON itm.OrderDetailId = oi.OrderDetailId
-JOIN [dbo].[MeasurementDevices] as md ON md.SerialNumber = itm.SerialNumber
-ORDER BY ROW_NUMBER() OVER( PARTITION BY md.ID ORDER BY oi.OrderWorkPlanId DESC)
-) as wp ON c.ID = wp.ID
 LEFT JOIN 
 (
 SELECT sr.SensorMeasurementDeviceId, STRING_AGG(sr.ChannelNumber,',') as AassignedChannels
