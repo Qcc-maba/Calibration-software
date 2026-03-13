@@ -25,8 +25,28 @@ INSERT INTO [dbo].[Users]
            ,1
 		   ,1)
 SET IDENTITY_INSERT [dbo].[Users] OFF 
+-- Do not execute on prod
 MERGE INTO [dbo].[Users] AS dest
 USING (
+  SELECT 
+[FirstName], [LastName], NULL AS [FirstNameEng], NULL AS  [LastNameEng], [Email], '1234' as [Password], NULL AS [Phone], 1 as  [IsActive],GETDATE() AS [CreatedDate], NULL AS [UpdatedDate],NULL AS [UpdateUserID], NULL AS [UserAddress], NULL AS [LocationArea], NULL as [Stamp], ur.UserRoleId
+FROM (
+VALUES
+(N'רות',N'עווד',N'ruth_aw@mba.co.il'),
+(N'ורד',N'לב',N'vered_le@mba.co.il'),
+(N'ורד',N'גנון',N'vered_ga@mba.co.il'),
+(N'קוסטיה',N'קליוקין',N'kosta_kl@mba.co.il'),
+(N'ישראייר',N'בע"מ',N'irynag@israir.co.il'),
+(N'קרן',N'שרעבי',N'keren_sh@mba.co.il'),
+(N'עופרה',N'שלמה',N'ofra_sh@mba.co.il'),
+(N'דורלי',N'לוי-חלי',N'dorli_le@mba.co.il'),
+(N'שרונה',N'קורן',N'sharona_ko@mba.co.il'),
+(N'דברת',N'לוי',N'dovrat_le@mba.co.il'),
+(N'אופיר',N'בסביץ',N'ofir_ba@mba.co.il'),
+(N'יונת',N'יוסף',N'yonat_be@mba.co.il')
+) ds ([FirstName],[LastName],[Email])
+JOIN dbo.UserRoles as ur ON 'CustomerSupport' = ur.UserRoleName
+UNION ALL
 	SELECT 
 	     ds.[FirstName]
 		,ds.[LastName]

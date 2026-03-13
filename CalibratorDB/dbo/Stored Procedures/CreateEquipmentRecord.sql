@@ -69,6 +69,7 @@ SELECT 1 FROM Cars WHERE CarId = @CarId
 )
 THROW 51000, 'Incorrect car was assigned.', 1;
 
+IF NOT EXISTS (SELECT 1 FROM [dbo].[MeasurementDevices] WHERE [MabaID] = @MabaID)
 BEGIN TRY
 
 	BEGIN TRAN

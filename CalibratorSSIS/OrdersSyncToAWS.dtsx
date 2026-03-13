@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="164"
-  DTS:VersionGUID="{0B17ED41-8AEA-4677-A4DE-1E83BFB55500}">
+  DTS:VersionBuild="165"
+  DTS:VersionGUID="{419A4275-AE7E-43C0-A6AA-B0E7246AE3E3}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -36,7 +36,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge ClientAccessoryOrderDetails"
-          DTS:ThreadHint="0">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -52,7 +52,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Maba Comments"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="0">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -96,7 +96,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Customers Contacts Data"
-          DTS:ThreadHint="1">
+          DTS:ThreadHint="2">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -128,7 +128,7 @@
           DTS:ExecutableType="Microsoft.ExecuteSQLTask"
           DTS:LocaleID="-1"
           DTS:ObjectName="Merge Order Product Type"
-          DTS:ThreadHint="2">
+          DTS:ThreadHint="1">
           <DTS:Variables />
           <DTS:ObjectData>
             <SQLTask:SqlTaskData
@@ -1402,10 +1402,12 @@ GROUP BY CUST</property>
 	TRY_CAST(c.MBA_SIGNAMOUNT AS TINYINT) as SignatureAmount,
     SUBSTRING(system.dbo.tabula_hebconvert(IIF(LEN(sp.[SPEC7]) &gt;=2,sp.[SPEC7],N'יש לשלוח את הדו״ח ללקוח')),1,50) as ReportRequired,   
 	SUBSTRING(c.CUSTNAME,1,50) as CustomerCode,
-	'MABA' as SourceSystem
+	'MABA' as SourceSystem,
+	IIF(a.[EMAIL] ='',NULL,a.[EMAIL]) as AgentUserEmail
 FROM amaba.dbo.CUSTOMERS as c
 LEFT JOIN amaba.dbo.CUSTSPEC as sp ON c.CUST = sp.CUST
 LEFT JOIN amaba.[dbo].[SHIPTYPES] as st ON c.SHIPTYPE = st.SHIPTYPE
+LEFT JOIN amaba.[dbo].[AGENTS] as a ON c.AGENT = a.AGENT 
 WHERE c.CUST &gt; 0
 UNION ALL
 SELECT 
@@ -1418,10 +1420,12 @@ SELECT
 	TRY_CAST(c.MBA_SIGNAMOUNT AS TINYINT) as SignatureAmount,
     SUBSTRING(system.dbo.tabula_hebconvert(IIF(LEN(sp.[SPEC7]) &gt;=2,sp.[SPEC7],N'יש לשלוח את הדו״ח ללקוח')),1,50) as ReportRequired,  
 	SUBSTRING(c.CUSTNAME,1,50) as CustomerCode,
-	'SEPHARM' as SourceSystem
+	'SEPHARM' as SourceSystem,
+	IIF(a.[EMAIL] ='',NULL,a.[EMAIL])  as AgentUserEmail
 FROM sepharm.dbo.CUSTOMERS as c
 LEFT JOIN sepharm.dbo.CUSTSPEC as sp ON c.CUST = sp.CUST
 LEFT JOIN sepharm.[dbo].[SHIPTYPES] as st ON c.SHIPTYPE = st.SHIPTYPE
+LEFT JOIN sepharm.[dbo].[AGENTS] as a ON c.AGENT = a.AGENT 
 WHERE c.CUST &gt; 0</property>
                     <property
                       dataType="System.Int32"
@@ -1557,6 +1561,16 @@ WHERE c.CUST &gt; 0</property>
                           lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]"
                           name="SourceSystem"
                           truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[AgentUserEmail]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[AgentUserEmail]"
+                          length="48"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[AgentUserEmail]"
+                          name="AgentUserEmail"
+                          truncationRowDisposition="FailComponent" />
                       </outputColumns>
                       <externalMetadataColumns
                         isUsed="True">
@@ -1608,6 +1622,11 @@ WHERE c.CUST &gt; 0</property>
                           dataType="wstr"
                           length="7"
                           name="SourceSystem" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].ExternalColumns[AgentUserEmail]"
+                          dataType="wstr"
+                          length="48"
+                          name="AgentUserEmail" />
                       </externalMetadataColumns>
                     </output>
                     <output
@@ -1673,6 +1692,12 @@ WHERE c.CUST &gt; 0</property>
                           length="7"
                           lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceSystem]"
                           name="SourceSystem" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[AgentUserEmail]"
+                          dataType="wstr"
+                          length="48"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[AgentUserEmail]"
+                          name="AgentUserEmail" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
                           dataType="i4"
@@ -1807,6 +1832,13 @@ WHERE c.CUST &gt; 0</property>
                           cachedName="SourceSystem"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[SourceSystem]"
                           lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].Columns[AgentUserEmail]"
+                          cachedDataType="wstr"
+                          cachedLength="48"
+                          cachedName="AgentUserEmail"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[AgentUserEmail]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Customers\Get source data.Outputs[ADO NET Source Output].Columns[AgentUserEmail]" />
                       </inputColumns>
                       <externalMetadataColumns
                         isUsed="True">
@@ -1858,6 +1890,11 @@ WHERE c.CUST &gt; 0</property>
                           dataType="wstr"
                           length="50"
                           name="CustomerCode" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Customers\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[AgentUserEmail]"
+                          dataType="wstr"
+                          length="50"
+                          name="AgentUserEmail" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -4552,7 +4589,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_CustomerContact">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_CustomerContact\Load stg table"
@@ -4580,9 +4617,7 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -4664,7 +4699,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_Customers">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_Customers\Load stg table"
@@ -4692,9 +4727,7 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>

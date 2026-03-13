@@ -17,6 +17,7 @@ CREATE   PROCEDURE [dbo].[GetDevicesUngroupedByOrder]
     @OrderBy AS NVARCHAR(MAX) = 'OrderNumber',      -- OrderBy column
     @OrderByAsc AS BIT = 1,                   -- OrderBy direction (ASC/DESC)
 	@OrderWorkPlanIds NVARCHAR(MAX) = NULL,
+	@OrderWorkDetailsItemsIds NVARCHAR(MAX) = NULL,
 	@ExcludeAwaitingCollectionOrders BIT = 0
 AS
 BEGIN
@@ -191,6 +192,7 @@ GROUP BY d.OrderDetailsItemId
 ) as custeqv
 '
 ,IIF(@OrderWorkPlanIds IS NOT NULL,' JOIN STRING_SPLIT('''+@OrderWorkPlanIds+''','','') as wpf ON op.OrderWorkPlanId = wpf.value',' ')
+,IIF(@OrderWorkDetailsItemsIds IS NOT NULL,' JOIN STRING_SPLIT('''+@OrderWorkDetailsItemsIds+''','','') as wpf1 ON itm.OrderDetailsItemId = wpf1.value',' ')
 ,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mcf ON mc.MainCategoryName COLLATE DATABASE_DEFAULT = mcf.MainCategory COLLATE DATABASE_DEFAULT',' ')
 ,IIF(@SecondaryCategories IS NOT NULL,' JOIN #SecondaryCategories as scf ON sc.SecondaryCategoryName COLLATE DATABASE_DEFAULT   = scf.SecondaryCategory COLLATE DATABASE_DEFAULT ',' ')
 ,IIF(@DeviceModels IS NOT NULL,' JOIN #DeviceModels as dm ON itm.DeviceModel COLLATE DATABASE_DEFAULT = dm.DeviceModel COLLATE DATABASE_DEFAULT ',' ')

@@ -23,8 +23,10 @@ USING (
 		,c.ShipTypeDescr
 		,c.ReportRequired
 		,c.CustomerCode
+		,u.ID as CustomerSupportContactId
 	FROM stg.stg_Customers as c
 	JOIN dbo.Source as ss ON c.SourceSystem = ss.SourceName
+	LEFT JOIN dbo.[Users] as u ON c.[AgentUserEmail] = u.[Email]
 	) AS source
 	ON dest.[CustomerIdFromSource] = source.[CustomerIdFromSource]
 		AND dest.SourceId = source.SourceId
@@ -38,6 +40,7 @@ WHEN MATCHED
 		OR COALESCE(dest.[ShipTypeDescr],'') <> COALESCE(source.[ShipTypeDescr],'')
 		OR COALESCE(dest.[ReportRequired],'') <> COALESCE(source.[ReportRequired],'')
 		OR COALESCE(dest.[CustomerCode],'') <> COALESCE(source.[CustomerCode],'')
+		OR COALESCE(dest.[CustomerSupportContactId],'') <> COALESCE(source.[CustomerSupportContactId],'')
 		)
 	THEN
 		UPDATE
@@ -53,6 +56,7 @@ WHEN MATCHED
 			,dest.ShipTypeDescr = source.ShipTypeDescr
 			,dest.ReportRequired = source.ReportRequired
 			,dest.[CustomerCode] = source.[CustomerCode]
+			,dest.[CustomerSupportContactId] = source.[CustomerSupportContactId]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -67,6 +71,7 @@ WHEN NOT MATCHED BY TARGET
 			,[ShipTypeDescr]
 			,[ReportRequired]
 			,[CustomerCode]
+			,[CustomerSupportContactId]
 			)
 		VALUES (
 			 source.[CustomerName]
@@ -80,6 +85,7 @@ WHEN NOT MATCHED BY TARGET
 			,source.ShipTypeDescr
 			,source.ReportRequired
 			,source.[CustomerCode]
+			,source.[CustomerSupportContactId]
 			);
 
 MERGE INTO [dbo].[CustomerSites] AS dest

@@ -41,7 +41,7 @@ BEGIN
 		  ,d.[MainCategoryName] as DepartmentName
 		  ,md.[IP]
 		  ,COALESCE(md.Resolution,60) as Resolution
-		  ,CASE WHEN mc.NameEnglish = ''Sensor'' THEN 60 ELSE 30 END as ChannelsNumber
+		  ,md.Channels as ChannelsNumber
 		  ,md.Connection
 		  ,md.MeasurementId	
 		  ,md.MainClassId	

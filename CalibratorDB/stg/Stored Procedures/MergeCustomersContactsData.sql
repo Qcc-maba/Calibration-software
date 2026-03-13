@@ -1,8 +1,8 @@
-﻿CREATE    PROCEDURE stg.MergeCustomersContactsData
+﻿CREATE    PROCEDURE [stg].[MergeCustomersContactsData]
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 04/06/2025
--- Description:	
+-- Description:	Merge customer contact data and create user for them to be able login to app
 -- JiraLink: 
 -- =============================================
 AS
@@ -70,5 +70,63 @@ BEGIN
 				,source.[SourceId]
 				,source.[UpdateUserID]
 				);
+
+--Add customer contact as a user
+	DECLARE @UserRoleId INT
+	SELECT @UserRoleId = UserRoleId FROM UserRoles
+	WHERE UserRoleDescriptionENG = N'Customer'
+
+	MERGE INTO [dbo].[Users] AS dest
+	USING (
+		SELECT 
+			 IIF(CHARINDEX(N' ', c.CustomerContactName) > 0,LEFT(c.CustomerContactName, CHARINDEX(N' ', c.CustomerContactName) - 1),'') as [FirstName]
+			,IIF(CHARINDEX(N' ', REVERSE(c.CustomerContactName)) > 0,RIGHT(c.CustomerContactName,CHARINDEX(N' ', REVERSE(c.CustomerContactName)) - 1),'') as [LastName]
+			,c.[CustomerContactEmail] as [Email]
+			,1234 AS [Password]
+			,IIF(LEN(c.[CustomerContactPhone]) > 0,c.[CustomerContactPhone], c.[CustomerContactAdditionalPhoneNumber]) as [Phone]
+			,1 as [IsActive]
+			,0 as [UpdateUserID]
+			,@UserRoleId as[UserRoleId]
+			,c.[SourceId]
+	FROM [dbo].[CustomerContacts] as c
+	WHERE LEN(c.[CustomerContactEmail]) > 0
+		) AS source
+		ON dest.[Email] = source.[Email]
+	/*WHEN MATCHED
+		THEN
+			UPDATE
+			SET  dest.[FirstName] = source.[FirstName]
+				,dest.[LastName] = source.[LastName]
+				,dest.[Password] = source.[Password]
+				,dest.[Phone] = source.[Phone]
+				,dest.[IsActive] = source.[IsActive]
+				,dest.[UpdateUserID] = source.[UpdateUserID]
+				,dest.[UserRoleId] = source.[UserRoleId]
+				,dest.[SourceId] = source.[SourceId]*/
+	WHEN NOT MATCHED BY TARGET
+		THEN
+			INSERT (
+				 [FirstName]
+				,[LastName]
+				,[Email]
+				,[Password]
+				,[Phone]
+				,[IsActive]
+				,[UpdateUserID]
+				,[UserRoleId]
+				,[SourceId]
+				)
+			VALUES (
+				 source.[FirstName]
+				,source.[LastName]
+				,source.[Email]
+				,source.[Password]
+				,source.[Phone]
+				,source.[IsActive]
+				,source.[UpdateUserID]
+				,source.[UserRoleId]
+				,source.[SourceId]
+				);
+
 
 END
