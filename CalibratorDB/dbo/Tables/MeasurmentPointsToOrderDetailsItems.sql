@@ -10,7 +10,17 @@
     [UpdatedDate]                          DATETIME2 (0)   NULL,
     [UpdateUserID]                         INT             NULL,
     [IsDeleted]                            BIT             DEFAULT ((0)) NOT NULL,
+    [MasterValue]                          DECIMAL (10, 8) NULL,
+    [MasterValueUnitId]                    INT             NULL,
+    [AdditionalValue]                      DECIMAL (10, 8) NULL,
+    [AdditionalValueUnitId]                INT             NULL,
+    [StabilityValue]                       DECIMAL (10, 8) NULL,
+    [UncertancyValue]                      DECIMAL (10, 8) NULL,
+    [MeasuredValue]                        DECIMAL (10, 8) NULL,
+    [MeasuredValueUnitId]                  INT             NULL,
     CONSTRAINT [PK_MeasurmentPointsToOrderDetailsItems] PRIMARY KEY CLUSTERED ([OrderDetailsItemId] ASC, [SensorMeasurementDeviceId] ASC, [ChannelNumber] ASC, [MeasurmentPointsToOrderDetailsItemId] ASC),
+    CONSTRAINT [FK_MeasurmentPointsToOrderDetailsItems_AdditionalValueUnitId] FOREIGN KEY ([AdditionalValueUnitId]) REFERENCES [dbo].[MeasurementDeviceUnits] ([MeasurementDeviceUnitId]),
+    CONSTRAINT [FK_MeasurmentPointsToOrderDetailsItems_MasterValueUnitId] FOREIGN KEY ([MasterValueUnitId]) REFERENCES [dbo].[MeasurementDeviceUnits] ([MeasurementDeviceUnitId]),
     CONSTRAINT [FK_MeasurmentPointsToOrderDetailsItems_SensorMeasurementDeviceId] FOREIGN KEY ([SensorMeasurementDeviceId]) REFERENCES [dbo].[MeasurementDevices] ([ID]),
     CONSTRAINT [FK_MeasurmentPointsToOrderDetailsItems_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
