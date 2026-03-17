@@ -17,25 +17,50 @@
 --      "MeasurmentPointCoordX": "4.35",
 --      "MeasurmentPointCoordY": "3.35",
 --      "SensorMeasurementDeviceId": "1",
---      "ChannelNumber": 1
+--      "ChannelNumber": 1,
+--      "UncertancyValue": 2,
+--		"MasterValue": 36.44,
+--		"MasterValueUnitId": 1,
+--		"MeasuredValue": 35,
+--		"MeasuredValueUnitId": 1,
+--		"StabilityValue": 2,
+--		"AdditionalValue": 33,
+--		"AdditionalValueUnitId": 3
 --    },
 --    {
 --      "MeasurmentPointName": "T2",
 --      "MeasurmentPointCoordX": "8.35",
 --      "MeasurmentPointCoordY": "4.25",
 --      "SensorMeasurementDeviceId": "1",
---      "ChannelNumber": 15
+--      "ChannelNumber": 15,
+--      "UncertancyValue": 2,
+--		"MasterValue": 39.44,
+--		"MasterValueUnitId": 1,
+--		"MeasuredValue": 35,
+--		"MeasuredValueUnitId": 1,
+--		"StabilityValue": 2,
+--		"AdditionalValue": 33,
+--		"AdditionalValueUnitId":3
 --    },
 --    {
 --      "MeasurmentPointName": "T3",
 --      "MeasurmentPointCoordX": "12.35",
 --      "MeasurmentPointCoordY": "5.3",
 --      "SensorMeasurementDeviceId": "2",
---      "ChannelNumber": 17
+--      "ChannelNumber": 17,
+--      "UncertancyValue": 2,
+--		"MasterValue": 38.44,
+--		"MasterValueUnitId": 1,
+--		"MeasuredValue": 35,
+--		"MeasuredValueUnitId": 1,
+--		"StabilityValue": 2,
+--		"AdditionalValue": 33,
+--		"AdditionalValueUnitId":3
 --    }
 --  ]
 --}
 --'
+
 
 AS
 
@@ -60,7 +85,15 @@ CREATE TABLE #parsedData
     SensorMeasurementDeviceId INT,
     MeasurmentPointCoordX DECIMAL(10,4),
     MeasurmentPointCoordY DECIMAL(10,4),
-	ChannelNumber INT
+	ChannelNumber INT,
+	MasterValue DECIMAL(10,4),
+    MasterValueUnitId INT,
+    AdditionalValue DECIMAL(10,4),
+    AdditionalValueUnitId INT,
+    StabilityValue DECIMAL(10,4),
+    UncertancyValue DECIMAL(10,4),
+    MeasuredValue DECIMAL(10,4),
+    MeasuredValueUnitId INT
 )
 
 INSERT #parsedData
@@ -70,7 +103,15 @@ INSERT #parsedData
     SensorMeasurementDeviceId,
     MeasurmentPointCoordX,
     MeasurmentPointCoordY,
-	ChannelNumber
+	ChannelNumber,
+	MasterValue,
+    MasterValueUnitId,
+    AdditionalValue,
+    AdditionalValueUnitId,
+    StabilityValue,
+    UncertancyValue,
+    MeasuredValue,
+    MeasuredValueUnitId
 )
 
 SELECT 
@@ -79,7 +120,15 @@ SELECT
     c.SensorMeasurementDeviceId,
     c.MeasurmentPointCoordX,
     c.MeasurmentPointCoordY,
-    c.ChannelNumber
+    c.ChannelNumber,
+	c.MasterValue,
+    c.MasterValueUnitId,
+    c.AdditionalValue,
+    c.AdditionalValueUnitId,
+    c.StabilityValue,
+    c.UncertancyValue,
+    c.MeasuredValue,
+    c.MeasuredValueUnitId
 FROM OPENJSON(@Data) 
 WITH (
     OrderDetailsItemId INT,
@@ -91,9 +140,16 @@ WITH (
     MeasurmentPointCoordX DECIMAL(10,4),
     MeasurmentPointCoordY DECIMAL(10,4),
     SensorMeasurementDeviceId INT,
-    ChannelNumber INT
+    ChannelNumber INT,
+	MasterValue DECIMAL(10,4),
+    MasterValueUnitId INT,
+    AdditionalValue DECIMAL(10,4),
+    AdditionalValueUnitId INT,
+    StabilityValue DECIMAL(10,4),
+    UncertancyValue DECIMAL(10,4),
+    MeasuredValue DECIMAL(10,4),
+    MeasuredValueUnitId INT
 ) AS c
-
 /*Apply soft delete to data which no longer valid*/
 UPDATE dest
 SET IsDeleted = 1,
@@ -114,7 +170,15 @@ USING (
 		d.MeasurmentPointName,
 		d.MeasurmentPointCoordX,
 		d.MeasurmentPointCoordY,
-		d.ChannelNumber
+		d.ChannelNumber,
+		d.MasterValue,
+        d.MasterValueUnitId,
+        d.AdditionalValue,
+        d.AdditionalValueUnitId,
+        d.StabilityValue,
+        d.UncertancyValue,
+        d.MeasuredValue,
+        d.MeasuredValueUnitId
 	FROM #parsedData as d
 	WHERE d.OrderDetailsItemId IS NOT NULL AND d.ChannelNumber IS NOT NULL AND d.SensorMeasurementDeviceId IS NOT NULL
 	) AS source
@@ -122,10 +186,19 @@ USING (
 		 AND dest.[SensorMeasurementDeviceId] = source.[SensorMeasurementDeviceId]
 		 AND dest.[ChannelNumber] = source.[ChannelNumber]
 		 AND dest.[IsDeleted] = 0
-WHEN MATCHED AND ( 
-	           dest.[MeasurmentPointName] <> source.[MeasurmentPointName]
-			OR dest.[MeasurmentPointCoordX] <> source.[MeasurmentPointCoordX]
-			OR dest.[MeasurmentPointCoordY] <> source.[MeasurmentPointCoordY])
+    WHEN MATCHED AND ( 
+	           COALESCE(dest.[MeasurmentPointName],'') <> COALESCE(source.[MeasurmentPointName],'')
+			OR COALESCE(dest.[MeasurmentPointCoordX],0) <> COALESCE(source.[MeasurmentPointCoordX],1)
+			OR COALESCE(dest.[MeasurmentPointCoordY],0) <> COALESCE(source.[MeasurmentPointCoordY],1)
+            OR COALESCE(dest.[MasterValue],0) <> COALESCE(source.[MasterValue],0)
+            OR COALESCE(dest.[MasterValueUnitId],0) <> COALESCE(source.[MasterValueUnitId],0)
+            OR COALESCE(dest.[AdditionalValue],0) <> COALESCE(source.[AdditionalValue],0)
+            OR COALESCE(dest.[AdditionalValueUnitId],0) <> COALESCE(source.[AdditionalValueUnitId],0)
+            OR COALESCE(dest.[StabilityValue],0) <> COALESCE(source.[StabilityValue],0)
+            OR COALESCE(dest.[UncertancyValue],0) <> COALESCE(source.[UncertancyValue],0)
+            OR COALESCE(dest.[MeasuredValue],0) <> COALESCE(source.[MeasuredValue],0)
+            OR COALESCE(dest.[MeasuredValueUnitId],0) <> COALESCE(source.[MeasuredValueUnitId],0)
+            )
 	THEN
 		UPDATE
 		SET  dest.[MeasurmentPointName] = source.[MeasurmentPointName]
@@ -133,6 +206,14 @@ WHEN MATCHED AND (
 			,dest.[MeasurmentPointCoordY] = source.[MeasurmentPointCoordY]
 			,dest.[UpdatedDate] = GETDATE()
 			,dest.[UpdateUserID] = @LoggedInUserId
+            ,dest.[MasterValue] = source.[MasterValue]
+            ,dest.[MasterValueUnitId] = source.[MasterValueUnitId]
+            ,dest.[AdditionalValue] = source.[AdditionalValue]
+            ,dest.[AdditionalValueUnitId] = source.[AdditionalValueUnitId]
+            ,dest.[StabilityValue] = source.[StabilityValue]
+            ,dest.[UncertancyValue] = source.[UncertancyValue]
+            ,dest.[MeasuredValue] = source.[MeasuredValue]
+            ,dest.[MeasuredValueUnitId] = source.[MeasuredValueUnitId]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -142,7 +223,15 @@ WHEN NOT MATCHED BY TARGET
 			  [MeasurmentPointCoordX],
 			  [MeasurmentPointCoordY],
 			  [ChannelNumber],
-			  [UpdateUserID]
+			  [UpdateUserID],
+		      [MasterValue],
+              [MasterValueUnitId],
+              [AdditionalValue],
+              [AdditionalValueUnitId],
+              [StabilityValue],
+              [UncertancyValue],
+              [MeasuredValue],
+              [MeasuredValueUnitId]
 			)
 		VALUES (
              source.[OrderDetailsItemId]
@@ -152,6 +241,14 @@ WHEN NOT MATCHED BY TARGET
 			,source.[MeasurmentPointCoordY]
 			,source.[ChannelNumber]
 			,@LoggedInUserId
+            ,source.[MasterValue]
+            ,source.[MasterValueUnitId]
+            ,source.[AdditionalValue]
+            ,source.[AdditionalValueUnitId]
+            ,source.[StabilityValue]
+            ,source.[UncertancyValue]
+            ,source.[MeasuredValue]
+            ,source.[MeasuredValueUnitId]
 			);
 
 END
