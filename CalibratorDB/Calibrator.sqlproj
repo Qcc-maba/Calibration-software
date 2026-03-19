@@ -301,6 +301,7 @@
     <Build Include="dbo\Stored Procedures\CreateOrderDetails.sql" />
     <Build Include="dbo\Stored Procedures\GetCustomerUpcommingCalibrationInfo.sql" />
     <Build Include="dbo\Stored Procedures\GetCustomerSupportData.sql" />
+    <Build Include="dbo\Stored Procedures\GetNewUsersListForNotification.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

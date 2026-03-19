@@ -12,7 +12,7 @@ CREATE     PROCEDURE [dbo].[EditUserRecord]
 ,@Password NVARCHAR(50) = NULL
 ,@LocationArea NVARCHAR(200) = NULL
 ,@UserRoleId int = NULL
-,@UserStatusId INT
+,@UserStatusId INT = NULL
 ,@Email NVARCHAR(50) = NULL
 ,@DepartmentIdsList NVARCHAR(max) = NULL -- mapped to main category
 --,@CertificationIdsList NVARCHAR(max) = NULL
@@ -21,6 +21,7 @@ CREATE     PROCEDURE [dbo].[EditUserRecord]
 ,@Stamp NVARCHAR(200) = NULL
 ,@PositionId INT = NULL
 ,@CertificationAuthoritiesIdsList NVARCHAR(max) = NULL 
+,@WelcomeEmailSentDate DATETIME2(0)
 /*
 EXEC [dbo].[EditUserRecord]
  @FirstName = 'test1'
@@ -74,7 +75,7 @@ UserRoleId INT
 )
 
 
-DECLARE @IsActive BIT 
+DECLARE @IsActive BIT = 1
 
 SELECT @IsActive = IIF(StatusDescriptionENG='Active',1,0)
   FROM [dbo].[Statuses] as s
@@ -108,6 +109,7 @@ BEGIN TRY
 		  ,u.[Stamp] = COALESCE(@Stamp,u.[Stamp])
 		  ,u.[UserRoleId] = COALESCE(@UserRoleId,u.[UserRoleId])
 		  ,u.[PositionId] = COALESCE(@PositionId,u.[PositionId])
+		  ,u.[WelcomeEmailSentDate] = COALESCE(@WelcomeEmailSentDate, u.[WelcomeEmailSentDate])
 	FROM [dbo].[Users] as u
 	WHERE u.ID = @UserId
 
