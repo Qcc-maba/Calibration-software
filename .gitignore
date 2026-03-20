@@ -366,3 +366,4 @@ FodyWeavers.xsd
 
 # Claude Code
 CLAUDE.md
+/CalibratorDB/.claude/settings.local.json
