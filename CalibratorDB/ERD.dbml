@@ -1,0 +1,956 @@
+// CalibratorDB — dbdiagram.io schema
+// Paste at: https://dbdiagram.io/d
+
+// ─────────────────────────────────────────────────────────────
+// REFERENCE / LOOKUP
+// ─────────────────────────────────────────────────────────────
+
+Table StatusesCategories {
+  StatusCategoryId   int           [pk, increment]
+  StatusDescriptionENG nvarchar(255) [null]
+  StatusDescriptionHEB nvarchar(255) [null]
+}
+
+Table Statuses {
+  StatusId             int           [pk, increment]
+  StatusCategoryId     int           [not null, ref: > StatusesCategories.StatusCategoryId]
+  Code                 nvarchar(255) [null]
+  StatusDescriptionENG nvarchar(255) [null]
+  StatusDescriptionHEB nvarchar(255) [null]
+}
+
+Table UserRoles {
+  UserRoleId             int           [pk, increment]
+  UserRoleDescriptionENG nvarchar(255) [not null]
+  UserRoleDescriptionHEB nvarchar(255) [null]
+  UserRoleName           nvarchar(255) [not null, default: '']
+  IsApplicationRole      bit           [not null, default: 0]
+}
+
+Table Source {
+  SourceId    tinyint      [pk, increment]
+  SourceName  nvarchar(50) [null]
+  EmailDomain nvarchar(50) [not null, default: '']
+}
+
+Table OrdersProductTypes {
+  OrdersProductTypeId int          [pk, increment]
+  ProductTypeName     nvarchar(50) [null]
+}
+
+// ─────────────────────────────────────────────────────────────
+// USERS & DEPARTMENTS
+// ─────────────────────────────────────────────────────────────
+
+Table Users {
+  ID                   int           [pk, increment]
+  FirstName            nvarchar(50)  [not null]
+  LastName             nvarchar(50)  [not null]
+  FirstNameEng         nvarchar(50)  [null]
+  LastNameEng          nvarchar(50)  [null]
+  Email                nvarchar(50)  [null]
+  Password             nvarchar(50)  [null, note: 'plain-text — must be hashed']
+  Phone                nvarchar(20)  [null]
+  IsActive             bit           [not null, default: 0]
+  UserAddress          nvarchar(200) [null]
+  LocationArea         nvarchar(200) [null]
+  Stamp                nvarchar(200) [null]
+  UserRoleId           int           [null, ref: > UserRoles.UserRoleId]
+  PositionId           int           [null, ref: > Statuses.StatusId]
+  SourceId             tinyint       [null, ref: > Source.SourceId]
+  UpdateUserID         int           [null, ref: > Users.ID]
+  LastLoginDate        datetime2     [null]
+  WelcomeEmailSentDate datetime2     [null]
+  CreatedDate          datetime2     [not null]
+  UpdatedDate          datetime2     [null]
+}
+
+Table MainCategories {
+  ID               int          [pk, increment]
+  MainCategoryName nvarchar(50) [not null]
+  AddedByUserId    int          [not null, default: 0, ref: > Users.ID]
+  CreatedAt        datetime2    [not null]
+  UpdatedAt        datetime2    [null]
+  IsDeleted        bit          [not null, default: 0]
+}
+
+Table SecondaryCategories {
+  ID                    int          [pk, increment]
+  SecondaryCategoryName nvarchar(50) [not null]
+  AddedByUserId         int          [not null, default: 0, ref: > Users.ID]
+  CreatedAt             datetime2    [not null]
+  UpdatedAt             datetime2    [null]
+  IsDeleted             bit          [not null, default: 0]
+}
+
+Table MainToSecondaryCategories {
+  ID                 int [not null, increment]
+  MainCategoryId     int [not null, ref: > MainCategories.ID]
+  SecondaryCategoryId int [not null, ref: > SecondaryCategories.ID]
+  AddedByUserId      int [null, ref: > Users.ID]
+
+  indexes {
+    (MainCategoryId, SecondaryCategoryId, ID) [pk]
+  }
+}
+
+Table UsersToDepartments {
+  UserId         int      [not null, ref: > Users.ID]
+  MainCategoryId int      [not null, ref: > MainCategories.ID]
+  CreatedDate    datetime2 [not null]
+  UpdateUserID   int      [null, ref: > Users.ID]
+  IsDeleted      bit      [not null, default: 0]
+
+  indexes {
+    (UserId, MainCategoryId, CreatedDate) [pk]
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// CUSTOMERS
+// ─────────────────────────────────────────────────────────────
+
+Table Customers {
+  CustomerId               int           [pk, increment]
+  CustomerName             nvarchar(50)  [null]
+  CustomerPhone            nvarchar(50)  [null]
+  CustomerCity             nvarchar(50)  [null]
+  CustomerAddress          nvarchar(80)  [null]
+  CustomerIdFromSource     int           [null]
+  SourceId                 tinyint       [null, ref: > Source.SourceId]
+  CustomerSupportContactId int           [null, ref: > Users.ID]
+  CustomerCode             nvarchar(50)  [null]
+  ShipTypeDescr            nvarchar(50)  [null]
+  ReportRequired           nvarchar(50)  [null]
+  SignatureAmount          tinyint       [null]
+  UpdateUserID             int           [null, ref: > Users.ID]
+  CreateDate               datetime2     [not null]
+  UpdatedDate              datetime2     [null]
+  IsDeleted                bit           [not null, default: 0]
+}
+
+Table CustomerContacts {
+  CustomerContactId                    int          [increment]
+  CustomerId                           int          [not null, ref: > Customers.CustomerId]
+  CustomerContactName                  nvarchar(50) [null]
+  CustomerContactPersonRole            nvarchar(50) [null]
+  CustomerContactPhone                 nvarchar(50) [null]
+  CustomerContactAdditionalPhoneNumber nvarchar(50) [null]
+  CustomerContactEmail                 nvarchar(50) [null]
+  CustomerContactIdFromSource          int          [null]
+  SourceId                             tinyint      [null, ref: > Source.SourceId]
+  UpdateUserID                         int          [null, ref: > Users.ID]
+  CreateDate                           datetime2    [not null]
+  UpdatedDate                          datetime2    [null]
+  IsDeleted                            bit          [not null, default: 0]
+
+  indexes {
+    (CustomerId, CustomerContactId) [pk]
+  }
+}
+
+Table CustomerSites {
+  CustomerSiteId          int          [increment]
+  CustomerId              int          [not null]
+  CustomerSiteAddress     nvarchar(80) [null]
+  CustomerSiteState       nvarchar(40) [null]
+  CustomerSiteZIP         nvarchar(10) [null]
+  CustomerSitePhone       nvarchar(30) [null]
+  CustomerSiteDescription nvarchar(50) [null]
+  CustomerSiteCode        int          [null]
+  SourceId                tinyint      [null, ref: > Source.SourceId]
+  UpdateUserID            int          [null, ref: > Users.ID]
+  CreateDate              datetime2    [not null]
+  UpdatedDate             datetime2    [null]
+  IsDeleted               bit          [not null, default: 0]
+
+  indexes {
+    (CustomerSiteId, CustomerId) [pk]
+  }
+}
+
+Ref: CustomerSites.CustomerId > Customers.CustomerId
+
+Table CustomerRemarks {
+  CustomerId                            int            [pk, ref: > Customers.CustomerId]
+  CustomerRemark                        varbinary(max) [null, note: 'compressed with COMPRESS()']
+  CustomerSpecialInstructionsAttachment nvarchar(200)  [null]
+  CustomerIdFromSource                  int            [null]
+  SourceId                              tinyint        [null, ref: > Source.SourceId]
+  TextHash                              int            [null]
+  UpdateUserID                          int            [null, ref: > Users.ID]
+  CreateDate                            datetime2      [not null]
+  UpdatedDate                           datetime2      [null]
+  IsDeleted                             bit            [not null, default: 0]
+}
+
+// ─────────────────────────────────────────────────────────────
+// MEASUREMENT DEVICES (EQUIPMENT)
+// ─────────────────────────────────────────────────────────────
+
+Table MeasurementDevicesMainClasses {
+  Id                                  int           [pk, increment]
+  NameHebrew                          nvarchar(255) [null]
+  NameEnglish                         nvarchar(255) [null]
+  MeasurementDevicesMainClassSourceId int           [null]
+  UpdateUserID                        int           [null, ref: > Users.ID]
+  CreatedTime                         datetime2     [null]
+  UpdatedTime                         datetime2     [null]
+  IsDeleted                           bit           [not null, default: 0]
+}
+
+Table MeasurementDevicesSubClass {
+  ID                                 int          [pk, increment]
+  Name                               nvarchar(50) [not null]
+  Description                        nchar(10)    [null]
+  MeasurementDevicesSubClassSourceId int          [null]
+  UpdateUserID                       int          [null, ref: > Users.ID]
+  CreatedDate                        datetime2    [not null]
+  UpdatedDate                        datetime2    [null]
+  IsDeleted                          bit          [not null, default: 0]
+}
+
+Table MeasurementDeviceUnits {
+  MeasurementDeviceUnitId       int           [pk, increment]
+  ShortNameEn                   nvarchar(10)  [not null]
+  ShortNameEnAsc                nvarchar(50)  [not null]
+  LongNameEn                    nvarchar(100) [not null]
+  ShortNameHeAsc                nvarchar(50)  [not null]
+  ShortNameHe                   nvarchar(50)  [not null]
+  LongNameHe                    nvarchar(100) [not null]
+  Note                          nvarchar(500) [null]
+  MainCategoryId                int           [null, ref: > MainCategories.ID]
+  MeasurementDeviceUnitGroupId  int           [null]
+  MeasurementDeviceUnitSourceId int           [null]
+  UpdateUserID                  int           [null, ref: > Users.ID]
+  CreatedDate                   datetime2     [not null]
+  UpdatedDate                   datetime2     [null]
+  IsDeleted                     bit           [not null, default: 0]
+}
+
+Table Measurements {
+  ID                      int          [pk, increment]
+  NameEn                  nvarchar(50) [not null]
+  NameHe                  nvarchar(50) [not null]
+  NoteEn                  nvarchar(50) [null]
+  NoteHe                  nvarchar(50) [null]
+  MainCategoryId          int          [not null, ref: > MainCategories.ID]
+  MeasurementIdFromSource int          [null]
+  UpdateUserID            int          [null, ref: > Users.ID]
+  CreatedDate             datetime2    [not null]
+  UpdatedDate             datetime2    [null]
+  IsDeleted               bit          [not null, default: 0]
+}
+
+Table MeasurementsToMeasurmentUnits {
+  MeasurementId           int [not null, ref: > Measurements.ID]
+  MeasurementDeviceUnitId int [not null, ref: > MeasurementDeviceUnits.MeasurementDeviceUnitId]
+  UpdateUserID            int [null, ref: > Users.ID]
+
+  indexes {
+    (MeasurementId, MeasurementDeviceUnitId) [pk]
+  }
+}
+
+Table MeasurementDevices {
+  ID                        int            [pk, increment]
+  MabaID                    nvarchar(50)   [not null]
+  Description               nvarchar(50)   [null]
+  Model                     nvarchar(150)  [null]
+  SerialNumber              nvarchar(50)   [null]
+  MabaSkU                   nvarchar(50)   [null]
+  Manufacturer              nvarchar(100)  [null]
+  DeviceRange               nvarchar(50)   [null]
+  DeviceLocation            nvarchar(50)   [null]
+  IP                        nvarchar(50)   [null]
+  Connection                nvarchar(50)   [null]
+  ConnectionPoints          int            [null]
+  Channels                  nvarchar(100)  [null]
+  Resolution                int            [null]
+  WorkRangeMin              numeric(18,6)  [null]
+  WorkRangeMax              numeric(18,6)  [null]
+  StabilityTime             decimal(16,8)  [null]
+  StabilitySize             decimal(16,8)  [null]
+  CalibrationIntervalMonths tinyint        [null]
+  LastCalibrationReport     nvarchar(50)   [null]
+  CalibrationDate           datetime2      [null]
+  NextCalibration           datetime2      [null]
+  DisplayToCoordinator      bit            [not null, default: 1]
+  MainCategoryId            int            [null, ref: > MainCategories.ID]
+  SecondaryCategoryId       int            [null, ref: > SecondaryCategories.ID]
+  MainClassId               int            [null, ref: > MeasurementDevicesMainClasses.Id]
+  SubClassId                int            [null, ref: > MeasurementDevicesSubClass.ID]
+  MeasurementId             int            [null, ref: > Measurements.ID]
+  UnitId                    int            [null, ref: > MeasurementDeviceUnits.MeasurementDeviceUnitId]
+  WorkRangeUnitId           int            [null, ref: > MeasurementDeviceUnits.MeasurementDeviceUnitId]
+  MeasurementDeviceStatusId int            [null, ref: > Statuses.StatusId]
+  CalibratorId              int            [null, ref: > Users.ID]
+  SourceId                  tinyint        [null, ref: > Source.SourceId]
+  UpdateUserID              int            [null, ref: > Users.ID]
+  CreateDate                datetime2      [null]
+  RemoveDate                datetime2      [null]
+  UpdateDate                datetime2      [null]
+  IsDeleted                 bit            [not null, default: 0]
+}
+
+Table MeasurementDevicesCorrections {
+  ID                                    int            [pk, increment]
+  MeasurementDevicesId                  int            [null, ref: > MeasurementDevices.ID]
+  MeasurementId                         int            [null, ref: > Measurements.ID]
+  MainCategoryId                        int            [null, ref: > MainCategories.ID]
+  UnitID                                int            [null, ref: > MeasurementDeviceUnits.MeasurementDeviceUnitId]
+  Value1                                decimal(25,15) [not null]
+  Value2                                decimal(25,15) [null]
+  Deviation                             decimal(35,15) [null]
+  Equation                              nvarchar(300)  [null]
+  Note                                  nvarchar(300)  [null]
+  CorVersion                            int            [null, default: 1]
+  DeviceMabaId                          nvarchar(50)   [null]
+  MeasurementDevicesCorrectionsSourceId int            [null]
+  UpdateUserID                          int            [null, ref: > Users.ID]
+  CreatedDate                           datetime2      [not null]
+  UpdatedDate                           datetime2      [null]
+  IsDeleted                             bit            [not null, default: 0]
+}
+
+Table SensorToLoggerRelation {
+  LoggerMeasurementDeviceId  int       [not null, ref: > MeasurementDevices.ID]
+  SensorMeasurementDeviceId  int       [not null, ref: > MeasurementDevices.ID]
+  CreateDate                 datetime2 [not null]
+  UpdateUserID               int       [null, ref: > Users.ID]
+  IsDeleted                  bit       [not null, default: 0]
+
+  indexes {
+    (LoggerMeasurementDeviceId, SensorMeasurementDeviceId, CreateDate) [pk]
+  }
+}
+
+Table MeasurementsSpecifications {
+  ID                                   int           [pk, increment]
+  Name                                 nvarchar(50)  [not null]
+  MeasurementsSpecificationDescription nvarchar(100) [not null, default: 'N/A']
+  MainCategoryId                       int           [not null, ref: > MainCategories.ID]
+  MeasurementsSpecificationSourceId    int           [null]
+  UpdateUserID                         int           [null, ref: > Users.ID]
+  CreatedDate                          datetime2     [not null]
+  UpdatedDate                          datetime2     [null]
+  IsDeleted                            bit           [not null, default: 0]
+}
+
+Table MeasurementsSpecificationsToSecondCategory {
+  MeasurementsSpecificationId int       [not null, ref: > MeasurementsSpecifications.ID]
+  SecondaryCategoryId         int       [not null, ref: > SecondaryCategories.ID]
+  CreateDate                  datetime2 [not null]
+  UpdateUserID                int       [null, ref: > Users.ID]
+
+  indexes {
+    (MeasurementsSpecificationId, SecondaryCategoryId, CreateDate) [pk]
+  }
+}
+
+Table SpecificationReference {
+  ID                  int          [pk, increment]
+  Name                nvarchar(50) [not null]
+  SecondaryCategoryId int          [null, ref: > SecondaryCategories.ID]
+  UpdateUserID        int          [null, ref: > Users.ID]
+  CreatedDate         datetime2    [not null]
+  UpdatedDate         datetime2    [null]
+  IsDeleted           bit          [not null, default: 0]
+}
+
+// ─────────────────────────────────────────────────────────────
+// FLEET (CARS)
+// ─────────────────────────────────────────────────────────────
+
+Table Cars {
+  CarId                int          [pk, increment]
+  MabaNumber           int          [null]
+  Model                nvarchar(50) [not null]
+  LicenseNumber        nvarchar(50) [not null]
+  Seats                tinyint      [not null]
+  TreatmentPeriod      int          [null]
+  NextTreatmentDate    date         [null]
+  NextYearlyTestDate   date         [null]
+  CarStatusId          int          [not null, ref: > Statuses.StatusId]
+  AssignedCalibratorId int          [null, ref: > Users.ID]
+  OwnerId              int          [null, ref: > Users.ID]
+  SourceId             tinyint      [null, ref: > Source.SourceId]
+  AWSCarId             int          [null]
+  UpdateUserID         int          [null, ref: > Users.ID]
+  CreateDate           datetime2    [not null]
+  UpdatedDate          datetime2    [null]
+  IsDeleted            bit          [not null, default: 0]
+}
+
+Table CarDowntimePeriodHistory {
+  CarId              int       [not null, ref: > Cars.CarId]
+  DateOfChange       datetime2 [not null]
+  TreatmentStartDate datetime2 [null]
+  TreatmentEndDate   datetime2 [null]
+  StatusId           int       [not null, ref: > Statuses.StatusId]
+  UpdateUserID       int       [not null, ref: > Users.ID]
+  CreatedDate        datetime2 [not null]
+  IsDeleted          bit       [not null, default: 0]
+
+  indexes {
+    (CarId, DateOfChange) [pk]
+  }
+}
+
+Table CarsToEquipment {
+  CarId               int       [not null, ref: > Cars.CarId]
+  MeasurementDeviceId int       [not null, ref: > MeasurementDevices.ID]
+  CreatedDate         datetime2 [not null]
+  UpdateUserID        int       [null, ref: > Users.ID]
+  UpdatedDate         datetime2 [null]
+  IsDeleted           bit       [not null, default: 0]
+
+  indexes {
+    (MeasurementDeviceId, CarId, CreatedDate) [pk]
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// ORDER WORKFLOW
+// ─────────────────────────────────────────────────────────────
+
+Table OrderWorkPlans {
+  OrderWorkPlanId            int           [pk, increment]
+  OrderNumber                nvarchar(20)  [null]
+  WorkPlanOpenDate           datetime2     [not null]
+  CustomerId                 int           [null, ref: > Customers.CustomerId]
+  OrderStatusId              int           [null, ref: > Statuses.StatusId]
+  OrderOverallStatusId       int           [null, ref: > Statuses.StatusId]
+  ClientConfirmationStatusId int           [null, ref: > Statuses.StatusId]
+  SourceId                   tinyint       [null, ref: > Source.SourceId]
+  ShipTypeDesc               nvarchar(100) [null]
+  CustomerComment            nvarchar(200) [null]
+  Notes                      nvarchar(255) [null]
+  BK_DOC_N                   int           [null]
+  BK_KLINE                   int           [null]
+  BK_PART                    int           [null]
+  OrderSourceId              int           [null]
+  IsCancelled                bit           [not null, default: 0]
+  CreatedByUserId            int           [null, ref: > Users.ID]
+  UpdateUserID               int           [null, ref: > Users.ID]
+  CreatedDate                datetime2     [not null]
+  UpdatedDate                datetime2     [null]
+}
+
+Table OrderDetails {
+  OrderWorkPlanId       int            [not null, ref: > OrderWorkPlans.OrderWorkPlanId]
+  OrderDetailId         int            [increment]
+  MainCategoryId        int            [null, ref: > MainCategories.ID]
+  SecondaryCategoryId   int            [null, ref: > SecondaryCategories.ID]
+  OrdersProductTypeId   int            [null, ref: > OrdersProductTypes.OrdersProductTypeId]
+  SpecialCareTypeId     int            [null, ref: > Statuses.StatusId]
+  CalibratorId          int            [null, ref: > Users.ID]
+  PartName              nvarchar(22)   [null]
+  KLINE                 int            [null]
+  PART                  int            [null]
+  VPRICE                decimal(18,2)  [null]
+  PRICE                 decimal(18,2)  [null]
+  OrderLineCnt          int            [null]
+  IsInHouse             int            [null]
+  CustomerPackingExists bit            [null]
+  CustomerSiteId        int            [null]
+  PackageLocation       nvarchar(20)   [null]
+  ActualCalibrationDate date           [null]
+  OrderDetailSourceId   int            [null]
+  CreatedByUserId       int            [null, ref: > Users.ID]
+  UpdateUserID          int            [null, ref: > Users.ID]
+  CreatedDate           datetime2      [not null]
+  UpdatedDate           datetime2      [null]
+  IsDeleted             bit            [not null, default: 0]
+  IsCancelled           bit            [not null, default: 0]
+
+  indexes {
+    (OrderWorkPlanId, OrderDetailId) [pk]
+  }
+}
+
+Table OrderDetailsItems {
+  OrderDetailId              int            [not null]
+  OrderDetailsItemId         int            [increment]
+  SerialNumber               nvarchar(50)   [null]
+  ManufacturerNumber         nvarchar(100)  [null]
+  DeviceModel                nvarchar(100)  [null]
+  AdditionalDeviceNumber     nvarchar(100)  [null]
+  MbaReportNumber            nvarchar(100)  [null]
+  SERN                       int            [null]
+  DOC_N                      int            [null]
+  CalibrationStatusId        int            [null, ref: > Statuses.StatusId]
+  CalibrationReportStatusId  int            [null, ref: > Statuses.StatusId]
+  StickerTypeId              int            [null, ref: > Statuses.StatusId]
+  CalibrationSpecificationId int            [null, ref: > MeasurementsSpecifications.ID]
+  SpecificationReferenceId   int            [null, ref: > SpecificationReference.ID]
+  MeasurementUnitId          int            [null, ref: > MeasurementDeviceUnits.MeasurementDeviceUnitId]
+  MainCalibratorId           int            [null, ref: > Users.ID]
+  SecondCalibratorId         int            [null, ref: > Users.ID]
+  MeasurementPoints          int            [null]
+  MeasurementValueList       nvarchar(max)  [null]
+  ProductLocation            nvarchar(50)   [null]
+  Accuracy                   tinyint        [null]
+  RequiredProbability        tinyint        [null]
+  StickerAmount              tinyint        [null]
+  Volume                     decimal(16,4)  [null]
+  VisualCheck                nvarchar(200)  [null]
+  CalibrationStoppedComment  nvarchar(1000) [null]
+  ReportLanguage             nvarchar(50)   [null]
+  SiteAddress                nvarchar(100)  [null]
+  OrdersDeviceManufacturer   nvarchar(100)  [null]
+  ControllerType             nvarchar(40)   [null]
+  DiagramMapLink             nvarchar(300)  [null]
+  UnitUnderTestValue         decimal(16,4)  [null]
+  ShippingDoc                nvarchar(30)   [null]
+  ShippingAddress            nvarchar(150)  [null]
+  ShouldShowGraphV           bit            [null]
+  ShouldShowCertificateIcon  bit            [null]
+  IsManuallyAdded            bit            [not null, default: 0]
+  IsChecked                  bit            [null, default: 0]
+  ActualCalibrationDate      datetime2      [null]
+  CustomerReceivingDate      datetime2      [null]
+  ActualReturnDate           datetime2      [null]
+  ExpectedReturnDate         datetime2      [null]
+  NextCalibrationDate        datetime2      [null]
+  CreatedByUserId            int            [null, ref: > Users.ID]
+  UpdateUserID               int            [null, ref: > Users.ID]
+  CreatedDate                datetime2      [not null]
+  UpdatedDate                datetime2      [null]
+  IsDeleted                  bit            [not null, default: 0]
+  IsCancelled                bit            [not null, default: 0]
+
+  indexes {
+    (OrderDetailId, OrderDetailsItemId) [pk]
+  }
+}
+
+Ref: OrderDetailsItems.OrderDetailId > OrderDetails.OrderDetailId
+
+Table OrderItemsStatusesHistory {
+  OrderDetailsItemId int       [not null]
+  CreatedDate        datetime2 [not null]
+  StatusId           int       [not null, ref: > Statuses.StatusId]
+  StatusCategoryId   int       [not null, ref: > StatusesCategories.StatusCategoryId]
+  UpdateUserID       int       [not null, ref: > Users.ID]
+  IsDeleted          bit       [not null, default: 0]
+
+  indexes {
+    (OrderDetailsItemId, CreatedDate) [pk]
+  }
+}
+
+Ref: OrderItemsStatusesHistory.OrderDetailsItemId > OrderDetailsItems.OrderDetailsItemId
+
+// ─────────────────────────────────────────────────────────────
+// ORDER ASSIGNMENTS
+// ─────────────────────────────────────────────────────────────
+
+Table CalibratorsToWorkPlan {
+  OrderWorkPlanId             int           [not null, ref: > OrderWorkPlans.OrderWorkPlanId]
+  CalibratorId                int           [not null, ref: > Users.ID]
+  CalibratorsToWorkPlanId     int           [increment]
+  CarId                       int           [null, ref: > Cars.CarId]
+  AssigmentDate               datetime2     [null]
+  OrderDetailsMbaReportNumber nvarchar(100) [null]
+  UpdateUserID                int           [null, ref: > Users.ID]
+  CreatedDate                 datetime2     [not null]
+  UpdatedDate                 datetime2     [null]
+  IsDeleted                   bit           [not null, default: 0]
+
+  indexes {
+    (OrderWorkPlanId, CalibratorId, CalibratorsToWorkPlanId) [pk]
+  }
+}
+
+Table CarsToOrder {
+  AssignDate      datetime2 [not null]
+  OrderWorkPlanId int       [not null, ref: > OrderWorkPlans.OrderWorkPlanId]
+  CarId           int       [not null, ref: > Cars.CarId]
+  CreatedDate     datetime2 [not null]
+  AssignQuater0   bit       [null]
+  AssignQuater1   bit       [null]
+  AssignQuater2   bit       [null]
+  AssignQuater3   bit       [null]
+  UpdateUserID    int       [null, ref: > Users.ID]
+  UpdatedDate     datetime2 [null]
+  IsDeleted       bit       [not null, default: 0]
+
+  indexes {
+    (AssignDate, OrderWorkPlanId, CarId, CreatedDate) [pk]
+  }
+}
+
+Table MeasurementDevicesToOrderHeaders {
+  OrderWorkPlanId                    int       [not null, ref: > OrderWorkPlans.OrderWorkPlanId]
+  MeasurementDeviceId                int       [not null, ref: > MeasurementDevices.ID]
+  MeasurementDevicesToOrderHeadersId int       [increment]
+  CarId                              int       [null, ref: > Cars.CarId]
+  AssigmentDate                      date      [null]
+  CreatedByUserId                    int       [null, ref: > Users.ID]
+  UpdateUserID                       int       [null, ref: > Users.ID]
+  CreateDate                         datetime2 [not null]
+  UpdatedDate                        datetime2 [null]
+  IsDeleted                          bit       [not null, default: 0]
+
+  indexes {
+    (OrderWorkPlanId, MeasurementDeviceId, MeasurementDevicesToOrderHeadersId) [pk]
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// CALIBRATION PROCESS
+// ─────────────────────────────────────────────────────────────
+
+Table CalibrationCycles {
+  OrderDetailsItemId           int            [not null]
+  CalibrationCycleStartDate    datetime2      [not null]
+  CalibrationCycleEndDate      datetime2      [not null]
+  CalibrationCycleStatusId     int            [null, ref: > Statuses.StatusId]
+  CalibrationCycleNameStatusId int            [null, ref: > Statuses.StatusId]
+  CalibrationCycleName         nvarchar(200)  [null]
+  UnitId                       int            [null, ref: > MeasurementDeviceUnits.MeasurementDeviceUnitId]
+  TestedValue                  decimal(18,6)  [null]
+  SpecificationReferenceIds    nvarchar(100)  [null]
+  CreatedUserID                int            [not null, ref: > Users.ID]
+  UpdateUserID                 int            [null, ref: > Users.ID]
+  CreatedDate                  datetime2      [not null]
+  UpdatedDate                  datetime2      [null]
+  IsDeleted                    bit            [not null, default: 0]
+
+  indexes {
+    (OrderDetailsItemId, CalibrationCycleStartDate) [pk]
+  }
+}
+
+Ref: CalibrationCycles.OrderDetailsItemId > OrderDetailsItems.OrderDetailsItemId
+
+Table CalibrationEnvironmentalConditions {
+  OrderDetailsItemId      int            [not null]
+  MeasurementDeviceUnitId int            [not null, ref: > MeasurementDeviceUnits.MeasurementDeviceUnitId]
+  NominalValue            decimal(18,6)  [null]
+  Tolerance               decimal(18,6)  [null]
+  MinToleranceBorder      decimal(18,6)  [null]
+  MaxToleranceBorder      decimal(18,6)  [null]
+  UpdateUserID            int            [null, ref: > Users.ID]
+  CreateDate              datetime2      [not null]
+  UpdatedDate             datetime2      [null]
+  IsDeleted               bit            [not null, default: 0]
+
+  indexes {
+    (OrderDetailsItemId, MeasurementDeviceUnitId) [pk]
+  }
+}
+
+Ref: CalibrationEnvironmentalConditions.OrderDetailsItemId > OrderDetailsItems.OrderDetailsItemId
+
+Table CalibrationProcessComments {
+  OrderDetailsItemId          int            [not null]
+  CalibrationProcessCommentId int            [increment]
+  CalibrationProcessComment   varbinary(max) [null, note: 'compressed with COMPRESS()']
+  TextHash                    int            [null]
+  IsInternal                  bit            [not null]
+  UpdateUserID                int            [null, ref: > Users.ID]
+  CreateDate                  datetime2      [not null]
+  UpdatedDate                 datetime2      [null]
+  IsDeleted                   bit            [not null, default: 0]
+
+  indexes {
+    (OrderDetailsItemId, CalibrationProcessCommentId) [pk]
+  }
+}
+
+Ref: CalibrationProcessComments.OrderDetailsItemId > OrderDetailsItems.OrderDetailsItemId
+
+Table MeasurmentDeviceToOrderDetailsItems {
+  MeasurmentDeviceToOrderDetailsItemId int       [increment]
+  OrderDetailsItemId                   int       [not null]
+  LoggerMeasurementDeviceId            int       [not null, ref: > MeasurementDevices.ID]
+  SensorMeasurementDeviceId            int       [not null, ref: > MeasurementDevices.ID]
+  PrimaryMeasurmentUnitId              int       [null, ref: > MeasurementDeviceUnits.MeasurementDeviceUnitId]
+  SecondaryMeasurmentUnitId            int       [null, ref: > MeasurementDeviceUnits.MeasurementDeviceUnitId]
+  UpdateUserID                         int       [null, ref: > Users.ID]
+  CreateDate                           datetime2 [not null]
+  UpdatedDate                          datetime2 [null]
+  IsDeleted                            bit       [not null, default: 0]
+
+  indexes {
+    (OrderDetailsItemId, LoggerMeasurementDeviceId, SensorMeasurementDeviceId, MeasurmentDeviceToOrderDetailsItemId) [pk]
+  }
+}
+
+Ref: MeasurmentDeviceToOrderDetailsItems.OrderDetailsItemId > OrderDetailsItems.OrderDetailsItemId
+
+Table MeasurmentPointsToOrderDetailsItems {
+  MeasurmentPointsToOrderDetailsItemId int            [increment]
+  OrderDetailsItemId                   int            [not null]
+  SensorMeasurementDeviceId            int            [not null, ref: > MeasurementDevices.ID]
+  ChannelNumber                        int            [not null]
+  MeasurmentPointName                  nvarchar(100)  [not null]
+  MeasurmentPointCoordX                decimal(10,4)  [not null]
+  MeasurmentPointCoordY                decimal(10,4)  [not null]
+  MasterValue                          decimal(10,8)  [null]
+  MasterValueUnitId                    int            [null, ref: > MeasurementDeviceUnits.MeasurementDeviceUnitId]
+  AdditionalValue                      decimal(10,4)  [null]
+  AdditionalValueUnitId                int            [null, ref: > MeasurementDeviceUnits.MeasurementDeviceUnitId]
+  MeasuredValue                        decimal(10,4)  [null]
+  MeasuredValueUnitId                  int            [null]
+  StabilityValue                       decimal(10,4)  [null]
+  UncertancyValue                      decimal(10,4)  [null]
+  UpdateUserID                         int            [null, ref: > Users.ID]
+  CreateDate                           datetime2      [not null]
+  UpdatedDate                          datetime2      [null]
+  IsDeleted                            bit            [not null, default: 0]
+
+  indexes {
+    (OrderDetailsItemId, SensorMeasurementDeviceId, ChannelNumber, MeasurmentPointsToOrderDetailsItemId) [pk]
+  }
+}
+
+Ref: MeasurmentPointsToOrderDetailsItems.OrderDetailsItemId > OrderDetailsItems.OrderDetailsItemId
+
+Table AdditionalEquipmentForOrderDetailsItems {
+  OrderDetailsItemId                       int          [not null]
+  AdditionalEquipmentForOrderDetailsItemsId int         [increment]
+  UpdateUserID                             int          [null, ref: > Users.ID]
+  CreateDate                               datetime2    [not null]
+  IsDeleted                                bit          [not null, default: 0]
+
+  indexes {
+    (OrderDetailsItemId, AdditionalEquipmentForOrderDetailsItemsId) [pk]
+  }
+}
+
+Ref: AdditionalEquipmentForOrderDetailsItems.OrderDetailsItemId > OrderDetailsItems.OrderDetailsItemId
+
+// ─────────────────────────────────────────────────────────────
+// PACKING / SHIPPING
+// ─────────────────────────────────────────────────────────────
+
+Table PackingBox {
+  PackingBoxId int           [pk, increment]
+  BarCode      nvarchar(100) [null, unique]
+  Comment      nvarchar(200) [null]
+  UpdateUserID int           [null, ref: > Users.ID]
+  CreateDate   datetime2     [not null]
+  UpdatedDate  datetime2     [null]
+  IsDeleted    bit           [not null, default: 0]
+}
+
+Table PackingBoxToOrderDetailsItems {
+  OrderDetailsItemId int       [not null]
+  PackingBoxId       int       [not null, ref: > PackingBox.PackingBoxId]
+  CreateDate         datetime2 [not null]
+  UpdateUserID       int       [null, ref: > Users.ID]
+  UpdatedDate        datetime2 [null]
+  IsDeleted          bit       [not null, default: 0]
+
+  indexes {
+    (OrderDetailsItemId, PackingBoxId, CreateDate) [pk]
+  }
+}
+
+Ref: PackingBoxToOrderDetailsItems.OrderDetailsItemId > OrderDetailsItems.OrderDetailsItemId
+
+// ─────────────────────────────────────────────────────────────
+// CALIBRATOR MANAGEMENT
+// ─────────────────────────────────────────────────────────────
+
+Table CalibratorsAvailability {
+  UserId               int       [not null, ref: > Users.ID]
+  AvailbilityDateFrom  date      [not null]
+  AvailbilityDateTo    date      [not null]
+  AvailabilityStatusId int       [not null, ref: > Statuses.StatusId]
+  UpdateUserID         int       [null, ref: > Users.ID]
+  CreatedDate          datetime2 [not null]
+  UpdatedDate          datetime2 [null]
+  IsDeleted            bit       [not null, default: 0]
+
+  indexes {
+    (UserId, AvailbilityDateFrom) [pk]
+  }
+}
+
+Table CalibratorCertificationAuthorities {
+  ID             int          [pk, increment]
+  AuthorityName  nvarchar(50) [not null]
+  MainCategoryId int          [not null, ref: > MainCategories.ID]
+  UpdateUserID   int          [null, ref: > Users.ID]
+  CreatedDate    datetime2    [not null]
+  UpdatedDate    datetime2    [null]
+  IsDeleted      bit          [not null, default: 0]
+}
+
+Table CalibratorsToCertificationAuthoritiesAuthorities {
+  CalibratorCertificationAuthorityId int       [not null, ref: > CalibratorCertificationAuthorities.ID]
+  CalibratorId                       int       [not null, ref: > Users.ID]
+  CreatedDate                        datetime2 [not null]
+  UpdateUserID                       int       [null, ref: > Users.ID]
+  UpdatedDate                        datetime2 [null]
+  IsDeleted                          bit       [not null, default: 0]
+
+  indexes {
+    (CalibratorCertificationAuthorityId, CalibratorId, CreatedDate) [pk]
+  }
+}
+
+Table CalibratorNotifications {
+  CalibratorNotificationId int           [increment]
+  CalibratorId             int           [not null, ref: > Users.ID]
+  CreateUserId             int           [not null, ref: > Users.ID]
+  OrderWorkPlanId          int           [null, ref: > OrderWorkPlans.OrderWorkPlanId]
+  OrderDetailId            int           [null]
+  OrderDetailItemId        int           [null]
+  NotificationTypeId       int           [null, ref: > Statuses.StatusId]
+  NotificationText         nvarchar(200) [null]
+  RedirectPage             nvarchar(200) [null]
+  IsRead                   bit           [null, default: 0]
+  ResolvedDate             datetime2     [null]
+  UpdateUserID             int           [null, ref: > Users.ID]
+  CreatedDate              datetime2     [not null]
+  UpdatedDate              datetime2     [null]
+  IsDeleted                bit           [not null, default: 0]
+
+  indexes {
+    (CalibratorId, CalibratorNotificationId) [pk, unique]
+  }
+}
+
+Table CalibratorWorkstationSettings {
+  CalibratorWorkstationSettingId int           [pk, increment]
+  CalibratorWorkstationName      nvarchar(100) [not null]
+  CalibratorId                   int           [null, ref: > Users.ID]
+  UpdateUserID                   int           [null, ref: > Users.ID]
+  CreateDate                     datetime2     [not null]
+  UpdatedDate                    datetime2     [null]
+  IsDeleted                      bit           [not null, default: 0]
+}
+
+Table COMPortSettings {
+  CalibratorWorkstationSettingId int          [not null, ref: > CalibratorWorkstationSettings.CalibratorWorkstationSettingId]
+  COMPortSettingId               int          [increment]
+  COMAddress                     nvarchar(50) [not null]
+  UpdateUserID                   int          [null, ref: > Users.ID]
+  CreateDate                     datetime2    [not null]
+  UpdatedDate                    datetime2    [null]
+  IsDeleted                      bit          [not null, default: 0]
+
+  indexes {
+    (CalibratorWorkstationSettingId, COMPortSettingId) [pk]
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// CALENDAR
+// ─────────────────────────────────────────────────────────────
+
+Table CalendarEvents {
+  CalendarEventId    int           [pk, increment]
+  StartDate          datetime2     [not null]
+  EndDate            datetime2     [not null]
+  Comments           nvarchar(255) [null]
+  EventTypeId        int           [not null, ref: > Statuses.StatusId]
+  AWSCalendarEventId int           [null]
+  UpdateUserID       int           [null, ref: > Users.ID]
+  CreatedDate        datetime2     [not null]
+  UpdatedDate        datetime2     [null]
+  IsDeleted          bit           [not null, default: 0]
+}
+
+Table CalendarEventsToParticipants {
+  CalendarEventId int       [not null, ref: > CalendarEvents.CalendarEventId]
+  UserId          int       [not null, ref: > Users.ID]
+  CreatedDate     datetime2 [not null]
+  UpdateUserID    int       [null, ref: > Users.ID]
+  UpdatedDate     datetime2 [null]
+  IsDeleted       bit       [not null, default: 0]
+
+  indexes {
+    (CalendarEventId, UserId, CreatedDate) [pk]
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABLE GROUPS (visual grouping in dbdiagram.io)
+// ─────────────────────────────────────────────────────────────
+
+TableGroup "Reference & Lookup" {
+  StatusesCategories
+  Statuses
+  UserRoles
+  Source
+  OrdersProductTypes
+}
+
+TableGroup "Users & Departments" {
+  Users
+  MainCategories
+  SecondaryCategories
+  MainToSecondaryCategories
+  UsersToDepartments
+}
+
+TableGroup "Customers" {
+  Customers
+  CustomerContacts
+  CustomerSites
+  CustomerRemarks
+}
+
+TableGroup "Measurement Devices (Equipment)" {
+  MeasurementDevicesMainClasses
+  MeasurementDevicesSubClass
+  MeasurementDeviceUnits
+  Measurements
+  MeasurementsToMeasurmentUnits
+  MeasurementDevices
+  MeasurementDevicesCorrections
+  SensorToLoggerRelation
+  MeasurementsSpecifications
+  MeasurementsSpecificationsToSecondCategory
+  SpecificationReference
+}
+
+TableGroup "Fleet" {
+  Cars
+  CarDowntimePeriodHistory
+  CarsToEquipment
+}
+
+TableGroup "Order Workflow" {
+  OrderWorkPlans
+  OrderDetails
+  OrderDetailsItems
+  OrderItemsStatusesHistory
+  CalibratorsToWorkPlan
+  CarsToOrder
+  MeasurementDevicesToOrderHeaders
+}
+
+TableGroup "Calibration Process" {
+  CalibrationCycles
+  CalibrationEnvironmentalConditions
+  CalibrationProcessComments
+  MeasurmentDeviceToOrderDetailsItems
+  MeasurmentPointsToOrderDetailsItems
+  AdditionalEquipmentForOrderDetailsItems
+}
+
+TableGroup "Packing & Shipping" {
+  PackingBox
+  PackingBoxToOrderDetailsItems
+}
+
+TableGroup "Calibrator Management" {
+  CalibratorsAvailability
+  CalibratorCertificationAuthorities
+  CalibratorsToCertificationAuthoritiesAuthorities
+  CalibratorNotifications
+  CalibratorWorkstationSettings
+  COMPortSettings
+}
+
+TableGroup "Calendar" {
+  CalendarEvents
+  CalendarEventsToParticipants
+}
