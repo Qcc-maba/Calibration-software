@@ -363,3 +363,6 @@ MigrationBackup/
 FodyWeavers.xsd
 **/Project.params
 *.params
+
+# Claude Code
+CLAUDE.md
