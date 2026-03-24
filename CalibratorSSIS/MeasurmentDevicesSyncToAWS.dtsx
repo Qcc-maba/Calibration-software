@@ -12,8 +12,8 @@
   DTS:ObjectName="MeasurmentDevicesSyncToAWS"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="144"
-  DTS:VersionGUID="{B826AA23-AA9D-44B9-9658-2C1FB3B22B59}">
+  DTS:VersionBuild="150"
+  DTS:VersionGUID="{6978F405-BC7F-4C68-BAB9-6F71AE662C2F}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:ConnectionManagers>
@@ -80,12 +80,15 @@
       DTS:CreationName=""
       DTS:DTSID="{E6623B48-18FD-4214-9DBE-8BCF89AFC44C}"
       DTS:EvaluateAsExpression="True"
-      DTS:Expression="&quot;SELECT&#xA;     icr.[ID] as MeasurementDevicesCorrectionsSourceId&#xA;    ,icr.[RangeStart]&#xA;    ,icr.[RangeStop]&#xA;    ,icr.[Value]&#xA;    ,icr.[DateAdded]&#xA;    ,icr.[CorVersion]&#xA;&#x9;,i.[MabaID]&#xA;&#x9;,m.NameEn as [MeasurementNameEn]&#xA;&#x9;,m.NameHe as [MeasurementNameHe]&#xA;&#x9;,u.ShortNameEn as [ShortNameEn]&#xA;&#x9;,u.LongNameEn as [LongNameEn] &#xA;&#x9;,u.ShortNameHe as [ShortNameHe]&#xA;&#x9;,u.LongNameHe as [LongNameHe] &#xA;&#x9;,d.DepartmentHeb &#xA;FROM [kyulan].[dbo].[tblInstrCorrections] as icr&#xA;JOIN [kyulan].[dbo].[tblInstr] as i ON icr.[InstrumentId] = i.[ID]&#xA;JOIN [kyulan].[dbo].[tblMeasurements] as m ON icr.[MeasurementId] = m.[ID]&#xA;JOIN [kyulan].[dbo].[tblUnits] as u ON icr.[UnitID] = u.[ID]&#xA;JOIN [kyulan].[dbo].[tblDepartments] as d ON icr.[Department] = d.[ID]&#xA;WHERE icr.[DateAdded] &gt;='&quot; +  (DT_STR, 50, 1251) @[User::MeasurementDevicesCorrectionsDate]+&quot;'&quot;"
+      DTS:Expression="&quot;;WITH cte&#xA;as&#xA;(&#xA;SELECT&#xA;     icr.[ID] as MeasurementDevicesCorrectionsSourceId&#xA;    ,icr.[RangeStart]&#xA;    ,icr.[RangeStop]&#xA;    ,icr.[Value]&#xA;    ,icr.[DateAdded]&#xA;    ,icr.[CorVersion]&#xA;&#x9;,i.[MabaID]&#xA;&#x9;,m.NameEn as [MeasurementNameEn]&#xA;&#x9;,m.NameHe as [MeasurementNameHe]&#xA;&#x9;,u.ShortNameEn as [ShortNameEn]&#xA;&#x9;,u.LongNameEn as [LongNameEn] &#xA;&#x9;,u.ShortNameHe as [ShortNameHe]&#xA;&#x9;,u.LongNameHe as [LongNameHe] &#xA;&#x9;,d.DepartmentHeb &#xA;&#x9;,REPLACE(REPLACE(icr.Value,' ',''),'x*','') as NormalizedValue&#xA;FROM [kyulan].[dbo].[tblInstrCorrections] as icr&#xA;JOIN [kyulan].[dbo].[tblInstr] as i ON icr.[InstrumentId] = i.[ID]&#xA;JOIN [kyulan].[dbo].[tblMeasurements] as m ON icr.[MeasurementId] = m.[ID]&#xA;JOIN [kyulan].[dbo].[tblUnits] as u ON icr.[UnitID] = u.[ID]&#xA;JOIN [kyulan].[dbo].[tblDepartments] as d ON icr.[Department] = d.[ID]&#xA;WHERE i.[Removed] IS NULL AND icr.[DateAdded] &gt;='&quot; +  (DT_STR, 50, 1251) @[User::MeasurementDevicesCorrectionsDate]+&quot;'&quot;+&quot;&#xA;),&#xA;parsed&#xA;as&#xA;(&#xA;SELECT  &#xA;     c.MeasurementDevicesCorrectionsSourceId&#xA;    ,c.[RangeStart]&#xA;    ,c.[RangeStop]&#xA;    ,c.[Value]&#xA;    ,c.[DateAdded]&#xA;    ,c.[CorVersion]&#xA;&#x9;,c.[MabaID]&#xA;&#x9;,c.[MeasurementNameEn]&#xA;&#x9;,c.[MeasurementNameHe]&#xA;&#x9;,c.[ShortNameEn]&#xA;&#x9;,c.[LongNameEn] &#xA;&#x9;,c.[ShortNameHe]&#xA;&#x9;,c.[LongNameHe] &#xA;&#x9;,c.DepartmentHeb &#xA;&#x9;,TRY_CAST(SUBSTRING(c.NormalizedValue,2,CHARINDEX(N')',c.NormalizedValue)-2) as DECIMAL(18,6)) as Multiplier&#xA;&#x9;,SUBSTRING(c.NormalizedValue,CHARINDEX(N')',c.NormalizedValue)+1,1) as Operator&#xA;&#x9;,TRY_CAST(SUBSTRING(c.NormalizedValue,CHARINDEX(N')',c.NormalizedValue)+2,LEN(c.NormalizedValue)-CHARINDEX(N')',c.NormalizedValue)) as DECIMAL(18,6)) as Adjustment&#xA;FROM cte as c&#xA;)&#xA;SELECT &#xA;     p.MeasurementDevicesCorrectionsSourceId&#xA;    ,p.[RangeStart]&#xA;    ,p.[RangeStop]&#xA;    ,p.[Value]&#xA;    ,p.[DateAdded]&#xA;    ,p.[CorVersion]&#xA;&#x9;,p.[MabaID]&#xA;&#x9;,p.[MeasurementNameEn]&#xA;&#x9;,p.[MeasurementNameHe]&#xA;&#x9;,p.[ShortNameEn]&#xA;&#x9;,p.[LongNameEn] &#xA;&#x9;,p.[ShortNameHe]&#xA;&#x9;,p.[LongNameHe] &#xA;&#x9;,p.DepartmentHeb &#xA;,CASE p.Operator&#xA;&#x9;WHEN '+' THEN (p.RangeStart * p.Multiplier) + p.Adjustment&#xA;&#x9;WHEN '-' THEN (p.RangeStart * p.Multiplier) - p.Adjustment&#xA;&#x9;WHEN '/' THEN (p.RangeStart * p.Multiplier) / p.Adjustment&#xA;&#x9;WHEN '*' THEN (p.RangeStart * p.Multiplier) * p.Adjustment&#xA;END AS Deviation&#xA;FROM parsed as p&#xA;&quot;"
       DTS:IncludeInDebugDump="2345"
       DTS:Namespace="User"
       DTS:ObjectName="MeasurementDevicesCorrectionsSQL">
       <DTS:VariableValue
-        DTS:DataType="8">SELECT
+        DTS:DataType="8">;WITH cte
+as
+(
+SELECT
      icr.[ID] as MeasurementDevicesCorrectionsSourceId
     ,icr.[RangeStart]
     ,icr.[RangeStop]
@@ -100,12 +103,60 @@
 	,u.ShortNameHe as [ShortNameHe]
 	,u.LongNameHe as [LongNameHe] 
 	,d.DepartmentHeb 
+	,REPLACE(REPLACE(icr.Value,' ',''),'x*','') as NormalizedValue
 FROM [kyulan].[dbo].[tblInstrCorrections] as icr
 JOIN [kyulan].[dbo].[tblInstr] as i ON icr.[InstrumentId] = i.[ID]
 JOIN [kyulan].[dbo].[tblMeasurements] as m ON icr.[MeasurementId] = m.[ID]
 JOIN [kyulan].[dbo].[tblUnits] as u ON icr.[UnitID] = u.[ID]
 JOIN [kyulan].[dbo].[tblDepartments] as d ON icr.[Department] = d.[ID]
-WHERE icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'</DTS:VariableValue>
+WHERE i.[Removed] IS NULL AND icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'
+),
+parsed
+as
+(
+SELECT  
+     c.MeasurementDevicesCorrectionsSourceId
+    ,c.[RangeStart]
+    ,c.[RangeStop]
+    ,c.[Value]
+    ,c.[DateAdded]
+    ,c.[CorVersion]
+	,c.[MabaID]
+	,c.[MeasurementNameEn]
+	,c.[MeasurementNameHe]
+	,c.[ShortNameEn]
+	,c.[LongNameEn] 
+	,c.[ShortNameHe]
+	,c.[LongNameHe] 
+	,c.DepartmentHeb 
+	,TRY_CAST(SUBSTRING(c.NormalizedValue,2,CHARINDEX(N')',c.NormalizedValue)-2) as DECIMAL(18,6)) as Multiplier
+	,SUBSTRING(c.NormalizedValue,CHARINDEX(N')',c.NormalizedValue)+1,1) as Operator
+	,TRY_CAST(SUBSTRING(c.NormalizedValue,CHARINDEX(N')',c.NormalizedValue)+2,LEN(c.NormalizedValue)-CHARINDEX(N')',c.NormalizedValue)) as DECIMAL(18,6)) as Adjustment
+FROM cte as c
+)
+SELECT 
+     p.MeasurementDevicesCorrectionsSourceId
+    ,p.[RangeStart]
+    ,p.[RangeStop]
+    ,p.[Value]
+    ,p.[DateAdded]
+    ,p.[CorVersion]
+	,p.[MabaID]
+	,p.[MeasurementNameEn]
+	,p.[MeasurementNameHe]
+	,p.[ShortNameEn]
+	,p.[LongNameEn] 
+	,p.[ShortNameHe]
+	,p.[LongNameHe] 
+	,p.DepartmentHeb 
+,CASE p.Operator
+	WHEN '+' THEN (p.RangeStart * p.Multiplier) + p.Adjustment
+	WHEN '-' THEN (p.RangeStart * p.Multiplier) - p.Adjustment
+	WHEN '/' THEN (p.RangeStart * p.Multiplier) / p.Adjustment
+	WHEN '*' THEN (p.RangeStart * p.Multiplier) * p.Adjustment
+END AS Deviation
+FROM parsed as p
+</DTS:VariableValue>
     </DTS:Variable>
   </DTS:Variables>
   <DTS:Executables>
@@ -200,7 +251,10 @@ WHERE icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'</DTS:VariableValue>
                       description="Specifies the SQL statement used by the component to extract data."
                       expressionType="Notify"
                       name="SqlCommand"
-                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT
+                      UITypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">;WITH cte
+as
+(
+SELECT
      icr.[ID] as MeasurementDevicesCorrectionsSourceId
     ,icr.[RangeStart]
     ,icr.[RangeStop]
@@ -215,12 +269,60 @@ WHERE icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'</DTS:VariableValue>
 	,u.ShortNameHe as [ShortNameHe]
 	,u.LongNameHe as [LongNameHe] 
 	,d.DepartmentHeb 
+	,REPLACE(REPLACE(icr.Value,' ',''),'x*','') as NormalizedValue
 FROM [kyulan].[dbo].[tblInstrCorrections] as icr
 JOIN [kyulan].[dbo].[tblInstr] as i ON icr.[InstrumentId] = i.[ID]
 JOIN [kyulan].[dbo].[tblMeasurements] as m ON icr.[MeasurementId] = m.[ID]
 JOIN [kyulan].[dbo].[tblUnits] as u ON icr.[UnitID] = u.[ID]
 JOIN [kyulan].[dbo].[tblDepartments] as d ON icr.[Department] = d.[ID]
-WHERE icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'</property>
+WHERE i.[Removed] IS NULL AND icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'
+),
+parsed
+as
+(
+SELECT  
+     c.MeasurementDevicesCorrectionsSourceId
+    ,c.[RangeStart]
+    ,c.[RangeStop]
+    ,c.[Value]
+    ,c.[DateAdded]
+    ,c.[CorVersion]
+	,c.[MabaID]
+	,c.[MeasurementNameEn]
+	,c.[MeasurementNameHe]
+	,c.[ShortNameEn]
+	,c.[LongNameEn] 
+	,c.[ShortNameHe]
+	,c.[LongNameHe] 
+	,c.DepartmentHeb 
+	,TRY_CAST(SUBSTRING(c.NormalizedValue,2,CHARINDEX(N')',c.NormalizedValue)-2) as DECIMAL(18,6)) as Multiplier
+	,SUBSTRING(c.NormalizedValue,CHARINDEX(N')',c.NormalizedValue)+1,1) as Operator
+	,TRY_CAST(SUBSTRING(c.NormalizedValue,CHARINDEX(N')',c.NormalizedValue)+2,LEN(c.NormalizedValue)-CHARINDEX(N')',c.NormalizedValue)) as DECIMAL(18,6)) as Adjustment
+FROM cte as c
+)
+SELECT 
+     p.MeasurementDevicesCorrectionsSourceId
+    ,p.[RangeStart]
+    ,p.[RangeStop]
+    ,p.[Value]
+    ,p.[DateAdded]
+    ,p.[CorVersion]
+	,p.[MabaID]
+	,p.[MeasurementNameEn]
+	,p.[MeasurementNameHe]
+	,p.[ShortNameEn]
+	,p.[LongNameEn] 
+	,p.[ShortNameHe]
+	,p.[LongNameHe] 
+	,p.DepartmentHeb 
+,CASE p.Operator
+	WHEN '+' THEN (p.RangeStart * p.Multiplier) + p.Adjustment
+	WHEN '-' THEN (p.RangeStart * p.Multiplier) - p.Adjustment
+	WHEN '/' THEN (p.RangeStart * p.Multiplier) / p.Adjustment
+	WHEN '*' THEN (p.RangeStart * p.Multiplier) * p.Adjustment
+END AS Deviation
+FROM parsed as p
+</property>
                     <property
                       dataType="System.Int32"
                       description="The number of seconds before a command times out.  A value of 0 indicates an infinite time-out."
@@ -396,6 +498,17 @@ WHERE icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'</property>
                           lineageId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Get source data.Outputs[ADO NET Source Output].Columns[DepartmentHeb]"
                           name="DepartmentHeb"
                           truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Get source data.Outputs[ADO NET Source Output].Columns[Deviation]"
+                          dataType="numeric"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Get source data.Outputs[ADO NET Source Output].ExternalColumns[Deviation]"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Get source data.Outputs[ADO NET Source Output].Columns[Deviation]"
+                          name="Deviation"
+                          precision="38"
+                          scale="6"
+                          truncationRowDisposition="FailComponent" />
                       </outputColumns>
                       <externalMetadataColumns
                         isUsed="True">
@@ -468,6 +581,12 @@ WHERE icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'</property>
                           dataType="wstr"
                           length="50"
                           name="DepartmentHeb" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Get source data.Outputs[ADO NET Source Output].ExternalColumns[Deviation]"
+                          dataType="numeric"
+                          name="Deviation"
+                          precision="38"
+                          scale="6" />
                       </externalMetadataColumns>
                     </output>
                     <output
@@ -558,6 +677,13 @@ WHERE icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'</property>
                           length="50"
                           lineageId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Get source data.Outputs[ADO NET Source Error Output].Columns[DepartmentHeb]"
                           name="DepartmentHeb" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Get source data.Outputs[ADO NET Source Error Output].Columns[Deviation]"
+                          dataType="numeric"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Get source data.Outputs[ADO NET Source Error Output].Columns[Deviation]"
+                          name="Deviation"
+                          precision="38"
+                          scale="6" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Get source data.Outputs[ADO NET Source Error Output].Columns[ErrorCode]"
                           dataType="i4"
@@ -721,6 +847,14 @@ WHERE icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'</property>
                           cachedName="DepartmentHeb"
                           externalMetadataColumnId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[DepartmentHeb]"
                           lineageId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Get source data.Outputs[ADO NET Source Output].Columns[DepartmentHeb]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Populate stg table.Inputs[ADO NET Destination Input].Columns[Deviation]"
+                          cachedDataType="numeric"
+                          cachedName="Deviation"
+                          cachedPrecision="38"
+                          cachedScale="6"
+                          externalMetadataColumnId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[Deviation]"
+                          lineageId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Get source data.Outputs[ADO NET Source Output].Columns[Deviation]" />
                       </inputColumns>
                       <externalMetadataColumns
                         isUsed="True">
@@ -793,6 +927,12 @@ WHERE icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'</property>
                           refId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[MeasurementDevicesCorrectionsSourceId]"
                           dataType="i4"
                           name="MeasurementDevicesCorrectionsSourceId" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load stg Measurement Devices Corrections\Populate stg table.Inputs[ADO NET Destination Input].ExternalColumns[Deviation]"
+                          dataType="numeric"
+                          name="Deviation"
+                          precision="25"
+                          scale="15" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -901,7 +1041,7 @@ WHERE icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'</property>
           PanelSize="292.8,102.4"
           Size="292.8,145.6"
           Id="Package\Execute merges in sequence"
-          TopLeft="33.8333330146141,458.233333050079" />
+          TopLeft="32.9999997268121,406.233333411681" />
         <NodeLayout
           Size="160,41.6"
           Id="Package\Populate staging tables\Get last load date"
@@ -916,14 +1056,14 @@ WHERE icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'</property>
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,40.0333336105612"
+              EndConnector="0,40.033333610561"
               Start="0,0"
-              End="0,32.5333336105612">
+              End="0,32.533333610561">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,32.5333336105612" />
+                    End="0,32.533333610561" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
@@ -967,18 +1107,18 @@ WHERE icr.[DateAdded] &gt;='12/14/1900 3:14:00 PM'</property>
         </EdgeLayout>
         <EdgeLayout
           Id="Package.PrecedenceConstraints[Constraint 1]"
-          TopLeft="177.316666507307,351.9">
+          TopLeft="176.899999863406,351.9">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,106.333333050079"
+              EndConnector="0,54.3333334116805"
               Start="0,0"
-              End="0,98.8333330500788">
+              End="0,46.8333334116805">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,98.8333330500788" />
+                    End="0,46.8333334116805" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
