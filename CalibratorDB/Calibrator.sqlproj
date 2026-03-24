@@ -113,7 +113,6 @@
     <Build Include="dbo\Stored Procedures\GetLoginUser.sql" />
     <Build Include="dbo\Stored Procedures\GetLaboratoryViewDepartmentDelays.sql" />
     <Build Include="dbo\Stored Procedures\GetLaboratoryViewAgentsWaitingList.sql" />
-    <Build Include="dbo\Stored Procedures\GetExternalWorkPlanData.sql" />
     <Build Include="dbo\Stored Procedures\CreateCalendarEvent.sql" />
     <Build Include="dbo\Stored Procedures\GetCalendarEvents.sql" />
     <Build Include="dbo\Stored Procedures\EditCalendarEvent.sql" />
@@ -231,7 +230,7 @@
     <Build Include="dbo\Stored Procedures\GetLogersConfiguredByCalibrator.sql" />
     <None Include="AddMeasurmentSpec.sql" />
     <Build Include="dbo\Tables\MainCategories.sql" />
-    <Build Include="dbo\Tables\SecondaryCategories_1.sql" />
+    <Build Include="dbo\Tables\SecondaryCategories.sql" />
     <Build Include="dbo\Tables\MeasurmentDeviceToOrderDetailsItems.sql" />
     <Build Include="dbo\Stored Procedures\AssignMeasurmentDeviceToOrderDetailsItems.sql" />
     <Build Include="dbo\Tables\MeasurmentPointsToOrderDetailsItems.sql" />
