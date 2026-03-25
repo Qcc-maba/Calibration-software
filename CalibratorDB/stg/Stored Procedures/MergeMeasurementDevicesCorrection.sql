@@ -10,7 +10,6 @@ BEGIN
 
 SET NOCOUNT ON;
 
-
 INSERT INTO [dbo].[Measurements]
            ([NameEn]
            ,[NameHe]
@@ -67,7 +66,7 @@ INSERT INTO [dbo].[MeasurementDevicesCorrections]
            ,[IsDeleted]
            ,[UpdateUserID]
            ,[MeasurementDevicesCorrectionsSourceId]
-           ,[DeviceMabaId])
+           ,[Deviation])
 SELECT 
  stg.RangeStart as [Value1]
 ,stg.RangeStop as [Value2]
@@ -80,7 +79,7 @@ SELECT
 ,0 as [IsDeleted]
 ,0 as [UpdateUserID]
 ,stg.[MeasurementDevicesCorrectionsSourceId]
-,stg.MabaID
+,stg.[Deviation]
 FROM [stg].[stg_MeasurementDevicesCorrections] as stg
 JOIN [dbo].[MainCategories] as mc ON
         CASE stg.DepartmentHeb
@@ -98,7 +97,7 @@ WHERE dest.[MeasurementDevicesCorrectionsSourceId] IS NULL
 UPDATE mdc
 SET MeasurementDevicesId = md.ID
 FROM [dbo].[MeasurementDevicesCorrections] as mdc 
-JOIN [dbo].[MeasurementDevices] as md  ON md.MabaID = mdc.[DeviceMabaId]
+JOIN [dbo].[MeasurementDevices] as md  ON md.ID = mdc.MeasurementDevicesId
 WHERE COALESCE(mdc.MeasurementDevicesId,0) <> COALESCE(md.ID,0)
 
 

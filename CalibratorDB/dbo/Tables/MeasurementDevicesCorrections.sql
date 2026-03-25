@@ -15,7 +15,6 @@
     [IsDeleted]                             BIT              DEFAULT ((0)) NOT NULL,
     [UpdateUserID]                          INT              NULL,
     [MeasurementDevicesCorrectionsSourceId] INT              NULL,
-    [DeviceMabaId]                          NVARCHAR (50)    NULL,
     CONSTRAINT [PK_tblInstrCorrections] PRIMARY KEY CLUSTERED ([ID] ASC) WITH (FILLFACTOR = 90),
     CONSTRAINT [FK_MeasurementDevicesCorrections_MainCategoryId] FOREIGN KEY ([MainCategoryId]) REFERENCES [dbo].[MainCategories] ([ID]),
     CONSTRAINT [FK_MeasurementDevicesCorrections_MeasurementDevicesId] FOREIGN KEY ([MeasurementDevicesId]) REFERENCES [dbo].[MeasurementDevices] ([ID]),

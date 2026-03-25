@@ -33,7 +33,7 @@ SELECT
     ,mpo.[AdditionalValueUnitId]
     ,mdu2.[ShortNameHe] as AdditionalUUTDescription
     ,mpo.[MasterValue] - evnc.[NominalValue] as [Deviation]
-    ,((mpo.[MasterValue] - evnc.[NominalValue])/evnc.[Tolerance])*100 as AllowedDeviation
+    ,((mpo.[MasterValue] - evnc.[NominalValue])/COALESCE(NULLIF(evnc.[Tolerance],0),1))*100 as AllowedDeviation
     ,mpo.[UncertancyValue]
     ,'0_mocked_val' as DriftFromLastCalibration
     ,mpo.StabilityValue
