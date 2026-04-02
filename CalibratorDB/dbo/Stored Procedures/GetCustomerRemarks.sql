@@ -18,6 +18,3 @@ SELECT [CustomerId]
   WHERE [IsDeleted] = 0 AND [CustomerId] = @CustomerId
 
 END
-
-ALTER TABLE [dbo].[CustomerRemarks]
-ADD CustomerSpecialInstructionsAttachment NVARCHAR(200) NULL
