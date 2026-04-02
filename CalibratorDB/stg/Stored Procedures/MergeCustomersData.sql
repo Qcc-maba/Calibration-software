@@ -14,9 +14,12 @@ USING (
 	SELECT
 	     c.[CustomerID] as [CustomerIdFromSource]
 		,c.[CustomerName]
+		,NULLIF(c.[CustomerNameENG],'') as [CustomerNameENG]
 		,NULLIF(c.[CustomerPhone],'') as [CustomerPhone]
 		,NULLIF(c.[CustomerCity],'') as [CustomerCity]
+		,NULLIF(c.[CustomerCityENG],'') as [CustomerCityENG]
 		,NULLIF(c.[CustomerAddress],'') as [CustomerAddress]
+		,NULLIF(c.[CustomerAddressENG],'') as [CustomerAddressENG]
 		,0 as [UpdateUserID]
 		,ss.SourceId
 		,c.SignatureAmount		
@@ -33,9 +36,12 @@ USING (
 WHEN MATCHED
 		AND
 		    (COALESCE(dest.[CustomerName],'') <> COALESCE(source.[CustomerName],'')
+		OR COALESCE(dest.[CustomerNameENG],'') <> COALESCE(source.[CustomerNameENG],'')
 		OR COALESCE(dest.[CustomerPhone],'') <> COALESCE(source.[CustomerPhone],'')
 		OR COALESCE(dest.[CustomerCity],'') <> COALESCE(source.[CustomerCity],'')
+		OR COALESCE(dest.[CustomerCityENG],'') <> COALESCE(source.[CustomerCityENG],'')
 		OR COALESCE(dest.[CustomerAddress],'') <> COALESCE(source.[CustomerAddress],'')
+		OR COALESCE(dest.[CustomerAddressENG],'') <> COALESCE(source.[CustomerAddressENG],'')
 		OR COALESCE(dest.[SignatureAmount],0) <> COALESCE(source.[SignatureAmount],0)
 		OR COALESCE(dest.[ShipTypeDescr],'') <> COALESCE(source.[ShipTypeDescr],'')
 		OR COALESCE(dest.[ReportRequired],'') <> COALESCE(source.[ReportRequired],'')
@@ -46,9 +52,12 @@ WHEN MATCHED
 		UPDATE
 		SET 
 		     dest.[CustomerName] = source.[CustomerName]
+			,dest.[CustomerNameENG] = source.[CustomerNameENG]
 			,dest.[CustomerPhone] = source.[CustomerPhone]
 			,dest.[CustomerCity] = source.[CustomerCity]
+			,dest.[CustomerCityENG] = source.[CustomerCityENG]
 			,dest.[CustomerAddress] = source.[CustomerAddress]
+			,dest.[CustomerAddressENG] = source.[CustomerAddressENG]
 			,dest.[CustomerIdFromSource] = source.[CustomerIdFromSource]
 			,dest.[UpdatedDate] = GETDATE()
 			,dest.[UpdateUserID] = 0
@@ -61,9 +70,12 @@ WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
 			 [CustomerName]
+			,[CustomerNameENG]
 			,[CustomerPhone]
 			,[CustomerCity]
+			,[CustomerCityENG]
 			,[CustomerAddress]
+			,[CustomerAddressENG]
 			,[CustomerIdFromSource]
 			,[SourceId]
 			,[UpdateUserID]
@@ -75,9 +87,12 @@ WHEN NOT MATCHED BY TARGET
 			)
 		VALUES (
 			 source.[CustomerName]
+			,source.[CustomerNameENG]
 			,source.[CustomerPhone]
 			,source.[CustomerCity]
+			,source.[CustomerCityENG]
 			,source.[CustomerAddress]
+			,source.[CustomerAddressENG]
 			,source.[CustomerIdFromSource]
 			,source.[SourceId]
 			,source.[UpdateUserID]

@@ -24,10 +24,10 @@ BEGIN
 		  ,md.[SerialNumber]
 		  ,md.[CalibrationDate] AS [LastCalibrationDate]
 		  ,md.[NextCalibration]
-		  ,NULL AS [CommunicationType] 
-		  ,NULL AS [CommunicationDetails]
-		  ,NULL AS [Rate]
-		  ,NULL AS [Intervals] 
+		/*  ,''CommunicationType_mocked'' AS [CommunicationType] 
+		  ,''CommunicationDetails_mocked'' AS [CommunicationDetails]
+		  ,''Rate_mocked'' AS [Rate]
+		  ,''Intervals_mocked'' AS [Intervals] */
 		  ,NULL AS [Status]
 		  ,mc.NameHebrew
 		  ,mc.NameEnglish

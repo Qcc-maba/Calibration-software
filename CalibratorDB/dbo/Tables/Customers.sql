@@ -15,11 +15,16 @@
     [ReportRequired]           NVARCHAR (50) NULL,
     [CustomerCode]             NVARCHAR (50) NULL,
     [CustomerSupportContactId] INT           NULL,
+    [CustomerNameENG]          NVARCHAR (48) NULL,
+    [CustomerCityENG]          NVARCHAR (40) NULL,
+    [CustomerAddressENG]       NVARCHAR (80) NULL,
     CONSTRAINT [PK_Customers] PRIMARY KEY CLUSTERED ([CustomerId] ASC),
     CONSTRAINT [FK_Customers_CustomerSupportContactId] FOREIGN KEY ([CustomerSupportContactId]) REFERENCES [dbo].[Users] ([ID]),
     CONSTRAINT [FK_Customers_SourceId] FOREIGN KEY ([SourceId]) REFERENCES [dbo].[Source] ([SourceId]),
     CONSTRAINT [FK_Customers_UpdateUserID] FOREIGN KEY ([UpdateUserID]) REFERENCES [dbo].[Users] ([ID])
 );
+
+
 
 
 
