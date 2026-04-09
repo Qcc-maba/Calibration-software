@@ -52,7 +52,7 @@ ChannelNumber INT
 INSERT #Channels(ChannelNumber)
 SELECT CAST(value AS INT)
 FROM STRING_SPLIT(@ChannelNumbers,',')
-WHERE value >= 0
+
 
 BEGIN TRY
 	
@@ -88,14 +88,17 @@ BEGIN TRY
 
 --In case if it was previously assigned revert deleted flag
     UPDATE cr
-	SET IsDeleted = 0,
+	SET IsDeleted = IIF(c.ChannelNumber IS NULL,1,0),
 		UpdatedDate = GETDATE(),
 		UpdateUserID = @LoggedInUserId
-	FROM #Channels as c
-	LEFT JOIN [dbo].[ChannelsToSensorRelation] as cr ON cr.[SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
-	                                                AND cr.[LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
-													AND c.ChannelNumber = cr.ChannelNumber
-													AND cr.IsDeleted = 1
+	FROM [dbo].[ChannelsToSensorRelation] as cr
+	LEFT JOIN #Channels as c ON cr.[SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
+	                            AND cr.[LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
+								AND cr.ChannelNumber = c.ChannelNumber
+	WHERE cr.[SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
+	      AND cr.[LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
+												
+								
 
 	COMMIT
 END TRY

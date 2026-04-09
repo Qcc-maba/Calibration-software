@@ -1,5 +1,6 @@
 ﻿CREATE   PROCEDURE [dbo].[GetSensorsConfiguredByCalibrator] 
 @LoggedInUserEmail NVARCHAR(100),
+@LoggerMeasurementDeviceId INT = NULL,
 @SensorMeasurementDeviceId INT = NULL
 AS
 -- =============================================
@@ -33,7 +34,8 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 	JOIN dbo.SensorToLoggerRelation as srl ON ltc.ID = srl.SensorMeasurementDeviceId AND srl.IsDeleted = 0
 	JOIN dbo.ChannelsToSensorRelation as csr ON csr.SensorMeasurementDeviceId = srl.SensorMeasurementDeviceId AND csr.LoggerMeasurementDeviceId = srl.LoggerMeasurementDeviceId AND csr.IsDeleted = 0
     WHERE  mc.NameEnglish = 'Sensor' AND ltc.IsDeleted =0 
-	AND (@SensorMeasurementDeviceId IS NULL OR ltc.ID = @SensorMeasurementDeviceId)
+	AND (@SensorMeasurementDeviceId IS NULL OR srl.SensorMeasurementDeviceId = @SensorMeasurementDeviceId)
+	AND (@LoggerMeasurementDeviceId IS NULL OR srl.LoggerMeasurementDeviceId = @LoggerMeasurementDeviceId)
 	GROUP BY 
 	srl.LoggerMeasurementDeviceId,
 	ltc.IP,
