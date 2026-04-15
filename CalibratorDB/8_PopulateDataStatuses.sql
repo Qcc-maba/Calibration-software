@@ -36,6 +36,7 @@ USING (
 		('CalibrationStatuses','','ReadyForDelivery',N'ממתין לאיסוף'),
 		('CalibrationStatuses','','WaitingForPacking',N'ממתין לאריזה'),
 		('CalibrationStatuses','','ReadyForPacking',N'מוכן לאריזה'),
+		('CalibrationStatuses','','NotCalibrated',N'לא מכויל'),
 		('CalibratedUnitsStatus','','Functional',N'תקין'),
 		('CalibrationStatuses','','TestedMetTheStandard',N'נבדק עומד'),
 		('CalibrationStatuses','','TestedDidn''tMeetTheStandards',N'נבדק - לא עומד'),

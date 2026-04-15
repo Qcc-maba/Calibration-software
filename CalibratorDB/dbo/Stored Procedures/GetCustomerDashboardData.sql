@@ -74,7 +74,7 @@ devices_cnt
 AS
 (
 SELECT 
-d.DeviceStatus
+IIF(d.IsLatestOrder = 1 AND d.CalibratioinDate > GETDATE(),N''לא מכויל'',d.DeviceStatus) as DeviceStatus
 ,d.CalibratioinDate
 ,d.NextCalibrationDate
 ,d.CalibratioinLocation
@@ -94,7 +94,7 @@ d.DeviceStatus
 FROM ds as d
 )
 SELECT 
-ds.DeviceStatus
+ ds.DeviceStatus
 ,ds.CalibratioinDate
 ,ds.NextCalibrationDate
 ,ds.CalibratioinLocation
