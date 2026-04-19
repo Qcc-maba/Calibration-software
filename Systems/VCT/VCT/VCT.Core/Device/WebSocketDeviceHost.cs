@@ -2,6 +2,7 @@
 using Maba.VCT.ComLayer.Com_Layer;
 using Maba.VCT.Common;
 using Maba.VCT.Common.Protocol_Parser;
+using Maba.VCT.Common.Protocol_Parser.WebSocketMessage;
 using Maba.VCT.Core.Events;
 using System;
 using System.Collections;
@@ -36,12 +37,20 @@ namespace Maba.VCT.Core.Device
         {
             get
             {
-                return InternalComLayer.IsConnected;
+                var com = InternalComLayer;
+                return com != null && com.IsConnected;
             }
             private set { }
         }
 
         public IComLayer InternalComLayer { get; private set; }
+
+        // Sensors association data received from the WebSocket client
+        public string AssociatedDeviceId { get; set; }
+        public string AssociatedLoggerId { get; set; }
+        public string AssociatedBatchId { get; set; }
+        public string AssociatedUnits { get; set; }
+        public string AssociatedResolution { get; set; }
 
         #endregion
 
@@ -62,6 +71,17 @@ namespace Maba.VCT.Core.Device
 
         private void handlePacket(object o, Common.PacketEventArgs e)
         {
+            if (e.P is SensorsAssociationMessage association)
+            {
+                AssociatedDeviceId = association.DeviceId;
+                AssociatedLoggerId = association.LoggerId;
+                AssociatedBatchId = association.BatchId;
+                AssociatedUnits = !string.IsNullOrEmpty(association.Units) ? association.Units : "Celsius";
+                AssociatedResolution = !string.IsNullOrEmpty(association.Resolution) ? association.Resolution : "2";
+                Libs.Trace.Tracer.Info("[WS] SensorsAssociation: DeviceID={0}, LoggerID={1}, BatchID={2}, Units={3}, Resolution={4}",
+                    AssociatedDeviceId, AssociatedLoggerId, AssociatedBatchId, AssociatedUnits, AssociatedResolution);
+            }
+
             var p = new Events.DeviceEventArgs(this, e.P);
             MainEventsBus.Fire_OnIncomingEvent(this, p);
         }
@@ -186,10 +206,7 @@ namespace Maba.VCT.Core.Device
             {
                 BL.OnTimer();
             }
-            if (InternalComLayer != null && InternalComLayer.IsConnected)
-            {
-                ((WebSocketCom)InternalComLayer).WebSoketDataReceived();
-            }
+            // WebSocket RX is driven by WebSocketCom.RunReceiveLoopAsync (ServerCore); do not poll Receive here.
         }
     }
 }

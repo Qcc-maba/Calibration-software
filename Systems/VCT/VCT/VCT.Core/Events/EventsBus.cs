@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,7 +19,7 @@ namespace Maba.VCT.Core.Events
         public event DeviceConnnectionDelegate DeviceConnnection;
 
         public delegate void WebsocketDeviceConnnectionDelegate(object o, Events.DeviceConnectionEventArgs e);
-        public event DeviceConnnectionDelegate WebsocketDeviceConnnection;
+        public event WebsocketDeviceConnnectionDelegate WebsocketDeviceConnnection;
 
         public delegate void DeviceUnIdentifyConnnectionDelegate(object o, DeviceConnectionEventArgs e);
         public event DeviceUnIdentifyConnnectionDelegate DeviceUnIdentifyConnnection;
@@ -57,6 +57,8 @@ namespace Maba.VCT.Core.Events
 
         public void Fire_WebSocketConnection(object o, DeviceConnectionEventArgs e)
         {
+            if (e == null || e.Device == null) return;
+
             if (WebsocketDeviceConnnection != null)
             {
                 WebsocketDeviceConnnection(o, e);

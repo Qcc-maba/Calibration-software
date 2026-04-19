@@ -10,6 +10,7 @@ namespace Maba.VCT.Common.API.RemoteProtocolService
     {
         public InitSystemResponse(HardwarePacket p)
         {
+            Result = p.OK;
             Message = p.ToString();
         }
         public InitSystemResponse(bool result)

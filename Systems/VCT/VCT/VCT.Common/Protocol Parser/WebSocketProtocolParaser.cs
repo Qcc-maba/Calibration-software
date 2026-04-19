@@ -54,6 +54,10 @@ namespace Maba.VCT.Common.Protocol_Parser
             {
                 baseMessage = CreateReportParser();
             }
+            else if (value == "Status")
+            {
+                baseMessage = StatusParser();
+            }
             OnPacket(this, new PacketEventArgs(baseMessage));
         }
 
@@ -209,6 +213,33 @@ namespace Maba.VCT.Common.Protocol_Parser
                 }
             }
             return configurations;
+        }
+
+        private BaseMessage StatusParser()
+        {
+            var msg = new StatusMessage();
+            var parts = MessageData.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                           .Select(p => p.Trim())
+                           .ToList();
+            foreach (var part in parts)
+            {
+                if (part.Contains(":"))
+                {
+                    var keyValue = part.Split(new[] { ':' }, 2);
+                    var key = keyValue[0].Trim().Replace("\"", "");
+                    var value = keyValue[1].Trim().Replace("\"", "");
+                    switch (key)
+                    {
+                        case "Value":
+                            msg.Value = value;
+                            break;
+                        case "DeviceID":
+                            msg.DeviceID = value;
+                            break;
+                    }
+                }
+            }
+            return msg;
         }
 
         public static string SerializeMessage<T>(T message) where T : BaseMessage

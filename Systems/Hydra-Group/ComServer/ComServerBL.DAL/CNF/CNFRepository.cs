@@ -23,11 +23,6 @@ namespace ComServerBL.Hydra2.DAL.CNF
 
         }
 
-        public CNFRepository(string providerName, string stringConnection)
-            : base(providerName, stringConnection)
-        {
-        }
-
         public CNFRepository(string stringConnectionSectionName)
             : base(stringConnectionSectionName)
         {

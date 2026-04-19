@@ -1,4 +1,5 @@
-﻿using System;
+using Maba.VCT.Libs.Trace;
+using System;
 using System.Collections.Generic;
 using System.IO.Ports;
 using System.Linq;
@@ -34,7 +35,6 @@ namespace Maba.VCT.ComLayer
         #region members
         private byte[] _Buffer = new byte[8192];
         protected SerialPort _SerialPort { get; set; }
-        int writeIndex = 0;
         #endregion
 
         #region ctor
@@ -59,25 +59,19 @@ namespace Maba.VCT.ComLayer
             {
                 try
                 {
-                    Thread.Sleep(_SerialPort.ReadTimeout);
-                    int offset = 0;
-                    var lastRead = _SerialPort.Read(_Buffer, offset,_SerialPort.BytesToRead);
-                    //var lastRead = _SerialPort.ReadLine();
-                    writeIndex += lastRead;
-                    if (writeIndex > 0)
+                    int bytesToRead = _SerialPort.BytesToRead;
+                    if (bytesToRead > 0)
                     {
-                        //writeIndex += lastRead;
-                        LastRX_Time = DateTime.UtcNow;
-
-
-                        if (DataReceived != null)
+                        var lastRead = _SerialPort.Read(_Buffer, 0, bytesToRead);
+                        if (lastRead > 0)
                         {
-                            var e1 = new DataReceivedEventArgs(_Buffer, offset, writeIndex);
-                            //var e1 = new DataReceivedEventArgs(lastRead);
-                            DataReceived(this, e1);
+                            LastRX_Time = DateTime.UtcNow;
+                            SerialRxLogger.Append(PortName, _Buffer, 0, lastRead);
+                            if (DataReceived != null)
+                            {
+                                DataReceived(this, new DataReceivedEventArgs(_Buffer, 0, lastRead));
+                            }
                         }
-                        writeIndex = 0;
-                        _SerialPort.DiscardInBuffer();
                     }
                 }
                 catch (Exception ex)
@@ -106,7 +100,6 @@ namespace Maba.VCT.ComLayer
         {
             lock (_SerialPort)
             {
-                Thread.Sleep(_SerialPort.WriteTimeout);
                 LastTX_Time = DateTime.UtcNow;
                 _SerialPort.Write(b, offset, count);
             };
@@ -144,15 +137,13 @@ namespace Maba.VCT.ComLayer
             _SerialPort.PortName = PortName;
             _SerialPort.BaudRate = BaudRate;
             _SerialPort.ReadTimeout = Timeout;
-
-            //_SerialPort.NewLine = "\r\n";
-            //_SerialPort.DataBits = 8;
-            //_SerialPort.StopBits = StopBits.Two;
+            _SerialPort.DataBits = 8;
+            _SerialPort.StopBits = StopBits.One;
+            _SerialPort.Parity = Parity.None;
+            _SerialPort.Handshake = Handshake.XOnXOff;
+            _SerialPort.ReadBufferSize = 8192;
             _SerialPort.DtrEnable = true;
             _SerialPort.RtsEnable = true;
-            //_SerialPort.Handshake = Handshake.None;
-
-            //_SerialPort.Parity = Parity.None;
 
 
 
@@ -185,7 +176,10 @@ namespace Maba.VCT.ComLayer
                         s.Close();
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Tracer.Info("[Serial] Close port {0}: {1}", PortName, ex.Message);
+                }
             }
 
             if (LayerClosed != null)

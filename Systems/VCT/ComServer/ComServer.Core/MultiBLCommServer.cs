@@ -1,4 +1,4 @@
-﻿using Maba.VCT.Core.Device;
+using Maba.VCT.Core.Device;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -40,7 +40,10 @@ namespace Maba.VCT.CommServer.Core
 
         #region public methods
 
-        public void Start()
+        /// <param name="deferHardwareIdentificationUntilEnabled">
+        /// When true (interactive console host), pending devices do not get *IDN? until <see cref="EnableHardwareIdentification"/> is called after operator OK.
+        /// </param>
+        public void Start(bool deferHardwareIdentificationUntilEnabled = false)
         {
             Console.ForegroundColor = ConsoleColor.Blue;
             VCT.Libs.Trace.Tracer.Info("CommServer - Starting....");
@@ -49,6 +52,7 @@ namespace Maba.VCT.CommServer.Core
             #region VCT
 
             this.Settings4VCTServer = VCT.Core.Settings.VCTSettings.Read();
+            CalibratorLoggerSettingsFromDb.TryApplyToVctSettings(this.Settings4VCTServer);
 
             Console.ForegroundColor = ConsoleColor.Green;
             VCT.Libs.Trace.Tracer.Info("VCT Server Starting.");
@@ -72,6 +76,7 @@ namespace Maba.VCT.CommServer.Core
                         VCTServer.MainEventsBus.DeviceConnnection += VCT_MainEventsBus_DeviceConnnection;
                         VCTServer.MainEventsBus.WebsocketDeviceConnnection += MainEventsBus_WebsocketDeviceConnnection;
                         VCTServer.MainEventsBus.AutoHandleNewDevices = true;
+                        VCTServer.DeferHardwareIdentificationPackets = deferHardwareIdentificationUntilEnabled;
                         VCTServer.Start(Settings4VCTServer);
 
                         VCT.Libs.Trace.Tracer.Info("-- VCT Started!");
@@ -113,8 +118,6 @@ namespace Maba.VCT.CommServer.Core
 
             CurrentSettings = Settings.ComServerSettings.Read();
 
-            CommonBL.IBLCore _bl = null;
-
             if (CurrentSettings.Modules != null && CurrentSettings.Modules.Length > 0)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
@@ -122,34 +125,30 @@ namespace Maba.VCT.CommServer.Core
                 Console.ForegroundColor = ConsoleColor.Gray;
 
                 var _list = new List<CommonBL.IBLCore>();
-                //Parallel.ForEach(CurrentSettings.Modules, m =>
                 foreach (var m in CurrentSettings.Modules)
                 {
-                    // Your code here
-
-                    //VCT.Libs.Trace.Tracer.Info("-- -Module #{0}", _list.Count + 1);
-                    //VCT.Libs.Trace.Tracer.Info("-- ----TypeName     : {0}", m.TypeName);
-                    //VCT.Libs.Trace.Tracer.Info("-- ----AssemblyName : {0}", m.AssemblyName);
-
+                    CommonBL.IBLCore loaded = null;
                     try
                     {
-                        //VCT.Libs.Trace.Tracer.Info("--- ---Loading...");
+                        loaded = Activator.CreateInstance(m.AssemblyName, m.TypeName).Unwrap() as CommonBL.IBLCore;
+                        if (loaded == null)
+                        {
+                            VCT.Libs.Trace.Tracer.Info("- Failed! Module does not implement IBLCore or activation returned null (Type={0}).", m.TypeName);
+                            continue;
+                        }
 
-                        _bl = Activator.CreateInstance(m.AssemblyName, m.TypeName).Unwrap() as CommonBL.IBLCore;
-                        //VCT.Libs.Trace.Tracer.Info("--- ---Success!");
-                        _list.Add(_bl);
+                        _list.Add(loaded);
                     }
                     catch (Exception e)
                     {
                         VCT.Libs.Trace.Tracer.Info("- Failed!");
                         VCT.Libs.Trace.Tracer.Info("-- ----Exception : {0} : {1}", e.GetType().Name, e.Message);
+                        continue;
                     }
 
                     try
                     {
-                        //VCT.Libs.Trace.Tracer.Info("--- ---Starting...");
-                        _bl.Start(VCTServer);
-                        //VCT.Libs.Trace.Tracer.Info("--- ---Success!");
+                        loaded.Start(VCTServer);
                     }
                     catch (Exception e)
                     {
@@ -174,15 +173,32 @@ namespace Maba.VCT.CommServer.Core
             Console.ForegroundColor = ConsoleColor.Gray;
         }
 
-
+        /// <summary>After operator confirmation in console mode — starts *IDN? / identification polling for pending hardware.</summary>
+        public void EnableHardwareIdentification()
+        {
+            VCTServer?.EnableHardwareIdentification();
+        }
 
         public void Stop()
         {
-            foreach (var item in _BlCores)
+            if (_BlCores != null)
             {
-                item.Stop();
+                foreach (var item in _BlCores)
+                {
+                    if (item == null) continue;
+                    try
+                    {
+                        item.Stop();
+                    }
+                    catch (Exception e)
+                    {
+                        VCT.Libs.Trace.Tracer.Exception("Failed to stop BL module", e);
+                    }
+                }
+
+                _BlCores = null;
             }
-            _BlCores = null;
+
             if (VCTServer != null)
             {
                 VCTServer.MainEventsBus.DeviceOnIncomingEvent -= VCT_MainEventsBus_DeviceOnIncomingEvent;

@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Diagnostics;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
@@ -142,20 +143,62 @@ namespace Maba.VCT.Common.API.RemoteProtocolService
                     }
                     else
                     {
-                        string[] results = result.Response.Replace("\r\n", "").Replace("=>", "").Split(',');
-                        var hours = int.Parse(results[0]);
-                        var minutes = int.Parse(results[1]);
-                        var seconds = int.Parse(results[2]);
-                        var month = int.Parse(results[3]);
-                        var day = int.Parse(results[4]);
-                        var year = int.Parse(results[5]) + 2000;
-                        LogDate = new DateTime(year, month, day, hours, minutes, seconds);
-                        for (int i = 6; i < results.Length - 3; i++)
+                        try
                         {
-                            Measurements.Add(double.Parse(results[i]));
+                            string[] results = result.Response.Replace("\r\n", "").Replace("=>", "").Split(',');
+                            var hours = int.Parse(results[0]);
+                            var minutes = int.Parse(results[1]);
+                            var seconds = int.Parse(results[2]);
+                            var month = int.Parse(results[3]);
+                            var day = int.Parse(results[4]);
+                            var year = int.Parse(results[5]) + 2000;
+                            LogDate = new DateTime(year, month, day, hours, minutes, seconds);
+                            for (int i = 6; i < results.Length - 3; i++)
+                            {
+                                try
+                                {
+                                    // Hydra 2625A format: +NNNN.NE+N (always one decimal digit before E)
+                                    // Serial corruption may drop the decimal point (e.g. +0029E+0 instead of +002.9E+0)
+                                    // Re-insert decimal before last mantissa digit when missing
+                                    string valStr = results[i].Trim();
+                                    if (valStr.IndexOf('.') < 0)
+                                    {
+                                        int eIdx = valStr.IndexOf('E');
+                                        if (eIdx > 1)
+                                        {
+                                            valStr = valStr.Insert(eIdx - 1, ".");
+                                        }
+                                    }
+                                    double val = double.Parse(valStr, System.Globalization.CultureInfo.InvariantCulture);
+                                    Measurements.Add(val);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Trace.TraceWarning("[LogsResponse] Measurement parse failed at index {0}: {1}", i, ex.Message);
+                                    Measurements.Add(0);
+                                }
+                            }
+                            try
+                            {
+                                DigitalIOLineState = int.Parse(results[results.Length - 2]);
+                            }
+                            catch (Exception ex)
+                            {
+                                Trace.TraceWarning("[LogsResponse] DigitalIOLineState parse: {0}", ex.Message);
+                            }
+                            try
+                            {
+                                Totalizer = results[results.Length - 1];
+                            }
+                            catch (Exception ex)
+                            {
+                                Trace.TraceWarning("[LogsResponse] Totalizer parse: {0}", ex.Message);
+                            }
                         }
-                        DigitalIOLineState = int.Parse(results[results.Length - 2]);
-                        Totalizer = results[results.Length - 1];
+                        catch (Exception ex)
+                        {
+                            Trace.TraceWarning("[LogsResponse] Hydra log block parse: {0}", ex.Message);
+                        }
                     }
 
                     break;

@@ -1,4 +1,4 @@
-﻿using Maba.VCT.ComLayer;
+using Maba.VCT.ComLayer;
 using Maba.VCT.Common;
 using Maba.VCT.Common.API.RemoteProtocolService;
 using System;
@@ -373,6 +373,28 @@ namespace Maba.VCT.Core.Device
 
         #region Fire Events
 
+        public void BroadcastMeasurement(int channel, double value)
+        {
+            var packet = new HardwarePacket(string.Format(System.Globalization.CultureInfo.InvariantCulture, "E,{0},{1},{2}", SN, channel, value), false);
+            IncomingEvents(packet);
+        }
+
+        public void BroadcastAllMeasurements(System.Collections.Generic.List<int> channels, System.Collections.Generic.List<double> values)
+        {
+            // Build multi-channel packet: E,SN,ch1,val1,ch2,val2,...
+            var sb = new System.Text.StringBuilder();
+            sb.Append("E,");
+            sb.Append(SN);
+            for (int i = 0; i < channels.Count && i < values.Count; i++)
+            {
+                sb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, ",{0},{1}", channels[i], values[i]);
+            }
+            var rawPacket = sb.ToString();
+            Libs.Trace.Tracer.Info("[BroadcastAllMeasurements] SN={0}, {1} channels, raw packet: {2}", SN, channels.Count, rawPacket);
+            var packet = new HardwarePacket(rawPacket, false);
+            IncomingEvents(packet);
+        }
+
         internal void IncomingEvents(IPacket p)
         {
             var e = new Events.DeviceEventArgs(this, p);
@@ -493,6 +515,10 @@ namespace Maba.VCT.Core.Device
                 IdentificationDate = DateTime.Now;
             }
 
+            // NOTE: Raw E, scan packets are NOT broadcast here to avoid duplicates.
+            // The BL layer (Hydra2DeviceBL.HandleLogData) reads log entries and
+            // calls BroadcastAllMeasurements() which is the single broadcast path.
+
             if (PacketReceived != null)
             {
                 PacketReceived(this, e);
@@ -503,7 +529,14 @@ namespace Maba.VCT.Core.Device
             {
                 for (int i = 0; i < Sessions.Length; i++)
                 {
-                    Sessions[i].HandlePacket(e.P as HardwarePacket);
+                    try
+                    {
+                        Sessions[i].HandlePacket(e.P as HardwarePacket);
+                    }
+                    catch (Exception ex)
+                    {
+                        Libs.Trace.Tracer.Info("[Session] HandlePacket error in session {0}: {1}", i, ex.Message);
+                    }
                 }
             }
             #endregion

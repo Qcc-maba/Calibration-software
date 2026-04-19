@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -38,7 +38,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -48,7 +48,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -105,6 +105,10 @@
     <ProjectReference Include="..\Libraries\DAL\Rational\BaseDAL\BaseDAL.csproj">
       <Project>{8509a6e5-7d70-4f73-b6c0-8a8f70d88926}</Project>
       <Name>BaseDAL</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Systems\Hydra-Group\ComServer\ComServerBL.DAL\ComServerBL.Hydra.DAL.csproj">
+      <Project>{FAE05329-4579-455B-80AA-E0CBD67F9879}</Project>
+      <Name>ComServerBL.Hydra.DAL</Name>
     </ProjectReference>
     <ProjectReference Include="..\Systems\Hydra-Group\ComServer\ComServerBL\ComServer.BL.csproj">
       <Project>{2f424179-46d9-4915-bc36-1de2fe48e836}</Project>

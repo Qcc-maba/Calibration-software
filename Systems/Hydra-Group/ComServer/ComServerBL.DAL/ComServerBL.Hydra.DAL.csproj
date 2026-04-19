@@ -47,6 +47,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Calibration\CalibrationRepository.cs" />
     <Compile Include="CNF\CNFRepository.cs" />
     <Compile Include="CNF\Models\ZoneSettings.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

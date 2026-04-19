@@ -27,7 +27,6 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.Device
         #endregion
 
         #region properties
-        private List<LogsResponse> responses = new List<LogsResponse>();
         HydraCalculations HC;
         private HardwareBL_Settings settings;
         #endregion
@@ -36,7 +35,7 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.Device
 
         public AdditelBL(AdditelBLCore parent) : base(parent)
         {
-            HC = new HydraCalculations(parent.VCT_Server.connector);
+            HC = new HydraCalculations(new ComServerBL.Hydra2.DAL.Calibration.CalibrationRepository());
             settings = parent.DeviceSettings;
         }
 
@@ -46,7 +45,7 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.Device
 
         protected override CommonBL.SingleState[] OnCreateStates()
         {
-            HC.Init(settings.Hydra2type.Masters);
+            HC.Init(settings.Hydra2type.Masters).GetAwaiter().GetResult();
 
             if (this.StateMachine_InitSystem == null)
             {

@@ -39,9 +39,14 @@ namespace Maba.VCT.Core.Device.Sessions
 
             if (LastRequest != null && LastRequest.CallBackResponse != null)
             {
-                LastRequest.CallBackResponse(this, response);
+                var req = LastRequest;
+                LastRequest = null; // Clear BEFORE calling callback to prevent session deadlock on exception
+                req.CallBackResponse(this, response);
             }
-            LastRequest = null;
+            else
+            {
+                LastRequest = null;
+            }
         }
 
         protected override void ProccessRequest(BaseRequest r)
@@ -57,7 +62,7 @@ namespace Maba.VCT.Core.Device.Sessions
         }
         internal override bool HandlePacket(Common.HardwarePacket p)
         {
-            if (LastRequest != null && LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.InitSystemRequest))
+            if (LastRequest != null && p.OK && LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.InitSystemRequest))
             {
                 AnswerLastRequest(new InitSystemResponse(p));
                 return true;

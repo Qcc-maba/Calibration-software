@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 
 namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
@@ -41,6 +42,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         #endregion
 
         #region private methods
+        [ExcludeFromCodeCoverage]
         private void Save(string fullPath, HardwareBL_Settings obj)
         {
             try
@@ -74,6 +76,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
 
         #region public methods
 
+        [ExcludeFromCodeCoverage]
         public void Save()
         {
             var fullPath = GetSettingsFullPath();
@@ -103,7 +106,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
                 },
                 Hydra2type = new HardwareBL_DeviceType()
                 {
-                    Channels = new List<int>() { 1, 2 },
+                    Channels = new List<int>() { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20 },
                     Interval = 30,
                     MeasurementRate = HardwareBL_DeviceType.MeasurementRates.SLOW,
                     MaxNumOfChannels = 200,
@@ -181,6 +184,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
 
         #region static
 
+        [ExcludeFromCodeCoverage]
         public static string GetSettingFolder()
         {
             var folderName = Path.Combine(
@@ -190,6 +194,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             return folderName;
         }
 
+        [ExcludeFromCodeCoverage]
         public static string GetSettingsFullPath()
         {
             return Path.Combine(GetSettingFolder(), DEFAULT_FILE_NAME);

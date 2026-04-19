@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -21,7 +21,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,7 +30,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
@@ -75,6 +75,10 @@
     <ProjectReference Include="..\..\..\..\Libraries\DAL\Rational\BaseDAL\BaseDAL.csproj">
       <Project>{8509a6e5-7d70-4f73-b6c0-8a8f70d88926}</Project>
       <Name>BaseDAL</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ComServerBL.DAL\ComServerBL.Hydra.DAL.csproj">
+      <Project>{FAE05329-4579-455B-80AA-E0CBD67F9879}</Project>
+      <Name>ComServerBL.Hydra.DAL</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\..\VCT\ComServer\BL\VCT.ComServer.BL.Common\VCT.ComServer.BL.Common.csproj">
       <Project>{12926e6e-f782-43cc-9d24-b9a70508b359}</Project>

@@ -27,8 +27,6 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         #region properties
 
-        //public DeviceMetadata Metadata { get; private set; }
-        private List<LogsResponse> responses = new List<LogsResponse>();
         HydraCalculations HC;
         private HardwareBL_Settings settings;
         #endregion
@@ -37,7 +35,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         public Agilent34401aBL(Agilent34401aBLCore parent) : base(parent)
         {
-            HC = new HydraCalculations(parent.VCT_Server.connector);
+            HC = new HydraCalculations(new ComServerBL.Hydra2.DAL.Calibration.CalibrationRepository());
             settings = parent.DeviceSettings;
         }
 
@@ -47,7 +45,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         protected override CommonBL.SingleState[] OnCreateStates()
         {
-            HC.Init(settings.Hydra2type.Masters);
+            HC.Init(settings.Hydra2type.Masters).GetAwaiter().GetResult();
 
             if (this.StateMachine_InitSystem == null)
             {

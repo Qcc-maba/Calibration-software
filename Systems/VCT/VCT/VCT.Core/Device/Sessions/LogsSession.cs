@@ -28,7 +28,10 @@ namespace Maba.VCT.Core.Device.Sessions
 
         internal override bool HandlePacket(Common.HardwarePacket p)
         {
-            if (LastRequest != null)
+            // Only answer when p.OK=True: the Hydra device sends "=>" (ready prompt) BEFORE "\r\n",
+            // so the first packet has p.OK=False. Answering on it would give Result=False,
+            // causing LogResponseCallBack to throw and preventing SCAN 1 from being queued.
+            if (LastRequest != null && p.OK)
             {
                 if ((LastRequest as LogsRequest).LogCommand == LogsRequest.LogCommands.LogCount)
                 {
@@ -86,9 +89,14 @@ namespace Maba.VCT.Core.Device.Sessions
         {
             if (LastRequest != null && LastRequest.CallBackResponse != null)
             {
-                LastRequest.CallBackResponse(this, response);
+                var req = LastRequest;
+                LastRequest = null; // Clear BEFORE calling callback to prevent session deadlock on exception
+                req.CallBackResponse(this, response);
             }
-            LastRequest = null;
+            else
+            {
+                LastRequest = null;
+            }
         }
 
         #endregion

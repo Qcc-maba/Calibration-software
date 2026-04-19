@@ -1,4 +1,5 @@
-﻿using Microsoft.SqlServer.Server;
+using Maba.VCT.Libs.Trace;
+using Microsoft.SqlServer.Server;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -107,7 +108,10 @@ namespace Maba.VCT.ComLayer
                     s.Shutdown(SocketShutdown.Both);
                     s.Close();
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Tracer.Info("[Socket] Shutdown/Close: {0}", ex.Message);
+                }
 
                 try
                 {
@@ -116,7 +120,10 @@ namespace Maba.VCT.ComLayer
                         LayerClosed(this, new DestroyedEventArgs());
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Tracer.Info("[Socket] LayerClosed: {0}", ex.Message);
+                }
             }
         }
 

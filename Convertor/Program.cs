@@ -1,101 +1,107 @@
-﻿using System;
+using System;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Windows.Forms;
 
 class Program
 {
-
+    [STAThread]
     static void Main(string[] args)
     {
-        Console.WriteLine("Map to PNG Converter");
+        Console.WriteLine("Map to JPEG Converter");
+        Console.WriteLine("Select the root folder containing MAP files...");
 
-        while (true)
+        var dlg = new FolderBrowserDialog
         {
-            Console.Write("Enter input .map file path: ");
-            var dlg = new OpenFileDialog();
-            if (dlg.ShowDialog() != DialogResult.OK)
-                return;
+            Description = "Select folder containing MAP files",
+            ShowNewFolderButton = false
+        };
 
-            string inputFile = dlg.FileName;
+        if (dlg.ShowDialog() != DialogResult.OK)
+            return;
 
-            if (string.IsNullOrWhiteSpace(inputFile))
-                break;
+        string rootFolder = dlg.SelectedPath;
+        Console.WriteLine($"Processing folder: {rootFolder}\n");
 
-            Console.Write("Enter output .png file path: ");
-            string outputFile = Console.ReadLine();
+        int converted = 0;
+        int errors = 0;
 
+        ProcessFolder(rootFolder, ref converted, ref errors);
+
+        Console.WriteLine($"\nDone! Converted: {converted}, Errors: {errors}");
+        Console.WriteLine("Press any key to exit.");
+        Console.ReadKey();
+    }
+
+    static void ProcessFolder(string folderPath, ref int converted, ref int errors)
+    {
+        // Process MAP files in this folder
+        foreach (string mapFile in Directory.GetFiles(folderPath, "*.map", SearchOption.TopDirectoryOnly))
+        {
+            string outputFile = Path.ChangeExtension(mapFile, ".jpg");
             try
             {
-                ConvertMapToPng(inputFile, outputFile);
-                Console.WriteLine($"Successfully converted {inputFile} to {outputFile}");
+                ConvertMapToJpeg(mapFile, outputFile);
+                Console.WriteLine($"[OK]  {mapFile}");
+                converted++;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: {ex.Message}");
+                Console.WriteLine($"[ERR] {mapFile}: {ex.Message}");
+                errors++;
             }
+        }
 
-            Console.WriteLine("\nPress Enter to convert another file, or leave input blank to exit.");
+        // Recurse into subfolders
+        foreach (string subFolder in Directory.GetDirectories(folderPath))
+        {
+            Console.WriteLine($"\n[DIR] {subFolder}");
+            ProcessFolder(subFolder, ref converted, ref errors);
         }
     }
 
-    static void ConvertMapToPng(string inputFile, string outputFile)
+    static void ConvertMapToJpeg(string inputFile, string outputFile)
     {
-        inputFile = inputFile.Remove('?');
-
         byte[] fileBytes = File.ReadAllBytes(inputFile);
 
-        if (IsValidPngFile(fileBytes))
+        // Try JPEG first (0xFF 0xD8 0xFF)
+        int jpegStart = FindSignature(fileBytes, new byte[] { 0xFF, 0xD8, 0xFF });
+        if (jpegStart != -1)
         {
-            File.Copy(inputFile, outputFile, true);
+            byte[] imageBytes = new byte[fileBytes.Length - jpegStart];
+            Array.Copy(fileBytes, jpegStart, imageBytes, 0, imageBytes.Length);
+            using (var ms = new MemoryStream(imageBytes))
+            using (var img = Image.FromStream(ms))
+                img.Save(outputFile, ImageFormat.Jpeg);
             return;
         }
 
-        int pngStartIndex = FindPngStartIndex(fileBytes);
-        if (pngStartIndex != -1)
+        // Try PNG (0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A)
+        int pngStart = FindSignature(fileBytes, new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A });
+        if (pngStart != -1)
         {
-            byte[] pngBytes = new byte[fileBytes.Length - pngStartIndex];
-            Array.Copy(fileBytes, pngStartIndex, pngBytes, 0, pngBytes.Length);
+            byte[] imageBytes = new byte[fileBytes.Length - pngStart];
+            Array.Copy(fileBytes, pngStart, imageBytes, 0, imageBytes.Length);
+            using (var ms = new MemoryStream(imageBytes))
+            using (var img = Image.FromStream(ms))
+                img.Save(outputFile, ImageFormat.Jpeg);
+            return;
+        }
 
-            File.WriteAllBytes(outputFile, pngBytes);
-        }
-        else
-        {
-            throw new Exception("No PNG data found in the file");
-        }
+        throw new Exception("No image data (JPEG or PNG) found in file");
     }
 
-    static bool IsValidPngFile(byte[] fileBytes)
+    static int FindSignature(byte[] data, byte[] signature)
     {
-        byte[] pngSignature = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
-
-        if (fileBytes.Length < pngSignature.Length)
-            return false;
-
-        for (int i = 0; i < pngSignature.Length; i++)
+        for (int i = 0; i <= data.Length - signature.Length; i++)
         {
-            if (fileBytes[i] != pngSignature[i])
-                return false;
-        }
-        return true;
-    }
-
-    static int FindPngStartIndex(byte[] fileBytes)
-    {
-        byte[] pngSignature = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
-
-        for (int i = 0; i <= fileBytes.Length - pngSignature.Length; i++)
-        {
-            bool found = true;
-            for (int j = 0; j < pngSignature.Length; j++)
+            bool match = true;
+            for (int j = 0; j < signature.Length; j++)
             {
-                if (fileBytes[i + j] != pngSignature[j])
-                {
-                    found = false;
-                    break;
-                }
+                if (data[i + j] != signature[j]) { match = false; break; }
             }
-            if (found)
-                return i;
+            if (match) return i;
         }
         return -1;
     }

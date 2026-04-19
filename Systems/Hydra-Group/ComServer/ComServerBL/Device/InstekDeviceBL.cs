@@ -35,7 +35,7 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.Device
         public InstekDeviceBL(InstekBLCore parent) : base(parent)
         {
             settings = parent.DeviceSettings;
-            HC = new HydraCalculations(parent.VCT_Server.connector);
+            HC = new HydraCalculations(new ComServerBL.Hydra2.DAL.Calibration.CalibrationRepository());
         }
 
 
@@ -46,7 +46,7 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.Device
 
         protected override CommonBL.SingleState[] OnCreateStates()
         {
-            HC.Init(settings.Instek.Masters);
+            HC.Init(settings.Instek.Masters).GetAwaiter().GetResult();
 
             if (this.StateMachine_Logs == null)
             {

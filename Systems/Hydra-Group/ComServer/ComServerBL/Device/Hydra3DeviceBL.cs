@@ -45,7 +45,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         public Hydra3DeviceBL(Hydra3BLCore parent) : base(parent)
         {
             settings = parent.DeviceSettings;
-            HC = new HydraCalculations(parent.VCT_Server.connector);
+            HC = new HydraCalculations(new ComServerBL.Hydra2.DAL.Calibration.CalibrationRepository());
         }
 
 
@@ -56,7 +56,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         protected override CommonBL.SingleState[] OnCreateStates()
         {
-            HC.Init(settings.Hydra3type.Masters);
+            HC.Init(settings.Hydra3type.Masters).GetAwaiter().GetResult();
 
             if (this.StateMachine_InitSystem == null)
             {
@@ -399,7 +399,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
              * 3- Wrong value
              * */
 
-            HC.ProcessResults(response, settings.Hydra2type);
+            HC.ProcessResults(response, settings.Hydra3type);
 
         }
     }

@@ -53,7 +53,10 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.BLCore
         }
         public void OnWebSocketDeviceConnetion(WebSocketDeviceHost device)
         {
-            bl.Start(device);
+            if (bl != null)
+            {
+                bl.Start(device);
+            }
         }
         public void Start(ServerCore server)
         {

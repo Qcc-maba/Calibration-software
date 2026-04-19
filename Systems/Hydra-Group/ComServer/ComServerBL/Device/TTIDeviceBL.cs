@@ -46,7 +46,7 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.Device
         public TTIDeviceBL(TTIBLCore parent) : base(parent)
         {
             settings = parent.DeviceSettings;
-            HC = new HydraCalculations(parent.VCT_Server.connector);
+            HC = new HydraCalculations(new ComServerBL.Hydra2.DAL.Calibration.CalibrationRepository());
         }
 
         #endregion
@@ -55,7 +55,7 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.Device
 
         protected override CommonBL.SingleState[] OnCreateStates()
         {
-            HC.Init(settings.Hydra3type.Masters);
+            HC.Init(settings.Hydra3type.Masters).GetAwaiter().GetResult();
 
             if (this.StateMachine_InitSystem == null)
             {

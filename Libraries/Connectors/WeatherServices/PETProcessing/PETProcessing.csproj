@@ -69,11 +69,7 @@
       <Project>{e7400117-a48e-4e7b-9983-97bbe7799036}</Project>
       <Name>ElasticsearchClient.2.x</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\S3\AWS_S3Connector\AWS_S3Connector.csproj">
-      <Project>{3d860040-9edf-4d6d-b2f4-74be668fe8d8}</Project>
-      <Name>AWS_S3Connector</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\WeatherConnectors\WeatherConnectors.csproj">
+<ProjectReference Include="..\WeatherConnectors\WeatherConnectors.csproj">
       <Project>{9bc9acae-6edc-4fdd-9381-b5e4dcbd8a1e}</Project>
       <Name>WeatherConnectors</Name>
     </ProjectReference>
