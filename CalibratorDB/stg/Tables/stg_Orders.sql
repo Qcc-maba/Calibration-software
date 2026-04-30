@@ -39,6 +39,7 @@
     [ShippingAddress]            NVARCHAR (150)  NULL,
     [DOC_N]                      INT             NULL,
     [DESTCODE]                   INT             NULL,
-    [OrdersDeviceManufacturer]   NVARCHAR (100)  NULL
+    [OrdersDeviceManufacturer]   NVARCHAR (100)  NULL,
+    [DeviceTypeENG]              NVARCHAR (60)   NULL
 );
 

@@ -1,5 +1,5 @@
 
-CREATE OR ALTER  VIEW [dbo].[vwGetOrders_WorkPlan_Full_new]
+CREATE OR ALTER VIEW [dbo].[vwGetOrders_WorkPlan_Full_new]
 AS
 
 WITH CalibStatuses
@@ -33,11 +33,13 @@ SELECT
 	system.dbo.tabula_hebconvert(COALESCE(spt.STDES,'')) as ShipTypeDesc,
 	pt.PART,
 	pt.PARTNAME AS PartName,
+	ptd.EPARTDES AS PartNameENG,
 	system.dbo.tabula_hebconvert(COALESCE(pt.PARTDES,'')) AS DeviceType
 FROM dbo.ORDERITEMS as oi
 JOIN dbo.ORDERS as o ON oi.ORD = o.ORD 
 JOIN dbo.SHIPTYPES as spt ON o.SHIPTYPE = spt.SHIPTYPE
 LEFT JOIN dbo.PART as pt ON oi.PART = pt.PART
+LEFT JOIN dbo.PARTDES as ptd ON oi.PART = ptd.PART
 --WHERE o.ORDNAME = 'LA25105884'--'LA25105871'
 WHERE o.CURDATE > (DATEDIFF(n, '1988-01-01', GETDATE())-24000) 
 AND o.ORDSTATUS IN (-2,1)--filter requested by Eliran 20/01/2025
@@ -62,6 +64,7 @@ SELECT
 	system.dbo.tabula_hebconvert(COALESCE(mbasn.SERNDES,'')) as SecondCategorySourceId,
 	pt.PART,
 	pt.PARTNAME AS PartName,
+	ptd.EPARTDES AS PartNameENG,
 	system.dbo.tabula_hebconvert(COALESCE(pt.PARTDES,'')) AS DeviceType,
 	mbad.MBANUM AS MbaReportNumber,
 	system.dbo.tabula_hebconvert(COALESCE(mnf.MNFDES,'')) as OrdersDeviceManufacturer,
@@ -102,6 +105,7 @@ JOIN dbo.DEPT as dp ON mbp.DEPT = dp.DEPT
 JOIN dbo.TRANSORDER as tro ON tro.DOC = mbad.DOC_N AND svc.PART = tro.PART AND mbastc.KLINE = tro.KLINE 
 LEFT JOIN dbo.LORRIES as l ON doc.LORRY = l.LORRY
 LEFT JOIN dbo.DESTCODES as dst ON doc.DESTCODE = dst.DESTCODE 
+LEFT JOIN dbo.PARTDES as ptd ON svc.PART = ptd.PART
 WHERE srtr.CURDATE > (DATEDIFF(n, '1988-01-01', GETDATE())-48000) AND srtr.CURDATE <= (DATEDIFF(n, '1988-01-01', GETDATE())) 
 )
 SELECT
@@ -126,7 +130,8 @@ SELECT
 	descr.MainCategorySourceId,
 	descr.SecondCategorySourceId,
 	COALESCE(orddata.PART,descr.PART) as PART,
-	COALESCE(orddata.PartName,descr.PartName) as PartName,
+	COALESCE(NULLIF(orddata.PartName,''),NULLIF(descr.PartName,'')) as PartName,
+	COALESCE(NULLIF(orddata.PartNameENG,''),NULLIF(descr.PartNameENG,'')) as PartNameENG,
 	COALESCE(orddata.DeviceType,descr.DeviceType) as DeviceType,
 	descr.MbaReportNumber,
 	COALESCE(NULLIF(orddata.VPRICE,0),descr.VPRICE) as VPRICE,

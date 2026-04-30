@@ -10,6 +10,7 @@ BEGIN
 	SELECT 
 		OrdersProductTypeId	
 		,OrdersProductTypeName
+		,OrdersProductTypeNameENG
 	FROM [dbo].[OrdersProductTypes]
 	WHERE IsDeleted = 0
 END

@@ -118,6 +118,9 @@ USING (
 		,0 as [UpdateUserID]
 		,0 as [IsDeleted]
 		,s.SourceId
+		,NULLIF(cs.[CustomerSiteAddressENG],'') as [CustomerSiteAddressENG]
+		,NULLIF(cs.[CustomerSiteStateENG],'')  as [CustomerSiteStateENG]
+		,NULLIF(cs.[CustomerSiteDescriptionENG],'') as [CustomerSiteDescriptionENG]
 	FROM stg.stg_CustomerSites as cs
 	JOIN dbo.Source as s ON cs.SourceSystem = s.SourceName
 	JOIN dbo.Customers as cust ON cust.CustomerIdFromSource = cs.[CustomerId] AND s.SourceId = cust.SourceId
@@ -130,6 +133,9 @@ WHEN MATCHED AND
 	OR COALESCE(dest.[CustomerSiteZIP],'') <> COALESCE(source.[CustomerSiteZIP],'')
 	OR COALESCE(dest.[CustomerSitePhone],'') <> COALESCE(source.[CustomerSitePhone],'')
 	OR COALESCE(dest.[CustomerSiteDescription],'') <>  COALESCE(source.[CustomerSiteDescription],'')
+	OR COALESCE(dest.[CustomerSiteAddressENG],'') <>  COALESCE(source.[CustomerSiteAddressENG],'')
+	OR COALESCE(dest.[CustomerSiteStateENG],'') <>  COALESCE(source.[CustomerSiteStateENG],'')
+	OR COALESCE(dest.[CustomerSiteDescriptionENG],'') <>  COALESCE(source.[CustomerSiteDescriptionENG],'')
 	)
 	THEN
 		UPDATE
@@ -140,6 +146,9 @@ WHEN MATCHED AND
 			,dest.[CustomerSiteDescription] = source.[CustomerSiteDescription]
 			,dest.[UpdatedDate] = source.[UpdatedDate]
 			,dest.[UpdateUserID] = source.[UpdateUserID]
+			,dest.[CustomerSiteAddressENG] = source.[CustomerSiteAddressENG]
+			,dest.[CustomerSiteStateENG] = source.[CustomerSiteStateENG]
+			,dest.[CustomerSiteDescriptionENG] = source.[CustomerSiteDescriptionENG]
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -153,6 +162,10 @@ WHEN NOT MATCHED BY TARGET
 			,[CreateDate]
 			,[UpdateUserID]
 			,[SourceId]
+			,[CustomerSiteAddressENG]
+			,[CustomerSiteStateENG]
+			,[CustomerSiteDescriptionENG]
+
 			)
 		VALUES (
 			source.[CustomerId]
@@ -165,5 +178,8 @@ WHEN NOT MATCHED BY TARGET
 			,source.[CreateDate]
 			,source.[UpdateUserID]
 			,source.[SourceId]
+			,source.[CustomerSiteAddressENG]
+			,source.[CustomerSiteStateENG]
+			,source.[CustomerSiteDescriptionENG]
 			);
 END

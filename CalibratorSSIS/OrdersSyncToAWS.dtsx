@@ -12,8 +12,8 @@
   DTS:ObjectName="OrdersSync"
   DTS:PackageType="5"
   DTS:ProtectionLevel="2"
-  DTS:VersionBuild="167"
-  DTS:VersionGUID="{F7C8235F-216C-49D2-986D-86373A387A19}">
+  DTS:VersionBuild="172"
+  DTS:VersionGUID="{0797B5C8-9B81-4497-83FC-C47575F09B0A}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:Variables />
@@ -2074,10 +2074,13 @@ WHERE c.CUST &gt; 0</property>
  d.CUST as CustomerId
 ,d.DESTCODE as CustomerSiteCode
 ,SUBSTRING(system.dbo.tabula_hebconvert(COALESCE(d.ADDRESS,'')),1,80) as CustomerSiteAddress	
+,SUBSTRING(COALESCE(d.ADDRESSA,''),1,80) as CustomerSiteAddressENG	
 ,SUBSTRING(system.dbo.tabula_hebconvert(COALESCE(d.STATE,'')),1,40) as CustomerSiteState
+,SUBSTRING(COALESCE(d.STATEA,''),1,40) as CustomerSiteStateENG
 ,d.ZIP as CustomerSiteZIP
 ,d.PHONENUM	as CustomerSitePhone
 ,SUBSTRING(system.dbo.tabula_hebconvert(COALESCE(d.CODEDES,'')),1,50) as CustomerSiteDescription
+,SUBSTRING(COALESCE(d.CODEDESA,''),1,50) as CustomerSiteDescriptionENG
 ,'MABA' as SourceSystem
 FROM amaba.dbo.DESTCODES as d
 WHERE CUST &gt; 0
@@ -2086,10 +2089,13 @@ SELECT
  d.CUST as CustomerId
 ,d.DESTCODE as CustomerSiteCode
 ,SUBSTRING(system.dbo.tabula_hebconvert(COALESCE(d.ADDRESS,'')),1,80) as CustomerSiteAddress	
+,SUBSTRING(COALESCE(d.ADDRESSA,''),1,80) as CustomerSiteAddressENG	
 ,SUBSTRING(system.dbo.tabula_hebconvert(COALESCE(d.STATE,'')),1,40) as CustomerSiteState
+,SUBSTRING(COALESCE(d.STATEA,''),1,40) as CustomerSiteStateENG
 ,d.ZIP as CustomerSiteZIP
 ,d.PHONENUM	as CustomerSitePhone
 ,SUBSTRING(system.dbo.tabula_hebconvert(COALESCE(d.CODEDES,'')),1,50) as CustomerSiteDescription
+,SUBSTRING(COALESCE(d.CODEDESA,''),1,50) as CustomerSiteDescriptionENG
 ,'SEPHARM' as SourceSystem
 FROM sepharm.dbo.DESTCODES as d
 WHERE CUST &gt; 0</property>
@@ -2158,6 +2164,16 @@ WHERE CUST &gt; 0</property>
                           name="CustomerSiteAddress"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteAddressENG]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerSiteAddressENG]"
+                          length="80"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteAddressENG]"
+                          name="CustomerSiteAddressENG"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteState]"
                           dataType="wstr"
                           errorOrTruncationOperation="Conversion"
@@ -2166,6 +2182,16 @@ WHERE CUST &gt; 0</property>
                           length="40"
                           lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteState]"
                           name="CustomerSiteState"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteStateENG]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerSiteStateENG]"
+                          length="40"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteStateENG]"
+                          name="CustomerSiteStateENG"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteZIP]"
@@ -2198,6 +2224,16 @@ WHERE CUST &gt; 0</property>
                           name="CustomerSiteDescription"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteDescriptionENG]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerSiteDescriptionENG]"
+                          length="48"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteDescriptionENG]"
+                          name="CustomerSiteDescriptionENG"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[SourceSystem]"
                           dataType="wstr"
                           errorOrTruncationOperation="Conversion"
@@ -2224,10 +2260,20 @@ WHERE CUST &gt; 0</property>
                           length="80"
                           name="CustomerSiteAddress" />
                         <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerSiteAddressENG]"
+                          dataType="wstr"
+                          length="80"
+                          name="CustomerSiteAddressENG" />
+                        <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerSiteState]"
                           dataType="wstr"
                           length="40"
                           name="CustomerSiteState" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerSiteStateENG]"
+                          dataType="wstr"
+                          length="40"
+                          name="CustomerSiteStateENG" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerSiteZIP]"
                           dataType="wstr"
@@ -2243,6 +2289,11 @@ WHERE CUST &gt; 0</property>
                           dataType="wstr"
                           length="50"
                           name="CustomerSiteDescription" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].ExternalColumns[CustomerSiteDescriptionENG]"
+                          dataType="wstr"
+                          length="48"
+                          name="CustomerSiteDescriptionENG" />
                         <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].ExternalColumns[SourceSystem]"
                           dataType="wstr"
@@ -2272,11 +2323,23 @@ WHERE CUST &gt; 0</property>
                           lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerSiteAddress]"
                           name="CustomerSiteAddress" />
                         <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerSiteAddressENG]"
+                          dataType="wstr"
+                          length="80"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerSiteAddressENG]"
+                          name="CustomerSiteAddressENG" />
+                        <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerSiteState]"
                           dataType="wstr"
                           length="40"
                           lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerSiteState]"
                           name="CustomerSiteState" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerSiteStateENG]"
+                          dataType="wstr"
+                          length="40"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerSiteStateENG]"
+                          name="CustomerSiteStateENG" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerSiteZIP]"
                           dataType="wstr"
@@ -2295,6 +2358,12 @@ WHERE CUST &gt; 0</property>
                           length="50"
                           lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerSiteDescription]"
                           name="CustomerSiteDescription" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerSiteDescriptionENG]"
+                          dataType="wstr"
+                          length="48"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Error Output].Columns[CustomerSiteDescriptionENG]"
+                          name="CustomerSiteDescriptionENG" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Error Output].Columns[SourceSystem]"
                           dataType="wstr"
@@ -2387,12 +2456,26 @@ WHERE CUST &gt; 0</property>
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerSiteAddress]"
                           lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteAddress]" />
                         <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].Columns[CustomerSiteAddressENG]"
+                          cachedDataType="wstr"
+                          cachedLength="80"
+                          cachedName="CustomerSiteAddressENG"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerSiteAddressENG]"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteAddressENG]" />
+                        <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].Columns[CustomerSiteState]"
                           cachedDataType="wstr"
                           cachedLength="40"
                           cachedName="CustomerSiteState"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerSiteState]"
                           lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteState]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].Columns[CustomerSiteStateENG]"
+                          cachedDataType="wstr"
+                          cachedLength="40"
+                          cachedName="CustomerSiteStateENG"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerSiteStateENG]"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteStateENG]" />
                         <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].Columns[CustomerSiteZIP]"
                           cachedDataType="wstr"
@@ -2414,6 +2497,13 @@ WHERE CUST &gt; 0</property>
                           cachedName="CustomerSiteDescription"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerSiteDescription]"
                           lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteDescription]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].Columns[CustomerSiteDescriptionENG]"
+                          cachedDataType="wstr"
+                          cachedLength="48"
+                          cachedName="CustomerSiteDescriptionENG"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerSiteDescriptionENG]"
+                          lineageId="Package\Populate staging tables\Load data to stg_CustomerSites\Get source data.Outputs[ADO NET Source Output].Columns[CustomerSiteDescriptionENG]" />
                         <inputColumn
                           refId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].Columns[SourceSystem]"
                           cachedDataType="wstr"
@@ -2462,6 +2552,21 @@ WHERE CUST &gt; 0</property>
                           dataType="wstr"
                           length="20"
                           name="SourceSystem" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerSiteAddressENG]"
+                          dataType="wstr"
+                          length="80"
+                          name="CustomerSiteAddressENG" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerSiteStateENG]"
+                          dataType="wstr"
+                          length="40"
+                          name="CustomerSiteStateENG" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table.Inputs[ADO NET Destination Input].ExternalColumns[CustomerSiteDescriptionENG]"
+                          dataType="wstr"
+                          length="50"
+                          name="CustomerSiteDescriptionENG" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -2889,6 +2994,7 @@ GROUP BY c.PART</property>
       ,[PART]
       ,[PartName]
       ,SUBSTRING([DeviceType],1,59) as [DeviceType]
+      ,SUBSTRING([DeviceTypeENG],1,59) as [DeviceTypeENG]
       ,[MbaReportNumber]
       ,[OrderLineCnt]
 	  ,[VPRICE]
@@ -2931,6 +3037,7 @@ SELECT [SourceOrderId]
       ,[PART]
       ,[PartName]
       ,SUBSTRING([DeviceType],1,59) as [DeviceType]
+      ,SUBSTRING([DeviceTypeENG],1,59) as [DeviceTypeENG]
       ,[MbaReportNumber]
       ,[OrderLineCnt]
 	  ,[VPRICE]
@@ -3160,6 +3267,16 @@ SELECT [SourceOrderId]
                           length="59"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceType]"
                           name="DeviceType"
+                          truncationRowDisposition="FailComponent" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceTypeENG]"
+                          dataType="wstr"
+                          errorOrTruncationOperation="Conversion"
+                          errorRowDisposition="FailComponent"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DeviceTypeENG]"
+                          length="59"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceTypeENG]"
+                          name="DeviceTypeENG"
                           truncationRowDisposition="FailComponent" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[MbaReportNumber]"
@@ -3454,6 +3571,11 @@ SELECT [SourceOrderId]
                           length="59"
                           name="DeviceType" />
                         <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[DeviceTypeENG]"
+                          dataType="wstr"
+                          length="59"
+                          name="DeviceTypeENG" />
+                        <externalMetadataColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].ExternalColumns[MbaReportNumber]"
                           dataType="wstr"
                           length="20"
@@ -3657,6 +3779,12 @@ SELECT [SourceOrderId]
                           length="59"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DeviceType]"
                           name="DeviceType" />
+                        <outputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DeviceTypeENG]"
+                          dataType="wstr"
+                          length="59"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[DeviceTypeENG]"
+                          name="DeviceTypeENG" />
                         <outputColumn
                           refId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Error Output].Columns[MbaReportNumber]"
                           dataType="wstr"
@@ -4102,6 +4230,13 @@ SELECT [SourceOrderId]
                           cachedName="OrdersDeviceManufacturer"
                           externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[OrdersDeviceManufacturer]"
                           lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[OrdersDeviceManufacturer]" />
+                        <inputColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].Columns[DeviceTypeENG]"
+                          cachedDataType="wstr"
+                          cachedLength="59"
+                          cachedName="DeviceTypeENG"
+                          externalMetadataColumnId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DeviceTypeENG]"
+                          lineageId="Package\Populate staging tables\Load data to stg_Orders\Get source data.Outputs[ADO NET Source Output].Columns[DeviceTypeENG]" />
                       </inputColumns>
                       <externalMetadataColumns
                         isUsed="True">
@@ -4292,6 +4427,11 @@ SELECT [SourceOrderId]
                           dataType="wstr"
                           length="100"
                           name="OrdersDeviceManufacturer" />
+                        <externalMetadataColumn
+                          refId="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging.Inputs[ADO NET Destination Input].ExternalColumns[DeviceTypeENG]"
+                          dataType="wstr"
+                          length="60"
+                          name="DeviceTypeENG" />
                       </externalMetadataColumns>
                     </input>
                   </inputs>
@@ -4808,15 +4948,15 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_Customers">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
-        <NodeLayout
-          Size="143.2,41.6"
-          Id="Package\Populate staging tables\Load data to stg_Customers\Load stg table"
-          TopLeft="266.99999602139,210.999996855855" />
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
         <NodeLayout
           Size="152,41.6"
           Id="Package\Populate staging tables\Load data to stg_Customers\Get source data"
           TopLeft="259.999996125698,98.9999985247851" />
+        <NodeLayout
+          Size="143.2,41.6"
+          Id="Package\Populate staging tables\Load data to stg_Customers\Load stg table"
+          TopLeft="266.99999602139,210.999996855855" />
         <EdgeLayout
           Id="Package\Populate staging tables\Load data to stg_Customers.Paths[ADO NET Source Output]"
           TopLeft="337.299996073544,140.599998524785">
@@ -4836,7 +4976,9 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <EdgeLabelCollection />
+            <mssgm:EdgeLabel
+              BoundingBox="0,0,0,0"
+              RelativePosition="Any" />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -4862,7 +5004,7 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_CustomerSites">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="143.2,41.6"
           Id="Package\Populate staging tables\Load data to stg_CustomerSites\Load stg table"
@@ -4890,9 +5032,7 @@ SELECT [SourceOrderId]
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>
@@ -4974,37 +5114,35 @@ SELECT [SourceOrderId]
     design-time-name="Package\Populate staging tables\Load data to stg_Orders">
     <LayoutInfo>
       <GraphLayout
-        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mssgm="clr-namespace:Microsoft.SqlServer.Graph.Model;assembly=Microsoft.SqlServer.Graph">
+        Capacity="4" xmlns="clr-namespace:Microsoft.SqlServer.IntegrationServices.Designer.Model.Serialization;assembly=Microsoft.SqlServer.IntegrationServices.Graph" xmlns:mssgle="clr-namespace:Microsoft.SqlServer.Graph.LayoutEngine;assembly=Microsoft.SqlServer.Graph" xmlns:assembly="http://schemas.microsoft.com/winfx/2006/xaml">
         <NodeLayout
           Size="152,41.6"
           Id="Package\Populate staging tables\Load data to stg_Orders\Get source data"
           TopLeft="329.712116151522,122.290907469627" />
         <NodeLayout
-          Size="223.2,41.6"
+          Size="256.8,41.6"
           Id="Package\Populate staging tables\Load data to stg_Orders\Insert data to Calibrator staging"
-          TopLeft="289.999996473392,207.933330186672" />
+          TopLeft="276.999996667107,205.933330216474" />
         <EdgeLayout
           Id="Package\Populate staging tables\Load data to stg_Orders.Paths[ADO NET Source Output]"
-          TopLeft="403.656056312457,163.890907469627">
+          TopLeft="405.556056409315,163.890907469627">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
-              EndConnector="0,44.042422717045"
+              EndConnector="0,42.0424227468473"
               Start="0,0"
-              End="0,36.542422717045">
+              End="0,34.5424227468473">
               <mssgle:Curve.Segments>
                 <mssgle:SegmentCollection
                   Capacity="5">
                   <mssgle:LineSegment
-                    End="0,36.542422717045" />
+                    End="0,34.5424227468473" />
                 </mssgle:SegmentCollection>
               </mssgle:Curve.Segments>
             </mssgle:Curve>
           </EdgeLayout.Curve>
           <EdgeLayout.Labels>
-            <mssgm:EdgeLabel
-              BoundingBox="0,0,0,0"
-              RelativePosition="Any" />
+            <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
       </GraphLayout>

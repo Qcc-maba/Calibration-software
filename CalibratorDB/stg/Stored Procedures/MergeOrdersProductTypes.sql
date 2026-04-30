@@ -15,6 +15,7 @@ SET NOCOUNT ON;
 	USING (
 		SELECT DISTINCT
 			  o.DeviceType as [OrdersProductTypeName]
+			  ,o.DeviceTypeENG as [OrdersProductTypeNameENG]
 			 ,0 as [UpdateUserID]
 		FROM stg.stg_Orders as o
 		WHERE LEN(o.DeviceType) > 0 AND o.DeviceType IS NOT NULL
@@ -24,10 +25,12 @@ SET NOCOUNT ON;
 		THEN
 			INSERT (
 				 [OrdersProductTypeName]
+                ,[OrdersProductTypeNameENG]
 				,[UpdateUserID]
 				)
 			VALUES (
 				 source.[OrdersProductTypeName]
+				,source.[OrdersProductTypeNameENG]
 				,source.[UpdateUserID]
 				);
 
