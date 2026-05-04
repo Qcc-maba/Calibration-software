@@ -301,6 +301,10 @@
     <Build Include="dbo\Stored Procedures\GetCustomerUpcommingCalibrationInfo.sql" />
     <Build Include="dbo\Stored Procedures\GetCustomerSupportData.sql" />
     <Build Include="dbo\Stored Procedures\GetNewUsersListForNotification.sql" />
+    <Build Include="dbo\Stored Procedures\GetCustomerSites.sql" />
+    <Build Include="dbo\Stored Procedures\GetCustomerContacts.sql" />
+    <Build Include="dbo\Stored Procedures\AssignCustomerContactsData.sql" />
+    <Build Include="dbo\Stored Procedures\AssignCustomerSitesData.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />

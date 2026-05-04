@@ -16,7 +16,8 @@ SELECT
 		WHEN ur.UserRoleName = N'SuperAdmin' THEN NULL
 		WHEN u.Email like N'sinova%' THEN 1
 		ELSE COALESCE(s.SourceId,s1.SourceId)
-	END AS SourceId
+	END AS SourceId,
+	u.CustomerId
 FROM [dbo].[Users] as u
 LEFT JOIN [dbo].[UserRoles] ur ON u.[UserRoleId] = ur.[UserRoleId]
 LEFT JOIN [dbo].[Source] as s ON u.SourceId = s.SourceId
