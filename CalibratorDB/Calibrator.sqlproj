@@ -305,6 +305,8 @@
     <Build Include="dbo\Stored Procedures\GetCustomerContacts.sql" />
     <Build Include="dbo\Stored Procedures\AssignCustomerContactsData.sql" />
     <Build Include="dbo\Stored Procedures\AssignCustomerSitesData.sql" />
+    <Build Include="dbo\Tables\CustomerDevices.sql" />
+    <Build Include="dbo\Stored Procedures\AssignCustomerDevicesData.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="2_AddETLUser.sql" />
