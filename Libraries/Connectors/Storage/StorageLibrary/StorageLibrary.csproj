@@ -7,8 +7,8 @@
     <ProjectGuid>{84814C83-899D-4E45-A900-0253C1288506}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.StorageLibrary</RootNamespace>
-    <AssemblyName>Galcon.Connectors.StorageLibrary</AssemblyName>
+    <RootNamespace>Maba.Connectors.StorageLibrary</RootNamespace>
+    <AssemblyName>Maba.Connectors.StorageLibrary</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />

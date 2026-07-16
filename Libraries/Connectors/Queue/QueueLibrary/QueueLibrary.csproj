@@ -7,8 +7,8 @@
     <ProjectGuid>{6B479AA1-AD5D-4481-BC41-21443F9283D5}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.QueueLibrary</RootNamespace>
-    <AssemblyName>Galcon.Connectors.QueueLibrary</AssemblyName>
+    <RootNamespace>Maba.Connectors.QueueLibrary</RootNamespace>
+    <AssemblyName>Maba.Connectors.QueueLibrary</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />

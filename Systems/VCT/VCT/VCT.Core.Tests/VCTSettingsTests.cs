@@ -3,7 +3,7 @@ using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Maba.VCT.Core.Settings;
 
-namespace Galcon.VCT.Core.Tests
+namespace Maba.VCT.Core.Tests
 {
     /// <summary>Uses <see cref="VCTSettings.VCT_SETTINGS_FULL_PATH_ENV"/>; must not run in parallel with other tests that touch the same env var.</summary>
     [TestClass]

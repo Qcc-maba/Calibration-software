@@ -51,7 +51,6 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         public int numbertOfWires
         {
             get { return this.SensType == SensorTypes.FRTD ? 4 : 2; }
-            set;
         }
 
         #endregion

@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
-    <RootNamespace>Galcon.VCT.Core.Tests</RootNamespace>
-    <AssemblyName>Galcon.VCT.Core.Tests</AssemblyName>
+    <RootNamespace>Maba.VCT.Core.Tests</RootNamespace>
+    <AssemblyName>Maba.VCT.Core.Tests</AssemblyName>
     <Nullable>disable</Nullable>
     <IsPackable>false</IsPackable>
     <LangVersion>latest</LangVersion>

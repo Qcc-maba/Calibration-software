@@ -4,7 +4,7 @@ using Maba.VCT.Common;
 using Maba.VCT.Common.API;
 using Maba.VCT.Common.API.RemoteProtocolService;
 
-namespace Galcon.VCT.Core.Tests
+namespace Maba.VCT.Core.Tests
 {
     [TestClass]
     public class ApiModelTests

@@ -49,6 +49,7 @@
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Management" />
     <Reference Include="System.Deployment" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Net.Http" />
@@ -63,6 +64,7 @@
       <DependentUpon>APIProtocolForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Monitor\DeviceRecordT.cs" />
+    <Compile Include="Monitor\SerialPortInfo.cs" />
     <Compile Include="Monitor\DigiMonitor.cs">
       <SubType>Form</SubType>
     </Compile>

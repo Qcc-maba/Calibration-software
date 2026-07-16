@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"C:/Windows/Microsoft.NET/Framework/v4.0.30319/MSBuild.exe\" Convertor.csproj /p:Configuration=Debug /nologo)",
+      "Bash(\"C:/Windows/Microsoft.NET/Framework64/v4.0.30319/MSBuild.exe\":*)"
+    ]
+  }
+}

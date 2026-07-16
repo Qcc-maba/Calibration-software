@@ -6,8 +6,8 @@
     <ProjectGuid>{D07079F0-C1E0-4EB3-9728-747D18DAAD06}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.LoggerLib.Test</RootNamespace>
-    <AssemblyName>Galcon.Connectors.LoggerLib.Test</AssemblyName>
+    <RootNamespace>Maba.Connectors.LoggerLib.Test</RootNamespace>
+    <AssemblyName>Maba.Connectors.LoggerLib.Test</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>

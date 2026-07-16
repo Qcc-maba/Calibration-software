@@ -269,7 +269,6 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.Device
 
         private void LogResponseCallBack(LogsResponse response)
         {
-            LogsRequest req;
             if (response.HasResponse)
             {
                 //if (response.LogCount == 0)

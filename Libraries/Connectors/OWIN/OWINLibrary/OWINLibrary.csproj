@@ -7,8 +7,8 @@
     <ProjectGuid>{57FFAA12-2ABF-4E24-97CC-2338B5B4946F}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.OWINLibrary</RootNamespace>
-    <AssemblyName>Galcon.Connectors.OWINLibrary</AssemblyName>
+    <RootNamespace>Maba.Connectors.OWINLibrary</RootNamespace>
+    <AssemblyName>Maba.Connectors.OWINLibrary</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />

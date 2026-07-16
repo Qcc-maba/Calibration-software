@@ -6,8 +6,8 @@
     <ProjectGuid>{D5D4C937-A0E5-463F-9074-784B3AFC02F9}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.Elasticsearch.Testing</RootNamespace>
-    <AssemblyName>Galcon.Connectors.Elasticsearch.Testing</AssemblyName>
+    <RootNamespace>Maba.Connectors.Elasticsearch.Testing</RootNamespace>
+    <AssemblyName>Maba.Connectors.Elasticsearch.Testing</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>

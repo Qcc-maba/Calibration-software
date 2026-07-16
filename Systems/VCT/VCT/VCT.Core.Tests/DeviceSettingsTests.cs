@@ -3,7 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Maba.VCT.Common;
 using Maba.VCT.Core;
 
-namespace Galcon.VCT.Core.Tests
+namespace Maba.VCT.Core.Tests
 {
     [TestClass]
     public class DeviceSettingsTests

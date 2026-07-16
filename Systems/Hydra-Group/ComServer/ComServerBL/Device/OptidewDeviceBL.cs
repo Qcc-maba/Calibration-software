@@ -224,7 +224,6 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.Device
         {
             if (response.HasResponse)
             {
-                LogsRequest req;
                 HandelLogs(response);
 
 

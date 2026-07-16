@@ -7,8 +7,8 @@
     <ProjectGuid>{C7DADBEE-9D5D-4C3F-B716-8A02E5F9E0AB}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.AWS.SQS</RootNamespace>
-    <AssemblyName>Galcon.Connectors.AWS.SQS</AssemblyName>
+    <RootNamespace>Maba.Connectors.AWS.SQS</RootNamespace>
+    <AssemblyName>Maba.Connectors.AWS.SQS</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\..\..\</SolutionDir>

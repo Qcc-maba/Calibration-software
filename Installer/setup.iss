@@ -86,9 +86,9 @@ Source: "assets\start-webapp.bat";          DestDir: "{app}\assets";           F
 Source: "assets\start-consolehost.bat";     DestDir: "{app}\assets";           Flags: ignoreversion
 Source: "assets\start-all.bat";             DestDir: "{app}\assets";           Flags: ignoreversion
 Source: "assets\start-silent.vbs";          DestDir: "{app}\assets";           Flags: ignoreversion
-Source: "..\Install-Service.ps1";           DestDir: "{app}";                  Flags: ignoreversion
-Source: "..\Uninstall-Service.ps1";         DestDir: "{app}";                  Flags: ignoreversion
-Source: "..\run-project.ps1";               DestDir: "{app}";                  Flags: ignoreversion
+Source: "..\scripts\Install-Service.ps1";   DestDir: "{app}";                  Flags: ignoreversion
+Source: "..\scripts\Uninstall-Service.ps1"; DestDir: "{app}";                  Flags: ignoreversion
+Source: "..\scripts\run-project.ps1";       DestDir: "{app}";                  Flags: ignoreversion
 
 ; --- Environment config ---
 Source: "..\app\.env";                      DestDir: "{app}\webapp";           DestName: ".env"; Flags: ignoreversion

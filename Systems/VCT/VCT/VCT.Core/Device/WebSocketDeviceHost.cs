@@ -21,8 +21,7 @@ namespace Maba.VCT.Core.Device
         private Events.EventsBus MainEventsBus = null;
         private WebSocketProtocolParaser ProtocolParser = null;
 
-        public event Common.PacketDelegate PacketReceived; //PacketEventArgs
-        public event Common.PacketDelegate PacketSent;     //PacketEventArgs 
+        public event Common.PacketDelegate PacketSent;     //PacketEventArgs
 
         #endregion
 

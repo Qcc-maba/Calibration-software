@@ -2,7 +2,7 @@ using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Maba.VCT.CommServer.BL.HydraDevices.Settings;
 
-namespace Galcon.VCT.Core.Tests
+namespace Maba.VCT.Core.Tests
 {
     [TestClass]
     public class HardwareBL_SettingsTests

@@ -6,8 +6,8 @@
     <ProjectGuid>{A643265E-3E27-4C1E-8BA4-C024D5274E8B}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>ComServerBL.GSI.DAL.Test</RootNamespace>
-    <AssemblyName>ComServerBL.GSI.DAL.Test</AssemblyName>
+    <RootNamespace>ComServerBL.DAL.Test</RootNamespace>
+    <AssemblyName>ComServerBL.DAL.Test</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>

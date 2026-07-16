@@ -7,7 +7,7 @@ using Maba.VCT.Core.Device;
 using Maba.VCT.Core.Events;
 using Maba.VCT.Common;
 
-namespace Galcon.VCT.Core.Tests
+namespace Maba.VCT.Core.Tests
 {
     /// <summary>
     /// Tests for the Hydra2DeviceBL state machine.

@@ -33,9 +33,6 @@ namespace Maba.VCT.CommServer.Core
         public delegate void NewDeviceConnectedDelegate(object o, VCT.Core.Events.DeviceConnectionEventArgs e);
         public event NewDeviceConnectedDelegate NewDeviceConnected;
 
-        public delegate void NewEventDelegate(object o, VCT.Core.Events.DeviceEventArgs e);
-        public event NewEventDelegate NewEvent;
-
         #endregion
 
         #region public methods

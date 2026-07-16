@@ -7,8 +7,8 @@
     <ProjectGuid>{27F5C941-DFA3-4E4F-89CF-3C21882FEE26}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.WeatherServices.PETProcessing</RootNamespace>
-    <AssemblyName>Galcon.Connectors.WeatherServices.PETProcessing</AssemblyName>
+    <RootNamespace>Maba.Connectors.WeatherServices.PETProcessing</RootNamespace>
+    <AssemblyName>Maba.Connectors.WeatherServices.PETProcessing</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />

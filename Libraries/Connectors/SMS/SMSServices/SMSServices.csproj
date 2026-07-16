@@ -7,8 +7,8 @@
     <ProjectGuid>{D5E12155-B747-4217-BE53-F18A1A18CCB7}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.SMSServices</RootNamespace>
-    <AssemblyName>Galcon.Connectors.SMSServices</AssemblyName>
+    <RootNamespace>Maba.Connectors.SMSServices</RootNamespace>
+    <AssemblyName>Maba.Connectors.SMSServices</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\..\..\</SolutionDir>

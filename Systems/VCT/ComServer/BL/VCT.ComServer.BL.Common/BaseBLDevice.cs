@@ -29,8 +29,6 @@ namespace Maba.VCT.CommServer.CommonBL
         private int States_Count = 0;
 
         private SingleState[] States = null;
-
-        private HardwareBL_Settings Settings;
         #endregion
 
         #region properties

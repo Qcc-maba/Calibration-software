@@ -10,7 +10,7 @@ using Maba.VCT.Core;
 using Maba.VCT.Core.Device;
 using Maba.VCT.Core.Events;
 
-namespace Galcon.VCT.Core.Tests
+namespace Maba.VCT.Core.Tests
 {
     [TestClass]
     public class HardwareDeviceHostTests

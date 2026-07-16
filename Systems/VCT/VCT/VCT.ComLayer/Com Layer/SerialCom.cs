@@ -26,6 +26,13 @@ namespace Maba.VCT.ComLayer
         public int BaudRate { get; private set; }
         public int Timeout { get; private set; }
 
+        /// <summary>
+        /// Flow control. Defaults to <see cref="Handshake.None"/> (with DTR/RTS asserted) which suits
+        /// SCPI/DTR-DSR instruments such as the 34401A. Set before <see cref="Open"/> if a device needs
+        /// software (XON/XOFF) or RTS/CTS flow control.
+        /// </summary>
+        public Handshake Handshake { get; set; } = Handshake.None;
+
         #endregion
 
         #region  Event
@@ -140,7 +147,7 @@ namespace Maba.VCT.ComLayer
             _SerialPort.DataBits = 8;
             _SerialPort.StopBits = StopBits.One;
             _SerialPort.Parity = Parity.None;
-            _SerialPort.Handshake = Handshake.XOnXOff;
+            _SerialPort.Handshake = this.Handshake;
             _SerialPort.ReadBufferSize = 8192;
             _SerialPort.DtrEnable = true;
             _SerialPort.RtsEnable = true;

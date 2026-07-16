@@ -93,7 +93,6 @@ namespace Maba.VCT.Common
         private static string InstekTriggerInterval = "TRIG:TIM ";
         private static string InstekTriggerCount = "TRIG:COUN INF";
         private static string InstekTriggerConf = "CONF";
-        private static string InstekRead = "MEAS:";
         private static string InstekReset = "ABOR";
         #endregion
 
@@ -399,7 +398,7 @@ namespace Maba.VCT.Common
                 case MeasureTypes.TEMP:
                     break;
                 case MeasureTypes.VDC:
-                    command = "VOLT: DC: RANG: AUTO ON";
+                    command = "VOLT:DC:RANG:AUTO ON";
                     break;
                 default:
                     break;
@@ -409,11 +408,10 @@ namespace Maba.VCT.Common
                 case SensorTypes.None:
                     break;
                 case SensorTypes.FRTD:
-                    command = "FRES:RANG:AUTO ON ";
-
+                    command = "FRES:RANG:AUTO ON";
                     break;
                 case SensorTypes.RTD:
-                    command = "RES:RANG:AUTO ON ";
+                    command = "RES:RANG:AUTO ON";
                     break;
                 default:
                     break;
@@ -424,6 +422,12 @@ namespace Maba.VCT.Common
         public static HardwarePacket BuildRead()
         {
             return new HardwarePacket(LogDataPoint_Command, true);
+        }
+
+        // 34401A: trigger + return one measurement (verified: READ? -> scientific-notation value).
+        public static HardwarePacket Build_ReadValue()
+        {
+            return new HardwarePacket("READ?", true);
         }
 
         #endregion
@@ -580,39 +584,6 @@ namespace Maba.VCT.Common
         public static HardwarePacket Build_InstekRead(MeasureTypes measureType, List<int> channel)
         {
             return new Common.HardwarePacket("READ?", true);
-
-            var command = "";
-            switch (measureType)
-            {
-                case MeasureTypes.None:
-                    break;
-                case MeasureTypes.TEMP:
-                    command = InstekRead + "TEMP? ";
-                    break;
-                case MeasureTypes.VDC:
-                    break;
-                case MeasureTypes.Resistance:
-                    break;
-                case MeasureTypes.Dew:
-                    break;
-                case MeasureTypes.Humidity:
-                    break;
-                default:
-                    break;
-            }
-            StringBuilder temp = new StringBuilder();
-            temp.Append("(@");
-            for (int i = 0; i < channel.Count; i++)
-            {
-                temp.Append(channel[i]).ToString();
-                temp.Append(", ");
-            }
-            temp.Remove(temp.Length - 2, 2);
-            temp.Append(")");
-            command +=  temp.ToString();
-            Console.WriteLine("Command: " + command);
-            return new Common.HardwarePacket(command, true);
-
         }
 
         public static HardwarePacket Build_InstekReset()

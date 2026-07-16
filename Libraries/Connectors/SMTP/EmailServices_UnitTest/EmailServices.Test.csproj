@@ -6,8 +6,8 @@
     <ProjectGuid>{8FE38EA9-D256-4E49-9CE1-0466569B23FE}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.EmailServices.Tests</RootNamespace>
-    <AssemblyName>Galcon.Connectors.EmailServices.Tests</AssemblyName>
+    <RootNamespace>Maba.Connectors.EmailServices.Tests</RootNamespace>
+    <AssemblyName>Maba.Connectors.EmailServices.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>

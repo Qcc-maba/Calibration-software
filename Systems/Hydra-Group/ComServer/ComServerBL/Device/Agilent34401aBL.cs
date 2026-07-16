@@ -1,4 +1,4 @@
-﻿using Maba.VCT.Common;
+using Maba.VCT.Common;
 using Maba.VCT.Common.API.RemoteProtocolService;
 using Maba.VCT.CommServer.BL.HydraDevices.BLCore;
 using Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations;
@@ -10,25 +10,28 @@ using System.Linq;
 
 namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 {
+    /// <summary>
+    /// Agilent/Keysight 34401A digital multimeter over RS-232 (SCPI).
+    /// Verified protocol (2026-07-16, fw 10-5-2): 9600 8-N-1, DTR/DSR, "\r\n".
+    /// Sequence: *RST -> *CLS -> SYST:REM (mandatory) -> CONF:&lt;func&gt; -> &lt;func&gt;:RANG:AUTO ON -> READ? loop.
+    /// READ? returns a scientific-notation value; 9.9E37 = over-range / open.
+    /// See docs/devices/Agilent-34401A/protocol.md.
+    /// </summary>
     public class Agilent34401aBL : CommonBL.BaseBLDevice
     {
         #region CONSTANTS
 
         public const int STATE_MACHINE__InitSystem = 1;
         public const int STATE_MACHINE__Logs = 2;
-        public const int STATE_MACHINE__Stop = 3;
-
-
 
         public CommonBL.SingleState StateMachine_InitSystem { get; private set; }
         public CommonBL.SingleState StateMachine_Logs { get; private set; }
-        public CommonBL.SingleState StateMachine_Stop { get; private set; }
         #endregion
 
         #region properties
 
-        HydraCalculations HC;
-        private HardwareBL_Settings settings;
+        private readonly HydraCalculations HC;
+        private readonly HardwareBL_Settings settings;
         #endregion
 
         #region ctor
@@ -45,7 +48,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         protected override CommonBL.SingleState[] OnCreateStates()
         {
-            HC.Init(settings.Hydra2type.Masters).GetAwaiter().GetResult();
+            HC.Init(settings.Agilent.Masters).GetAwaiter().GetResult();
 
             if (this.StateMachine_InitSystem == null)
             {
@@ -55,30 +58,6 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 };
             }
 
-            //if (this.StateMachine_DateSync == null)
-            //{
-            //    this.StateMachine_DateSync = new CommonBL.SingleState(STATE_MACHINE__Date_Sync, "Date Sync")
-            //    {
-            //        Action_DoWork = StateWork__Date_Sync
-            //    };
-            //}
-
-            //if (this.StateMachine_Rate == null)
-            //{
-            //    this.StateMachine_Rate = new CommonBL.SingleState(STATE_MACHINE__Rate, "Rate")
-            //    {
-            //        Action_DoWork = StateWork__Rate
-            //    };
-            //}
-
-            //if (this.StateMachine_InitChannles == null)
-            //{
-            //    this.StateMachine_InitChannles = new CommonBL.SingleState(STATE_MACHINE__InitChannels, "InitChannels")
-            //    {
-            //        Action_DoWork = StateWork__Init_Channels
-            //    };
-            //}
-
             if (this.StateMachine_Logs == null)
             {
                 this.StateMachine_Logs = new CommonBL.SingleState(STATE_MACHINE__Logs, "Logs")
@@ -87,22 +66,13 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 };
             }
 
-
             this.StateMachine_InitSystem.IsActive = true;
-            //this.StateMachine_DateSync.IsActive = true;
-            //this.StateMachine_Rate.IsActive = true;
-            //this.StateMachine_InitChannles.IsActive = true;
             this.StateMachine_Logs.IsActive = true;
-            //this.StateMachine_Stop.IsActive = false;
 
             var states = new CommonBL.SingleState[]
             {
-            this.StateMachine_InitSystem,
-            //this.StateMachine_DateSync,
-            //this.StateMachine_Rate,
-            //this.StateMachine_InitChannles,
-            this.StateMachine_Logs,
-                //this.StateMachine_Stop,
+                this.StateMachine_InitSystem,
+                this.StateMachine_Logs,
             };
 
             return states.OrderBy(s => s.State).ToArray();
@@ -115,156 +85,107 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 case DeviceSteps.Start:
                     return true;
                 case DeviceSteps.Routine:
-                    #region Start Step
-                    //moving on from Start step is OK for online device only.
-                    //if (this.Metadata != null && this.Metadata.DeviceType != null && this.Metadata.DeviceType.OnlineDevice)
-                    //{
-                    //    //prepare to routine
-                    //    this.StateMachine_IrrigatingValves.IsActive = false;
-                    //    this.StateMachine_ReadIO.IsActive = true;
-
-                    //    this.StateMachine_Read_Memory.IsActive = false;
-                    //    this.StateMachine_WriteMemory.IsActive = false;
                     return false;
-                //}
-                #endregion
-                //break;
                 case DeviceSteps.Close:
                     return true;
             }
-
             return false;
         }
 
         public override void OnEvent(DeviceEventArgs e)
         {
-            // Receving Web Socket data
             base.OnEvent(e);
-
         }
+
         #endregion
 
-        #region private methods :: StateMachines
+        #region state machine :: InitSystem (verified 34401A sequence)
 
-        #region Init system
         private CommonBL.SingleState.StepWorkResponses StateWork__InitSystem(CommonBL.SingleState singleState)
         {
             var req = new InitSystemRequest();
 
             switch (singleState.CurrentStep)
             {
-                case 0:
+                case 0: // *RST
                     req.Packet = Common.HydraProtocolHelper.Build_ResetPacket(false);
                     HW_Device.Reset(req);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
-                case 1:
-                    req.Packet = Common.HydraProtocolHelper.Build_RemotePacket();
-                    HW_Device.Reset(req);
-                    return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
-                case 2:
+                case 1: // *CLS
                     req.Packet = Common.HydraProtocolHelper.buildClearBuffer();
                     HW_Device.Reset(req);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
-                case 3:
+                case 2: // SYST:REM — mandatory over RS-232 (else error 550 "Command not allowed in local")
+                    req.Packet = Common.HydraProtocolHelper.Build_RemotePacket();
+                    HW_Device.Reset(req);
+                    return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
+                case 3: // CONF:<func>  (VOLT:DC / RES / FRES per settings.Agilent.Sensor)
                     req.Packet = Common.HydraProtocolHelper.Build_Configuration(settings.Agilent.Sensor);
                     HW_Device.Reset(req);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
-                case 4:
+                case 4: // <func>:RANG:AUTO ON
                     req.Packet = Common.HydraProtocolHelper.Build_AutoRange(settings.Agilent.Sensor);
                     HW_Device.Reset(req);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
             }
+
             return CommonBL.SingleState.StepWorkResponses.StateFinished;
         }
 
         #endregion
 
-        #region Logs 
+        #region state machine :: Logs (READ? acquisition loop)
 
         private CommonBL.SingleState.StepWorkResponses StateWork__Logs(CommonBL.SingleState singleState)
         {
             switch (singleState.CurrentStep)
             {
                 case 0:
-                    var req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.GetLogs);
-                    req.Packet = Common.HydraProtocolHelper.BuildRead();
-                    HW_Device.GetLogs(req, LogResponseCallBack);
-
+                    var req = new LogsRequest(LogsRequest.LogCommands.GetLogs);
+                    req.Packet = Common.HydraProtocolHelper.Build_ReadValue(); // "READ?"
+                    HW_Device.GetLogs(req, ReadValueCallback);
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
             }
             return CommonBL.SingleState.StepWorkResponses.StateFinished;
         }
 
-        private void LogResponseCallBack(LogsResponse response)
+        private void ReadValueCallback(LogsResponse response)
         {
-            if (response.Result)
+            try
             {
-                LogsRequest req;
-                switch (response.LogCommand)
+                // Only broadcast a genuine reading: a successful response that carries a value which
+                // is not the 34401A over-range / open sentinel (empty responses must not become 0).
+                if (response != null && response.Result &&
+                    response.Measurements != null && response.Measurements.Count > 0)
                 {
-                    case LogsRequest.LogCommands.ClearLogs:
-                        req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.StartScan);
-                        req.Packet = Common.HydraProtocolHelper.Build_ScanLogsPacket(req);
-                        HW_Device.GetLogs(req, LogResponseCallBack);
-                        break;
-                    case LogsRequest.LogCommands.StartScan:
-                        req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.LogCount);
-                        req.Packet = Common.HydraProtocolHelper.Build_LogCountPacket();
-                        HW_Device.GetLogs(req, LogResponseCallBack);
-                        break;
-                    case LogsRequest.LogCommands.LogCount:
-                        if (response.LogCount == 0)
+                    var raw = response.Measurements[0];
+                    if (!Agilent34401aReadings.IsOverload(raw))
+                    {
+                        var value = raw;
+                        var sensor = settings.Agilent.Sensor;
+
+                        // RTD/FRTD: convert the measured resistance to temperature (°C) via the master's curve.
+                        if (Agilent34401aReadings.RequiresTemperatureConversion(sensor))
                         {
-                            req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.LogCount);
-                            req.Packet = Common.HydraProtocolHelper.Build_LogCountPacket();
-                            HW_Device.GetLogs(req, LogResponseCallBack);
+                            var masterId = settings.Agilent.Masters.FirstOrDefault();
+                            value = HC.CalcConversionUnits(raw, HydraCalculations.ConversionUnits.Ohm,
+                                                           HydraCalculations.ConversionUnits.Celsius, masterId).Item1;
                         }
-                        else
-                        {
-                            for (var i = 0; i < response.LogCount; i++)
-                            {
-                                req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.GetLogs);
-                                req.Packet = Common.HydraProtocolHelper.Build_GetChannelLogPacket(i + 1);
-                                HW_Device.GetLogs(req, HandleLogData);
-                            }
-                            req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.LogCount);
-                            req.Packet = Common.HydraProtocolHelper.Build_LogCountPacket();
-                            HW_Device.GetLogs(req, LogResponseCallBack);
-                        }
-                        break;
-                    case LogsRequest.LogCommands.GetLogs:
-                        req = new LogsRequest(LogsRequest.LogCommands.GetLogs);
-                        req.Packet = HydraProtocolHelper.BuildRead();
-                        HW_Device.GetLogs(req, LogResponseCallBack);
-                        HandleLogData(response);
-                        break;
-                    default:
-                        break;
+
+                        HW_Device.BroadcastAllMeasurements(new List<int> { 1 }, new List<double> { value });
+                    }
                 }
             }
-            else
+            finally
             {
-                throw new Exception();
+                // Continuous acquisition: always issue the next READ? so a single bad/empty read
+                // (or an overload) does not permanently stop the loop. Pacing comes from the device.
+                var next = new LogsRequest(LogsRequest.LogCommands.GetLogs);
+                next.Packet = Common.HydraProtocolHelper.Build_ReadValue();
+                HW_Device.GetLogs(next, ReadValueCallback);
             }
         }
 
-        private void HandleLogData(LogsResponse response)
-        {
-
-            // TODO Change to Device ID
-            //HC.ProcessResults(response, settings.Agilent);
-            foreach (var item in settings.Agilent.Masters)
-            {
-                var res = HC.CalcConversionUnits(response.Measurements.FirstOrDefault(), HydraCalculations.ConversionUnits.Ohm, HydraCalculations.ConversionUnits.Celsius, item);
-                HC.ProcessResults(response, settings.Agilent);
-                Console.WriteLine(" The results is: " + response.Measurements.FirstOrDefault());
-            }
-
-
-        }
+        #endregion
     }
-
-    #endregion
-
-    #endregion
 }

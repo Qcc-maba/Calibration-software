@@ -6,8 +6,8 @@
     <ProjectGuid>{78F2A1F3-7777-45BC-A612-6FAFA20FC2BB}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.AWS.SQS.Testings</RootNamespace>
-    <AssemblyName>Galcon.Connectors.AWS.SQS.Testings</AssemblyName>
+    <RootNamespace>Maba.Connectors.AWS.SQS.Testings</RootNamespace>
+    <AssemblyName>Maba.Connectors.AWS.SQS.Testings</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>

@@ -7,8 +7,8 @@
     <ProjectGuid>{2CEAB0F0-DE6C-42F3-97E4-11801137C4E5}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.LoggerLib</RootNamespace>
-    <AssemblyName>Galcon.Connectors.LoggerLib</AssemblyName>
+    <RootNamespace>Maba.Connectors.LoggerLib</RootNamespace>
+    <AssemblyName>Maba.Connectors.LoggerLib</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\..\..\</SolutionDir>

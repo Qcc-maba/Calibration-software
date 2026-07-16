@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Net.NetworkInformation;
-using System.Net.Sockets;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Maba.VCT.ComLayer;
@@ -19,25 +17,55 @@ namespace Maba.VCT.CommServer.Monitor
     public partial class FormMain : Form
     {
         #region Members
-        public bool ComServerStart = true;
-        private VCTMonitor VCTMonitor = null;
-        //private ComLayer.SerialCom _serialPort = null;
-        //private ComLayer.ModbusCom _Modbus = null;
+        private VCTMonitor _vctMonitor = null;
         private Core.MultiBLCommServer _comServer;
-        private ComServerSettings settings;
+        private ComServerSettings _settings;
         #endregion
 
         #region Ctor(s)
         public FormMain()
         {
             InitializeComponent();
-
-            settings = Core.Settings.ComServerSettings.Read();
-
+            _settings = ComServerSettings.Read();
+            comboBoxBaud.SelectedItem = "9600";
+            comboBoxHandshake.SelectedIndex = 0; // None (DTR/DSR) — suits SCPI/34401A
+            RefreshPorts();
+            SetIdle();
         }
         #endregion
 
-        #region Private methods
+        #region Server lifecycle
+
+        private bool Running { get { return _comServer != null; } }
+
+        /// <summary>
+        /// Starts the ComServer core. In serial mode NO TCP tunnels are opened (the server does not
+        /// need to bind ports to work over serial); serial devices are attached via Connect.
+        /// </summary>
+        private void Start(bool serialOnly)
+        {
+            var vct = VCTSettings.CreateDefaultSettings();
+            vct.Tunnels = serialOnly
+                ? new Tunnel[0]                                              // serial mode: no TCP ports
+                : new[] { new Tunnel { Name = "TCP", Ports = ParsePorts() } };
+            vct.Save();
+
+            var server = ComServerSettings.CreateDefaultSettings();
+            server.Modules = new[]
+            {
+                Module(typeof(Hydra2BLCore)),
+                Module(typeof(Hydra3BLCore)),
+                Module(typeof(Agilent34401aBLCore)),
+                Module(typeof(AdditelBLCore)),
+                Module(typeof(OptidewBLCore)),
+                Module(typeof(TTIBLCore)),
+                Module(typeof(InstekBLCore)),
+            };
+            server.Save();
+
+            _comServer = new Core.MultiBLCommServer();
+            _comServer.Start();
+        }
 
         private void Stop()
         {
@@ -48,305 +76,173 @@ namespace Maba.VCT.CommServer.Monitor
             }
         }
 
-        private void Start()
+        private static Core.Module Module(Type blCore)
         {
-            var StartVCT = groupBoxDevice7ESerial.Enabled;
-
-            #region Com Server Settings
-
-            var defaultSettings_commServer = ComServerSettings.CreateDefaultSettings();
-            var defaultSettings_commServer_vct = VCTSettings.CreateDefaultSettings();
-
-            if (StartVCT)
+            return new Core.Module
             {
-                defaultSettings_commServer_vct.Tunnels[0].Ports = textBoxVCTPort.Text.Split(',').Select(a => int.Parse(a)).ToArray();
-            }
-
-            defaultSettings_commServer.Modules = new Core.Module[]
-                {
-                    new Core.Module()
-                    {
-                        AssemblyName = Path.GetFileNameWithoutExtension(typeof(Hydra2BLCore).Assembly.ManifestModule.Name),
-                        TypeName = typeof(Hydra2BLCore).FullName
-                    },
-                    new Core.Module()
-                    {
-                        AssemblyName =Path.GetFileNameWithoutExtension(typeof(Hydra3BLCore).Assembly.ManifestModule.Name),
-                        TypeName = typeof(Hydra3BLCore).FullName
-                    },
-                    new Core.Module()
-                    {
-                        AssemblyName =Path.GetFileNameWithoutExtension(typeof(Agilent34401aBLCore).Assembly.ManifestModule.Name),
-                        TypeName = typeof(Agilent34401aBLCore).FullName
-                    },
-                    new Core.Module()
-                    {
-                        AssemblyName =Path.GetFileNameWithoutExtension(typeof(AdditelBLCore).Assembly.ManifestModule.Name),
-                        TypeName = typeof(AdditelBLCore).FullName
-                    },
-                    new Core.Module()
-                    {
-                        AssemblyName =Path.GetFileNameWithoutExtension(typeof(OptidewBLCore).Assembly.ManifestModule.Name),
-                        TypeName = typeof(OptidewBLCore).FullName
-                    },
-                    new Core.Module()
-                    {
-                        AssemblyName =Path.GetFileNameWithoutExtension(typeof(TTIBLCore).Assembly.ManifestModule.Name),
-                        TypeName = typeof(TTIBLCore).FullName
-                    },
-                    new Core.Module()
-                    {
-                        AssemblyName =Path.GetFileNameWithoutExtension(typeof(InstekBLCore).Assembly.ManifestModule.Name),
-                        TypeName = typeof(InstekBLCore).FullName
-                    }
-                };
-
-            defaultSettings_commServer.Save();
-
-            #endregion
-
-            if (StartVCT)
-            {
-                _comServer = new Core.MultiBLCommServer();
-                _comServer.Start();
-            }
+                AssemblyName = Path.GetFileNameWithoutExtension(blCore.Assembly.ManifestModule.Name),
+                TypeName = blCore.FullName
+            };
         }
 
-        private void Init()
+        private int[] ParsePorts()
         {
-            Invoke(new Action(() =>
-            {
-                buttonStartServer.Text = "Start Server";
-                ComServerStart = true;
-                buttonStartServer.Enabled = true;
-                comboBoxVCTSerial.Enabled = false;
-                buttonStart7EDeviceSerial.Enabled = false;
+            return textBoxVCTPort.Text
+                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(p => p.Trim())
+                .Where(p => int.TryParse(p, out _))
+                .Select(int.Parse)
+                .ToArray();
+        }
 
-                foreach (var item in SerialPort.GetPortNames())
-                {
-                    comboBoxVCTSerial.Items.Add(item);
-                }
-                comboBoxVCTSerial.Text = SerialPort.GetPortNames().FirstOrDefault();
-            }));
+        #endregion
+
+        #region UI state
+
+        // Serial is usable whether the core runs or not — clicking Connect starts a serial-only core.
+        private void SetIdle()
+        {
+            buttonStartServer.Text = "Start Server (TCP)";
+            buttonStartServer.Enabled = true;
+            textBoxVCTPort.Enabled = true;
+            groupBoxSerial.Enabled = true;
+            buttonShowMonitorVCT.Enabled = false;
+            labelStatus.Text = "Stopped";
+        }
+
+        private void SetRunning(string mode)
+        {
+            buttonStartServer.Text = "Stop Server";
+            textBoxVCTPort.Enabled = false;
+            groupBoxSerial.Enabled = true;
+            buttonShowMonitorVCT.Enabled = true;
+            labelStatus.Text = "Running (" + mode + ")";
+        }
+
+        private void RefreshPorts()
+        {
+            var previous = (comboBoxVCTSerial.SelectedItem as SerialPortInfo)?.PortName;
+            comboBoxVCTSerial.Items.Clear();
+            var ports = SerialPortInfo.List();
+            comboBoxVCTSerial.Items.AddRange(ports.Cast<object>().ToArray());
+            var restore = ports.FirstOrDefault(p => p.PortName == previous) ?? ports.FirstOrDefault();
+            if (restore != null)
+                comboBoxVCTSerial.SelectedItem = restore;
+        }
+
+        private Handshake SelectedHandshake()
+        {
+            switch (comboBoxHandshake.SelectedItem as string)
+            {
+                case "XON/XOFF": return Handshake.XOnXOff;
+                case "RTS/CTS": return Handshake.RequestToSend;
+                default: return Handshake.None;
+            }
         }
 
         #endregion
 
         #region UI events
 
-        void Monitor_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            Init();
-            this.Show();
-        }
-
+        // "Start Server (TCP)" — full mode with TCP tunnels; toggles to Stop while running.
         private void buttonStartServer_Click(object sender, EventArgs e)
         {
-            if (ComServerStart)
+            if (!Running)
             {
-                foreach (var item in SerialPort.GetPortNames())
+                if (ParsePorts().Length == 0)
                 {
-                    comboBoxVCTSerial.Items.Add(item);
+                    MessageBox.Show("Enter at least one valid TCP port (e.g. 50000,50050), or just use Connect for serial-only.",
+                        "Ports", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
                 }
-                comboBoxVCTSerial.Text = SerialPort.GetPortNames().FirstOrDefault();
-                groupBoxDevice7ESerial.Enabled = true;
-                buttonStartServer.Text = "Stop Server";
-                ComServerStart = false;
-                comboBoxVCTSerial.Enabled = true;
-                Start();
+                try
+                {
+                    Start(serialOnly: false);
+                    RefreshPorts();
+                    SetRunning("TCP " + textBoxVCTPort.Text);
+                }
+                catch (Exception ex)
+                {
+                    Libs.Trace.Tracer.Info(ex.Message);
+                    MessageBox.Show("Failed to start server: " + ex.Message, "Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Stop();
+                    SetIdle();
+                }
             }
             else
             {
-                Init();
                 Stop();
+                SetIdle();
             }
         }
 
-        private void Scan()
+        private void buttonRefreshPorts_Click(object sender, EventArgs e)
         {
-            Parallel.ForEach(textBoxVCTPort.Text.Split(',').Select(a => int.Parse(a)).ToArray(), SearchTCPDevice);
-            //Parallel.ForEach(SerialPort.GetPortNames(), SearchCOMDevice);
-            Array.ForEach(SerialPort.GetPortNames(), SearchCOMDevice);
+            RefreshPorts();
         }
 
-        private void SearchCOMDevice(string Com)
-        {
-            if (string.IsNullOrEmpty(Com))
-            {
-                return;
-            }
-            //Libs.Trace.Tracer.Info("Scan searching for COM: {0}", Com);
-            Tunnel t = new Tunnel
-            {
-                Name = Com,
-            };
-            if (_comServer != null && _comServer.VCTServer != null)
-            {
-                IComLayer com = null;
-                switch (_comServer.VCTServer.CurrentServerSettings.DeviceSettings.FirstOrDefault().IdentificationType)
-                {
-                    case VCT.Core.DeviceSettings.IdentificationTypes.TTI:
-                    case VCT.Core.DeviceSettings.IdentificationTypes.IDN:
-                        com = new SerialCom(Com, 9600, 2000, t);
-                        com.Open();
-                        break;
-                    case VCT.Core.DeviceSettings.IdentificationTypes.Modbus:
-                        com = new ModbusCom(Com, 9600, t);
-                        com.Open();
-                        break;
-                    default:
-                        break;
-                }
-
-                _comServer.VCTServer.AddDevice_Pending_ComLayer(com);
-                Libs.Trace.Tracer.Info("Scan find Com: {0}", Com);
-            }
-        }
-
-        private void SearchTCPDevice(int port)
-        {
-            Parallel.ForEach(settings.IP2Scan, item1 =>
-            {
-                Parallel.ForEach(item1.Keys, ip =>
-                {
-                    //Libs.Trace.Tracer.Info("Scan searching for ip: {0} and port {1}", ip, port);
-                    var pinger = new Ping();
-                    PingReply reply = pinger.Send(ip);
-                    if (reply.Status == IPStatus.Success)
-                    {
-
-                        Tunnel t = new Tunnel
-                        {
-                            Address = ip,
-                            Name = item1[ip],
-                            Ports = new int[1] { port }
-                        };
-                        try
-                        {
-                            var soc = new SocketCom(ip, port, t);
-                            soc.Open();
-                            _comServer.VCTServer.AddDevice_Pending_ComLayer(soc);
-                        }
-                        catch (Exception)
-                        {
-                            Libs.Trace.Tracer.Info("Scan failed ip: {0}", ip);
-                        }
-                        Libs.Trace.Tracer.Info("Scan find ip: {0}", ip);
-                    }
-                });
-            });
-        }
-
+        // "Connect" — serial device. Starts a serial-only core (no TCP ports) if not already running.
         private void buttonStart7EDeviceSerial_Click(object sender, EventArgs e)
         {
-            Scan();
+            var info = comboBoxVCTSerial.SelectedItem as SerialPortInfo;
+            if (info == null || string.IsNullOrEmpty(info.PortName))
+            {
+                MessageBox.Show("Select a COM port first.", "Serial",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
-            //this.Invoke(new Action(() =>
-            //{
-            //    if (buttonStart7EDeviceSerial.Text == "Start")
-            //    {
-            //        buttonStart7EDeviceSerial.Text = "Stop";
-            //        #region Device Host Serial
-
-            //        if (!String.IsNullOrEmpty(comboBoxVCTSerial.Text))
-            //        {
-            //            Tunnel t = new Tunnel
-            //            {
-            //                Address = comboBoxVCTSerial.Text,
-            //                Name = "Serial Port",
-            //                Ports = new int[1] { 9600 }
-
-            //            };
-            //            _serialPort = new ComLayer.SerialCom(comboBoxVCTSerial.Text, 9600, t);
-            //            if (_comServer != null && _comServer.VCTServer != null)
-            //            {
-            //                _serialPort.Open();
-            //                _comServer.VCTServer.AddDevice_Pending_ComLayer(_serialPort);
-            //            }
-
-            //            comboBoxVCTSerial.Items.Remove(_serialPort.PortName);
-            //            comboBoxDigiSerial.Items.Remove(_serialPort.PortName);
-            //        }
-
-            //        #endregion
-            //    }
-            //    else
-            //    {
-            //        buttonStart7EDeviceSerial.Text = "Start";
-            //        if (_serialPort != null && !string.IsNullOrEmpty(_serialPort.PortName))
-            //        {
-            //            comboBoxVCTSerial.Items.Add(_serialPort.PortName);
-            //            comboBoxDigiSerial.Items.Add(_serialPort.PortName);
-            //        }
-
-            //        if (_serialPort.IsConnected)
-            //        {
-            //            _serialPort.Close();
-            //            _serialPort = null;
-            //        }
-            //    }
-            //}));
-
+            try
+            {
+                if (!Running)
+                {
+                    Start(serialOnly: true);   // no TCP ports — serial mode
+                    SetRunning("Serial");
+                }
+                ConnectSerial(info.PortName);
+            }
+            catch (Exception ex)
+            {
+                Libs.Trace.Tracer.Info(ex.Message);
+                MessageBox.Show("Failed: " + ex.Message, "Serial",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
-        private void buttonStartDigiSerial_Click(object sender, EventArgs e)
+        private void ConnectSerial(string com)
         {
+            if (_comServer == null || _comServer.VCTServer == null)
+                return;
 
-            //#region Digi Serial
-            //if (buttonStartDigiSerial.Text == "Start")
-            //{
-            //    buttonStartDigiSerial.Text = "Stop";
-            //    if (!String.IsNullOrEmpty(comboBoxDigiSerial.Text))
-            //    {
-            //        _serialPort = new ComLayer.SerialCom(comboBoxDigiSerial.Text, 9600);
-            //        if (_comServer != null && _comServer.DigiGatewayCore != null)
-            //        {
-            //            _serialPort.Open();
-            //            _comServer.DigiGatewayCore.AddAPIComLayer(_serialPort);
-            //        }
-            //        this.Invoke(new Action(() =>
-            //        {
-            //            comboBoxVCTSerial.Items.Remove(_serialPort.PortName);
-            //            comboBoxDigiSerial.Items.Remove(_serialPort.PortName);
-            //        }));
-            //    }
-            //    else
-            //    {
-            //        buttonStartDigiSerial.Text = "Start";
-            //        if (_serialPort != null && !string.IsNullOrEmpty(_serialPort.PortName))
-            //        {
-            //            comboBoxVCTSerial.Items.Add(_serialPort.PortName);
-            //            comboBoxDigiSerial.Items.Add(_serialPort.PortName);
-            //        }
+            int baud;
+            if (!int.TryParse(comboBoxBaud.Text, out baud))
+                baud = 9600;
 
-            //        if (_serialPort.IsConnected)
-            //        {
-            //            _serialPort.Close();
-            //            _serialPort = null;
-            //        }
-            //    }
-            //}
-            //#endregion
+            var tunnel = new Tunnel { Name = com };
+            var idType = _comServer.VCTServer.CurrentServerSettings.DeviceSettings
+                .FirstOrDefault()?.IdentificationType ?? VCT.Core.DeviceSettings.IdentificationTypes.IDN;
 
+            IComLayer layer = (idType == VCT.Core.DeviceSettings.IdentificationTypes.Modbus)
+                ? (IComLayer)new ModbusCom(com, baud, tunnel)
+                : new SerialCom(com, baud, 2000, tunnel) { Handshake = SelectedHandshake() };
+
+            layer.Open();
+            _comServer.VCTServer.AddDevice_Pending_ComLayer(layer);
+            labelStatus.Text = "Serial connected: " + com + " @ " + baud;
+            Libs.Trace.Tracer.Info("Serial connected: {0} @ {1}", com, baud);
         }
 
         private void buttonShowMonitorVCT_Click(object sender, EventArgs e)
         {
-            VCTMonitor = new VCTMonitor(_comServer.VCTServer);
-            VCTMonitor.Show();
-            VCTMonitor.FormClosed += Monitor_FormClosed;
+            if (_comServer == null || _comServer.VCTServer == null)
+                return;
+            _vctMonitor = new VCTMonitor(_comServer.VCTServer);
+            _vctMonitor.FormClosed += (s, args) => this.Show();
+            _vctMonitor.Show();
             this.Hide();
         }
 
-        private void buttonShowMonitorDigi_Click(object sender, EventArgs e)
-        {
-            //DigiMonitor = new DigiMonitor(_comServer);
-            //DigiMonitor.Show();
-            //DigiMonitor.FormClosed += Monitor_FormClosed;
-            //this.Hide();
-        }
         #endregion
-
-
     }
 }

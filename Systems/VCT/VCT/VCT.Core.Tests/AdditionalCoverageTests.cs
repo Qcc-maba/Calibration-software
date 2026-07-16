@@ -10,7 +10,7 @@ using Maba.VCT.Core.Events;
 using Maba.VCT.Core.Settings;
 using Hydra2.VCT.Core.Device.OTA;
 
-namespace Galcon.VCT.Core.Tests
+namespace Maba.VCT.Core.Tests
 {
     /// <summary>Targets gaps for line coverage on small types and helpers.</summary>
     [TestClass]

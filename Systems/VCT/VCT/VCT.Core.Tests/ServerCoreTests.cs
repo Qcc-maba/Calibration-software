@@ -13,7 +13,7 @@ using Maba.VCT.Core.Settings;
 using Maba.VCT.Common;
 using Maba.VCT.Common.Protocol_Parser.WebSocketMessage;
 
-namespace Galcon.VCT.Core.Tests
+namespace Maba.VCT.Core.Tests
 {
     [TestClass]
     public class ServerCoreTests

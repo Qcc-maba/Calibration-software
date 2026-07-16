@@ -58,6 +58,7 @@
     <Compile Include="DeviceMetadata.cs" />
     <Compile Include="Device\AdditelBL.cs" />
     <Compile Include="Device\Agilent34401aBL.cs" />
+    <Compile Include="Device\Agilent34401aReadings.cs" />
     <Compile Include="Device\Calculations\HydraCalculations.cs" />
     <Compile Include="Device\Hydra3DeviceBL.cs" />
     <Compile Include="BLCore\Hydra2BLCore.cs" />

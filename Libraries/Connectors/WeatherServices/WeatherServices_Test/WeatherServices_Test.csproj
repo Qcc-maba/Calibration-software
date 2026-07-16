@@ -6,8 +6,8 @@
     <ProjectGuid>{261C6551-6CAF-41EB-B42E-7E2F59639B7A}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.WeatherServices.Testing</RootNamespace>
-    <AssemblyName>Galcon.Connectors.WeatherServices.Testing</AssemblyName>
+    <RootNamespace>Maba.Connectors.WeatherServices.Testing</RootNamespace>
+    <AssemblyName>Maba.Connectors.WeatherServices.Testing</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>

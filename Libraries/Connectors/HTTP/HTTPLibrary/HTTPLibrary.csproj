@@ -7,8 +7,8 @@
     <ProjectGuid>{25031E7D-21EB-4A0E-958E-BCC0AF52E922}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.HTTPLibrary</RootNamespace>
-    <AssemblyName>Galcon.Connectors.HTTPLibrary</AssemblyName>
+    <RootNamespace>Maba.Connectors.HTTPLibrary</RootNamespace>
+    <AssemblyName>Maba.Connectors.HTTPLibrary</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
