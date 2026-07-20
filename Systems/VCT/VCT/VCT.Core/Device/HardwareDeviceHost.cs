@@ -8,7 +8,12 @@ using System.Threading.Tasks;
 namespace Maba.VCT.Core.Device
 {
 
-    // Change to WebSocket and Hardware DeviceHost
+    /// <summary>
+    /// Hosts ONE physical instrument: wraps its <see cref="ComLayer.IComLayer"/>, cuts the incoming
+    /// bytes into packets via the protocol parser, derives the serial number from the identification
+    /// reply, routes each packet to the waiting <see cref="Sessions.BaseSession"/>, and owns the
+    /// device's <see cref="IDeviceBL"/>. Measurements leave through BroadcastAllMeasurements.
+    /// </summary>
     public class HardwareDeviceHost : IDeviceHost
     {
         #region Members

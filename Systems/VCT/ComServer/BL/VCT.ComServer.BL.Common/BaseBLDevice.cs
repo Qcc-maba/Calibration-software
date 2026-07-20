@@ -11,6 +11,12 @@ using Maba.VCT.Core.Events;
 
 namespace Maba.VCT.CommServer.CommonBL
 {
+    /// <summary>
+    /// Base class for a single device's business logic. Subclasses describe the instrument as an
+    /// ordered set of <see cref="SingleState"/> steps returned from OnCreateStates (e.g.
+    /// reset → configure → acquire); the base runs them on the server timer and exposes the
+    /// device host as HW_Device. See docs/architecture.md.
+    /// </summary>
     public abstract class BaseBLDevice : Core.Device.IDeviceBL
     {
         #region enums

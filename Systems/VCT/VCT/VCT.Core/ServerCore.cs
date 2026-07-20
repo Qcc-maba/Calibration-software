@@ -21,6 +21,13 @@ using static System.Net.WebRequestMethods;
 
 namespace Maba.VCT.Core
 {
+    /// <summary>
+    /// The server orchestrator. Opens the configured tunnels (TCP and serial), polls newly
+    /// connected links with an identification packet until they report a serial number, promotes
+    /// them to identified <see cref="Device.HardwareDeviceHost"/> instances, and hosts the
+    /// WebSocket listener that streams measurements to the web app.
+    /// See docs/architecture.md for the end-to-end pipeline.
+    /// </summary>
     public class ServerCore
     {
         #region members

@@ -9,6 +9,11 @@ using System.Web;
 
 namespace Maba.VCT.Core.Device
 {
+    /// <summary>
+    /// A connected device as the rest of the server sees it — identified by <see cref="SN"/> and
+    /// reachable over an <see cref="IComLayer"/>. Implemented by both the hardware host and the
+    /// WebSocket (web app) host.
+    /// </summary>
     public interface IDeviceHost : IDisposable
     {
         DateTime IdentificationDate { get;  set; }

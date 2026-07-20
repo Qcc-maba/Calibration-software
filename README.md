@@ -46,6 +46,8 @@
 > (או בנייה דרך Visual Studio שמריץ restore אוטומטית).
 
 ## תיעוד נוסף
+- **`docs/architecture.md` — התחל כאן.** הצינור מקצה לקצה (ComLayer → DeviceHost → Sessions → BL →
+  WebSocket), מחזור חיי ה-session, מכונת המצבים, מתכון להוספת מכשיר, וטבלת דיבוג.
 - `docs/DEVELOPMENT_PLAN.md` — תכנית פיתוח.
 - `docs/PLAN-masters-and-reorg.md` — תכנית מאסטרים מרובים + סידור מבנה.
 - `docs/devices/README.md` — מסמכי המכשירים הנתמכים.

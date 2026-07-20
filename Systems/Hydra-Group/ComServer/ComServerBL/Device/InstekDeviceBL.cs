@@ -271,29 +271,10 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.Device
         {
             if (response.HasResponse)
             {
-                //if (response.LogCount == 0)
-                //{
-                //    req = new LogsRequest(LogsRequest.LogCommands.LogCount)
-                //    {
-                //        Packet = HydraProtocolHelper.Build_InstekRead()
-                //    };
-                //    HW_Device.GetLogs(req, LogResponseCallBack);
-                //}
-                //else
-                //{
-                //    req = new LogsRequest(LogsRequest.LogCommands.GetLogs)
-                //    {
-                //        Packet = HydraProtocolHelper.Build_InstekRead()
-                //    };
-                //    HW_Device.GetLogs(req, LogResponseCallBack);
-
-                //    //req = new LogsRequest(LogsRequest.LogCommands.LogCount)
-                //    //{
-                //    //    Packet = HydraProtocolHelper.Build_DataPointPacket()
-                //    //};
-                //    //HW_Device.GetLogs(req, LogResponseCallBack);
-                //    HandelLogs(response);
-                //}
+                // NOTE: the success path is not implemented for Instek — the reading is received but
+                // never passed to HandelLogs(response), so no measurement is produced or broadcast.
+                // (Previously this was a block of commented-out code, which hid the gap.)
+                // Wire up HandelLogs + the follow-up READ? here when an Instek unit is available to test against.
             }
             else
             {

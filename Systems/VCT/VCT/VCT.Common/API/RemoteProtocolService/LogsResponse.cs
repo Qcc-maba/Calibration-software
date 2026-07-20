@@ -35,38 +35,6 @@ namespace Maba.VCT.Common.API.RemoteProtocolService
 
         #region Private Methods
 
-        //public void ParseLogPacket(HardwarePacket p, bool isDataPoint)
-        //{
-
-        //    string[] results = p.Response.Replace("\r\n", "").Replace("=>", "").Split(',');
-        //    Mesurements = new List<double>(); ;
-        //    if (!isDataPoint)
-        //    {
-        //        var hours = int.Parse(results[0]);
-        //        var minutes = int.Parse(results[1]);
-        //        var seconds = int.Parse(results[2]);
-        //        var month = int.Parse(results[3]);
-        //        var day = int.Parse(results[4]);
-        //        var year = int.Parse(results[5]) + 2000;
-        //        LogDate = new DateTime(year, month, day, hours, minutes, seconds);
-        //        for (int i = 6; i < results.Length - 3; i++)
-        //        {
-        //            Mesurements.Add(double.Parse(results[i]));
-        //        }
-        //        Alarm = int.Parse(results[results.Length - 3]);
-        //        DigitalIOLineState = int.Parse(results[results.Length - 2]);
-        //        Totalizer = results[results.Length - 1];
-        //    }
-        //    else
-        //    {
-        //        //LogCount = int.Parse(results[0]);
-        //        for (int i = 0; i < results.Length; i++)
-        //        {
-        //            Mesurements.Add(double.Parse(results[i]));
-        //        }
-        //    }
-        //}
-
         public void ParseLogResponse(HardwarePacket commandPacket, HardwarePacket result, LogsRequest.LogCommands logCommand)
         {
             switch (logCommand)

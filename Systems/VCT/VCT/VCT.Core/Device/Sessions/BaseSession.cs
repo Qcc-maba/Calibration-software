@@ -8,6 +8,22 @@ using Maba.VCT.Common.API;
 
 namespace Maba.VCT.Core.Device.Sessions
 {
+    /// <summary>
+    /// A request/response conversation with one device, serialised so only ONE request is in flight
+    /// at a time.
+    /// <para>
+    /// Callers enqueue via QueueRequest. On each server tick <see cref="Timer"/> dequeues a single
+    /// request — but only while <see cref="Avilable4Transport"/> is true, i.e. while
+    /// <see cref="LastRequest"/> is null. When the reply arrives the subclass answers the caller's
+    /// callback and clears LastRequest, which is what lets the next request go out.
+    /// </para>
+    /// <para>
+    /// If a reply never arrives, SessionRequestTimeout_TimeSpan releases the session via
+    /// <see cref="LastRequestTimedOut"/> (answering with a failed response). Without that, the
+    /// device would keep LastRequest set forever, the queue would stop draining and the instrument
+    /// would silently stop measuring — the first thing to check when a device "goes quiet".
+    /// </para>
+    /// </summary>
     internal abstract class BaseSession
     {
         #region Peopeties

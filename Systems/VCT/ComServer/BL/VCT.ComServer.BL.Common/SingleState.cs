@@ -6,6 +6,11 @@ using System.Threading.Tasks;
 
 namespace Maba.VCT.CommServer.CommonBL
 {
+    /// <summary>
+    /// One step of a device's state machine. Action_DoWork is invoked repeatedly with an advancing
+    /// CurrentStep and returns <see cref="StepWorkResponses"/>: Skip2NextStep to move to the next
+    /// step, StateFinished when the state is done.
+    /// </summary>
     public class SingleState
     {
         #region enums

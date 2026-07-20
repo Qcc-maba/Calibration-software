@@ -1,85 +1,19 @@
 using Maba.VCT.CommServer.BL.HydaDevices.Device;
-using Maba.VCT.CommServer.BL.HydraDevices.Settings;
-using Maba.VCT.Core.Device;
-using Maba.VCT.Core.Events;
-using Maba.VCT.Core;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Maba.VCT.CommServer.CommonBL;
 
 namespace Maba.VCT.CommServer.BL.HydaDevices.BLCore
 {
-    public class TTIBLCore : CommonBL.IBLCore
+    /// <summary>BL core for TTi (Thurlby Thandar) instruments.</summary>
+    public class TTIBLCore : BaseBLCore
     {
-        #region Members
-
-        internal Core.ServerCore VCT_Server;
-
-        /// <summary>
-        /// One BL per connected device, keyed by serial number, so several TTI units can run at
-        /// once. A single shared field would let a second device overwrite the first and route every
-        /// event to whichever connected last.
-        /// </summary>
-        private readonly ConcurrentDictionary<string, TTIDeviceBL> _blBySN =
-            new ConcurrentDictionary<string, TTIDeviceBL>(StringComparer.OrdinalIgnoreCase);
-
-        #endregion
-
-        #region properties
-
-        public HardwareBL_Settings DeviceSettings { get; private set; }
-
-        #endregion
-
-        #region Public Methods
-
-        public bool OnDeviceConnetion(HardwareDeviceHost device)
+        protected override string DeviceIdToken
         {
-            bool isAllowed = device != null && device.SN != null && device.SN.Contains("TTI") && device.IsConnected;
-            if (isAllowed)
-            {
-                var bl = _blBySN.GetOrAdd(device.SN, _ => new TTIDeviceBL(this));
-                if (!ReferenceEquals(device.BL, bl))
-                {
-                    device.BL = bl;
-                    bl.Start(device);
-                }
-            }
-            return (isAllowed);
+            get { return "TTI"; }
         }
 
-        public void OnEvent(DeviceEventArgs e)
+        protected override BaseBLDevice CreateDeviceBL()
         {
-            var sn = e != null && e.Device != null ? e.Device.SN : null;
-            TTIDeviceBL bl;
-            if (sn != null && _blBySN.TryGetValue(sn, out bl))
-            {
-                bl.OnEvent(e);
-            }
+            return new TTIDeviceBL(this);
         }
-
-        public void OnWebSocketDeviceConnetion(WebSocketDeviceHost device)
-        {
-            foreach (var bl in _blBySN.Values)
-            {
-                bl.Start(device);
-            }
-        }
-
-        public void Start(ServerCore server)
-        {
-            this.VCT_Server = server;
-            this.DeviceSettings = HardwareBL_Settings.Read();
-        }
-
-        public void Stop()
-        {
-            _blBySN.Clear();
-        }
-
-        #endregion
     }
 }
