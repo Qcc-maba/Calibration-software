@@ -27,6 +27,13 @@ namespace Maba.VCT.Core.Device.Sessions
 
         private ConcurrentQueue<Common.API.BaseRequest> QueuedRequests = new ConcurrentQueue<Common.API.BaseRequest>();
 
+        /// <summary>
+        /// When the current <see cref="LastRequest"/> was actually sent. Deliberately not
+        /// <c>BaseRequest.CreationDate</c>, which is the enqueue time — a request that waited in a
+        /// backed-up queue would otherwise be considered timed-out the moment it is sent.
+        /// </summary>
+        private DateTime _lastRequestSentUtc;
+
         #endregion
 
         #region Ctor(s)
@@ -48,14 +55,24 @@ namespace Maba.VCT.Core.Device.Sessions
                 if (QueuedRequests.TryDequeue(out r))
                 {
                     LastRequest = r;
+                    _lastRequestSentUtc = DateTime.UtcNow;
                     ProccessRequest(LastRequest);
                 }
             }
 
-            //if (LastRequest != null && DateTime.UtcNow - LastRequest.CreationDate > Parent.DeviceSettings.SessionRequestTimeout_TimeSpan)
-            //{
-            //    LastRequestTimedOut();
-            //}
+            // Without this, a device that never answers (unplugged mid-scan, garbled frame) leaves
+            // LastRequest set forever: Avilable4Transport stays false, the queue stops draining and
+            // this session silently stops measuring until the server restarts.
+            if (LastRequest != null && Parent != null && Parent.DeviceSettings != null)
+            {
+                var timeout = Parent.DeviceSettings.SessionRequestTimeout_TimeSpan;
+                if (timeout > TimeSpan.Zero && DateTime.UtcNow - _lastRequestSentUtc > timeout)
+                {
+                    Libs.Trace.Tracer.Info("[Session] {0} request timed out after {1}s - releasing session for {2}.",
+                        this.GetType().Name, timeout.TotalSeconds, Parent.SN);
+                    LastRequestTimedOut();
+                }
+            }
         }
 
         internal virtual void Start()

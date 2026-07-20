@@ -1,4 +1,6 @@
-﻿using Maba.VCT.CommServer.BL.HydraDevices.Device;
+using System;
+using System.Collections.Concurrent;
+using Maba.VCT.CommServer.BL.HydraDevices.Device;
 using Maba.VCT.CommServer.BL.HydraDevices.Settings;
 using Maba.VCT.Core.Device;
 using Maba.VCT.Core.Events;
@@ -10,7 +12,14 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.BLCore
         #region Members
 
         internal Core.ServerCore VCT_Server;
-        private Hydra2DeviceBL bl;
+
+        /// <summary>
+        /// One BL per connected device, keyed by serial number. A single shared field would let a
+        /// second Hydra 2625 overwrite the first, and every event would then be routed to whichever
+        /// device connected last.
+        /// </summary>
+        private readonly ConcurrentDictionary<string, Hydra2DeviceBL> _blBySN =
+            new ConcurrentDictionary<string, Hydra2DeviceBL>(StringComparer.OrdinalIgnoreCase);
         #endregion
 
         #region properties
@@ -26,10 +35,10 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.BLCore
             bool isAllowed = device != null && device.SN != null && device.IsConnected && device.SN.Contains("2625");
             if (isAllowed)
             {
-                if ((device.BL == null) || !(device.BL is Device.Hydra2DeviceBL))
+                var bl = _blBySN.GetOrAdd(device.SN, _ => new Device.Hydra2DeviceBL(this));
+                if (!ReferenceEquals(device.BL, bl))
                 {
-                    this.bl = new Device.Hydra2DeviceBL(this);
-                    device.BL = this.bl;
+                    device.BL = bl;
                     bl.Start(device);
                 }
             }
@@ -38,7 +47,9 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.BLCore
 
         public void OnEvent(DeviceEventArgs e)
         {
-            if (bl != null)
+            var sn = e != null && e.Device != null ? e.Device.SN : null;
+            Hydra2DeviceBL bl;
+            if (sn != null && _blBySN.TryGetValue(sn, out bl))
             {
                 bl.OnEvent(e);
             }
@@ -46,7 +57,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.BLCore
 
         public void OnWebSocketDeviceConnetion(WebSocketDeviceHost device)
         {
-            if (bl != null)
+            foreach (var bl in _blBySN.Values)
             {
                 bl.Start(device);
             }
@@ -60,7 +71,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.BLCore
 
         public void Stop()
         {
-
+            _blBySN.Clear();
         }
 
         #endregion

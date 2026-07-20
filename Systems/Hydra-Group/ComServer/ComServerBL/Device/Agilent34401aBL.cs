@@ -32,6 +32,12 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         private readonly HydraCalculations HC;
         private readonly HardwareBL_Settings settings;
+
+        /// <summary>Consecutive failed/empty READ? responses; reset on every good reading.</summary>
+        private int _consecutiveFailures;
+
+        /// <summary>Stop re-queueing after this many consecutive failures (resumes on reconnect).</summary>
+        private const int MaxConsecutiveFailures = 10;
         #endregion
 
         #region ctor
@@ -158,6 +164,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 if (response != null && response.Result &&
                     response.Measurements != null && response.Measurements.Count > 0)
                 {
+                    _consecutiveFailures = 0;
                     var raw = response.Measurements[0];
                     if (!Agilent34401aReadings.IsOverload(raw))
                     {
@@ -175,15 +182,38 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                         HW_Device.BroadcastAllMeasurements(new List<int> { 1 }, new List<double> { value });
                     }
                 }
+                else
+                {
+                    _consecutiveFailures++;
+                }
             }
             finally
             {
-                // Continuous acquisition: always issue the next READ? so a single bad/empty read
-                // (or an overload) does not permanently stop the loop. Pacing comes from the device.
-                var next = new LogsRequest(LogsRequest.LogCommands.GetLogs);
-                next.Packet = Common.HydraProtocolHelper.Build_ReadValue();
-                HW_Device.GetLogs(next, ReadValueCallback);
+                RequestNextReading();
             }
+        }
+
+        /// <summary>
+        /// Queues the next READ?. A single bad/empty read (or an overload) must not stop acquisition,
+        /// but we stop re-queueing once the device is gone or keeps failing — otherwise the callback
+        /// chain would pile unbounded requests onto a disconnected instrument's queue.
+        /// </summary>
+        private void RequestNextReading()
+        {
+            if (HW_Device == null || !HW_Device.IsConnected)
+                return;
+
+            if (_consecutiveFailures >= MaxConsecutiveFailures)
+            {
+                Libs.Trace.Tracer.Info(
+                    "[34401A] {0} consecutive failed reads on {1} - stopping acquisition until reconnect.",
+                    _consecutiveFailures, HW_Device.SN);
+                return;
+            }
+
+            var next = new LogsRequest(LogsRequest.LogCommands.GetLogs);
+            next.Packet = Common.HydraProtocolHelper.Build_ReadValue();
+            HW_Device.GetLogs(next, ReadValueCallback);
         }
 
         #endregion

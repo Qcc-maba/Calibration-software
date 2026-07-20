@@ -1,9 +1,11 @@
-﻿using Maba.VCT.CommServer.BL.HydaDevices.Device;
+using Maba.VCT.CommServer.BL.HydaDevices.Device;
 using Maba.VCT.CommServer.BL.HydraDevices.Device;
 using Maba.VCT.CommServer.BL.HydraDevices.Settings;
 using Maba.VCT.CommServer.CommonBL;
 using Maba.VCT.Core.Device;
 using Maba.VCT.Core.Events;
+using System;
+using System.Collections.Concurrent;
 
 
 namespace Maba.VCT.CommServer.BL.HydaDevices.BLCore
@@ -13,7 +15,14 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.BLCore
         #region Members
 
         public Core.ServerCore VCT_Server;
-        private AdditelBL bl;
+
+        /// <summary>
+        /// One BL per connected device, keyed by serial number, so several Additel units can run at
+        /// once. A single shared field would let a second device overwrite the first and route every
+        /// event to whichever connected last.
+        /// </summary>
+        private readonly ConcurrentDictionary<string, AdditelBL> _blBySN =
+            new ConcurrentDictionary<string, AdditelBL>(StringComparer.OrdinalIgnoreCase);
         #endregion
 
         #region properties
@@ -29,10 +38,10 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.BLCore
             bool isAllowed = device != null && device.SN != null && device.IsConnected && device.SN.Contains("TAU");
             if (isAllowed)
             {
-                if ((device.BL == null) || !(device.BL is AdditelBLCore))
+                var bl = _blBySN.GetOrAdd(device.SN, _ => new AdditelBL(this));
+                if (!ReferenceEquals(device.BL, bl))
                 {
-                    this.bl = new AdditelBL(this);
-                    device.BL = this.bl;
+                    device.BL = bl;
                     bl.Start(device);
                 }
             }
@@ -41,7 +50,9 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.BLCore
 
         public void OnEvent(DeviceEventArgs e)
         {
-            if (bl != null)
+            var sn = e != null && e.Device != null ? e.Device.SN : null;
+            AdditelBL bl;
+            if (sn != null && _blBySN.TryGetValue(sn, out bl))
             {
                 bl.OnEvent(e);
             }
@@ -49,7 +60,10 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.BLCore
 
         public void OnWebSocketDeviceConnetion(WebSocketDeviceHost device)
         {
-            bl.Start(device);
+            foreach (var bl in _blBySN.Values)
+            {
+                bl.Start(device);
+            }
         }
 
         public void Start(Core.ServerCore server)
@@ -60,7 +74,7 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.BLCore
 
         public void Stop()
         {
-
+            _blBySN.Clear();
         }
 
         #endregion

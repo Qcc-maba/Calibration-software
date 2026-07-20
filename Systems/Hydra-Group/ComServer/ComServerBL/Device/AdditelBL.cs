@@ -45,7 +45,7 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.Device
 
         protected override CommonBL.SingleState[] OnCreateStates()
         {
-            HC.Init(settings.Hydra2type.Masters).GetAwaiter().GetResult();
+            HC.Init(settings.Additel.Masters).GetAwaiter().GetResult();
 
             if (this.StateMachine_InitSystem == null)
             {
@@ -220,12 +220,10 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.Device
         {
 
             // TODO Change to Device ID
-            //HC.ProcessResults(response, settings.Agilent);
-            foreach (var item in settings.Agilent.Masters)
+            foreach (var item in settings.Additel.Masters)
             {
                 var res = HC.CalcConversionUnits(response.Measurements.FirstOrDefault(), HydraCalculations.ConversionUnits.Ohm, HydraCalculations.ConversionUnits.Celsius, item);
-                HC.ProcessResults(response, settings.Agilent);
-                Console.WriteLine(" The results is: " + response.Measurements.FirstOrDefault());
+                HC.ProcessResults(response, settings.Additel);
             }
 
 

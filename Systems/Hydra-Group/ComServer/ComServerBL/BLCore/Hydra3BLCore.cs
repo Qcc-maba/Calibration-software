@@ -1,9 +1,10 @@
-﻿using Maba.VCT.CommServer.BL.HydraDevices.Device;
+using Maba.VCT.CommServer.BL.HydraDevices.Device;
 using Maba.VCT.CommServer.BL.HydraDevices.Settings;
 using Maba.VCT.Core;
 using Maba.VCT.Core.Device;
 using Maba.VCT.Core.Events;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
@@ -18,7 +19,14 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.BLCore
         #region Members
 
         internal Core.ServerCore VCT_Server;
-        private Hydra3DeviceBL bl;
+
+        /// <summary>
+        /// One BL per connected device, keyed by serial number, so several Hydra 2638 units can run
+        /// at once. A single shared field would let a second device overwrite the first and route
+        /// every event to whichever connected last.
+        /// </summary>
+        private readonly ConcurrentDictionary<string, Hydra3DeviceBL> _blBySN =
+            new ConcurrentDictionary<string, Hydra3DeviceBL>(StringComparer.OrdinalIgnoreCase);
 
         #endregion
 
@@ -27,7 +35,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.BLCore
         public HardwareBL_Settings DeviceSettings { get; private set; }
 
         #endregion
-        
+
         #region Public Methods
 
         public bool OnDeviceConnetion(HardwareDeviceHost device)
@@ -35,36 +43,43 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.BLCore
             bool isAllowed = device != null && device.SN != null && device.SN.Contains("2638") && device.IsConnected;
             if (isAllowed)
             {
-                if ((device.BL == null) || !(device.BL is Device.Hydra3DeviceBL))
+                var bl = _blBySN.GetOrAdd(device.SN, _ => new Device.Hydra3DeviceBL(this));
+                if (!ReferenceEquals(device.BL, bl))
                 {
-                    this.bl = new Device.Hydra3DeviceBL(this);
-                    device.BL = this.bl;
+                    device.BL = bl;
                     bl.Start(device);
                 }
             }
             return (isAllowed);
         }
+
         public void OnEvent(DeviceEventArgs e)
         {
-            if (bl != null)
+            var sn = e != null && e.Device != null ? e.Device.SN : null;
+            Hydra3DeviceBL bl;
+            if (sn != null && _blBySN.TryGetValue(sn, out bl))
             {
                 bl.OnEvent(e);
             }
         }
+
         public void OnWebSocketDeviceConnetion(WebSocketDeviceHost device)
         {
-            if (bl != null)
+            foreach (var bl in _blBySN.Values)
             {
                 bl.Start(device);
             }
         }
+
         public void Start(ServerCore server)
         {
             this.VCT_Server = server;
             this.DeviceSettings = HardwareBL_Settings.Read();
         }
+
         public void Stop()
         {
+            _blBySN.Clear();
         }
 
         #endregion

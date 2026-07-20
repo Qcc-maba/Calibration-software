@@ -55,7 +55,7 @@ namespace Maba.VCT.CommServer.BL.HydaDevices.Device
 
         protected override CommonBL.SingleState[] OnCreateStates()
         {
-            HC.Init(settings.Hydra3type.Masters).GetAwaiter().GetResult();
+            HC.Init(settings.TTI22.Masters).GetAwaiter().GetResult();
 
             if (this.StateMachine_InitSystem == null)
             {
