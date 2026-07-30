@@ -12,6 +12,17 @@
    בטיחות:  קריאה בלבד. אין DML. בטוח להרצה על ייצור בכל עת.
    שימוש:   EXEC dbo.usp_SyncHealthCheck;                  -- סף ברירת מחדל 2 שעות
             EXEC dbo.usp_SyncHealthCheck @StaleHours = 4;
+
+   כללי SP-DEVELOPMENT-PLAN שהוחלו:
+       [1]  SET NOCOUNT ON + SET XACT_ABORT ON
+       [2]  בלוק כותרת
+       [3]  TRY/CATCH סביב הגוף + [5] THROW (כדי ששגיאה בבדיקה תצוף ולא תיבלע)
+   לא ישימים (פרוצדורת קריאה בלבד): [4] טרנזקציה · [6]/[7] רישום ריצה ודחיות
+       (אין DML ואין מיזוג לרשום) · [8]/[9]/[12] זיהוי שינויים/מחיקות/אידמפוטנטיות.
+   ⚠ כלל 11 פתוח: section 5 שולף לפי המחרוזת UserRoleName = 'Customer'. אם ל-UserRoles
+       יש עמודת Code/מזהה יציב, עדיף לשלוף לפיה. סומן במקום; דורש אימות סכימה.
+   ⚠ כלל (א.6): סף הטריות בסעיף 1 אחיד לכל 6 הטבלאות ומייצר false-positive על טבלאות
+       בקצב יומי (Customers/CustomerSites). סף לפי-טבלה הוא שיפור פתוח (שלב א.6).
    ============================================================================ */
 
 CREATE OR ALTER PROCEDURE dbo.usp_SyncHealthCheck
@@ -19,7 +30,9 @@ CREATE OR ALTER PROCEDURE dbo.usp_SyncHealthCheck
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
+  BEGIN TRY
     DECLARE @now DATETIME2(6) = GETDATE();
 
     /* ---------- 1. טריות: מתי כל טבלת ליבה נגעה לאחרונה ---------- */
@@ -155,6 +168,10 @@ BEGIN
         CASE WHEN @stale = 0 THEN 'SYNC APPEARS HEALTHY'
              ELSE 'ATTENTION - ' + CAST(@stale AS VARCHAR(10)) + ' core table(s) stale' END
                                                                    AS verdict;
+  END TRY
+  BEGIN CATCH
+        THROW;   -- כלל 5: שגיאה בבדיקת הבריאות עצמה חייבת לצוף, לא להיבלע
+  END CATCH
 END;
 GO
 

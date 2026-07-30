@@ -11,14 +11,24 @@
      התשתית כאן מוסיפה: רישום ריצה, ספירת שורות לפי פעולה, תפיסת שגיאות,
      וטרנזקציה — בלי לשנות את לוגיקת המיזוג הקיימת.
 
-   סדר התקנה:  חלק א (טבלה) → חלק ב (פרוצדורות) → חלק ג (החלת התבנית)
+   סדר התקנה:  חלק א (טבלאות) → חלק ב (פרוצדורות) → חלק ג (החלת התבנית)
    בטיחות:     חלקים א+ב הם DDL חדש בלבד; אינם נוגעים בקוד או בנתונים קיימים.
+
+   כללי SP-DEVELOPMENT-PLAN שהוחלו על התשתית עצמה:
+       [1]  SET NOCOUNT ON + SET XACT_ABORT ON בכל פרוצדורה
+       [2]  בלוק כותרת לכל פרוצדורה
+       [7]  חלק א יוצר גם את etl.SyncReject — יעד הדחיות שכלל 7 דורש (SP-DEVELOPMENT-PLAN §3).
+            בלי הטבלה הזו, כתיבת הדחיות ב-01 נכשלת.
+   הערה:   פרוצדורות הרישום הן תשתית ולכן אינן רושמות/מגלגלות את עצמן; הן פקודות
+           בודדות (INSERT/UPDATE/SELECT) ללא DML מרובה שדורש טרנזקציה מפורשת.
    ============================================================================ */
 
 
 /* ==========================================================================
-   חלק א — טבלת הלוג
+   חלק א — טבלאות הלוג
    ========================================================================== */
+
+/* --- א.1: etl.SyncRunLog — מה רץ, מתי, כמה (הספירות) --------------------- */
 IF NOT EXISTS (SELECT 1 FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id
                WHERE s.name='etl' AND t.name='SyncRunLog')
 BEGIN
@@ -52,10 +62,44 @@ END
 GO
 
 
+/* --- א.2: etl.SyncReject — אילו שורות נדחו ולמה (כלל 7) ------------------
+   SyncRunLog סופר *כמה* נדחו; הטבלה הזו אומרת *אילו* ו-*למה*. בלעדיה כלל 7 לא
+   ניתן למימוש, ו-01_fix_MergeOrdersData.sql (INSERT etl.SyncReject) נכשל.
+   ⚠ Payload NVARCHAR(MAX): על ~600 שורות/שעה יגדל מהר — דרוש ג'וב תחזוקה שמוחק
+     דחיות מעל 90 יום (SP-DEVELOPMENT-PLAN §3). */
+IF NOT EXISTS (SELECT 1 FROM sys.tables t JOIN sys.schemas s ON s.schema_id = t.schema_id
+               WHERE s.name = 'etl' AND t.name = 'SyncReject')
+BEGIN
+    CREATE TABLE etl.SyncReject
+    (
+        RejectId     BIGINT IDENTITY(1,1) NOT NULL
+            CONSTRAINT PK_etl_SyncReject PRIMARY KEY CLUSTERED,
+        RunId        BIGINT         NOT NULL
+            CONSTRAINT FK_etl_SyncReject_Run REFERENCES etl.SyncRunLog (RunId),
+        SourceTable  NVARCHAR(128)  NOT NULL,
+        SourceKey    NVARCHAR(200)  NULL,     -- המזהה בנחיתה, למעקב חזרה למקור
+        Reason       VARCHAR(50)    NOT NULL, -- קוד קצר: DOC_NULL / NO_DETAIL_ID / EMAIL_NO_MATCH
+        Detail       NVARCHAR(500)  NULL,
+        Payload      NVARCHAR(MAX)  NULL,     -- השורה כ-JSON, לשחזור ידני
+        RejectedAt   DATETIME2(3)   NOT NULL
+            CONSTRAINT DF_etl_SyncReject_At DEFAULT SYSDATETIME()
+    );
+
+    CREATE INDEX IX_etl_SyncReject_Run    ON etl.SyncReject (RunId);
+    CREATE INDEX IX_etl_SyncReject_Reason ON etl.SyncReject (Reason, RejectedAt DESC);
+END
+GO
+
+
 /* ==========================================================================
    חלק ב — פרוצדורות הרישום
    ========================================================================== */
 
+-- =============================================
+-- Author:      DBA
+-- Create date: 2026-07-30
+-- Description: פותח שורת ריצה ב-etl.SyncRunLog ומחזיר RunId (כלל 6)
+-- =============================================
 CREATE OR ALTER PROCEDURE etl.usp_SyncRunStart
     @ProcedureName NVARCHAR(128),
     @TargetTable   NVARCHAR(128) = NULL,
@@ -64,6 +108,7 @@ CREATE OR ALTER PROCEDURE etl.usp_SyncRunStart
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
     INSERT etl.SyncRunLog (ProcedureName, TargetTable, SourceRows, Status)
     VALUES (@ProcedureName, @TargetTable, @SourceRows, 'RUNNING');
     SET @RunId = SCOPE_IDENTITY();
@@ -71,6 +116,11 @@ END
 GO
 
 
+-- =============================================
+-- Author:      DBA
+-- Create date: 2026-07-30
+-- Description: סוגר שורת ריצה ב-etl.SyncRunLog עם סטטוס וספירות (כלל 6)
+-- =============================================
 CREATE OR ALTER PROCEDURE etl.usp_SyncRunEnd
     @RunId        BIGINT,
     @Status       VARCHAR(20),
@@ -83,6 +133,7 @@ CREATE OR ALTER PROCEDURE etl.usp_SyncRunEnd
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
     UPDATE etl.SyncRunLog
        SET CompletedAt  = SYSDATETIME(),
            Status       = @Status,
@@ -98,11 +149,17 @@ GO
 
 
 /* --- דוח מצב: מה רץ, מה נכשל, מה תקוע ------------------------------------ */
+-- =============================================
+-- Author:      DBA
+-- Create date: 2026-07-30
+-- Description: דוח קריאה-בלבד על ריצות הסנכרון ב-N השעות האחרונות
+-- =============================================
 CREATE OR ALTER PROCEDURE etl.usp_SyncRunReport
     @Hours INT = 24
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
     SELECT TOP (200)
            RunId, ProcedureName, TargetTable, Status,

@@ -21,12 +21,35 @@
 `SHIP_API_EMAIL` / `SHIP_API_PASSWORD` / `SHIP_CUSTOMER_ID` (UPS Israel).
 
 ## הרצה (מקומית)
-```bash
+> ⚠️ להרצה מלאה מחוץ ל-Replit ראה **`MIGRATION-NOTES.md`** (רשימת צ'קליסט + טבלת משתני סביבה
+> + התאמות Replit). תקצירי המפתח: נדרש **Node 20 LTS** + **PostgreSQL 16**; סקריפט ה-`dev`
+> משתמש בתחביר POSIX `NODE_ENV=…` ש**נכשל ב-cmd/PowerShell** — יש לתקן עם `cross-env` או
+> להשתמש בעקיפה למטה.
+
+```powershell
+# דורש DATABASE_URL (PostgreSQL). אין טוען dotenv בשרת — קבע משתני סביבה בשל או הוסף dotenv.
+$env:DATABASE_URL="postgresql://postgres:postgres@localhost:5432/qcc"
 npm install
-npm run dev          # Vite + Express (ראה package.json scripts)
-# סנכרון נתונים (מריצים במקום עם גישה ל-SQL Server):
-#   cp local-scripts/config.example.py local-scripts/config.py   # ומלא פרטים
-#   python local-scripts/sync-customer-data.py
+npm run db:push                              # יצירת סכימה מ-shared/schema.ts (אין SQL migrations)
+
+# הרצת dev (עקיפה ל-Windows, ללא שינוי package.json):
+$env:NODE_ENV="development"; npx tsx server/index.ts   # API + client על http://localhost:5000
+# לאחר תיקון I-1 (cross-env) ניתן פשוט: npm run dev
+
+# build + start ל-production (אופציונלי):
+#   npm run build   # Vite → dist/public, esbuild → dist/index.cjs
+#   $env:NODE_ENV="production"; node dist/index.cjs
+```
+> ⚠️ **auto-migration**: לאחר כל סנכרון השרת מנסה לדחוף את כל הנתונים ל-URL של Replit הישן
+> (`PRODUCTION_URL` ב-`server/routes.ts`). קבע `PRODUCTION_URL` או השבת `autoMigrateEnabled`
+> לפני הרצה מקומית. פרטים ב-`MIGRATION-NOTES.md` (I-3).
+
+```powershell
+# סנכרון נתונים (מריצים במחשב עם גישה ל-SQL Server + ODBC Driver for SQL Server):
+copy local-scripts\config.example.py local-scripts\config.py   # ומלא פרטים
+# בקובץ config.py: REPLIT_API_URL = http://localhost:5000/api/sync/customer-data
+pip install pyodbc requests python-dateutil python-dotenv
+python local-scripts\sync-customer-data.py --url http://localhost:5000
 ```
 
 ## ציון לקוח
