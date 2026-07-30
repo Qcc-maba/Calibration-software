@@ -1,0 +1,33 @@
+# Dependencies / build output
+node_modules
+dist
+build
+server/public
+vite.config.ts.*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Secrets — never commit real credentials (use *.example templates instead)
+.env
+.env.*
+local-scripts/config.py
+**/config.py
+config_*.py
+*.tar.gz
+
+# Replit local state
+.local/
+.cache/
+.upm/
+.config/
+
+# OS
+.DS_Store
+
+# Replit scratch: pasted dumps with PII/passwords + screenshots — keep local, never commit
+attached_assets/
+screenshots/

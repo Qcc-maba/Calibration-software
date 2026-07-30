@@ -1,0 +1,53 @@
+@echo off
+REM ============================================================
+REM  QCC Analytics - Production Sync
+REM  העתק קובץ זה ל-run-sync-prod.bat ומלא את הפרטים
+REM ============================================================
+
+REM --- Ship API credentials (UPS Israel) ---
+SET SHIP_API_EMAIL=YOUR_SHIP_EMAIL_HERE
+SET SHIP_API_PASSWORD=YOUR_SHIP_PASSWORD_HERE
+SET SHIP_CUSTOMER_ID=699226
+
+SET PROD_URL=https://client-analytics-dashboard--eliran8hadad.replit.app
+SET SCRIPT=local-scripts\sync-customer-data.py
+
+echo ============================================================
+echo   QCC Analytics - Production Sync
+echo   URL: %PROD_URL%
+echo ============================================================
+
+echo [1/6] Syncing customers to production...
+echo ------------------------------------------------------------
+python %SCRIPT% --prod --customers
+echo [OK] Customer sync completed
+
+echo [2/6] Syncing department stats to production...
+echo ------------------------------------------------------------
+python %SCRIPT% --prod --dept-stats
+echo [OK] Department stats sync completed
+
+echo [3/6] Syncing UPS expenses to production...
+echo ------------------------------------------------------------
+python %SCRIPT% --prod --ups-expenses
+echo [OK] UPS expenses sync completed
+
+echo [4/6] Syncing shipments to production...
+echo ------------------------------------------------------------
+python %SCRIPT% --prod --ship
+echo [OK] Ship sync completed
+
+echo [5/6] Syncing calibrators to production...
+echo ------------------------------------------------------------
+python %SCRIPT% --prod --calibrators
+echo [OK] Calibrators sync completed
+
+echo [6/6] Syncing monthly service call counts to production...
+echo ------------------------------------------------------------
+python %SCRIPT% --prod --monthly-calls
+echo [OK] Monthly calls sync completed
+
+echo ============================================================
+echo   Production sync completed!
+echo ============================================================
+pause
