@@ -1,0 +1,48 @@
+# Local test SQL Server for the Priority <-> Calibrator sync work.
+# See DBA/MIGRATION-AND-FIX-PLAN.md section 3.1 — this is the local, disposable equivalent of
+# "CalibratorTest", isolated from production (no jobs, no mail, no linked server to prod).
+#
+#   docker compose --env-file ../.env up -d      # start (SA password from DBA/.env)
+#   docker compose down                           # stop (keeps data volume)
+#   docker compose down -v                        # stop + wipe the database
+#
+# Password: taken from MSSQL_SA_PASSWORD (DBA/.env); the default below is DEV-ONLY.
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: calibrator-test-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Dev_Calib_2026!}"
+      MSSQL_PID: "Developer"          # free edition for dev/test
+    ports:
+      - "14330:1433"                  # host 14330 -> avoids clashing with a local SQL on 1433
+    volumes:
+      - mssql-data:/var/opt/mssql
+      - ./backup:/backup:ro           # drop CalibratorProd.bak here to auto-restore
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  init:
+    image: mcr.microsoft.com/mssql-tools18
+    container_name: calibrator-test-init
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Dev_Calib_2026!}"
+      CALIB_TEST_PASSWORD: "${CALIB_TEST_PASSWORD:-Calib_Test_2026!}"
+    volumes:
+      - ./init:/init:ro
+      - ./backup:/backup:ro
+      - ../sql:/project-sql:ro        # the fix scripts (DBA/sql)
+    entrypoint: ["/bin/bash", "/init/entrypoint.sh"]
+    restart: "no"
+
+volumes:
+  mssql-data:
