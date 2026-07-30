@@ -154,6 +154,17 @@ export const insertMonthlyCallStatSchema = createInsertSchema(monthlyCallStats).
 export type InsertMonthlyCallStat = z.infer<typeof insertMonthlyCallStatSchema>;
 export type MonthlyCallStat = typeof monthlyCallStats.$inferSelect;
 
+// Monthly revenue targets (₪), editable and persisted in the local DB. Keyed 'YYYY-MM'.
+export const monthlyTargets = pgTable("monthly_targets", {
+  yearMonth: varchar("year_month").primaryKey(), // 'YYYY-MM'
+  targetAmount: real("target_amount").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertMonthlyTargetSchema = createInsertSchema(monthlyTargets).omit({ updatedAt: true });
+export type InsertMonthlyTarget = z.infer<typeof insertMonthlyTargetSchema>;
+export type MonthlyTargetRow = typeof monthlyTargets.$inferSelect;
+
 // Calibrator department stats — revenue + calls grouped by ORDERS.DOER (who performed the work)
 export const calibratorDeptStats = pgTable("calibrator_dept_stats", {
   id: varchar("id").primaryKey(),          // "{doer}__{deptCode}__{year}"

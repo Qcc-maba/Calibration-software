@@ -254,7 +254,7 @@ export default function DepartmentsPage() {
         [`קריאות ${cmpAYear}`]: getCallCount(cmpAYear, m),
         [`קריאות ${cmpBYear}`]: getCallCount(cmpBYear, m),
       };
-    }).filter(r => r[`הכנסה ${cmpAYear}`] > 0 || r[`הכנסה ${cmpBYear}`] > 0);
+    }).filter(r => Number(r[`הכנסה ${cmpAYear}`]) > 0 || Number(r[`הכנסה ${cmpBYear}`]) > 0);
 
     const totalA = monthsA.reduce((s, m) => s + m.revenue, 0);
     const totalB = monthsB.reduce((s, m) => s + m.revenue, 0);

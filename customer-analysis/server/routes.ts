@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { type Server } from "http";
 import { gzipSync } from "zlib";
 import { db } from "./db";
-import { syncedCustomers, appSettings, defaultScoringConfig, companyDaysOff, insertCompanyDayOffSchema, upsExpenses, insertUpsExpenseSchema, shipShipments, departmentStats, calibratorDeptStats, calibrators, monthlyCallStats, companyReturnDocuments, companyCalibrationAlerts, operationalQueryRows, financialQueryRows } from "@shared/schema";
+import { syncedCustomers, appSettings, defaultScoringConfig, companyDaysOff, insertCompanyDayOffSchema, upsExpenses, insertUpsExpenseSchema, shipShipments, departmentStats, calibratorDeptStats, calibrators, monthlyCallStats, companyReturnDocuments, companyCalibrationAlerts, operationalQueryRows, financialQueryRows, monthlyTargets } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import ExcelJS from "exceljs";
 
@@ -562,6 +562,52 @@ export async function registerRoutes(
   });
 
   // Get all calibrators
+  // Monthly revenue targets (₪), persisted in the local DB. GET auto-seeds the 2026 defaults on
+  // first read; POST upserts a full 12-month array (index 0 = January).
+  const DEFAULT_TARGETS_2026 = [2956688, 2672056, 3162523, 1972449, 2830916, 2627561, 3023079, 2972763, 2014610, 2672366, 2945973, 3245720];
+
+  app.get("/api/targets/:year", async (req, res) => {
+    try {
+      const year = String(req.params.year);
+      let rows = await db.select().from(monthlyTargets).where(sql`${monthlyTargets.yearMonth} LIKE ${year + '-%'}`);
+      if (rows.length === 0 && year === '2026') {
+        const seed = DEFAULT_TARGETS_2026.map((amt, i) => ({ yearMonth: `${year}-${String(i + 1).padStart(2, '0')}`, targetAmount: amt }));
+        await db.insert(monthlyTargets).values(seed).onConflictDoNothing();
+        rows = await db.select().from(monthlyTargets).where(sql`${monthlyTargets.yearMonth} LIKE ${year + '-%'}`);
+      }
+      const monthly = Array.from({ length: 12 }, () => 0);
+      for (const r of rows) {
+        const m = parseInt(r.yearMonth.split('-')[1], 10);
+        if (m >= 1 && m <= 12) monthly[m - 1] = r.targetAmount;
+      }
+      res.json({ year: Number(year), monthly });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/targets/:year", async (req, res) => {
+    try {
+      const year = String(req.params.year);
+      const monthly = req.body?.monthly;
+      if (!Array.isArray(monthly) || monthly.length !== 12) {
+        return res.status(400).json({ error: 'monthly must be an array of 12 numbers (Jan..Dec)' });
+      }
+      const rows = monthly.map((amt: any, i: number) => ({
+        yearMonth: `${year}-${String(i + 1).padStart(2, '0')}`,
+        targetAmount: Number(amt) || 0,
+        updatedAt: new Date(),
+      }));
+      await db.insert(monthlyTargets).values(rows).onConflictDoUpdate({
+        target: monthlyTargets.yearMonth,
+        set: { targetAmount: sql`excluded.target_amount`, updatedAt: sql`excluded.updated_at` },
+      });
+      res.json({ success: true, year: Number(year), monthly: monthly.map((a: any) => Number(a) || 0) });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Monthly call stats (company-wide calibration service calls from Priority ERP)
   app.get("/api/monthly-call-stats", async (_req, res) => {
     try {

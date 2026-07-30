@@ -280,7 +280,7 @@ export default function KelitotPage() {
         newReportsMap.get(orderNum)!.push(r);
       });
 
-      const statuses = [...new Set(aggregated.map(r => r[cs]).filter(Boolean))].sort();
+      const statuses = Array.from(new Set(aggregated.map(r => r[cs]).filter(Boolean))).sort();
       const colorMap: Record<string, typeof COLORS[0]> = {};
       statuses.forEach((s, i) => colorMap[s] = COLORS[i % COLORS.length]);
 
@@ -432,7 +432,7 @@ export default function KelitotPage() {
   function getMsTriggerLabel(): string {
     if (selectedStatuses === null) return "— כל הסטטוסים —";
     if (selectedStatuses.size === 0) return "לא נבחר סטטוס";
-    if (selectedStatuses.size === 1) return [...selectedStatuses][0];
+    if (selectedStatuses.size === 1) return Array.from(selectedStatuses)[0];
     return `${selectedStatuses.size} סטטוסים נבחרו`;
   }
 

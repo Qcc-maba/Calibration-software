@@ -46,7 +46,8 @@ import {
   Line,
   Area,
   AreaChart,
-  ComposedChart
+  ComposedChart,
+  Legend
 } from 'recharts';
 import { motion } from "framer-motion";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, differenceInBusinessDays, addDays, isBefore, isAfter, startOfYear, endOfYear } from 'date-fns';
@@ -155,6 +156,23 @@ interface CompanyDayOff {
   date: string;
   reason: string;
 }
+
+// Manually-set monthly revenue targets (₪) for 2026. Index 0 = January … 11 = December.
+// These override the growth/daily-rate computation for 2026 (the annual target becomes their sum).
+const MANUAL_MONTHLY_TARGETS_2026: number[] = [
+  2956688, // ינואר
+  2672056, // פברואר
+  3162523, // מרץ
+  1972449, // אפריל
+  2830916, // מאי
+  2627561, // יוני
+  3023079, // יולי
+  2972763, // אוגוסט
+  2014610, // ספטמבר
+  2672366, // אוקטובר
+  2945973, // נובמבר
+  3245720, // דצמבר
+];
 
 interface MonthlyTarget {
   month: string;
@@ -491,6 +509,16 @@ export default function CompanyTargets() {
     return currYear?.revenue || 0;
   }, [financialsData, selectedYear]);
 
+  // DB-persisted monthly targets (₪) for the selected year (server auto-seeds 2026 on first read).
+  const { data: targetsData } = useQuery<{ year: number; monthly: number[] }>({
+    queryKey: ["/api/targets", String(selectedYear)],
+  });
+  // Prefer the persisted values; fall back to the 2026 seed constant if the API returned nothing.
+  const manualMonthlyTargets: number[] | null =
+    targetsData?.monthly && targetsData.monthly.some(v => v > 0)
+      ? targetsData.monthly
+      : (selectedYear === 2026 ? MANUAL_MONTHLY_TARGETS_2026 : null);
+
   // In daily mode: annual target = dailyRate × total working days in year
   // (computed after getWorkingDaysInMonth is defined, so we use a placeholder here
   //  and override in monthlyTargets)
@@ -505,9 +533,11 @@ export default function CompanyTargets() {
     [selectedYear, daysOffData, customWorkingDays]
   );
 
-  const annualTarget = targetMode === 'daily'
-    ? Array.from({ length: 12 }, (_, i) => monthlyDailyRates[i] * getWorkingDaysInMonth(selectedYear, i)).reduce((a, b) => a + b, 0)
-    : annualTargetFromGrowth;
+  const annualTarget = manualMonthlyTargets
+    ? manualMonthlyTargets.reduce((a, b) => a + b, 0)
+    : targetMode === 'daily'
+      ? Array.from({ length: 12 }, (_, i) => monthlyDailyRates[i] * getWorkingDaysInMonth(selectedYear, i)).reduce((a, b) => a + b, 0)
+      : annualTargetFromGrowth;
 
   const newCustomers = useMemo(() => {
     if (!financialsData?.customers) return { count: 0, devices: 0, revenue: 0, customers: [] };
@@ -635,9 +665,11 @@ export default function CompanyTargets() {
 
     return Array.from({ length: 12 }, (_, month) => {
       const workingDays = getWorkingDaysInMonth(selectedYear, month);
-      const monthTarget = targetMode === 'daily'
-        ? monthlyDailyRates[month] * workingDays
-        : dailyTargetBase * workingDays;
+      const monthTarget = manualMonthlyTargets
+        ? manualMonthlyTargets[month]
+        : targetMode === 'daily'
+          ? monthlyDailyRates[month] * workingDays
+          : dailyTargetBase * workingDays;
       const dailyTarget = workingDays > 0 ? monthTarget / workingDays : 0;
       
       const monthlyData = getMonthRevenue(month);
@@ -714,7 +746,7 @@ export default function CompanyTargets() {
         yoyChange
       };
     });
-  }, [selectedYear, annualTarget, financialsData, companyDaysOff, agentMonthlyData, selectedAgent, monthlyDailyRates, targetMode, customWorkingDays]);
+  }, [selectedYear, annualTarget, financialsData, companyDaysOff, agentMonthlyData, selectedAgent, monthlyDailyRates, targetMode, customWorkingDays, manualMonthlyTargets]);
 
   // Calculate previous month's returns without matching invoices
   const previousMonthReturns = useMemo(() => {

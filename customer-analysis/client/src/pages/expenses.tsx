@@ -48,6 +48,7 @@ interface ExpensesData {
   count: number;
   monthly: MonthlyTotal[];
   expenses: UpsExpense[];
+  customerShipping?: Array<{ customerId?: string | number; customerName?: string; count?: number; total: number }>;
 }
 
 
