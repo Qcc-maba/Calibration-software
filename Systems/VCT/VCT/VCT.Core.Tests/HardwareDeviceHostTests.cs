@@ -323,6 +323,36 @@ namespace Maba.VCT.Core.Tests
         }
 
         [TestMethod]
+        public void HandlePacket_DatronDevice_IdentifiesAsDatron9100()
+        {
+            string datronId = "DATRON,9100,0,1.0\r\n";
+            byte[] bytes = ASCIIEncoding.ASCII.GetBytes(datronId);
+            _comLayer.SimulateDataReceived(bytes, 0, bytes.Length);
+
+            Assert.AreEqual("Datron9100", _host.SN);
+        }
+
+        [TestMethod]
+        public void HandlePacket_WavetekDevice_IdentifiesAsDatron9100()
+        {
+            string wavetekId = "WAVETEK 9100 CALIBRATOR\r\n";
+            byte[] bytes = ASCIIEncoding.ASCII.GetBytes(wavetekId);
+            _comLayer.SimulateDataReceived(bytes, 0, bytes.Length);
+
+            Assert.AreEqual("Datron9100", _host.SN);
+        }
+
+        [TestMethod]
+        public void HandlePacket_9100ModelToken_IdentifiesAsDatron9100()
+        {
+            string id = "ID 9100\r\n";
+            byte[] bytes = ASCIIEncoding.ASCII.GetBytes(id);
+            _comLayer.SimulateDataReceived(bytes, 0, bytes.Length);
+
+            Assert.AreEqual("Datron9100", _host.SN);
+        }
+
+        [TestMethod]
         public void HandlePacket_ModbusDevice_IdentifiesAsOptidew()
         {
             var modbusCom = new MockComLayer();

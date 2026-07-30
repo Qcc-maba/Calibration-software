@@ -266,7 +266,6 @@ namespace Maba.VCT.Core
 
             #endregion
 
-            //Device.OTA.OTAService.CurrentServerSettings = CurrentServerSettings;
             Device_MainSockets = new List<Socket>();
 
             Libs.Trace.Tracer.Info($"[STARTUP] Configured tunnels: {CurrentServerSettings.Tunnels.Length}");
@@ -623,19 +622,6 @@ namespace Maba.VCT.Core
 
             return dev;
         }
-
-        //public Task<Device.OTA.UploadFileResponse> RemoteUploadFileRequestAsync(string code, byte[] data, bool overide)
-        //{
-        //    return Task.Factory.StartNew<Device.OTA.UploadFileResponse>(() =>
-        //    {
-        //        var metadata = new Device.OTA.OTA_Metadata();
-        //        metadata.FileCode = code;
-        //        var res = Device.OTA.OTAService.UploadOTAFile(metadata, data, overide);
-
-        //        return res == null ? null : res;
-        //    });
-        //}
-
 
         #endregion
 
