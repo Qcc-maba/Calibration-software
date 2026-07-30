@@ -30,6 +30,20 @@
 - **fallback on-prem:** user/pass (שדה "API username" בכרטיס העובד).
 - `BaseUrl`: `https://server/odata/Priority/tabula.ini/{environment}`.
 
-## הבא בתור
-טרם שולב בבנייה. יש להחליט: לשלב בשרת ה-VCT (דורש התאמה ל-.NET 4.8, או פרויקט `net8`+ נפרד ב-sln),
-או להשאיר כעיון. ראה שיחה.
+## פרויקט הבנייה — `Maba.VCT.Priority` (net10)
+
+`Maba.VCT.Priority.csproj` (רשום ב-`UnifiedSystemV1.sln`) בונה את **התת-קבוצה העצמאית**:
+הלקוח, ה-Options, כל ה-Scenarios, וה-`PriorityScenariosController`. הוא מקמפל נקי (0/0).
+
+- ה-provider ל-Options הוחלף ב-`PriorityODataOptionsProvider.Config.cs` (מבוסס `IConfiguration`,
+  סעיף `PrioritySync:OData:*`), במקום הגרסה שקוראת מ-DB דרך `IAppConfigService`.
+- ה-csproj מוסיף `FrameworkReference Microsoft.AspNetCore.App` ואת ה-global usings של Web SDK.
+
+**מוחרג מהבנייה** (נשאר בתיקייה כעיון — צמוד ל-maba2000-web דרך `MabaDbContext`/`Maba.Core`/`Maba.Api`):
+שכבת הסנכרון `PrioritySync*` + `PriorityODataSyncService`, `SyncController`,
+וה-`PriorityODataOptionsProvider.cs` המקורי. `tools/PriorityODataProbe/` הוא פרויקט CLI נפרד.
+
+### לשילוב אמיתי בשרת (המשך אפשרי)
+שרת ה-VCT הוא .NET 4.8 ולא יכול להפעיל הרכבה של net10 in-process. אפשרויות: להריץ את
+`Maba.VCT.Priority` כשירות/תהליך נפרד שהשרת קורא לו ב-HTTP, או להעביר את שכבת הסנכרון לכאן
+ולחבר ל-DB המקומי (יידרשו ה-DTOs/entities הרלוונטיים).
