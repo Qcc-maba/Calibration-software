@@ -276,7 +276,23 @@ namespace Maba.VCT.Core
 
             foreach (var t in CurrentServerSettings.Tunnels)
             {
-                if (!string.IsNullOrEmpty(t.SerialPortName))
+                if (t.GpibPrimaryAddress >= 0)
+                {
+                    // GPIB tunnel: open a GpibCom on the configured primary address (needs NI-488.2).
+                    Libs.Trace.Tracer.Info($"[STARTUP] Opening GPIB board {t.GpibBoardIndex} address {t.GpibPrimaryAddress}...");
+                    try
+                    {
+                        var gpib = new ComLayer.GpibCom(t.GpibPrimaryAddress, t.GpibBoardIndex, t);
+                        AddDevice_Pending_ComLayer(gpib);
+                        gpib.Open();
+                        Libs.Trace.Tracer.Info($"[STARTUP] GPIB address {t.GpibPrimaryAddress} opened OK");
+                    }
+                    catch (Exception ex)
+                    {
+                        Libs.Trace.Tracer.Info($"[STARTUP] FAILED to open GPIB address {t.GpibPrimaryAddress}: {ex.Message}");
+                    }
+                }
+                else if (!string.IsNullOrEmpty(t.SerialPortName))
                 {
                     serialCount++;
 

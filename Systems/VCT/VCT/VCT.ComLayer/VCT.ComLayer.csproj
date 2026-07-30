@@ -59,6 +59,7 @@
     <Compile Include="Com Layer\LayerDestroyedDelegate.cs" />
     <Compile Include="Com Layer\ModbusCom.cs" />
     <Compile Include="Com Layer\SerialRxLogger.cs" />
+    <Compile Include="Com Layer\GpibCom.cs" />
     <Compile Include="Com Layer\SerialCom.cs" />
     <Compile Include="Com Layer\SocketCom.cs" />
     <Compile Include="Com Layer\WebSocketCom.cs" />

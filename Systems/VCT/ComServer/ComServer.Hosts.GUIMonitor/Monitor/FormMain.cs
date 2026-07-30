@@ -60,6 +60,7 @@ namespace Maba.VCT.CommServer.Monitor
                 Module(typeof(OptidewBLCore)),
                 Module(typeof(TTIBLCore)),
                 Module(typeof(InstekBLCore)),
+                Module(typeof(Datron9100BLCore)),
             };
             server.Save();
 

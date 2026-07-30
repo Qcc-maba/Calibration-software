@@ -51,6 +51,7 @@
   <ItemGroup>
     <Compile Include="BLCore\AdditelBLCore.cs" />
     <Compile Include="BLCore\Agilent34401aBLCore.cs" />
+    <Compile Include="BLCore\Datron9100BLCore.cs" />
     <Compile Include="BLCore\Hydra3BLCore.cs" />
     <Compile Include="BLCore\InstekBLCore.cs" />
     <Compile Include="BLCore\OptidewBLCore.cs" />
@@ -58,6 +59,7 @@
     <Compile Include="DeviceMetadata.cs" />
     <Compile Include="Device\AdditelBL.cs" />
     <Compile Include="Device\Agilent34401aBL.cs" />
+    <Compile Include="Device\Datron9100BL.cs" />
     <Compile Include="Device\Agilent34401aReadings.cs" />
     <Compile Include="Device\Calculations\HydraCalculations.cs" />
     <Compile Include="Device\Hydra3DeviceBL.cs" />

@@ -22,6 +22,11 @@ namespace Maba.VCT.ComLayer
         public int SerialBaudRate { get; set; } = 9600;
         public int SerialTimeout { get; set; } = 100;
 
+        // GPIB (IEEE-488) tunnel settings. Set GpibPrimaryAddress >= 0 to enable GPIB mode
+        // (via the NI-488.2 driver / a GPIB-USB adapter). GpibBoardIndex is usually 0.
+        public int GpibPrimaryAddress { get; set; } = -1;
+        public int GpibBoardIndex { get; set; } = 0;
+
         #endregion
 
         #region Ctor

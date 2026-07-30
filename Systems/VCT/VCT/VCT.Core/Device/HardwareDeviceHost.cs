@@ -517,6 +517,14 @@ namespace Maba.VCT.Core.Device
                 {
                     SN = "Instek";
                 }
+                else if (res.IndexOf("DATRON", StringComparison.OrdinalIgnoreCase) >= 0
+                      || res.IndexOf("WAVETEK", StringComparison.OrdinalIgnoreCase) >= 0
+                      || res.Contains("9100"))
+                {
+                    // Datron/Wavetek 9100 calibrator (GPIB). Exact *IDN? text to be confirmed
+                    // against the programming manual; matched on the model/vendor token for now.
+                    SN = "Datron9100";
+                }
                 IdentificationDate = DateTime.Now;
             }
 
