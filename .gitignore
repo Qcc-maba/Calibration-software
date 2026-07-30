@@ -315,6 +315,10 @@ paket-files/
 # Built installers — large binaries, rebuild with scripts/Build-Installer.ps1
 Installer/CalibrationSoftware-Setup-*.exe
 
+# DBA secrets — never commit connection strings / passwords
+DBA/.env
+DBA/**/.env
+
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
