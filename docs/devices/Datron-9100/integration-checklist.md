@@ -1,11 +1,18 @@
 # Datron / Wavetek 9100 — GPIB bring-up checklist
 
-Exact steps to bring the 9100 online once the two blockers are cleared:
-1. **NI-488.2 driver installed** (adapter currently in Device-Manager Code 28), and
-2. **the 9100 programming manual** is available to replace the placeholder commands.
+**STATUS 2026-08-02 — both original blockers cleared and the link is verified live:**
+- ✅ **NI-488.2 installed** (adapter status OK; `gpib-32.dll` present in SysWOW64). Note: the DLL is
+  `__cdecl` and 32-bit only — `GpibCom` now declares `CallingConvention.Cdecl` and the host must run x86.
+- ✅ **9100 found at GPIB PAD 18**, `*IDN?` → `Wavetek Ltd,9100,40733,5.12`, `*OPT?` → `0,1,0,0,1,0`.
+- ✅ **Full SCPI-1994 confirmed** (`SYST:VERS?` → `1994.0`) once in Manual mode. `*RST` reverts to
+  Manual mode and forces the output OFF, so it is the safe remote entry point.
+- ✅ **Commands finalized** — `Datron9100Commands` now holds real, verified SCPI (no placeholders).
+
+Remaining to go fully live: set `GpibPrimaryAddress: 18` in `VCT.json` (step 4), register the BL core
+(step 4), and run the end-to-end read/output test (steps 6–7) with the operator present.
 
 See `README.md` (Hebrew) in this folder for the background. This file is the ordered bring-up
-procedure. Work top to bottom; do not skip the ID probe (step 3) before touching the BL.
+procedure.
 
 ---
 
@@ -85,19 +92,20 @@ mode (see `ServerCore.Start` → GPIB branch and `Tunnel.GpibPrimaryAddress` / `
 
 ---
 
-## 5. Replace the placeholder commands from the manual
+## 5. Commands — DONE (real SCPI, verified live)
 
 All command strings live in ONE place: `Datron9100Commands` (bottom of
-`Systems/Hydra-Group/ComServer/ComServerBL/Device/Datron9100BL.cs`). Everything there is a labelled
-placeholder today. From the manual, replace:
+`Systems/Hydra-Group/ComServer/ComServerBL/Device/Datron9100BL.cs`), delegating to the
+"Datron / Wavetek 9100" region of `HydraProtocolHelper`. These are the real, verified SCPI commands:
 
-- **`InitSequence`** entries (reset / clear / remote, plus any output/range setup the 9100 needs).
-- **`BuildReadValue()`** — the value/output query. Note the 9100 is a **source**: decide whether the
-  value to broadcast is a measurement or the programmed setpoint.
-- The reply format (for the parser) and the **`OverloadValue`** sentinel constant in `Datron9100BL`.
-
-Do not guess Datron mnemonics — transcribe them. The state machine iterates `InitSequence` by index,
-so adding/reordering steps needs no state-machine change.
+- **`InitSequence`** = `*RST` (→ Manual mode + output OFF) then `*CLS`. No source value; output stays OFF.
+- **`BuildReadValue()`** = `SOUR:VOLTage?` — the 9100 is a **source**, so this echoes the programmed
+  DC setpoint (`1.000000E+00` after `*RST`), not a measurement. Interpret units/format in the parser.
+- **Output control** builders are present but intentionally *not* auto-invoked: `BuildSelectFunction`
+  (`SOUR:FUNC:SHAP DC|SINusoid|…`), `BuildSetVoltage/Current/Resistance/Capacitance/Frequency`,
+  `BuildOutputOn`/`BuildOutputOff` (`OUTP:STAT ON/OFF`). A commanded calibration target does:
+  `*RST` → `SelectFunction` → `Set…` → `OutputOn`, and `OutputOff` when done.
+- Error/status: `BuildReadError` (`SYST:ERR?`), `BuildOperationComplete` (`*OPC?`).
 
 ---
 
@@ -134,8 +142,10 @@ See `docs/architecture.md` §5 (debugging table).
 
 ---
 
-## Still blocked on the user
+## Remaining (all software-side / operator-supervised — no external blockers)
 
-- **NI-488.2 install** — until then `GpibCom.Open()` cannot succeed (Code 28).
-- **9100 programming manual** — needed to replace the placeholder init/read commands and reply format.
-- **The 9100 GPIB primary address** — read from the front panel / NI MAX scan (step 1) for `VCT.json`.
+- Add the GPIB tunnel to `VCT.json` with `GpibPrimaryAddress: 18`, `GpibBoardIndex: 0` (step 4).
+- Register `Datron9100BLCore` in `ComServerSettings.json` → `Modules` (step 4).
+- Run the host as **x86** (the driver DLL is 32-bit only) and do the end-to-end read test (steps 6–7).
+- Live OUTPUT/sourcing test (`OutputOn` with a real target) should be done with the operator present,
+  as it energises the terminals with real V/I.

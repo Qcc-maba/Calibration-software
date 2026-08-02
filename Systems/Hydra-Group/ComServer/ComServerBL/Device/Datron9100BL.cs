@@ -11,15 +11,17 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
     /// <summary>
     /// Business logic for the Datron/Wavetek 9100 calibrator over GPIB (used as a master reference).
     /// <para>
-    /// ⚠️ SCAFFOLD — the exact 9100 command set is NOT yet confirmed. Every command string lives in the
-    /// single <see cref="Datron9100Commands"/> table below and currently holds a generic IEEE-488.2
-    /// placeholder (*RST / *CLS / SYST:REM / READ?). The 9100 is an old instrument and may not support
-    /// them. When the 9100 programming manual is available, edit ONLY that table — the state machine
-    /// here iterates it generically and needs no change. Do NOT invent Datron mnemonics.
+    /// The 9100 is a full SCPI-1994 instrument. Command strings live in the single
+    /// <see cref="Datron9100Commands"/> table below and were verified live (2026-08-02) against a
+    /// Wavetek 9100 (fw 5.12) at GPIB PAD 18 — see docs/devices/Datron-9100/.
     /// </para>
     /// <para>
-    /// Cannot be verified against hardware until NI-488.2 is installed (adapter is currently in
-    /// Device-Manager error Code 28). See docs/devices/Datron-9100/integration-checklist.md.
+    /// ⚠️ SAFETY / MODE: SCPI subsystem commands are only honoured in the 9100's MANUAL mode
+    /// (User's Handbook Vol.2 §6.3.1.6). The init sequence therefore starts with <c>*RST</c>, which
+    /// reverts the unit to Manual mode AND forces the output OFF (Appendix D.3). This is a calibrator
+    /// that SOURCES real voltage/current: the output is only enabled by an explicit
+    /// <see cref="Datron9100Commands.BuildOutputOn"/> when a calibration target is commanded — it is
+    /// never auto-enabled by the init or read loop below.
     /// </para>
     /// </summary>
     public class Datron9100BL : CommonBL.BaseBLDevice
@@ -32,8 +34,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         public CommonBL.SingleState StateMachine_InitSystem { get; private set; }
         public CommonBL.SingleState StateMachine_Read { get; private set; }
 
-        // TODO(manual): confirm the 9100 over-range / open-circuit sentinel and its exact value.
-        // IEEE-488.2 instruments commonly report 9.9e37; kept here as a placeholder guard.
+        // The Read loop below queries the present DC-voltage setpoint (SOUR:VOLTage?), so values are
+        // bounded by the configured range; this guard just rejects any non-finite/sentinel reply.
         private const double OverloadValue = 9.0e37;
 
         private int _consecutiveFailures;
@@ -148,9 +150,9 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 {
                     _consecutiveFailures = 0;
                     var raw = response.Measurements[0];
-                    // TODO(manual): confirm the 9100 reply format and whether the reported value is a
-                    // measurement or an echoed setpoint (this device is a SOURCE). Adjust parsing/units
-                    // in the parser/calculator, not here, once the format is known.
+                    // The 9100 is a SOURCE: this value is the echoed DC-voltage setpoint (SOUR:VOLTage?
+                    // returns e.g. "1.000000E+00"), not a measurement. Unit/format interpretation belongs
+                    // in the parser/calculator; per-function readback (CURR?/RES?/…) is added there.
                     if (Math.Abs(raw) < OverloadValue)
                     {
                         HW_Device.BroadcastAllMeasurements(new List<int> { 1 }, new List<double> { raw });
@@ -177,13 +179,30 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         #endregion
     }
 
+    /// <summary>The 9100 source functions and their SCPI :FUNCtion:SHAPe tokens (Vol.2 §6.6.4).</summary>
+    public enum Datron9100Function
+    {
+        Dc,
+        Sine,
+        Pulse,
+        Square,
+        Impulse,
+        Triangle,
+        Trapezoid,
+        SymSquare,
+    }
+
     /// <summary>
-    /// The single source of truth for every command string the Datron 9100 BL sends.
+    /// The single source of truth for every command the Datron/Wavetek 9100 BL sends.
     /// <para>
-    /// ⚠️ ALL ENTRIES ARE PLACEHOLDERS (generic IEEE-488.2 via <see cref="HydraProtocolHelper"/>). When
-    /// the 9100 programming manual is available, replace each <c>Build</c> delegate with the real 9100
-    /// command and update the init sequence order. This is the ONLY place command strings should be
-    /// edited for this device. Do NOT fabricate Datron mnemonics — transcribe them from the manual.
+    /// Real SCPI-1994 commands, verified live 2026-08-02 (Wavetek 9100 fw 5.12, GPIB PAD 18). Every
+    /// string is centralised in <see cref="HydraProtocolHelper"/>'s "Datron / Wavetek 9100" region;
+    /// this class only composes them into the init sequence and the output/read helpers.
+    /// </para>
+    /// <para>
+    /// ⚠️ Output sourcing: <see cref="BuildOutputOn"/> energises the terminals with real V/I. Only call
+    /// it after selecting a function and setpoint for a commanded calibration target, and pair it with
+    /// <see cref="BuildOutputOff"/>. The init sequence deliberately leaves the output OFF.
     /// </para>
     /// </summary>
     public static class Datron9100Commands
@@ -191,10 +210,10 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// <summary>One labelled init command: a human-readable purpose plus the packet it builds.</summary>
         public sealed class InitCommand
         {
-            /// <summary>What this step is meant to achieve (kept for logs and for the manual drop-in).</summary>
+            /// <summary>What this step achieves (kept for logs).</summary>
             public string Purpose { get; private set; }
 
-            /// <summary>Builds the wire packet. Swap this delegate for the real 9100 command.</summary>
+            /// <summary>Builds the wire packet.</summary>
             public Func<Common.HardwarePacket> Build { get; private set; }
 
             public InitCommand(string purpose, Func<Common.HardwarePacket> build)
@@ -205,30 +224,62 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         }
 
         /// <summary>
-        /// Ordered init sequence, one command per state-machine step. Edit/reorder freely — the state
-        /// machine iterates this array by index.
+        /// Ordered init sequence, one command per state-machine step. *RST forces Manual mode + output
+        /// OFF (the safe, remote-enabling state); *CLS clears the status/error registers. No source
+        /// value is set and the output stays OFF until an explicit calibration target is commanded.
         /// </summary>
         public static readonly InitCommand[] InitSequence =
         {
-            // TODO(manual): 9100 reset. Placeholder: generic *RST.
-            new InitCommand("reset", () => HydraProtocolHelper.Build_ResetPacket(false)),
-
-            // TODO(manual): 9100 clear-status / clear-buffer. Placeholder: generic *CLS.
-            new InitCommand("clear status", () => HydraProtocolHelper.buildClearBuffer()),
-
-            // TODO(manual): 9100 go-to-remote. Placeholder: generic SYST:REM.
-            new InitCommand("remote", () => HydraProtocolHelper.Build_RemotePacket()),
-
-            // TODO(manual): add the real 9100 output/setpoint/range configuration steps here.
+            new InitCommand("reset -> Manual mode, output OFF (*RST)", () => HydraProtocolHelper.Build_D9100_Reset()),
+            new InitCommand("clear status/error (*CLS)", () => HydraProtocolHelper.Build_D9100_ClearStatus()),
         };
 
+        /// <summary>Maps a source function to its SCPI :FUNCtion:SHAPe token.</summary>
+        public static string ToScpiShape(Datron9100Function function)
+        {
+            switch (function)
+            {
+                case Datron9100Function.Dc: return "DC";
+                case Datron9100Function.Sine: return "SINusoid";
+                case Datron9100Function.Pulse: return "PULSe";
+                case Datron9100Function.Square: return "SQUare";
+                case Datron9100Function.Impulse: return "IMPulse";
+                case Datron9100Function.Triangle: return "TRIangle";
+                case Datron9100Function.Trapezoid: return "TRAPezoid";
+                case Datron9100Function.SymSquare: return "SYMSquare";
+                default: return "DC";
+            }
+        }
+
+        // ── Status / identification (read-only, safe) ────────────────────────────
+        public static Common.HardwarePacket BuildReset() { return HydraProtocolHelper.Build_D9100_Reset(); }
+        public static Common.HardwarePacket BuildClearStatus() { return HydraProtocolHelper.Build_D9100_ClearStatus(); }
+        public static Common.HardwarePacket BuildIdentify() { return HydraProtocolHelper.Build_D9100_Identify(); }
+        public static Common.HardwarePacket BuildOperationComplete() { return HydraProtocolHelper.Build_D9100_OperationComplete(); }
+        public static Common.HardwarePacket BuildReadError() { return HydraProtocolHelper.Build_D9100_ReadError(); }
+        public static Common.HardwarePacket BuildQueryOutputState() { return HydraProtocolHelper.Build_D9100_QueryOutputState(); }
+        public static Common.HardwarePacket BuildQueryFunction() { return HydraProtocolHelper.Build_D9100_QueryFunction(); }
+
+        // ── Output configuration (energises terminals only via BuildOutputOn) ─────
+        public static Common.HardwarePacket BuildSelectFunction(Datron9100Function function) { return HydraProtocolHelper.Build_D9100_SelectFunction(ToScpiShape(function)); }
+        public static Common.HardwarePacket BuildSetVoltage(double volts) { return HydraProtocolHelper.Build_D9100_SetVoltage(volts); }
+        public static Common.HardwarePacket BuildSetVoltageHigh(double volts) { return HydraProtocolHelper.Build_D9100_SetVoltageHigh(volts); }
+        public static Common.HardwarePacket BuildSetVoltageLow(double volts) { return HydraProtocolHelper.Build_D9100_SetVoltageLow(volts); }
+        public static Common.HardwarePacket BuildSetCurrent(double amps) { return HydraProtocolHelper.Build_D9100_SetCurrent(amps); }
+        public static Common.HardwarePacket BuildSetResistance(double ohms) { return HydraProtocolHelper.Build_D9100_SetResistance(ohms); }
+        public static Common.HardwarePacket BuildSetCapacitance(double farads) { return HydraProtocolHelper.Build_D9100_SetCapacitance(farads); }
+        public static Common.HardwarePacket BuildSetFrequency(double hertz) { return HydraProtocolHelper.Build_D9100_SetFrequency(hertz); }
+        public static Common.HardwarePacket BuildOutputOn() { return HydraProtocolHelper.Build_D9100_OutputOn(); }
+        public static Common.HardwarePacket BuildOutputOff() { return HydraProtocolHelper.Build_D9100_OutputOff(); }
+
         /// <summary>
-        /// The value-read query issued in a loop by the Read state.
-        /// TODO(manual): replace with the real 9100 output/measure query. Placeholder: generic READ?.
+        /// The query issued in a loop by the Read state — the present DC-voltage setpoint
+        /// (SOUR:VOLTage?). The 9100 is a source, so this echoes the commanded value rather than
+        /// measuring one; per-function readback is interpreted in the parser/calculator.
         /// </summary>
         public static Common.HardwarePacket BuildReadValue()
         {
-            return HydraProtocolHelper.Build_ReadValue();
+            return HydraProtocolHelper.Build_D9100_QueryVoltage();
         }
     }
 }

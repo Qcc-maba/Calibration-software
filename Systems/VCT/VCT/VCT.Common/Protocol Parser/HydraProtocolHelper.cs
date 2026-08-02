@@ -597,6 +597,60 @@ namespace Maba.VCT.Common
 
 
         #endregion
+
+        #region Datron / Wavetek 9100 Methods (SCPI 1994)
+
+        // Verified live 2026-08-02 against a Wavetek 9100 (fw 5.12) at GPIB PAD 18.
+        // The 9100 is a full SCPI-1994 instrument, but SCPI subsystem commands are only honoured in
+        // MANUAL mode (see User's Handbook Vol.2 §6.3.1.6). *RST reverts the unit to Manual mode AND
+        // forces OUTPut:STATe OFF (Appendix D.3), so it is the safe entry point for remote control.
+        // Output is NEVER sourced until an explicit OUTPut ON — never auto-enable it in a poll loop.
+        private static string D9100_Reset_Command = "*RST";                    // -> Manual mode, DC, 1V, OUTPUT OFF
+        private static string D9100_Clear_Command = "*CLS";
+        private static string D9100_Id_Command = "*IDN?";
+        private static string D9100_Opc_Command = "*OPC?";
+        private static string D9100_Error_Command = "SYST:ERRor?";
+        private static string D9100_OutputOn_Command = "OUTP:STATe ON";
+        private static string D9100_OutputOff_Command = "OUTP:STATe OFF";
+        private static string D9100_OutputStateQuery_Command = "OUTP:STATe?";
+        private static string D9100_Function_Command = "SOUR:FUNCtion:SHAPe "; // + DC|SINusoid|PULSe|SQUare|IMPulse|TRIangle|TRAPezoid|SYMSquare
+        private static string D9100_FunctionQuery_Command = "SOUR:FUNCtion:SHAPe?";
+        private static string D9100_Voltage_Command = "SOUR:VOLTage ";
+        private static string D9100_VoltageQuery_Command = "SOUR:VOLTage?";
+        private static string D9100_VoltageHigh_Command = "SOUR:VOLTage:HIGH ";
+        private static string D9100_VoltageLow_Command = "SOUR:VOLTage:LOW ";
+        private static string D9100_Current_Command = "SOUR:CURRent ";
+        private static string D9100_Resistance_Command = "SOUR:RESistance ";
+        private static string D9100_Capacitance_Command = "SOUR:CAPacitance ";
+        private static string D9100_Frequency_Command = "SOUR:FREQuency ";
+
+        // Format a numeric setpoint the way the 9100 accepts (invariant, e.g. "10.5", "0.2", "1000").
+        private static string D9100_Num(double value)
+        {
+            return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        public static HardwarePacket Build_D9100_Reset() { return new HardwarePacket(D9100_Reset_Command, false); }
+        public static HardwarePacket Build_D9100_ClearStatus() { return new HardwarePacket(D9100_Clear_Command, false); }
+        public static HardwarePacket Build_D9100_Identify() { return new HardwarePacket(D9100_Id_Command, true); }
+        public static HardwarePacket Build_D9100_OperationComplete() { return new HardwarePacket(D9100_Opc_Command, true); }
+        public static HardwarePacket Build_D9100_ReadError() { return new HardwarePacket(D9100_Error_Command, true); }
+        public static HardwarePacket Build_D9100_OutputOn() { return new HardwarePacket(D9100_OutputOn_Command, false); }
+        public static HardwarePacket Build_D9100_OutputOff() { return new HardwarePacket(D9100_OutputOff_Command, false); }
+        public static HardwarePacket Build_D9100_QueryOutputState() { return new HardwarePacket(D9100_OutputStateQuery_Command, true); }
+        public static HardwarePacket Build_D9100_SelectFunction(string scpiShape) { return new HardwarePacket(D9100_Function_Command + scpiShape, false); }
+        public static HardwarePacket Build_D9100_QueryFunction() { return new HardwarePacket(D9100_FunctionQuery_Command, true); }
+        public static HardwarePacket Build_D9100_SetVoltage(double volts) { return new HardwarePacket(D9100_Voltage_Command + D9100_Num(volts), false); }
+        public static HardwarePacket Build_D9100_QueryVoltage() { return new HardwarePacket(D9100_VoltageQuery_Command, true); }
+        public static HardwarePacket Build_D9100_SetVoltageHigh(double volts) { return new HardwarePacket(D9100_VoltageHigh_Command + D9100_Num(volts), false); }
+        public static HardwarePacket Build_D9100_SetVoltageLow(double volts) { return new HardwarePacket(D9100_VoltageLow_Command + D9100_Num(volts), false); }
+        public static HardwarePacket Build_D9100_SetCurrent(double amps) { return new HardwarePacket(D9100_Current_Command + D9100_Num(amps), false); }
+        public static HardwarePacket Build_D9100_SetResistance(double ohms) { return new HardwarePacket(D9100_Resistance_Command + D9100_Num(ohms), false); }
+        public static HardwarePacket Build_D9100_SetCapacitance(double farads) { return new HardwarePacket(D9100_Capacitance_Command + D9100_Num(farads), false); }
+        public static HardwarePacket Build_D9100_SetFrequency(double hertz) { return new HardwarePacket(D9100_Frequency_Command + D9100_Num(hertz), false); }
+
+        #endregion
+
         #endregion
 
     }
