@@ -141,6 +141,11 @@ namespace Maba.VCT.CommServer.Hosts.ConsoleHost
                         {
                             AssemblyName = System.IO.Path.GetFileNameWithoutExtension(typeof(BL.HydraDevices.BLCore.Hydra2BLCore).Assembly.ManifestModule.Name),
                             TypeName = typeof(BL.HydraDevices.BLCore.Hydra2BLCore).FullName
+                        },
+                        new Core.Module()
+                        {
+                            AssemblyName = System.IO.Path.GetFileNameWithoutExtension(typeof(BL.HydraDevices.BLCore.Datron9100BLCore).Assembly.ManifestModule.Name),
+                            TypeName = typeof(BL.HydraDevices.BLCore.Datron9100BLCore).FullName
                         }
                     };
 
