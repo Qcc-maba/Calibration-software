@@ -319,6 +319,13 @@ Installer/CalibrationSoftware-Setup-*.exe
 DBA/.env
 DBA/**/.env
 
+# Unified environment — the filled real file holds every subsystem's secrets; never commit it.
+# The committed reference is `env.master.example` (placeholders only).
+.env
+.env.local
+.env.*.local
+**/.env
+
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
