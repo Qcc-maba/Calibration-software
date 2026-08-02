@@ -30,9 +30,11 @@ namespace Maba.VCT.ComLayer
     {
         #region NI-488.2 interop (gpib-32.dll)
 
-        // gpib-32.dll exports are __stdcall; DllImport's default CallingConvention.Winapi resolves to
-        // StdCall on Windows, which is correct. The classic ibsta/iberr/ibcnt globals are NOT thread-safe,
-        // so we read status through the Thread* accessors immediately after each call, under _sync.
+        // gpib-32.dll exports are __cdecl (verified live 2026-08-02 against the NI GPIB-USB-HS+ — calling
+        // it as StdCall corrupts the stack and returns garbage ibsta). Every DllImport MUST set
+        // CallingConvention = Cdecl. Also note the DLL ships 32-bit only (SysWOW64), so the host process
+        // must run as x86. The classic ibsta/iberr/ibcnt globals are NOT thread-safe, so we read status
+        // through the Thread* accessors immediately after each call, under _sync.
 
         // ibsta status bits (returned by every call and by ThreadIbsta()).
         private const int ERR  = 0x8000; // error — check iberr for the cause
@@ -62,32 +64,32 @@ namespace Maba.VCT.ComLayer
         // ibdev EOT: assert EOI on the last byte of every write so the listener knows the message ended.
         private const int EotAssertEoi = 1;
 
-        [DllImport("gpib-32.dll", EntryPoint = "ibdev")]
+        [DllImport("gpib-32.dll", EntryPoint = "ibdev", CallingConvention = CallingConvention.Cdecl)]
         private static extern int ibdev(int boardIndex, int pad, int sad, int tmo, int eot, int eos);
 
-        [DllImport("gpib-32.dll", EntryPoint = "ibonl")]
+        [DllImport("gpib-32.dll", EntryPoint = "ibonl", CallingConvention = CallingConvention.Cdecl)]
         private static extern int ibonl(int ud, int v);
 
-        [DllImport("gpib-32.dll", EntryPoint = "ibclr")]
+        [DllImport("gpib-32.dll", EntryPoint = "ibclr", CallingConvention = CallingConvention.Cdecl)]
         private static extern int ibclr(int ud);
 
-        [DllImport("gpib-32.dll", EntryPoint = "ibtmo")]
+        [DllImport("gpib-32.dll", EntryPoint = "ibtmo", CallingConvention = CallingConvention.Cdecl)]
         private static extern int ibtmo(int ud, int tmo);
 
-        [DllImport("gpib-32.dll", EntryPoint = "ibwrt")]
+        [DllImport("gpib-32.dll", EntryPoint = "ibwrt", CallingConvention = CallingConvention.Cdecl)]
         private static extern int ibwrt(int ud, byte[] buf, int cnt);
 
-        [DllImport("gpib-32.dll", EntryPoint = "ibrd")]
+        [DllImport("gpib-32.dll", EntryPoint = "ibrd", CallingConvention = CallingConvention.Cdecl)]
         private static extern int ibrd(int ud, byte[] buf, int cnt);
 
         // Thread-safe status accessors (the classic ibsta/iberr/ibcnt globals are not thread-safe).
-        [DllImport("gpib-32.dll", EntryPoint = "ThreadIbsta")]
+        [DllImport("gpib-32.dll", EntryPoint = "ThreadIbsta", CallingConvention = CallingConvention.Cdecl)]
         private static extern int ThreadIbsta();
 
-        [DllImport("gpib-32.dll", EntryPoint = "ThreadIberr")]
+        [DllImport("gpib-32.dll", EntryPoint = "ThreadIberr", CallingConvention = CallingConvention.Cdecl)]
         private static extern int ThreadIberr();
 
-        [DllImport("gpib-32.dll", EntryPoint = "ThreadIbcnt")]
+        [DllImport("gpib-32.dll", EntryPoint = "ThreadIbcnt", CallingConvention = CallingConvention.Cdecl)]
         private static extern int ThreadIbcnt();
 
         #endregion
