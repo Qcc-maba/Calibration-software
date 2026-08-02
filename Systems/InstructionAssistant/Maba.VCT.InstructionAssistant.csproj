@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Maba.VCT.InstructionAssistant</RootNamespace>
+    <AssemblyName>Maba.VCT.InstructionAssistant</AssemblyName>
+    <!-- Standalone net10 web service the .NET 4.8 VCT server calls over HTTP.
+         Same deployment pattern as Maba.VCT.Priority. -->
+  </PropertyGroup>
+
+  <!-- PDF / Word / OCR extraction packages are added once the real network file formats
+       are confirmed (see PLAN.md §"מה עדיין נדרש ממך"). Until then extraction of those
+       formats returns a clear "unsupported" note rather than a hard dependency. -->
+
+</Project>
