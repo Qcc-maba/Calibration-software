@@ -9,6 +9,7 @@ public sealed class InstructionAssistantOptions
     public const string SectionName = "InstructionAssistant";
 
     public FileShareOptions FileShare { get; set; } = new();
+    public CentralExcelOptions CentralExcel { get; set; } = new();
     public SummarizerOptions Summarizer { get; set; } = new();
     public PriorityInstructionOptions Priority { get; set; } = new();
 
@@ -32,6 +33,18 @@ public sealed class FileShareOptions
 
     /// <summary>Recurse into sub-folders when scanning a root.</summary>
     public bool Recursive { get; set; } = true;
+}
+
+public sealed class CentralExcelOptions
+{
+    /// <summary>Path to the central calibration-requirements workbook ("אקסל מרכז").</summary>
+    public string? Path { get; set; }
+
+    /// <summary>Worksheet name to read (empty = first non-empty sheet).</summary>
+    public string? SheetName { get; set; }
+
+    /// <summary>Cache the parsed workbook this many seconds (0 = re-read every request).</summary>
+    public int CacheSeconds { get; set; } = 300;
 }
 
 public sealed class SummarizerOptions

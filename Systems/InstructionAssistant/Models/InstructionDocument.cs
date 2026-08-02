@@ -34,6 +34,13 @@ public sealed class InstructionDocument
     /// <summary>Why this doc was considered relevant (matched serial / customer folder / etc.).</summary>
     public string? MatchReason { get; init; }
 
+    /// <summary>
+    /// Structured calibration-requirement rows, when the source is the central Excel matrix.
+    /// Null/empty for free-text sources. Carried through so the response can render an exact
+    /// table in addition to the AI summary.
+    /// </summary>
+    public List<CalibrationRequirement>? Requirements { get; set; }
+
     public DateTimeOffset RetrievedAt { get; init; } = DateTimeOffset.UtcNow;
 
     public bool HasText => !string.IsNullOrWhiteSpace(Text);

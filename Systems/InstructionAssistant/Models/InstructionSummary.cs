@@ -23,6 +23,12 @@ public sealed class InstructionSummary
     /// <summary>The documents the summary was built from.</summary>
     public List<SourceRef> Sources { get; set; } = [];
 
+    /// <summary>
+    /// Exact structured requirement rows (from the central Excel matrix), rendered as a table
+    /// alongside the AI summary. Empty when no structured source matched.
+    /// </summary>
+    public List<CalibrationRequirement> Requirements { get; set; } = [];
+
     /// <summary>True when no relevant instructions were found in any source.</summary>
     public bool NoInstructionsFound { get; set; }
 

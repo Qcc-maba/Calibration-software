@@ -16,6 +16,7 @@ builder.Services.AddSingleton<IDocumentTextExtractor, PlainTextExtractor>();
 builder.Services.AddSingleton<CompositeTextExtractor>();
 
 // Instruction sources
+builder.Services.AddSingleton<IInstructionSourceProvider, ExcelInstructionProvider>();
 builder.Services.AddSingleton<IInstructionSourceProvider, FileShareInstructionProvider>();
 builder.Services.AddSingleton<IInstructionSourceProvider, PriorityInstructionSource>();
 
@@ -34,11 +35,14 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
 var app = builder.Build();
 app.UseCors();
 
-app.MapGet("/health", (IEnumerable<IInstructionSourceProvider> sources) => Results.Ok(new
+app.MapGet("/health", (IEnumerable<IInstructionSourceProvider> sources,
+    Microsoft.Extensions.Options.IOptions<Maba.VCT.InstructionAssistant.Options.InstructionAssistantOptions> opt) => Results.Ok(new
 {
     status = "ok",
     sources = sources.Select(s => s.Name),
     mode,
+    centralExcelPath = opt.Value.CentralExcel.Path,
+    centralExcelExists = !string.IsNullOrWhiteSpace(opt.Value.CentralExcel.Path) && File.Exists(opt.Value.CentralExcel.Path),
 }));
 
 // Auto (calibRecordId) OR manual (customer/serial/deviceType) — "both" per the chosen design.

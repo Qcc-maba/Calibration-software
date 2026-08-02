@@ -10,6 +10,10 @@
          Same deployment pattern as Maba.VCT.Priority. -->
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
+  </ItemGroup>
+
   <!-- PDF / Word / OCR extraction packages are added once the real network file formats
        are confirmed (see PLAN.md §"מה עדיין נדרש ממך"). Until then extraction of those
        formats returns a clear "unsupported" note rather than a hard dependency. -->

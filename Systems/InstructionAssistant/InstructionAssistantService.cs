@@ -46,6 +46,12 @@ public sealed class InstructionAssistantService(
             .Select(d => new SourceRef(d.Title, d.Source, d.Reference, d.MatchReason))
             .ToList();
 
+        // Surface any structured requirement rows (central Excel) as an exact table.
+        result.Requirements = docs
+            .Where(d => d.Requirements is { Count: > 0 })
+            .SelectMany(d => d.Requirements!)
+            .ToList();
+
         if (docs.Count == 0)
         {
             result.NoInstructionsFound = true;

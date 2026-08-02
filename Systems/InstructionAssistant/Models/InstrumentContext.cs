@@ -29,7 +29,9 @@ public sealed class InstrumentContext
     public bool HasAnyKey =>
         !string.IsNullOrWhiteSpace(CustomerId) ||
         !string.IsNullOrWhiteSpace(CustomerName) ||
-        !string.IsNullOrWhiteSpace(SerialNumber);
+        !string.IsNullOrWhiteSpace(SerialNumber) ||
+        !string.IsNullOrWhiteSpace(Model) ||          // central Excel matches on manufacturer+model
+        !string.IsNullOrWhiteSpace(DeviceType);
 
     public override string ToString() =>
         $"customer={CustomerName ?? CustomerId ?? "?"} device={DeviceType ?? "?"} " +
