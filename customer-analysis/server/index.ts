@@ -1,3 +1,4 @@
+import "dotenv/config"; // load the unified .env before anything reads process.env
 import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
 import { registerRoutes } from "./routes";
@@ -98,14 +99,13 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
+  // reusePort is a Linux-only socket option; it throws ENOTSUP on Windows/macOS.
+  const listenOptions: { port: number; host: string; reusePort?: boolean } = {
+    port,
+    host: "0.0.0.0",
+    ...(process.platform === "linux" ? { reusePort: true } : {}),
+  };
+  httpServer.listen(listenOptions, () => {
+    log(`serving on port ${port}`);
+  });
 })();
