@@ -1,0 +1,90 @@
+<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8">
+<style>
+ @page { size: A4; margin: 16mm 14mm; }
+ * { box-sizing: border-box; }
+ body { font-family: 'Segoe UI', Arial, sans-serif; color:#1f2933; font-size:11px; line-height:1.5; }
+ h1 { font-size:22px; color:#0b5cad; margin:0 0 2px; }
+ h2 { font-size:15px; color:#0b5cad; border-bottom:2px solid #0b5cad; padding-bottom:3px; margin:22px 0 8px; }
+ h3 { font-size:12.5px; color:#245; margin:14px 0 4px; }
+ .sub { color:#667; margin:0 0 14px; }
+ table { width:100%; border-collapse:collapse; margin:6px 0 12px; font-size:10px; }
+ th,td { border:1px solid #cdd6e0; padding:3px 6px; text-align:right; vertical-align:top; }
+ th { background:#eef4fb; color:#0b5cad; }
+ td.n { font-variant-numeric:tabular-nums; direction:ltr; text-align:left; }
+ code, .mono { font-family:Consolas,monospace; direction:ltr; unicode-bidi:embed; }
+ .card { background:#f7fafd; border:1px solid #d9e3ee; border-radius:6px; padding:8px 12px; margin:8px 0; }
+ .warn { background:#fff7ed; border:1px solid #f0b37e; }
+ .bad { background:#fdecea; border:1px solid #e5877e; }
+ .tag { display:inline-block; background:#0b5cad; color:#fff; border-radius:4px; padding:1px 7px; font-size:9px; direction:ltr; }
+ ul { margin:4px 0; padding-inline-start:20px; }
+ .flow { font-family:Consolas,monospace; direction:ltr; text-align:left; background:#f2f6fa; padding:8px; border-radius:6px; font-size:10px; }
+</style></head><body>
+
+<h1>מ.ב.א. — מפת בסיסי הנתונים (Calibration System)</h1>
+<p class="sub">מסמך טכני מרוכז · נוצר 2026-08-03 · מבוסס על שאילתות חיות (read-only) + קונפיגורציה</p>
+
+<h2>1. סקירה וארכיטקטורה</h2>
+<div class="card">
+המערכת מורכבת משלושה בסיסי נתונים עיקריים. ה-ERP (<b>Priority</b>) הוא מקור האמת; ממנו מסונכרנים
+נתונים ל-<b>Calibrator</b> (בסיס הנתונים של מערכת הכיול, SQL Server ב-AWS) דרך פרוצדורות
+<span class="mono">stg.Merge*</span>; ה-<b>APP</b> (Next.js) וה-<b>שרת ה-C#</b> (VCT) עובדים מול Calibrator,
+כשהחיבור בין ה-APP לשרת הוא <b>WebSocket</b> (ערכי מדידה חיים) ובסיס הנתונים המשותף.
+</div>
+<div class="flow">
+Priority (amaba, SQL Server) ── stg.Merge* / SSIS ──▶ Calibrator (AWS SQL Server 2022)<br>
+Calibrator ◀── Prisma (sqlserver://) ──▶ APP (Next.js)<br>
+9100 / מכשירי כיול ──GPIB/Serial──▶ שרת VCT (C#, .NET 4.8) ──WebSocket ws://localhost:5001/ws/──▶ APP UI<br>
+QCC Analytics (PostgreSQL מקומי) ◀── Python sync ── Priority (דוחות/אנליטיקה)
+</div>
+
+<h2>2. Calibrator — בסיס הנתונים הראשי <span class="tag">SQL Server · AWS</span></h2>
+<div class="card">
+<b>שרת:</b> <span class="mono">51.17.121.203</span> · <b>Prod:</b> <span class="mono">CalibratorProd</span>
+(משתמש <span class="mono">app_prod</span>) · <b>Stage:</b> <span class="mono">Calibrator</span>
+(משתמש <span class="mono">app_stage</span> — כרגע כניסה נכשלת) · <b>גרסה:</b> <span class="mono">Microsoft SQL Server 2022 (RTM) - 16.0.1000.6 (X64)</span><br>
+<b>סכימות:</b> dbo, etl, guest, INFORMATION_SCHEMA, stg, sys · <b>סה"כ טבלאות:</b> 82 · <b>פרוצדורות סנכרון עיקריות:</b> 20
+</div>
+
+<h3>2.1 טבלאות מרכזיות (לפי מספר שורות · top 45)</h3>
+<table><tr><th>טבלה</th><th>שורות</th></tr><tr><td>dbo.MeasurementDevicesCorrections</td><td class=n>29,925</td></tr><tr><td>dbo.Customers</td><td class=n>11,300</td></tr><tr><td>stg.stg_Customers</td><td class=n>11,218</td></tr><tr><td>dbo.OrderDetails</td><td class=n>9,998</td></tr><tr><td>stg.stg_ClientAccessoryOrderDetailsItems</td><td class=n>9,374</td></tr><tr><td>dbo.OrderDetailsItems</td><td class=n>6,578</td></tr><tr><td>dbo.ClientAccessoryOrderDetailsItems</td><td class=n>4,389</td></tr><tr><td>stg.stg_CustomerSites</td><td class=n>3,750</td></tr><tr><td>dbo.CustomerSites</td><td class=n>3,747</td></tr><tr><td>dbo.MabaCommentsToOrderDetails</td><td class=n>2,737</td></tr><tr><td>dbo.CustomerContacts</td><td class=n>2,562</td></tr><tr><td>stg.stg_CustomerContacts</td><td class=n>2,505</td></tr><tr><td>dbo.OrderWorkPlans</td><td class=n>2,474</td></tr><tr><td>dbo.Users</td><td class=n>2,129</td></tr><tr><td>dbo.CustomerRemarks</td><td class=n>1,514</td></tr><tr><td>stg.stg_CustomerRemarks</td><td class=n>975</td></tr><tr><td>stg.stg_Orders</td><td class=n>924</td></tr><tr><td>dbo.MeasurementDevices</td><td class=n>881</td></tr><tr><td>dbo.OrdersProductTypes</td><td class=n>825</td></tr><tr><td>dbo.CalibratorNotifications</td><td class=n>451</td></tr><tr><td>dbo.CustomerSupportDepartmentParts</td><td class=n>270</td></tr><tr><td>dbo.CalibratorsToWorkPlan</td><td class=n>250</td></tr><tr><td>dbo.CarsToOrder</td><td class=n>244</td></tr><tr><td>dbo.DepartmentDelays</td><td class=n>209</td></tr><tr><td>dbo.AgentsWaitingList</td><td class=n>114</td></tr><tr><td>dbo.Statuses</td><td class=n>98</td></tr><tr><td>dbo.UsersToDepartments</td><td class=n>94</td></tr><tr><td>dbo.CalibratorsToCertificationAuthoritiesAuthorities</td><td class=n>57</td></tr><tr><td>dbo.SpecificationReference</td><td class=n>55</td></tr><tr><td>dbo.MeasurementDeviceUnits</td><td class=n>50</td></tr><tr><td>dbo.MabaComments</td><td class=n>49</td></tr><tr><td>dbo.Cars</td><td class=n>35</td></tr><tr><td>dbo.CalendarEventsToParticipants</td><td class=n>20</td></tr><tr><td>dbo.CalibratorCertificationAuthorities</td><td class=n>19</td></tr><tr><td>stg.stg_MabaComments</td><td class=n>19</td></tr><tr><td>dbo.StatusesCategories</td><td class=n>15</td></tr><tr><td>dbo.MeasurementDevicesMainClasses</td><td class=n>15</td></tr><tr><td>dbo.MainCategories</td><td class=n>15</td></tr><tr><td>dbo.CalendarEvents</td><td class=n>12</td></tr><tr><td>dbo.UserRoles</td><td class=n>12</td></tr><tr><td>dbo.Measurements</td><td class=n>10</td></tr><tr><td>dbo.MeasurementsSpecificationsToSecondCategory</td><td class=n>10</td></tr><tr><td>dbo.SecondaryCategories</td><td class=n>9</td></tr><tr><td>dbo.MeasurementsSpecifications</td><td class=n>7</td></tr><tr><td>dbo.CarsToEquipment</td><td class=n>7</td></tr></table>
+
+<h3>2.2 פרוצדורות סנכרון (stg / etl)</h3>
+<table><tr><th>Procedure</th><th>Modified</th></tr><tr><td>dbo.usp_SyncHealthCheck</td><td>2026-07-30</td></tr><tr><td>etl.CalibGetDataLogGetSet</td><td>2025-12-12</td></tr><tr><td>etl.MergeCalendarEventsToOnPrem</td><td>2025-12-12</td></tr><tr><td>etl.MergeCalendarEventsToParticipantsToOnPrem</td><td>2026-05-06</td></tr><tr><td>etl.MergeCarsToOnPrem</td><td>2025-12-26</td></tr><tr><td>etl.MergeUsersToOnPrem</td><td>2026-05-06</td></tr><tr><td>etl.usp_SyncRunEnd</td><td>2026-07-30</td></tr><tr><td>etl.usp_SyncRunReport</td><td>2026-07-30</td></tr><tr><td>etl.usp_SyncRunStart</td><td>2026-07-30</td></tr><tr><td>stg.MergeCarsToOnPrem</td><td>2025-12-26</td></tr><tr><td>stg.MergeClientAccessoryOrderDetailsItems</td><td>2026-03-18</td></tr><tr><td>stg.MergeCustomerRemarks</td><td>2026-04-28</td></tr><tr><td>stg.MergeCustomersContactsData</td><td>2026-05-06</td></tr><tr><td>stg.MergeCustomersData</td><td>2026-05-06</td></tr><tr><td>stg.MergeMabaComments</td><td>2026-02-16</td></tr><tr><td>stg.MergeMeasurementDevicesCorrection</td><td>2026-03-25</td></tr><tr><td>stg.MergeMeasurementsData</td><td>2025-12-12</td></tr><tr><td>stg.MergeMeasurementsToMeasurmentUnitsData</td><td>2025-12-12</td></tr><tr><td>stg.MergeOrdersData</td><td>2026-05-06</td></tr><tr><td>stg.MergeOrdersProductTypes</td><td>2026-05-06</td></tr></table>
+
+<div class="card bad">
+<b>⚠️ ממצא (באג מאומת):</b> ב-<span class="mono">stg.MergeOrdersData</span> שורות 171–172 משתמשות ב-
+<span class="mono">=</span> במקום <span class="mono">&lt;&gt;</span> בבלוק זיהוי-השינוי (WHEN MATCHED) —
+מפעיל UPDATE כמעט בכל שורה בכל ריצה (~235K עדכוני-סרק/יום). תיקון: <span class="mono">=</span> → <span class="mono">&lt;&gt;</span>
+(דרך stage/review, לא חי). בלוק חשוד דומה נוסף בשורות 293/301/303.
+</div>
+<div class="card warn">
+<b>הערה:</b> <span class="mono">SSISDB</span> קיים על אותו שרת אך <span class="mono">app_prod</span> חסום ממנו
+(אין הרשאת catalog) — היסטוריית ריצות ה-SSIS דורשת הרשאה או את קבצי ה-<span class="mono">.dtsx</span>.
+</div>
+
+<h2>3. QCC Analytics — אנליטיקת לקוחות <span class="tag">PostgreSQL · מקומי</span></h2>
+<div class="card">
+<b>שרת:</b> <span class="mono">localhost:5432</span> (שירות postgresql-x64-16) · <b>DB:</b> <span class="mono">qcc_analytics</span>
+· מוזן ע"י סקריפטי Python מ-Priority/SQL Server; מוגש ע"י שירות <span class="mono">QCCAnalytics</span> (Node) על פורט 5000.
+</div>
+<table><tr><th>טבלה</th><th>שורות</th></tr><tr><td>monthly_targets</td><td class=n>12</td></tr><tr><td>ship_shipments</td><td class=n>0</td></tr><tr><td>monthly_call_stats</td><td class=n>0</td></tr><tr><td>ups_expenses</td><td class=n>0</td></tr><tr><td>operational_query_rows</td><td class=n>0</td></tr><tr><td>company_days_off</td><td class=n>0</td></tr><tr><td>synced_customers</td><td class=n>0</td></tr><tr><td>calibrator_dept_stats</td><td class=n>0</td></tr><tr><td>company_calibration_alerts</td><td class=n>0</td></tr><tr><td>app_settings</td><td class=n>0</td></tr><tr><td>users</td><td class=n>0</td></tr><tr><td>department_stats</td><td class=n>0</td></tr><tr><td>calibrators</td><td class=n>0</td></tr><tr><td>financial_query_rows</td><td class=n>0</td></tr><tr><td>company_return_documents</td><td class=n>0</td></tr></table>
+
+<h2>4. Priority ERP — מקור האמת <span class="tag">SQL Server + OData</span></h2>
+<div class="card">
+<b>שרת SQL:</b> <span class="mono">maba-priority\pri</span> · <b>DB:</b> <span class="mono">amaba</span> ·
+<b>OData:</b> REST (Basic-Auth, PAT).<br>
+<b>ישויות מרכזיות (מסכי Priority):</b> <span class="mono">MBA_CUSTLOAD</span> (לקוחות),
+<span class="mono">MBA_DOCLOAD</span> (מסמכים), <span class="mono">MBA_USERSLOAD</span> (משתמשים),
+<span class="mono">MBA_CALIBLOAD</span> (סטטוס כיול).
+</div>
+
+<h2>5. סיכום סיכונים / פעולות</h2>
+<ul>
+ <li><b>תיקון סנכרון:</b> <span class="mono">stg.MergeOrdersData</span> =→&lt;&gt; (שורות 171-172) — דרך stage.</li>
+ <li><b>DB כפול:</b> <span class="mono">customer_analysis</span> (ריק) נוצר בטעות — ה-DB האמיתי הוא <span class="mono">qcc_analytics</span>.</li>
+ <li><b>הרשאות:</b> <span class="mono">app_stage</span> נכשל בהתחברות; <span class="mono">app_prod</span> חסום מ-SSISDB.</li>
+ <li><b>אבטחה:</b> להחליף סיסמאות שדלפו (Ship, SQL kyulan/abam, app_prod/app_stage) ולהגביל פורט 1433 ב-AWS.</li>
+</ul>
+
+<p class="sub" style="margin-top:18px">— נוצר אוטומטית משאילתות חיות. אין במסמך סיסמאות/סודות.</p>
+</body></html>

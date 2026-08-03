@@ -375,3 +375,5 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Generated DB doc PDF (binary; regenerate from DATABASES.html)
+docs/DATABASES.pdf
