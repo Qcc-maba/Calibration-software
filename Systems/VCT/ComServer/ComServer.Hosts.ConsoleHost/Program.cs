@@ -169,7 +169,17 @@ namespace Maba.VCT.CommServer.Hosts.ConsoleHost
                 VCT.Libs.Trace.Tracer.Info();
                 VCT.Libs.Trace.Tracer.Info("Running as console. Press Enter to stop...");
 
-                Console.ReadLine();
+                if (Console.IsInputRedirected)
+                {
+                    // No interactive console (stdin/stdout redirected to files or pipes, e.g. headless
+                    // log capture): Console.ReadLine() would hit EOF immediately, return null, and shut
+                    // the server down. Block instead so the host stays alive; terminate via Ctrl+C / kill.
+                    new System.Threading.ManualResetEvent(false).WaitOne();
+                }
+                else
+                {
+                    Console.ReadLine();
+                }
             }
             catch (Exception e)
             {

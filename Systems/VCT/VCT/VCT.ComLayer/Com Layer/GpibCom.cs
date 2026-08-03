@@ -287,6 +287,24 @@ namespace Maba.VCT.ComLayer
             {
                 LastRX_Time = DateTime.UtcNow;
                 var data = acc.ToArray();
+
+                // GPIB messages are delimited by EOI (asserted on the instrument's last byte), not by
+                // CR/LF — one ReadReply == one complete message. The shared Hydra parser, however, only
+                // cuts a packet on "=>" or "\r\n", so a bare-EOI reply (e.g. a SCPI *IDN? or a value that
+                // ends with just '\n' or nothing) would never be framed and the device would stay pending
+                // forever. Normalise each complete GPIB message to end with the "\r\n" the parser expects.
+                bool endsCrLf = data.Length >= 2 && data[data.Length - 2] == 0x0D && data[data.Length - 1] == 0x0A;
+                if (!endsCrLf)
+                {
+                    int trim = data.Length;
+                    while (trim > 0 && (data[trim - 1] == 0x0A || data[trim - 1] == 0x0D)) trim--; // drop a lone LF/CR
+                    var framed = new byte[trim + 2];
+                    Buffer.BlockCopy(data, 0, framed, 0, trim);
+                    framed[trim] = 0x0D;
+                    framed[trim + 1] = 0x0A;
+                    data = framed;
+                }
+
                 var handler = DataReceived;
                 if (handler != null)
                     handler(this, new DataReceivedEventArgs(data, 0, data.Length));

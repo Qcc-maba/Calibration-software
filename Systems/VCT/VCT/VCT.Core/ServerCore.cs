@@ -460,16 +460,22 @@ namespace Maba.VCT.Core
 
             WebSocketCom wsc = null;
             WebSocketDeviceHost wsdh = null;
+            // Unique key per connection. Previously every client was registered under the constant
+            // key "Eliran", so a second connection (e.g. the /ws/rfid client that connects at startup,
+            // or a second browser tab) overwrote the first, and either socket's disconnect removed the
+            // survivor from the broadcast list — the browser would silently stop receiving LoggerData.
+            string wsKey = Guid.NewGuid().ToString("N");
             try
             {
                 wsc = new WebSocketCom(webSocket);
-                wsdh = new WebSocketDeviceHost(MainEventsBus, wsc, "Eliran");
+                wsdh = new WebSocketDeviceHost(MainEventsBus, wsc, wsKey);
                 WSDeviceHost_Slim.MyWriteLock(list =>
                 {
-                    list["Eliran"] = wsdh;
+                    list[wsKey] = wsdh;
                 });
                 MainEventsBus.Fire_WebSocketConnection(this, new Events.DeviceConnectionEventArgs(wsdh));
-                Libs.Trace.Tracer.Info("[WS] Client connected (state={0})", webSocket.State.ToString());
+                Libs.Trace.Tracer.Info("[WS] Client connected (key={0}, path={1}, state={2})",
+                    wsKey, ctx.Request.Url.AbsolutePath, webSocket.State.ToString());
 
                 await wsc.RunReceiveLoopAsync(wsc.ReadLoopCancellation).ConfigureAwait(false);
             }
@@ -481,9 +487,9 @@ namespace Maba.VCT.Core
             {
                 WSDeviceHost_Slim.MyWriteLock(list =>
                 {
-                    list.TryRemove("Eliran", out _);
+                    list.TryRemove(wsKey, out _);
                 });
-                Libs.Trace.Tracer.Info("[WS] Client session ended (state={0})", webSocket?.State.ToString());
+                Libs.Trace.Tracer.Info("[WS] Client session ended (key={0}, state={1})", wsKey, webSocket?.State.ToString());
             }
         }
 

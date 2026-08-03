@@ -109,6 +109,20 @@ namespace Maba.VCT.Common.API.RemoteProtocolService
                         }
                         HasResponse = true;
                     }
+                    else if (commandPacket.Command.IndexOf("SOUR:", StringComparison.OrdinalIgnoreCase) >= 0
+                          || commandPacket.Command.IndexOf("MEASure", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        // Datron/Wavetek 9100 SCPI value query (e.g. SOUR:VOLTage? -> "1.000000E+00"): a single
+                        // scientific-notation value, EOI-terminated (GpibCom normalises the reply to end with CRLF).
+                        // None of the Hydra branches above match, and the date/time fallback below would throw on it.
+                        var x = result.Response.Replace("\r", "").Replace("\n", "").Replace("=>", "").Trim();
+                        if (double.TryParse(x, System.Globalization.NumberStyles.Float,
+                                            System.Globalization.CultureInfo.InvariantCulture, out double scpiValue))
+                        {
+                            Measurements.Add(scpiValue);
+                            HasResponse = true;
+                        }
+                    }
                     else
                     {
                         try
