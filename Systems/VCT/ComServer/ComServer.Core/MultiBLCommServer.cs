@@ -84,7 +84,12 @@ namespace Maba.VCT.CommServer.Core
                             var t = this.Settings4VCTServer.Tunnels[i];
                             VCT.Libs.Trace.Tracer.Info("-- -- >#{0} [{1}]", i, t.Name);
                             VCT.Libs.Trace.Tracer.Info("-- -- ----Address : {0}", t.Address ?? "");
-                            VCT.Libs.Trace.Tracer.Info("-- -- ----Ports : {0}", String.Concat(t.Ports.Select(p => p.ToString() + ',')));
+                            // Serial/GPIB tunnels have no Ports (null) — guard so the diagnostic print does not
+                            // throw a NullReferenceException that gets mislogged as "VCT Failed to start".
+                            var portsText = t.Ports == null ? "(none)" : String.Concat(t.Ports.Select(p => p.ToString() + ','));
+                            if (t.GpibPrimaryAddress >= 0) portsText = "GPIB PAD " + t.GpibPrimaryAddress;
+                            else if (!string.IsNullOrEmpty(t.SerialPortName)) portsText = "serial " + t.SerialPortName;
+                            VCT.Libs.Trace.Tracer.Info("-- -- ----Ports : {0}", portsText);
                         }
 
                         VCT.Libs.Trace.Tracer.Info();
