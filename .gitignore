@@ -377,3 +377,4 @@ MigrationBackup/
 FodyWeavers.xsd
 # Generated DB doc PDF (binary; regenerate from DATABASES.html)
 docs/DATABASES.pdf
+docs/DATABASES.en.pdf
