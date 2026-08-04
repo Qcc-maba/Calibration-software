@@ -118,9 +118,26 @@ public sealed class ExcelInstructionProvider(
         }
     }
 
+    /// <summary>
+    /// Snapshot the workbook into memory before parsing. The central Excel lives on a shared
+    /// drive and is routinely open in Excel by someone else, which makes ClosedXML's own
+    /// file-path open fail with "used by another process" — reading with
+    /// FileShare.ReadWrite|Delete lets us read it anyway.
+    /// </summary>
+    private static MemoryStream ReadSnapshot(string path)
+    {
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete);
+        var ms = new MemoryStream();
+        fs.CopyTo(ms);
+        ms.Position = 0;
+        return ms;
+    }
+
     private static List<CalibrationRequirement> Parse(string path, string? sheetName)
     {
-        using var wb = new XLWorkbook(path);
+        using var snapshot = ReadSnapshot(path);
+        using var wb = new XLWorkbook(snapshot);
         var ws = !string.IsNullOrWhiteSpace(sheetName)
             ? wb.Worksheet(sheetName)
             : wb.Worksheets.FirstOrDefault(s => s.RowsUsed().Any()) ?? wb.Worksheet(1);

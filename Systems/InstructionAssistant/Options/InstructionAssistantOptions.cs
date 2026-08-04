@@ -68,13 +68,25 @@ public sealed class SummarizerOptions
 
 public sealed class PriorityInstructionOptions
 {
-    /// <summary>Enable pulling instruction/notes fields from Priority (needs field mapping).</summary>
+    /// <summary>Enable reading order instruction text ("הנחיות לביצוע") from Priority.</summary>
     public bool Enabled { get; set; } = false;
 
-    /// <summary>Customer entity (default MBA_CUSTLOAD) and the notes/instruction field names to read.</summary>
-    public string CustomerEntity { get; set; } = "MBA_CUSTLOAD";
-    public List<string> CustomerInstructionFields { get; set; } = [];
+    /// <summary>
+    /// Read-only connection string to the Priority SQL Server company DB (amaba).
+    /// Secret — supply via env (<c>InstructionAssistant__Priority__ConnectionString</c>) or the
+    /// gitignored Development config, never in the committed appsettings.
+    /// </summary>
+    public string? ConnectionString { get; set; }
 
-    /// <summary>Base URL of the running Maba.VCT.Priority service, if instructions are fetched via it.</summary>
-    public string? PriorityServiceBaseUrl { get; set; }
+    /// <summary>How many of the customer's most recent orders to inspect for instruction text.</summary>
+    public int MaxOrders { get; set; } = 8;
+
+    /// <summary>Max instruction documents returned after collapsing duplicate order texts.</summary>
+    public int MaxDocuments { get; set; } = 3;
+
+    /// <summary>Ignore order texts shorter than this (empty/placeholder rows).</summary>
+    public int MinTextChars { get; set; } = 200;
+
+    /// <summary>Truncate each order's text at this length before it reaches the summarizer.</summary>
+    public int MaxCharsPerOrder { get; set; } = 20_000;
 }

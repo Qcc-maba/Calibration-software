@@ -76,7 +76,10 @@ public sealed class ClaudeSummarizer(
             return;
         }
 
-        var text = ExtractText(body);
+        var (text, stopReason) = ExtractText(body);
+        if (stopReason == "max_tokens")
+            result.Notices.Add("הסיכום נקטע בגלל מגבלת אורך — ניתן להגדיל את Summarizer:MaxTokens.");
+
         ApplyModelJson(text, result);
         result.GeneratedBy = $"claude:{_opt.Summarizer.Model}";
     }
@@ -125,11 +128,14 @@ public sealed class ClaudeSummarizer(
         return (text, _opt.RedactCustomerNames);
     }
 
-    private static string ExtractText(string apiBody)
+    /// <summary>Returns the model's text plus its stop_reason (so truncation can be reported).</summary>
+    private static (string Text, string? StopReason) ExtractText(string apiBody)
     {
         try
         {
             using var doc = JsonDocument.Parse(apiBody);
+            var stop = doc.RootElement.TryGetProperty("stop_reason", out var sr) ? sr.GetString() : null;
+
             if (doc.RootElement.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
             {
                 var sb = new StringBuilder();
@@ -137,11 +143,11 @@ public sealed class ClaudeSummarizer(
                     if (block.TryGetProperty("type", out var t) && t.GetString() == "text"
                         && block.TryGetProperty("text", out var txt))
                         sb.Append(txt.GetString());
-                return sb.ToString();
+                return (sb.ToString(), stop);
             }
         }
         catch { /* fall through */ }
-        return "";
+        return ("", null);
     }
 
     private void ApplyModelJson(string modelText, InstructionSummary result)
@@ -165,8 +171,8 @@ public sealed class ClaudeSummarizer(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Could not parse model JSON; using raw text");
-            result.SummaryMarkdown = modelText.Trim();
+            logger.LogWarning(ex, "Could not parse model JSON; salvaging the summary field");
+            result.SummaryMarkdown = SalvageSummary(json) ?? modelText.Trim();
         }
     }
 
@@ -176,6 +182,40 @@ public sealed class ClaudeSummarizer(
         int start = text.IndexOf('{');
         int end = text.LastIndexOf('}');
         return (start >= 0 && end > start) ? text[start..(end + 1)] : null;
+    }
+
+    /// <summary>
+    /// A response cut off by max_tokens leaves unparseable JSON. Rather than dumping the raw
+    /// JSON into the UI, pull out whatever "summaryMarkdown" value was already written and
+    /// un-escape it, so the calibrator still sees the (partial) Hebrew summary.
+    /// </summary>
+    private static string? SalvageSummary(string? partialJson)
+    {
+        if (string.IsNullOrEmpty(partialJson)) return null;
+
+        const string key = "\"summaryMarkdown\"";
+        int k = partialJson.IndexOf(key, StringComparison.Ordinal);
+        if (k < 0) return null;
+
+        int q = partialJson.IndexOf('"', k + key.Length + 1);   // opening quote of the value
+        if (q < 0) return null;
+
+        var sb = new StringBuilder();
+        for (int i = q + 1; i < partialJson.Length; i++)
+        {
+            var c = partialJson[i];
+            if (c == '\\' && i + 1 < partialJson.Length)
+            {
+                var next = partialJson[++i];
+                sb.Append(next switch { 'n' => '\n', 't' => '\t', 'r' => '\r', _ => next });
+                continue;
+            }
+            if (c == '"') break;   // end of the value
+            sb.Append(c);
+        }
+
+        var text = sb.ToString().Trim();
+        return text.Length > 0 ? text : null;
     }
 
     private static string Truncate(string s) => s.Length > 500 ? s[..500] : s;
