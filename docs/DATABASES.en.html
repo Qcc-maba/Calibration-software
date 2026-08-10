@@ -51,7 +51,7 @@ fed by Python scripts from Priority/SQL Server; served by the <span class="mono"
 <h2>5. Risk / action summary</h2>
 <ul>
  <li><b>Sync fix:</b> <span class="mono">stg.MergeOrdersData</span> =→&lt;&gt; (lines 171-172) — via stage.</li>
- <li><b>Duplicate DB:</b> <span class="mono">customer_analysis</span> (empty) created by mistake — the real DB is <span class="mono">qcc_analytics</span>.</li>
+ <li><b>Duplicate DB — resolved 2026-08-10:</b> the empty <span class="mono">customer_analysis</span> was dropped; the single DB is <span class="mono">qcc_analytics</span> (232MB, imported from Replit Production).</li>
  <li><b>Permissions:</b> <span class="mono">app_stage</span> login fails; <span class="mono">app_prod</span> denied on SSISDB.</li>
  <li><b>Security:</b> rotate leaked passwords (Ship, SQL kyulan/abam, app_prod/app_stage) and restrict AWS port 1433.</li>
 </ul>

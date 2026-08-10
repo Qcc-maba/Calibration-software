@@ -31,3 +31,6 @@ config_*.py
 # Replit scratch: pasted dumps with PII/passwords + screenshots — keep local, never commit
 attached_assets/
 screenshots/
+
+# DB dumps מיובאים מ-Replit / גיבויים מקומיים — לא לקומיט
+local-scripts/dumps/

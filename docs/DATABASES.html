@@ -81,7 +81,7 @@ QCC Analytics (PostgreSQL מקומי) ◀── Python sync ── Priority (ד�
 <h2>5. סיכום סיכונים / פעולות</h2>
 <ul>
  <li><b>תיקון סנכרון:</b> <span class="mono">stg.MergeOrdersData</span> =→&lt;&gt; (שורות 171-172) — דרך stage.</li>
- <li><b>DB כפול:</b> <span class="mono">customer_analysis</span> (ריק) נוצר בטעות — ה-DB האמיתי הוא <span class="mono">qcc_analytics</span>.</li>
+ <li><b>DB כפול — טופל 10/08/2026:</b> <span class="mono">customer_analysis</span> (ריק) נמחק; ה-DB היחיד הוא <span class="mono">qcc_analytics</span> (232MB, יובא מ-Replit Production).</li>
  <li><b>הרשאות:</b> <span class="mono">app_stage</span> נכשל בהתחברות; <span class="mono">app_prod</span> חסום מ-SSISDB.</li>
  <li><b>אבטחה:</b> להחליף סיסמאות שדלפו (Ship, SQL kyulan/abam, app_prod/app_stage) ולהגביל פורט 1433 ב-AWS.</li>
 </ul>
