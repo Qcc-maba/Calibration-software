@@ -7,6 +7,11 @@ using Maba.VCT.InstructionAssistant.Summarize;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Lets the same executable run as a console app during development and as a Windows Service on
+// the VCT server (no-op when not started by the SCM). Installed by
+// scripts/Install-InstructionAssistant-Service.ps1.
+builder.Host.UseWindowsService(o => o.ServiceName = "MabaInstructionAssistant");
+
 builder.Services
     .AddOptions<InstructionAssistantOptions>()
     .Bind(builder.Configuration.GetSection(InstructionAssistantOptions.SectionName));
@@ -39,6 +44,8 @@ else
 }
 
 builder.Services.AddSingleton<InstructionAssistantService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<SummaryCache>();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod()));
 
@@ -59,8 +66,9 @@ app.MapGet("/health", (IEnumerable<IInstructionSourceProvider> sources,
 // mabaNum resolves the whole instrument from Priority; any explicit parameter overrides it.
 app.MapGet("/api/instructions/summary", async (
     string? mabaNum, string? calibRecordId, string? customer, string? customerId,
-    string? serial, string? deviceType, string? manufacturer, string? model,
-    InstructionAssistantService svc, PriorityRecordResolver resolver, CancellationToken ct) =>
+    string? serial, string? deviceType, string? manufacturer, string? model, bool? refresh,
+    InstructionAssistantService svc, PriorityRecordResolver resolver, SummaryCache cache,
+    CancellationToken ct) =>
 {
     var recordId = mabaNum ?? calibRecordId;   // calibRecordId kept as the older parameter name
 
@@ -87,8 +95,13 @@ app.MapGet("/api/instructions/summary", async (
             resolveNotice = $"מספר מבא '{recordId}' לא נמצא ב-Priority — נעשה שימוש בפרמטרים שהועברו בלבד.";
     }
 
-    var summary = await svc.GetSummaryAsync(ctx, ct);
-    if (resolveNotice is not null) summary.Notices.Add(resolveNotice);
+    // Cached on the *resolved* context, so the same instrument reached by MABA number or by
+    // explicit parameters shares one entry.
+    var summary = await cache.GetOrCreateAsync(ctx, refresh ?? false, () => svc.GetSummaryAsync(ctx, ct));
+
+    if (resolveNotice is not null && !summary.Notices.Contains(resolveNotice))
+        summary.Notices.Add(resolveNotice);
+
     return Results.Ok(summary);
 });
 

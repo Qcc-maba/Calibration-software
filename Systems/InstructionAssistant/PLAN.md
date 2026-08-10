@@ -118,9 +118,32 @@ CUSTOMERS.CUSTNAME (קוד לקוח) ─► CUSTOMERS.CUST ─► ORDERS.ORD ─
 כפולים** — ולכן שובר-שוויון בדירוג הוא **תאריך שינוי, החדש קודם** (ולא סדר אלפביתי),
 כדי שלא יוגש לכייל מסמך ישן.
 
+## ביצועים — cache
+קריאה מלאה עולה **40–48 שניות**, כמעט הכל הקריאה ל-Claude. `SummaryCache` שומר סיכום מוכן
+לפי ההקשר שנפתר (מספר מבא + כל שדה שמשפיע על ההתאמה). נמדד: **43.8 שניות → 0.0**.
+- TTL: `InstructionAssistant:CacheSeconds` (ברירת מחדל 1800 שניות; 0 מכבה).
+- `?refresh=true` עוקף את ה-cache ומחשב מחדש (נמדד 44.0 שניות).
+- **לא נשמרות** תשובות כושלות (`claude:error` / `none`) או ריקות — אחרת כשל רגעי היה ננעל
+  לחצי שעה בלי נקודות מפתח ואזהרות.
+
+## פריסה — שירות Windows
+`scripts\Install-InstructionAssistant-Service.ps1` (דורש הרשאות מנהל) עושה publish, רושם את
+השירות `MabaInstructionAssistant`, מגדיר restart-on-failure ומאמת `/health`.
+`Program.cs` קורא ל-`UseWindowsService()`, כך שאותו exe רץ גם כקונסולה בפיתוח.
+
+⚠️ **שתי מלכודות אמיתיות בפריסה, ושתיהן נבדקות ע"י הסקריפט:**
+1. **סודות** — שירות Windows רץ תחת חשבון אחר ולכן **אינו רואה** משתני סביבה ב-User scope.
+   `ANTHROPIC_API_KEY` ומחרוזת החיבור ל-Priority נכתבים ב-**Machine** scope. מחרוזת החיבור
+   ממילא יושבת רק ב-`appsettings.Development.json` שאינו בגיט ואינו נטען ב-Production.
+2. **גישה לרשת** — שירות שרץ כ-LocalSystem **לא יגיע ל-`\\maba-dc`**. אם `/health` מחזיר
+   `centralExcelExists=false`, יש לתת לשירות חשבון דומיין עם הרשאת קריאה לשיתוף
+   (services.msc → Log On).
+
 ## מה עדיין פתוח
-- **קריאה מה-UI** — ראה `app/src/server/api/routers/instructions/` (מימוש tRPC) ; שרת ה-VCT
-  עצמו (.NET 4.8) לא מחזיק `MBANUM` בשום מקום, ולכן נקודת החיבור הנכונה היא ה-UI.
+- **קריאה מה-UI** — מומש ב-`app/src/server/api/routers/instructions/` + הפאנל בוויזרד
+  (ענף `feature/calibration-customer-instructions`); נשאר להגדיר `INSTRUCTION_ASSISTANT_URL`
+  ולמזג. שרת ה-VCT עצמו (.NET 4.8) לא מחזיק `MBANUM` בשום מקום, ולכן ה-UI היא נקודת החיבור.
+- **כיסוי לקוחות** — רק ללומניס יש קבצי הוראות; לקוחות אחרים יקבלו את תנאי ההזמנה מפריוריטי בלבד.
 
 ## סטטוס
 - [x] תכנית + פרויקט net10 עצמאי

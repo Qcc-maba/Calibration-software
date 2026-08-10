@@ -15,6 +15,14 @@ public sealed class InstructionAssistantOptions
 
     /// <summary>Replace customer names with an opaque id before sending text to the cloud.</summary>
     public bool RedactCustomerNames { get; set; } = false;
+
+    /// <summary>
+    /// How long a finished summary is reused for the same instrument. A lookup takes 40–48s while
+    /// the underlying ECS files and order text change rarely, so a calibrator moving between the
+    /// instruments of an order should not pay that wait twice. 0 disables caching; callers can
+    /// always force a recompute with <c>?refresh=true</c>.
+    /// </summary>
+    public int CacheSeconds { get; set; } = 1800;
 }
 
 public sealed class FileShareOptions
