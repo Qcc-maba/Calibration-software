@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Maba.VCT.CustomerPortalApi</RootNamespace>
+    <AssemblyName>Maba.VCT.CustomerPortalApi</AssemblyName>
+    <!-- Standalone net10 web service that owns the customer-portal e-mail (OTP) login.
+         Same deployment pattern as Maba.VCT.InstructionAssistant: the web front end calls it
+         over HTTP, it is the only tier that talks to Calibrator and to the mail server. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MailKit" Version="4.17.0" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Attached to the OTP mail by content id, so it renders even when the client blocks
+         remote images. -->
+    <EmbeddedResource Include="Assets\Logo.png" />
+  </ItemGroup>
+
+</Project>
