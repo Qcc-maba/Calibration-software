@@ -1,35 +1,39 @@
+﻿-- =============================================
+-- Proc:        stg.MergeOrdersData   (original author: Eduard Kudlaiev, 02/04/2025)
+-- Description: Merges orders/order-details/order-items from the Priority staging tables into the
+--              live dbo tables. This file mirrors the definition CURRENTLY DEPLOYED on STAGE.
+--
+-- 2026-08-10 change (STAGE only): appended an incremental CRM-cache top-up
+--              (EXEC dbo.RefreshCrmTextCache @IncrementalOnly = 1) at the end of the proc,
+--              wrapped in TRY/CATCH so a cache failure can never fail the order sync.
+--              Rationale: this sync is what introduces new PART/SERN keys, so hooking the top-up
+--              here keeps dbo.CrmPartInfo / CrmCatalogText / CrmDeviceText fresh with NO SQL Agent
+--              job - the app login (app_stage) is db_owner on Calibrator but has no server-level
+--              rights, so it cannot create one. Measured: sync 0.32s when nothing is new (the
+--              top-up issues zero linked-server traffic in that case), 1.21s when one key had to
+--              be fetched. Verified end-to-end by deleting dbo.CrmPartInfo PART 698, running the
+--              sync, and seeing it return with FamilyDescription = מאזניים.
+--
+-- KNOWN BUG, NOT FIXED HERE - change detection is inverted (see ALTER_stg.MergeOrdersData.sql):
+--   * OrderDetails MERGE: 12 predicates correctly use <>, but MainCategoryId and
+--     SecondaryCategoryId use '=' - so the OR'd group is TRUE whenever those values MATCH.
+--   * OrderDetailsItems MERGE: WORSE. Most predicates use '=', the closing parenthesis of the
+--     AND(...) group is misplaced (it lands after the NextCalibrationDate predicate, leaving the
+--     rest as top-level ORs), and one predicate - COALESCE(dest.[Doc],0) = source.[Doc] - is
+--     tautological because the MERGE ON clause already requires source.Doc = dest.Doc.
+--     Net effect: every matched row is updated on every single run, unconditionally.
+--   Scale on STAGE: 1,072 staging rows feed the details MERGE and 290 feed the items MERGE, all
+--   re-written each run. Fixing this changes sync semantics on a shared path, so it is left for
+--   an explicit approval rather than bundled with the cache hook.
+-- =============================================
 
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 02/04/2025
 -- Description:	Merge orders data from amaba
--- JiraLink: MBA-420 (Data isn't syncing) -- DBA sync fix: correct change-detection predicates in stg.MergeOrdersData
---
--- FIX (change-detection bug): In the OrderDetails MERGE, the WHEN MATCHED AND (...)
--- change-detection group used '=' instead of '<>' for two predicates
--- (MainCategoryId, SecondaryCategoryId). Because these OR'd predicates were TRUE
--- whenever the values MATCHED, the UPDATE fired on virtually every matched row on
--- every run (~235K no-op updates/day). Both are corrected to '<>' so the UPDATE
--- fires only when at least one tracked column actually changed.
--- SET assignments, JOIN/ON conditions, and MERGE...ON keys are unchanged.
---
--- STATUS 2026-08-10: THIS ALTER WAS NEVER DEPLOYED. Checked against the live STAGE definition:
--- it still carries the buggy '=' form (1 match for '=', 0 for '<>' on MainCategoryId), so the
--- no-op updates are still happening. See stg.MergeOrdersData.sql for what is actually deployed.
---
--- ALSO: this ALTER is INCOMPLETE. It only fixes the OrderDetails MERGE. The OrderDetailsItems
--- MERGE further down is worse and is NOT addressed here:
---   * most of its change-detection predicates use '=' rather than '<>';
---   * the closing parenthesis of the AND(...) group is misplaced - it lands after the
---     NextCalibrationDate predicate, so the remaining predicates become top-level ORs;
---   * COALESCE(dest.[Doc],0) = source.[Doc] is tautological, because the MERGE ON clause
---     already requires source.Doc = dest.Doc.
--- Net effect: every matched row in that MERGE is updated on every run, unconditionally - which
--- is the real bulk of the no-op writes, not the two predicates fixed here.
--- Scale on STAGE: 1,072 staging rows feed the details MERGE, 290 feed the items MERGE.
--- Deploying either fix changes sync semantics on a shared path, so it needs explicit approval.
+-- JiraLink: 
 -- =============================================
-CREATE OR ALTER PROCEDURE [stg].[MergeOrdersData]
+CREATE   PROCEDURE [stg].[MergeOrdersData]
 AS
 BEGIN
 
@@ -90,7 +94,7 @@ FROM [dbo].[Statuses] as s
 JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
 WHERE sc.StatusDescriptionENG IN('OrderStatus','ReportStatus','CalibrationStatuses')
 
-DECLARE @InintialOrderStatus INT
+DECLARE @InintialOrderStatus INT  
 SELECT @InintialOrderStatus = StatusId FROM #OrderStatus as os WHERE os.StatusType = N'OrderStatus' AND os.StatusDescriptionENG = 'WaitingForCalibration'
 
 MERGE INTO [dbo].[OrderWorkPlans] AS dest
@@ -151,9 +155,9 @@ USING (
 	SELECT DISTINCT
 	    wp.[OrderWorkPlanId]
 		,o.[SpecialCareTypeId]
-		,CASE
-			WHEN RIGHT(o.[PartName], 2) IN ('-7','-8','-9') AND TRY_CAST(RIGHT(o.[PartName], 2) AS INT) IS NOT NULL THEN 0
-			WHEN RIGHT(o.[PartName], 2) IN ('-3','-0','-1') AND TRY_CAST(RIGHT(o.[PartName], 2) AS INT) IS NOT NULL THEN 1 --10 should be external
+		,CASE 
+			WHEN RIGHT(o.[PartName], 2) IN ('-7','-8','-9') AND TRY_CAST(RIGHT(o.[PartName], 2) AS INT) IS NOT NULL THEN 0 
+			WHEN RIGHT(o.[PartName], 2) IN ('-3','-0','-1') AND TRY_CAST(RIGHT(o.[PartName], 2) AS INT) IS NOT NULL THEN 1 --10 should be external 
 		ELSE NULL END  as [IsInHouse]
 		,o.[PartName]
 		--,o.[KLINE]
@@ -164,9 +168,9 @@ USING (
 		,0 as [UpdateUserID]
 		,o.OrderLineCnt
 		,pt.OrdersProductTypeId
-		,o.DeviceType
+		,o.DeviceType 
 		,o.OrderDetailId as OrderDetailSourceId
-		,o.VPRICE
+		,o.VPRICE	
 		,o.PRICE
 		,mc.[ID] as [MainCategoryId]
 		,sc.ID as [SecondaryCategoryId]
@@ -182,7 +186,7 @@ USING (
     LEFT JOIN [dbo].[Customers] as c ON c.CustomerIdFromSource = o.CustomerSourceId AND c.SourceId = s.SourceId AND c.IsDeleted = 0
 	LEFT JOIN [dbo].[CustomerSites] as cs ON c.CustomerId = cs.CustomerId AND cs.CustomerSiteCode = o.[DESTCODE] AND cs.IsDeleted = 0
 	) AS source
-	ON dest.[OrderWorkPlanId] = source.[OrderWorkPlanId] AND source.OrderDetailSourceId = dest.[OrderDetailSourceId]
+	ON dest.[OrderWorkPlanId] = source.[OrderWorkPlanId] AND source.OrderDetailSourceId = dest.[OrderDetailSourceId] 
 WHEN MATCHED AND
 	(
 		  COALESCE(dest.[SpecialCareTypeId],0) <> COALESCE(source.[SpecialCareTypeId],0)
@@ -192,9 +196,9 @@ WHEN MATCHED AND
 		OR COALESCE(dest.[PART],0) <> COALESCE(source.[PART],0)
 		OR COALESCE(dest.[VPRICE],0) <> COALESCE(source.[VPRICE],0)
 		OR COALESCE(dest.[PRICE],0) <> COALESCE(source.[PRICE],0)
-		OR COALESCE(dest.[MainCategoryId],0) <> COALESCE(source.[MainCategoryId],0)
-		OR COALESCE(dest.[SecondaryCategoryId],0) <> COALESCE(source.[SecondaryCategoryId],0)
-		OR COALESCE(dest.[CustomerPackingExists],0) <> COALESCE(source.[CustomerPackingExists],0)
+		OR COALESCE(dest.[MainCategoryId],0) = COALESCE(source.[MainCategoryId],0)
+		OR COALESCE(dest.[SecondaryCategoryId],0) = COALESCE(source.[SecondaryCategoryId],0)
+		OR COALESCE(dest.[CustomerPackingExists],0) <> COALESCE(source.[CustomerPackingExists],0) 
 		OR COALESCE(dest.[CustomerSiteId],0) <> COALESCE(source.[CustomerSiteId],0)
 		OR COALESCE(dest.[PackageLocation],'') <> COALESCE(source.[PackageLocation],'')
 		OR COALESCE(dest.[PartName],'') <> COALESCE(source.[PartName],'')
@@ -233,7 +237,7 @@ WHEN NOT MATCHED BY TARGET
 			,[OrdersProductTypeId]
 			,[PART]
 			,[OrderDetailSourceId]
-			,[VPRICE]
+			,[VPRICE]	
 			,[PRICE]
 			,[MainCategoryId]
 			,[SecondaryCategoryId]
@@ -255,7 +259,7 @@ WHEN NOT MATCHED BY TARGET
 			,source.[OrdersProductTypeId]
 			,source.[PART]
 			,source.[OrderDetailSourceId]
-			,source.[VPRICE]
+			,source.[VPRICE]	
 			,source.[PRICE]
 			,source.[MainCategoryId]
 			,source.[SecondaryCategoryId]
@@ -274,7 +278,7 @@ USING (
 		,o.[SpecialCareTypeId]
 		,o.[InHouse] as [IsInHouse]
 		,o.[PartName]
-		,NULL AS [MbaReportNumber]
+		,o.[MbaReportNumber]
 		,c.[CustomerId]
 		,o.[KLINE]
 		,o.[SERN]
@@ -307,7 +311,7 @@ USING (
 	WHERE o.OrderDetailId IS NOT NULL AND o.Doc IS NOT NULL
 	) AS source
 	ON dest.OrderDetailId = source.OrderDetailId AND source.[Doc] = dest.[Doc]
-/* WHEN MATCHED
+  WHEN MATCHED
         AND (COALESCE(dest.[SerialNumber],'') = COALESCE(source.[SerialNumber],'')
 		OR COALESCE(dest.[ManufacturerNumber],'') = COALESCE(source.[ManufacturerNumber],'')
 		OR COALESCE(dest.[DeviceModel],'') = COALESCE(source.[DeviceModel],'')
@@ -320,13 +324,13 @@ USING (
 		OR COALESCE(dest.[AdditionalDeviceNumber],'')<> COALESCE(source.[AdditionalDeviceNumber],'')
 		OR COALESCE(dest.[ActualCalibrationDate],'1900-01-01') <> COALESCE(source.[ActualCalibrationDate],'1900-01-01')
 		OR COALESCE(dest.CustomerReceivingDate,'1900-01-01') <> COALESCE(source.CustomerReceivingDate,'1900-01-01')
- 		--OR COALESCE(dest.CalibrationStatusId,0) = IIF(source.CalibrationStatusId = -1,dest.CalibrationStatusId,source.CalibrationStatusId) -- Calibration status can not be delivered, but on source report and calibration statuses same column
-		OR COALESCE(dest.CalibrationReportStatusId,0) = source.[CalibrationReportStatusId]
+ 		--OR COALESCE(dest.CalibrationStatusId,0) = IIF(source.CalibrationStatusId = -1,dest.CalibrationStatusId,source.CalibrationStatusId) -- Calibration status can not be delivered, but on source report and calibration statuses same column 
+		--OR COALESCE(dest.CalibrationReportStatusId,0) = source.[CalibrationReportStatusId]
 		OR COALESCE(dest.[ShippingDoc],'') = COALESCE(source.[ShippingDoc],'')
 		OR COALESCE(dest.[ShippingAddress],'') = COALESCE(source.[ShippingAddress],'')
 		OR COALESCE(dest.[DOC_N],0) = COALESCE(source.[DOC_N],0)
-		OR COALESCE(dest.[ActualReturnDate],'1900-01-01') <> COALESCE(source.[ActualReturnDate],'1900-01-01')
-		OR COALESCE(dest.[ExpectedReturnDate],'1900-01-01') <> COALESCE(source.[ExpectedReturnDate],'1900-01-01')
+		OR COALESCE(dest.[ActualReturnDate],'1900-01-01') <> COALESCE(source.[ActualReturnDate],'1900-01-01') 
+		OR COALESCE(dest.[ExpectedReturnDate],'1900-01-01') <> COALESCE(source.[ExpectedReturnDate],'1900-01-01') 
 
 
 	THEN
@@ -342,15 +346,15 @@ USING (
 			,dest.[NextCalibrationDate] = source.[NextCalibrationDate]
 			,dest.[AdditionalDeviceNumber] = source.[AdditionalDeviceNumber]
 			,dest.[ActualCalibrationDate] = source.[ActualCalibrationDate]
-			,dest.[CalibrationReportStatusId] = IIF(dest.[UpdateUserID] = 0,source.[CalibrationReportStatusId],dest.[CalibrationReportStatusId])
-		   -- ,dest.[CalibrationStatusId] = IIF(dest.[UpdateUserID] = 0 and source.CalibrationStatusId > 0,source.CalibrationStatusId,dest.CalibrationStatusId) -- Calibration status can not be delivered, but on source report and calibration statuses same column
+			--,dest.[CalibrationReportStatusId] = IIF(dest.[UpdateUserID] = 0,source.[CalibrationReportStatusId],dest.[CalibrationReportStatusId])
+		   -- ,dest.[CalibrationStatusId] = IIF(dest.[UpdateUserID] = 0 and source.CalibrationStatusId > 0,source.CalibrationStatusId,dest.CalibrationStatusId) -- Calibration status can not be delivered, but on source report and calibration statuses same column 
 		    ,dest.[CustomerReceivingDate] = source.[CustomerReceivingDate]
 		    ,dest.[ShippingDoc] = source.[ShippingDoc]
 		    ,dest.[ShippingAddress] = source.[ShippingAddress]
 			,dest.[DOC_N] = source.[DOC_N]
 			,dest.[ActualReturnDate] = source.[ActualReturnDate]
 			,dest.[ExpectedReturnDate] = source.[ExpectedReturnDate]
-			*/
+			
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -406,5 +410,20 @@ WHEN NOT MATCHED BY TARGET
 			,source.[OrdersDeviceManufacturer]
 			);
 
+			
 
+	/* ---------------------------------------------------------------------------------------
+	   Top up the Priority CRM cache (dbo.CrmCatalogText / CrmDeviceText / CrmPartInfo) for any
+	   PART/SERN this sync just introduced. Hooked here on purpose: this sync is what creates new
+	   keys, so the cache cannot drift and needs no SQL Agent job (the app login is db_owner on
+	   Calibrator but has no server-level rights, so it cannot create one).
+	   Incremental mode costs ~0.1s and issues NO linked-server traffic when nothing is new.
+	   TRY/CATCH: a CRM top-up must never fail the order sync.
+	   --------------------------------------------------------------------------------------- */
+	BEGIN TRY
+		EXEC dbo.RefreshCrmTextCache @IncrementalOnly = 1;
+	END TRY
+	BEGIN CATCH
+		/* swallowed on purpose - see above */
+	END CATCH
 END
