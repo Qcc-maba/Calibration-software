@@ -30,8 +30,13 @@ var mode = builder.Configuration[$"{InstructionAssistantOptions.SectionName}:Sum
 if (string.Equals(mode, "Extractive", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddSingleton<IInstructionSummarizer, ExtractiveSummarizer>();
 else
+{
+    var timeoutSeconds =
+        builder.Configuration.GetValue<int?>($"{InstructionAssistantOptions.SectionName}:Summarizer:TimeoutSeconds")
+        ?? 180;
     builder.Services.AddHttpClient<IInstructionSummarizer, ClaudeSummarizer>(c =>
-        c.Timeout = TimeSpan.FromSeconds(60));
+        c.Timeout = TimeSpan.FromSeconds(timeoutSeconds));
+}
 
 builder.Services.AddSingleton<InstructionAssistantService>();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>

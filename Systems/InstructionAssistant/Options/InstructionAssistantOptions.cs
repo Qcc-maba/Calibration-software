@@ -64,6 +64,13 @@ public sealed class SummarizerOptions
 
     /// <summary>Total characters of combined source text sent to the model.</summary>
     public int MaxPromptChars { get; set; } = 60_000;
+
+    /// <summary>
+    /// HTTP timeout for the Anthropic call. Measured 40–46s for a full instrument (a ~60k-char
+    /// prompt over four sources), so the old 60s ceiling was close enough to trip; keep generous
+    /// headroom — the panel loads asynchronously and a truncated answer is worse than a slow one.
+    /// </summary>
+    public int TimeoutSeconds { get; set; } = 180;
 }
 
 public sealed class PriorityInstructionOptions
