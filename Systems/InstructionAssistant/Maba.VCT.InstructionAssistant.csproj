@@ -13,6 +13,7 @@
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.105.1" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
+    <PackageReference Include="PdfPig" Version="0.1.15" />
   </ItemGroup>
 
   <!-- PDF / Word / OCR extraction packages are added once the real network file formats

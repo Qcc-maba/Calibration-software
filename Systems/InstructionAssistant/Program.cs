@@ -14,6 +14,7 @@ builder.Services
 // Text extraction
 builder.Services.AddSingleton<IDocumentTextExtractor, PlainTextExtractor>();
 builder.Services.AddSingleton<IDocumentTextExtractor, DocxTextExtractor>();
+builder.Services.AddSingleton<IDocumentTextExtractor, PdfTextExtractor>();
 builder.Services.AddSingleton<CompositeTextExtractor>();
 
 // Instruction sources

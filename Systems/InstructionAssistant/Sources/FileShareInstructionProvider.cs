@@ -55,8 +55,12 @@ public sealed class FileShareInstructionProvider(
             }
         }
 
+        // The share keeps revised copies of the same instruction (there is a "מעודכן 2025"
+        // sub-folder holding newer versions under the same file names), so equally-scoring
+        // candidates are broken by modification time — newest first — not alphabetically.
         var top = scored
             .OrderByDescending(s => s.score)
+            .ThenByDescending(s => LastWriteOrMin(s.path))
             .ThenBy(s => s.path)
             .Take(_fs.MaxFiles)
             .ToList();
@@ -76,6 +80,12 @@ public sealed class FileShareInstructionProvider(
             docs.Add(doc);
         }
         return docs;
+    }
+
+    private static DateTime LastWriteOrMin(string path)
+    {
+        try { return File.GetLastWriteTimeUtc(path); }
+        catch { return DateTime.MinValue; }
     }
 
     /// <summary>Match keys ordered so the caller can weight serial &gt; customer &gt; device.</summary>
