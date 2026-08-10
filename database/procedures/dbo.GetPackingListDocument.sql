@@ -1,10 +1,17 @@
--- =============================================
+﻿-- =============================================
 -- Proc:        dbo.GetPackingListDocument
 -- Jira:        MBA-826 ("Change the order number on packing screen to packing list document, starts with 'D'")
 -- Description: Returns the packing-list / delivery document (תעודת משלוח) for an order — the
 --              value in OrderDetailsItems.ShippingDoc, which starts with 'D' (e.g. D26008046).
---              One packing-list document per order (verified on STAGE: 1 distinct D-doc / order).
 --              The packing screen should show this instead of the order number.
+--
+--              NOT one document per order (earlier note here claimed that — it is wrong).
+--              Re-verified on STAGE 2026-08-10: 21 orders carry 2+ distinct D-docs, e.g.
+--              LA26101961 → D26005338 (9 items) + D26005339 (15 items). This SP therefore
+--              returns ONE ROW PER (order, document) with its ItemsCount; the caller must
+--              decide what to show when an order has several (all of them / the latest /
+--              per-item). Also 1,058 of 2,575 items (41%) have NO ShippingDoc at all, so many
+--              orders legitimately have no D-doc yet and the screen has nothing to display.
 -- Param:       @OrderWorkPlanId INT = NULL  (NULL = all orders that have a packing document)
 -- Returns:     OrderWorkPlanId, OrderNumber, PackingListDocument, ItemsCount
 -- =============================================
