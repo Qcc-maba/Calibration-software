@@ -88,6 +88,8 @@ public sealed class FileShareInstructionProvider(
                 keys.Add((v.Trim(), w, label));
         }
         Add(ctx.SerialNumber, 100, "מס' סידורי");
+        // The ECS files on the share are named after the customer's own asset number.
+        Add(ctx.CustomerAssetNumber, 90, "מספר נכס של הלקוח");
         Add(ctx.CustomerId, 40, "מספר לקוח");
         Add(ctx.CustomerName, 30, "שם לקוח");
         Add(ctx.Model, 15, "דגם");

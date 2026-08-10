@@ -38,10 +38,9 @@ JSON ל-UI / לשרת ה-VCT
 ## נקודות קצה (HTTP)
 | Method | URL | תיאור |
 |--------|-----|-------|
-| GET | `/api/instructions/summary?calibRecordId=` | זיהוי אוטומטי מרשומת הכיול |
-| GET | `/api/instructions/summary?customer=&serial=&deviceType=` | זיהוי לפי פרמטרים |
-| GET | `/api/instructions/search?q=` | חיפוש ידני של מכשירים/לקוחות |
-| GET | `/api/instructions/sources?...` | רשימת מסמכי מקור בלבד (בלי סיכום) — לניפוי |
+| GET | `/api/instructions/summary?mabaNum=2601047/7` | **זיהוי אוטומטי ממספר מבא** — שולף לקוח/יצרן/דגם/מס' סידורי מ-Priority |
+| GET | `/api/instructions/summary?customer=&serial=&deviceType=` | זיהוי לפי פרמטרים (כל פרמטר מפורש גובר על מה שנשלף אוטומטית) |
+| GET | `/api/instructions/search?q=DT4282` | חיפוש ידני — מחזיר מספרי מבא מועמדים לפי דגם/יצרן/מס' סידורי/לקוח |
 | GET | `/health` | בדיקת חיים + זמינות Claude/Priority/תיקיות |
 
 ## רכיבים
@@ -75,15 +74,38 @@ CUSTOMERS.CUSTNAME (קוד לקוח) ─► CUSTOMERS.CUST ─► ORDERS.ORD ─
 
 **3. מפתח Claude** — `ANTHROPIC_API_KEY` מוגדר ברמת User env.
 
+**4. זיהוי אוטומטי לפי מספר מבא** — `MBA_DOCLOAD` (טבלה, לא view) מחזיק
+`MBANUM → CUST, SERNDES, SERNUM, MNFDES, MODEL, MANUFC_SERIAL`. `PriorityRecordResolver`
+שולף משם את כל ההקשר, ולכן `?mabaNum=` לבדו מספיק.
+
+⚠️ **כיווניות שדות ב-Priority** — לא אחידה, ואומתה ב-SQL (בדיקה שאינה תלויה ברינדור מסך;
+אסור להסתמך על איך שזה נראה בקונסולה!). `MNFDES`, `SERNDES`, `CUSTOMERS.CUSTDES` שמורים
+ב"עברית ויזואלית" ישנה, ואילו `MODEL`, `SERNUM`, `MANUFC_SERIAL` שמורים כרגיל:
+
+| ראיה | ממצא |
+|------|------|
+| `MNFDES='IKOIH'` 2,676 שורות מול `'HIOKI'` 0 | לטינית הפוכה |
+| `SERNDES LIKE '%MMD%'` 100,563 מול `'%DMM%'` 0 | לטינית הפוכה |
+| `SERNDES LIKE '%מולטימטר%'` 84,999 שורות | **העברית דווקא תקינה** |
+| `'מוט אורך מסטר 521'` (= מוט 125 מ"מ) | גם ספרות הפוכות |
+| `MODEL='DT4282'` 34 שורות | תקין, לא להפוך |
+| `CUSTDES LIKE '%DTL%'` 183 מול `'%LTD%'` 0 | לומניס שמור `CSB DTL SINEMUL` |
+
+לכן `FixVisualHebrew` הופך **כל רצף לטיני/ספרתי בנפרד** ומשאיר את העברית במקומה, ורק ערך
+נטול-עברית מתהפך במלואו כולל סדר המילים (`CSB DTL SINEMUL` → `LUMENIS LTD BSC`).
+
+**שים לב:** יש **שני** לקוחות לומניס — `CUSTNAME=1863` (`CUST=946`, LUMENIS LTD BSC — זה של
+תיקיית "ECS לומניס בוסטון") ו-`CUSTNAME=9732` (`CUST=9330`, לומניס בי בע"מ). ההוראות עצמן
+מזהירות לוודא זיהוי נכון בין השניים.
+
 ## מה עדיין פתוח
-1. **אינטגרציית זיהוי אוטומטי**: מאיפה מגיע מזהה הכיול בזמן העבודה. סוכם שהמזהה הוא
-   **מספר מבא (`MBANUM`)** — `MBA_DOCLOAD` מחזיק `MBANUM → CUST, SERNUM, MNFDES, MODEL`,
-   כלומר בדיוק מה שדרוש. נשאר לחבר את הפרמטר ל-endpoint ולמשוך את השדות.
-2. **חילוץ PDF** — טרם ממומש (חבילת PdfPig אינה זמינה בפיד ה-NuGet הנוכחי בגרסה יציבה
+1. **חילוץ PDF** — טרם ממומש (חבילת PdfPig אינה זמינה בפיד ה-NuGet הנוכחי בגרסה יציבה
    שתואמת net10). כרגע לא חוסם: ה-PDF בתיקייה הם ייצוא של אותם `.docx` שכן נקראים.
    `.doc` בינארי ישן ו-OCR לסרוקים גם הם עדיין לא נתמכים.
-3. **לקוחות נוספים** — כרגע מוגדר שורש רשת אחד. כשיתווספו לקוחות, להוסיף שורשים
+2. **לקוחות נוספים** — כרגע מוגדר שורש רשת אחד. כשיתווספו לקוחות, להוסיף שורשים
    ל-`FileShare:Roots` (ההתאמה כבר תומכת בכמה שורשים).
+3. **קריאה מהשרת/UI** — השירות מוכן; נשאר לחבר את שרת ה-VCT (.NET 4.8) שיקרא
+   `/api/instructions/summary?mabaNum=…` ויציג את הסיכום לכייל.
 
 ## סטטוס
 - [x] תכנית + פרויקט net10 עצמאי
@@ -91,5 +113,6 @@ CUSTOMERS.CUSTNAME (קוד לקוח) ─► CUSTOMERS.CUST ─► ORDERS.ORD ─
 - [x] ExcelInstructionProvider — האקסל המרכזי, התאמה לפי יצרן+דגם, קריאה עמידה לקובץ נעול
 - [x] FileShareInstructionProvider + חילוץ `.docx` (ללא תלות ב-OpenXML SDK)
 - [x] PriorityInstructionSource — `ORDERSTEXT` מול `amaba`, כולל היפוך הטקסט ואיחוד תנאים קבועים
+- [x] `PriorityRecordResolver` — `?mabaNum=` לזיהוי אוטומטי + `/search` למציאת מספר מבא
 - [ ] חילוץ PDF/`.doc` + OCR לסרוקים
-- [ ] אינטגרציית `MBANUM` לזיהוי אוטומטי (במקום העברת customer/serial ידנית)
+- [ ] קריאה מהשרת/UI של VCT

@@ -21,6 +21,9 @@ builder.Services.AddSingleton<IInstructionSourceProvider, ExcelInstructionProvid
 builder.Services.AddSingleton<IInstructionSourceProvider, FileShareInstructionProvider>();
 builder.Services.AddSingleton<IInstructionSourceProvider, PriorityInstructionSource>();
 
+// Resolves a MABA number (מספר מבא) to the full instrument context.
+builder.Services.AddSingleton<PriorityRecordResolver>();
+
 // Summarizer — pick by config Mode (Claude cloud vs offline extractive)
 var mode = builder.Configuration[$"{InstructionAssistantOptions.SectionName}:Summarizer:Mode"] ?? "Claude";
 if (string.Equals(mode, "Extractive", StringComparison.OrdinalIgnoreCase))
@@ -46,15 +49,18 @@ app.MapGet("/health", (IEnumerable<IInstructionSourceProvider> sources,
     centralExcelExists = !string.IsNullOrWhiteSpace(opt.Value.CentralExcel.Path) && File.Exists(opt.Value.CentralExcel.Path),
 }));
 
-// Auto (calibRecordId) OR manual (customer/serial/deviceType) — "both" per the chosen design.
+// Auto (mabaNum) OR manual (customer/serial/deviceType) — "both" per the chosen design.
+// mabaNum resolves the whole instrument from Priority; any explicit parameter overrides it.
 app.MapGet("/api/instructions/summary", async (
-    string? calibRecordId, string? customer, string? customerId,
+    string? mabaNum, string? calibRecordId, string? customer, string? customerId,
     string? serial, string? deviceType, string? manufacturer, string? model,
-    InstructionAssistantService svc, CancellationToken ct) =>
+    InstructionAssistantService svc, PriorityRecordResolver resolver, CancellationToken ct) =>
 {
-    var ctx = new InstrumentContext
+    var recordId = mabaNum ?? calibRecordId;   // calibRecordId kept as the older parameter name
+
+    var explicitCtx = new InstrumentContext
     {
-        CalibRecordId = calibRecordId,
+        CalibRecordId = recordId,
         CustomerName = customer,
         CustomerId = customerId,
         SerialNumber = serial,
@@ -63,22 +69,43 @@ app.MapGet("/api/instructions/summary", async (
         Model = model,
     };
 
+    var ctx = explicitCtx;
+    string? resolveNotice = null;
+
+    if (!string.IsNullOrWhiteSpace(recordId))
+    {
+        var resolved = await resolver.ResolveAsync(recordId, ct);
+        if (resolved is not null)
+            ctx = resolved.MergeWith(explicitCtx);
+        else
+            resolveNotice = $"מספר מבא '{recordId}' לא נמצא ב-Priority — נעשה שימוש בפרמטרים שהועברו בלבד.";
+    }
+
     var summary = await svc.GetSummaryAsync(ctx, ct);
-
-    // Auto-resolution from a calibration record (looking up customer/serial by id) is pending
-    // the MABA/VCT records integration — flag it so callers know why an id-only call is empty.
-    if (!string.IsNullOrWhiteSpace(calibRecordId) && string.IsNullOrWhiteSpace(serial) && string.IsNullOrWhiteSpace(customer))
-        summary.Notices.Add("זיהוי אוטומטי מרשומת הכיול עדיין לא מחובר — יש להעביר customer/serial עד להשלמת האינטגרציה.");
-
+    if (resolveNotice is not null) summary.Notices.Add(resolveNotice);
     return Results.Ok(summary);
 });
 
-// Manual search entry point — resolver pending the records integration.
-app.MapGet("/api/instructions/search", (string q) => Results.Ok(new
+// Manual fallback — find the MABA number by serial / model / manufacturer / customer.
+app.MapGet("/api/instructions/search", async (
+    string q, PriorityRecordResolver resolver, CancellationToken ct) =>
 {
-    query = q,
-    results = Array.Empty<object>(),
-    note = "חיפוש ידני ימומש מול רשומות MABA/VCT או Priority לאחר חיבור מקור החיפוש.",
-}));
+    var hits = await resolver.SearchAsync(q, 20, ct);
+    return Results.Ok(new
+    {
+        query = q,
+        results = hits.Select(h => new
+        {
+            mabaNum = h.CalibRecordId,
+            customerId = h.CustomerId,
+            customer = h.CustomerName,
+            deviceType = h.DeviceType,
+            manufacturer = h.Manufacturer,
+            model = h.Model,
+            serial = h.SerialNumber,
+            customerAssetNumber = h.CustomerAssetNumber,
+        }),
+    });
+});
 
 app.Run();

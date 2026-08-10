@@ -89,4 +89,18 @@ public sealed class PriorityInstructionOptions
 
     /// <summary>Truncate each order's text at this length before it reaches the summarizer.</summary>
     public int MaxCharsPerOrder { get; set; } = 20_000;
+
+    /// <summary>
+    /// Columns held in legacy "visual Hebrew": Hebrew letters sit in normal logical order, but
+    /// every Latin/digit token inside them is stored backwards, and a value with no Hebrew at all
+    /// is stored fully reversed including word order. Un-scrambled on read by
+    /// <c>PriorityRecordResolver.FixVisualHebrew</c>.
+    ///
+    /// Verified live by SQL (rendering-independent) 2026-08-04:
+    /// MNFDES "IKOIH" 2,676 rows vs "HIOKI" 0 · SERNDES "%MMD%" 100,563 vs "%DMM%" 0, yet the
+    /// Hebrew "מולטימטר" matches forward in 84,999 rows · digits likewise reversed
+    /// ("מוט אורך מסטר 521" = a 125mm rod) · CUSTDES "%DTL%" 183 vs "%LTD%" 0, Lumenis stored
+    /// "CSB DTL SINEMUL". MODEL / SERNUM / MANUFC_SERIAL are stored forward and are NOT listed.
+    /// </summary>
+    public List<string> VisualHebrewFields { get; set; } = ["MNFDES", "SERNDES", "CUSTDES"];
 }

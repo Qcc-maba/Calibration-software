@@ -104,7 +104,12 @@ public sealed partial class PriorityInstructionSource(
         SqlConnection conn, InstrumentContext ctx, CancellationToken ct)
     {
         const string byCode = "SELECT TOP 1 CUST, CUSTDES FROM CUSTOMERS WHERE CUSTNAME = @v";
-        const string byName = "SELECT TOP 1 CUST, CUSTDES FROM CUSTOMERS WHERE CUSTDES LIKE @v ORDER BY CUST DESC";
+        // CUSTDES is visual Hebrew — a Latin name is stored reversed, so match either orientation.
+        const string byName = """
+            SELECT TOP 1 CUST, CUSTDES FROM CUSTOMERS
+            WHERE CUSTDES LIKE @v OR CUSTDES LIKE @vRev
+            ORDER BY CUST DESC
+            """;
 
         if (!string.IsNullOrWhiteSpace(ctx.CustomerId))
         {
@@ -128,9 +133,13 @@ public sealed partial class PriorityInstructionSource(
     {
         await using var cmd = new SqlCommand(sql, conn);
         cmd.Parameters.Add("@v", SqlDbType.NVarChar, 100).Value = value;
+        if (sql.Contains("@vRev", StringComparison.Ordinal))
+            cmd.Parameters.Add("@vRev", SqlDbType.NVarChar, 100).Value =
+                $"%{PriorityRecordResolver.Reverse(value.Trim('%'))}%";
         await using var r = await cmd.ExecuteReaderAsync(ct);
         if (!await r.ReadAsync(ct)) return null;
-        return (r.GetInt32(0), r.IsDBNull(1) ? "" : r.GetString(1));
+        // CUSTDES is stored visual-Hebrew; un-scramble it so the match reason is readable.
+        return (r.GetInt32(0), r.IsDBNull(1) ? "" : PriorityRecordResolver.FixVisualHebrew(r.GetString(1)));
     }
 
     private async Task<List<(int Ord, string OrdName)>> GetRecentOrdersWithTextAsync(
