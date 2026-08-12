@@ -65,6 +65,17 @@ public class OtpEmailTests
     }
 
     [Fact]
+    public void Build_LinksToTheCompanySite()
+    {
+        var (html, text) = Render();
+
+        // Shown as the bare domain, because clients that strip anchors still leave the text.
+        Assert.Contains("href=\"https://qcc.co.il\"", html);
+        Assert.Contains(">qcc.co.il</a>", html);
+        Assert.Contains("https://qcc.co.il", text);
+    }
+
+    [Fact]
     public void Build_AttachesTheLogoAsALinkedResource()
     {
         var message = OtpEmailBuilder.Build("someone@example.com", "123456", "אלירן", 10);
