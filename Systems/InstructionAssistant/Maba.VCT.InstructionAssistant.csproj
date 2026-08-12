@@ -10,6 +10,16 @@
          Same deployment pattern as Maba.VCT.Priority. -->
   </PropertyGroup>
 
+  <!-- Local dev configs hold real secrets (the Priority connection string). They are gitignored,
+       but the Web SDK also copies appsettings*.json into the publish output by default, which
+       would carry those secrets onto the deployment server. In Production the secrets come from
+       machine-scope environment variables instead — see
+       scripts/Install-InstructionAssistant-Service.ps1. -->
+  <ItemGroup>
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <Content Update="appsettings.Local.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.105.1" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
