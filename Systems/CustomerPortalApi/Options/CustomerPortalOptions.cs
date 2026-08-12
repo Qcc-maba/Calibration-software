@@ -56,5 +56,5 @@ public sealed class SmtpOptions
     /// <summary>Envelope sender. Microsoft 365 requires it to be the authenticated mailbox.</summary>
     public string From { get; set; } = string.Empty;
 
-    public string FromDisplayName { get; set; } = "מב\"א מעבדות כיול";
+    public string FromDisplayName { get; set; } = "מ.ב.א מעבדות כיול";
 }

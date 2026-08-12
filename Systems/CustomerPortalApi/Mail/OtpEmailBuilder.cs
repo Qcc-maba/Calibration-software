@@ -24,12 +24,12 @@ public static class OtpEmailBuilder
                 Environment.NewLine,
                 greeting,
                 string.Empty,
-                $"קוד הכניסה שלך לפורטל הלקוחות של מב\"א: {code}",
+                $"קוד הכניסה שלך לפורטל הלקוחות של מ.ב.א: {code}",
                 $"הקוד תקף ל-{expiresInMinutes} דקות וניתן לשימוש חד פעמי.",
                 string.Empty,
                 "אם לא ביקשת את הקוד, אפשר להתעלם מהודעה זו.",
                 string.Empty,
-                "מב\"א מעבדות כיול"),
+                "מ.ב.א מעבדות כיול"),
         };
 
         var logoBlock = TryAttachLogo(builder, out var logoCid)
@@ -46,13 +46,13 @@ public static class OtpEmailBuilder
               <div style="max-width:480px;margin:0 auto;background-color:#ffffff;border-radius:12px;padding:32px;text-align:right;">
                 {logoBlock}
                 <p style="margin:0 0 16px;font-size:16px;color:#1f2933;">{greeting}</p>
-                <p style="margin:0 0 24px;font-size:16px;color:#1f2933;">להלן קוד הכניסה שלך לפורטל הלקוחות של מב"א:</p>
+                <p style="margin:0 0 24px;font-size:16px;color:#1f2933;">להלן קוד הכניסה שלך לפורטל הלקוחות של מ.ב.א:</p>
                 <div style="margin:0 0 24px;padding:16px;background-color:#f0f4ff;border-radius:8px;text-align:center;">
                   <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#123a8c;">{code}</span>
                 </div>
                 <p style="margin:0 0 8px;font-size:14px;color:#52606d;">הקוד תקף ל-{expiresInMinutes} דקות וניתן לשימוש חד פעמי.</p>
                 <p style="margin:0 0 24px;font-size:14px;color:#52606d;">אם לא ביקשת את הקוד, אפשר להתעלם מהודעה זו.</p>
-                <p style="margin:0;font-size:14px;color:#9aa5b1;">מב"א מעבדות כיול</p>
+                <p style="margin:0;font-size:14px;color:#9aa5b1;">מ.ב.א מעבדות כיול</p>
               </div>
             </div>
             """;
