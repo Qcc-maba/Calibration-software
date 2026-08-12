@@ -38,8 +38,25 @@ dotnet run --project Systems/CustomerPortalApi        # http://localhost:5312
 dotnet test  Systems/CustomerPortalApi.Tests
 ```
 
+הפורט קבוע ב-`appsettings.json` (`Urls`), ו-`Properties/launchSettings.json` מכניס את `dotnet run`
+לסביבת Development — אין צורך במשתני סביבה. 5312 נבחר כדי לא להתנגש: 5311 הוא
+`Maba.VCT.InstructionAssistant`, ו-8765 הוא ה-WebSocket של שרת התקשורת של VCT.
+מאחורי reverse proxy אפשר לדרוס עם `ASPNETCORE_URLS`.
+
 להרצה מקומית: להעתיק את `appsettings.Development.example.json` ל-`appsettings.Development.json`
-ולמלא. הקובץ ב-gitignore.
+ולמלא. הקובץ ב-gitignore. `GET /health` מדווח אם ה-DB וה-SMTP נטענו.
+
+### מודל ההרצה
+
+בשלב הראשון הכל רץ על אותה מכונה — הממשק, השירות, ולעיתים גם ה-DB. במקרים אחרים ה-DB הוא של
+החברה באותה רשת. שני המצבים נתמכים דרך `ConnectionString` בלבד.
+
+שים לב שעל DB מקומי עצמאי **אין את ה-linked server לפריוריטי**, ולכן הנפילה לחיפוש ב-PHONEBOOK
+מושבתת בשקט (TRY/CATCH) והזיהוי מתבסס על `CustomerContacts` בלבד. בנוסף, שליחת הקוד דורשת
+יציאה לאינטרנט מהמכונה — בלעדיה `request-otp` יחזיר `sendFailed`.
+
+פורטל הלקוחות עצמו ירוץ בהמשך על כתובת נפרדת; מבחינת הממשק זה שינוי קונפיגורציה
+(`CUSTOMER_PORTAL_API_URL`) ולא שינוי קוד.
 
 ## קונפיגורציה (`CustomerPortal`)
 
