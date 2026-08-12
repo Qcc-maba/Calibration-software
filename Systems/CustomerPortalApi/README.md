@@ -65,12 +65,32 @@ dotnet test  Systems/CustomerPortalApi.Tests
 | `ConnectionString` | `Calibrator` / `CalibratorProd`. זה הרובד היחיד שמחזיק אותו. |
 | `OtpPepper` | מפתח ה-HMAC של הקודים. שינוי שלו פוסל קודים פתוחים — לא מזיק. |
 | `SessionSecret` | **חייב להיות זהה בתו** ל-`CUSTOMER_SESSION_SECRET` בממשק, שמאמת את אותו קוקי. |
-| `AllowedOrigins` | מקורות שמותר להם לקרוא עם credentials. |
+| `AllowedOrigins` | מקורות שמותר להם לקרוא עם credentials. רלוונטי רק לקריאה ישירה מהדפדפן. |
+| `ProxyApiKey` | סוד משותף שהממשק שולח בכותרת `X-Portal-Api-Key`. ריק = הבדיקה כבויה (פיתוח מקומי). |
+| `TrustedProxies` | כתובות reverse proxy שמותר להאמין ל-`X-Forwarded-For` שלהם. |
+| `RateLimit` | מכסה לקריאה לפי IP. ברירת מחדל: 20 קריאות ל-5 דקות. |
 | `SecureCookies` | `false` רק לפיתוח מקומי מעל HTTP. |
 | `Smtp` | Microsoft 365: `smtp.office365.com:587`, `UseImplicitTls: false` (STARTTLS). |
 
 ב-Microsoft 365 צריך ש-SMTP AUTH יהיה מאופשר על התיבה
 (`Set-CASMailbox -SmtpClientAuthenticationDisabled $false`), ואם יש MFA — App Password.
+
+## הגנות לפני חשיפה לאינטרנט
+
+לזרימת ה-OTP אין אימות ברמת *הקורא* — היא מאמתת את הלקוח, לא את הלקוח-תוכנה. ומכיוון
+ש-`request-otp` עונה אחרת לכתובת רשומה ולכתובת שאינה רשומה, מי שמגיע לשירות יכול לעבור על רשימת
+כתובות ולמפות מי לקוח. לכן:
+
+1. **`ProxyApiKey`** — כותרת `X-Portal-Api-Key` נדרשת בכל endpoint של ההתחברות. `/health` נשאר
+   פתוח לניטור. ההשוואה על digest ולא על המחרוזת, כדי שגם אורך המפתח לא ידלוף.
+2. **`RateLimit`** — מכסה לפי IP. ההגבלה שב-DB היא לפי *כתובת מייל*, ולכן היא לא עוזרת נגד קורא
+   שעובר על כתובות שונות.
+
+**חשוב:** מאחורי פרוקסי כל הבקשות מגיעות מכתובת אחת, ואז המכסה לפי IP הופכת לדלי אחד משותף לכל
+הלקוחות. כדי שזה יעבוד הפרוקסי חייב להעביר `X-Forwarded-For`, וכתובתו חייבת להופיע ב-`TrustedProxies`.
+בלי הרשימה הזו הכותרת לא נסמכת בכלל — אחרת כל קורא היה יכול לזייף את כתובתו ולעקוף את המכסה.
+
+בפיתוח מקומי שתי ההגנות לא מפריעות: `ProxyApiKey` ריק כברירת מחדל, והמכסה רחבה.
 
 ## תלויות ב-DB
 

@@ -30,11 +30,39 @@ public sealed class CustomerPortalOptions
     public string[] AllowedOrigins { get; set; } = [];
 
     /// <summary>
+    /// Shared secret the front end must send in the X-Portal-Api-Key header. The login endpoints
+    /// are otherwise open to anyone who can reach the service, and request-otp answers differently
+    /// for a registered and an unregistered address - enough to enumerate the customer list.
+    /// Empty disables the check, which is intended only for local development.
+    /// </summary>
+    public string ProxyApiKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Reverse proxies whose X-Forwarded-For may be believed. Leave empty unless the service sits
+    /// behind one: trusting the header from an arbitrary caller lets it forge its own address and
+    /// walk straight through the per-IP limit.
+    /// </summary>
+    public string[] TrustedProxies { get; set; } = [];
+
+    public RateLimitOptions RateLimit { get; set; } = new();
+
+    /// <summary>
     /// Set false only for local HTTP development; the session cookie is otherwise marked Secure.
     /// </summary>
     public bool SecureCookies { get; set; } = true;
 
     public SmtpOptions Smtp { get; set; } = new();
+}
+
+/// <summary>
+/// Caps how often one caller may hit the login endpoints. The database already limits codes per
+/// e-mail address, which does nothing against a caller walking a list of different addresses.
+/// </summary>
+public sealed class RateLimitOptions
+{
+    public int PermitPerWindow { get; set; } = 20;
+
+    public int WindowSeconds { get; set; } = 300;
 }
 
 public sealed class SmtpOptions
