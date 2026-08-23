@@ -18,6 +18,12 @@ public static class OtpEmailBuilder
     private const string SiteUrl = "https://qcc.co.il";
     private const string SiteLabel = "qcc.co.il";
 
+    /// <summary>
+    /// The full registered name, matching the logo in the header of this very message
+    /// ("מ.ב.א הזורע | טכנולוגיות כיול" / "QCC Hazorea Calibration Technologies").
+    /// </summary>
+    private const string CompanyName = "מ.ב.א הזורע טכנולוגיות כיול";
+
     public static MimeMessage Build(string toAddress, string code, string? contactName, int expiresInMinutes)
     {
         var greeting = string.IsNullOrWhiteSpace(contactName) ? "שלום," : $"שלום {contactName.Trim()},";
@@ -33,7 +39,7 @@ public static class OtpEmailBuilder
                 string.Empty,
                 "אם לא ביקשת את הקוד, אפשר להתעלם מהודעה זו.",
                 string.Empty,
-                "מ.ב.א מעבדות כיול",
+                CompanyName,
                 SiteUrl),
         };
 
@@ -59,7 +65,7 @@ public static class OtpEmailBuilder
                 </div>
                 <p style="margin:0 0 8px;font-size:14px;color:#52606d;">הקוד תקף ל-{expiresInMinutes} דקות וניתן לשימוש חד פעמי.</p>
                 <p style="margin:0 0 24px;font-size:14px;color:#52606d;">אם לא ביקשת את הקוד, אפשר להתעלם מהודעה זו.</p>
-                <p style="margin:0 0 4px;font-size:14px;color:#9aa5b1;">מ.ב.א מעבדות כיול</p>
+                <p style="margin:0 0 4px;font-size:14px;color:#9aa5b1;">{CompanyName}</p>
                 <p style="margin:0;font-size:14px;">
                   <a href="{SiteUrl}" target="_blank" style="color:#123a8c;text-decoration:none;">{SiteLabel}</a>
                 </p>
