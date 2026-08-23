@@ -1,3 +1,6 @@
+﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-08-23.
+-- Regenerated from the live object; see the in-body comments for what each change does
+-- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
 -- =============================================
 -- Proc:        dbo.GetWorkPlanData
 -- Jira:        MBA — "אישור תיאום כיול ע"י הלקוח" (order-approval by e-mail)
@@ -15,14 +18,14 @@
 --              @ClientConfirmationStatusDefault resolves to NULL.
 --
 -- Everything below this header is the live definition as of the change, only
--- CREATE PROCEDURE -> CREATE OR ALTER PROCEDURE and the one WHERE line differ.
+-- CREATE OR ALTER PROCEDURE -> CREATE OR ALTER PROCEDURE and the one WHERE line differ.
 -- =============================================
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 03/04/2025
 -- Description:	Get work plan data
 -- =============================================
-CREATE OR ALTER PROCEDURE [dbo].[GetWorkPlanData]
+CREATE   PROCEDURE [dbo].[GetWorkPlanData]
     @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
     @RowsOfPage AS INT = 50,                 -- Result page size
     @OrderBy AS NVARCHAR(MAX) = 'OrderWorkPlanId',      -- OrderBy column
@@ -412,6 +415,10 @@ CONCAT(
 		MAX(wp.CreatedDate) AS ReceivingDate,
 		MAX(wpstat.StatusDescriptionENG) AS WorkPlanStatus,
 		MAX(wp.CustomerComment) as CustomerComment,
+		-- MBA-792: הנחיות לביצוע — Priority ORDERSTEXT, NEGATIVE-ORD side, served from the local cache.
+		-- The positive-ORD side is the printed order document (mostly boilerplate) and is NOT this.
+		(SELECT ci.InstructionsText   -- plain text; raw HTML is available via GetOrderInstructionsByOrder
+		   FROM dbo.CrmOrderInstructions ci WHERE ci.ORD = wp.OrderSourceId) as OrderInstructions,
 		MAX(co.[PlacementDate]) AS [PlacementDate],
 		MIN(boxcnt.BoxesCount) as BoxesCount,
 		COUNT(1) OVER(PARTITION BY 1 ORDER BY wp.[OrderNumber] ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as ItemsCount
@@ -490,7 +497,8 @@ CONCAT(
 	wp.Notes,
 	sp.StatusDescriptionENG,
 	sp.StatusDescriptionHEB, 
-	wp.[IsCancelled]'
+	wp.[IsCancelled],
+	wp.OrderSourceId '
   ,  'ORDER BY ' , @OrderBy , CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 PRINT LEN(@sql)
 PRINT CAST(@sql as VARCHAR(MAX))

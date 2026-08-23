@@ -1,31 +1,6 @@
-﻿-- =============================================
--- Proc:        stg.MergeOrdersData   (original author: Eduard Kudlaiev, 02/04/2025)
--- Description: Merges orders/order-details/order-items from the Priority staging tables into the
---              live dbo tables. This file mirrors the definition CURRENTLY DEPLOYED on STAGE.
---
--- 2026-08-10 change (STAGE only): appended an incremental CRM-cache top-up
---              (EXEC dbo.RefreshCrmTextCache @IncrementalOnly = 1) at the end of the proc,
---              wrapped in TRY/CATCH so a cache failure can never fail the order sync.
---              Rationale: this sync is what introduces new PART/SERN keys, so hooking the top-up
---              here keeps dbo.CrmPartInfo / CrmCatalogText / CrmDeviceText fresh with NO SQL Agent
---              job - the app login (app_stage) is db_owner on Calibrator but has no server-level
---              rights, so it cannot create one. Measured: sync 0.32s when nothing is new (the
---              top-up issues zero linked-server traffic in that case), 1.21s when one key had to
---              be fetched. Verified end-to-end by deleting dbo.CrmPartInfo PART 698, running the
---              sync, and seeing it return with FamilyDescription = מאזניים.
---
--- KNOWN BUG, NOT FIXED HERE - change detection is inverted (see ALTER_stg.MergeOrdersData.sql):
---   * OrderDetails MERGE: 12 predicates correctly use <>, but MainCategoryId and
---     SecondaryCategoryId use '=' - so the OR'd group is TRUE whenever those values MATCH.
---   * OrderDetailsItems MERGE: WORSE. Most predicates use '=', the closing parenthesis of the
---     AND(...) group is misplaced (it lands after the NextCalibrationDate predicate, leaving the
---     rest as top-level ORs), and one predicate - COALESCE(dest.[Doc],0) = source.[Doc] - is
---     tautological because the MERGE ON clause already requires source.Doc = dest.Doc.
---     Net effect: every matched row is updated on every single run, unconditionally.
---   Scale on STAGE: 1,072 staging rows feed the details MERGE and 290 feed the items MERGE, all
---   re-written each run. Fixing this changes sync semantics on a shared path, so it is left for
---   an explicit approval rather than bundled with the cache hook.
--- =============================================
+﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-08-23.
+-- Regenerated from the live object; see the in-body comments for what each change does
+-- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
 
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -422,6 +397,11 @@ WHEN NOT MATCHED BY TARGET
 	   --------------------------------------------------------------------------------------- */
 	BEGIN TRY
 		EXEC dbo.RefreshCrmTextCache @IncrementalOnly = 1;
+		/* Re-derive device categories from the Priority family. Must run AFTER the cache top-up
+		   (it reads dbo.CrmPartInfo) and after the MERGEs above, which write MainCategoryId back
+		   from staging for the rows in the rolling window and would otherwise undo the derivation
+		   on exactly those rows. */
+		EXEC dbo.ApplyPartFamilyCategories;
 	END TRY
 	BEGIN CATCH
 		/* swallowed on purpose - see above */

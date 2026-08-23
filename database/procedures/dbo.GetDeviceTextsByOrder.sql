@@ -1,4 +1,4 @@
--- =============================================
+﻿-- =============================================
 -- Proc:        dbo.GetDeviceTextsByOrder
 -- Jira:        MBA-806 ("Add description to the device")
 -- Description: Returns the two CRM free-text blocks for each device (OrderDetailsItem) of an order:

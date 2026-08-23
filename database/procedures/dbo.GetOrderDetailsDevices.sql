@@ -1,36 +1,6 @@
-﻿-- =============================================
--- Proc:        dbo.GetOrderDetailsDevices   (live author: Kate Zashalovska, 18/06/2026)
--- Jira:        MBA-666 "Calibration Item List from Priority"  (earlier: MBA-153 / MBA-41)
---
--- NOTE: the previous version of this file in the repo was STALE - it mirrored an older
--- definition (recursive CTE + 53 columns, authored for MBA-153). The live SP had since been
--- rewritten. This file now mirrors the CURRENTLY DEPLOYED definition on STAGE.
---
--- MBA-666 change (2026-08-10, STAGE only): 5 columns added, 55 -> 60. Requested by Sviatoslav
--- so the Calibration Wizard can show the Calibration Item / device text from Priority:
---     PartDescription      amaba.dbo.PART.PARTDES        (תיאור מכשיר)
---     DeviceFamilyId       amaba.dbo.PART.FAMILY
---     DeviceFamily         amaba.dbo.FAMILY.FAMILYDES    (מאזניים / מד לחץ / תנור ...)
---     TextToCatalogNumber  amaba.dbo.PARTTEXT            (טקסט למק"ט)
---     TextToDevice         amaba.dbo.SERNUMBERSTEXT      (טקסט למכשיר)
--- All five are served from the LOCAL cache (dbo.CrmPartInfo / CrmCatalogText / CrmDeviceText,
--- refreshed by dbo.RefreshCrmTextCache) - no linked-server round-trip on this hot path.
---
--- Which column is the "Calibration Item"? The story's own example ("device defined as Chamber
--- -> calibration item Chamber") matches DeviceFamily, not the long PARTDES. Note also that
--- OrdersProductType (dbo.OrdersProductTypes.OrdersProductTypeName), already returned by this SP,
--- carries the same description as PARTDES but with the digits in the correct order
--- ("מאזניים עד 100 ק'ג" vs PARTDES "מאזניים עד 001 ק'ג") - prefer it for display.
---
--- Verified on STAGE after the change: order 12 -> 4 rows/60 cols (was 4/55); order 982 -> 13/60
--- (same with @LoggedInUserEmail), 0.06-0.14s. Coverage over 3,986 OrderDetails rows:
--- DeviceFamily 100%, PartDescription 100%, TextToCatalogNumber 65%; TextToDevice 20% of 2,579 items.
---
--- Implementation note: this query reaches [OrderDetails] as od THROUGH odi, so a row with no
--- OrderDetailsItem has od = NULL. The part-derived joins therefore hang off a separate alias
--- (odp) keyed on the numbers CTE, otherwise item-less lines (e.g. the נסיעה lines of order 12)
--- would come back with an empty description.
--- =============================================
+﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-08-23.
+-- Regenerated from the live object; see the in-body comments for what each change does
+-- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
 -- =============================================
 -- Author:		Kate Zashalovska
 -- Create date: 18/06/2026
@@ -214,8 +184,10 @@ LEFT JOIN [dbo].[CustomerSites] as cs ON od.CustomerSiteId = cs.CustomerSiteId
 -- od is reached through odi here, so rows with no item would lose the part data;
 -- join OrderDetails straight off the numbers CTE instead.
 LEFT JOIN [dbo].[OrderDetails]   as odp ON odp.OrderDetailId = n.OrderDetailId
-LEFT JOIN [dbo].[CrmPartInfo]    as cpi ON cpi.PART = odp.PART
-LEFT JOIN [dbo].[CrmCatalogText] as cct ON cct.PART = odp.PART
+-- resolve by CATALOG NUMBER: OrderDetails.PART is wrong on 169 lines (it points at a different
+-- Priority product), while PartName is authoritative and PART.PARTNAME is unique.
+LEFT JOIN [dbo].[CrmPartInfo]    as cpi ON cpi.PartName = odp.PartName
+LEFT JOIN [dbo].[CrmCatalogText] as cct ON cct.PART     = cpi.PART
 LEFT JOIN [dbo].[CrmDeviceText]  as cdt ON cdt.SERN = odi.SERN
 OUTER APPLY
 (

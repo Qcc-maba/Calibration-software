@@ -1,4 +1,4 @@
--- =============================================
+﻿-- =============================================
 -- Proc:        dbo.GetCatalogTextByPart
 -- Jira:        MBA-806 ("Add description to the device")
 -- Description: Returns the CRM catalog free-text (טקסט למק"ט) for a catalog number (PART).
