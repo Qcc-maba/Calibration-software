@@ -84,5 +84,7 @@ public sealed class SmtpOptions
     /// <summary>Envelope sender. Microsoft 365 requires it to be the authenticated mailbox.</summary>
     public string From { get; set; } = string.Empty;
 
-    public string FromDisplayName { get; set; } = "מ.ב.א מעבדות כיול";
+    /// <summary>Sender name shown in the recipient's inbox. Keep it identical to the signature in
+    /// <see cref="Mail.OtpEmailBuilder"/> and to the logo, so one message never carries two names.</summary>
+    public string FromDisplayName { get; set; } = "מ.ב.א הזורע טכנולוגיות כיול";
 }
