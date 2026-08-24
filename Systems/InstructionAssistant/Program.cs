@@ -52,6 +52,21 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
 var app = builder.Build();
 app.UseCors();
 
+// Operator UI. Read once from the embedded resource; a missing resource degrades to a hint
+// rather than a 500, because the JSON API is what actually matters.
+var uiPage = new Lazy<string?>(() =>
+{
+    using var stream = typeof(Program).Assembly
+        .GetManifestResourceStream("Maba.VCT.InstructionAssistant.Web.index.html");
+    if (stream is null) return null;
+    using var reader = new StreamReader(stream);
+    return reader.ReadToEnd();
+});
+
+app.MapGet("/", () => uiPage.Value is { } html
+    ? Results.Content(html, "text/html; charset=utf-8")
+    : Results.Text("UI resource missing; the API under /api/instructions is unaffected."));
+
 app.MapGet("/health", (IEnumerable<IInstructionSourceProvider> sources,
     Microsoft.Extensions.Options.IOptions<Maba.VCT.InstructionAssistant.Options.InstructionAssistantOptions> opt) => Results.Ok(new
 {

@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>עוזר הוראות לקוח — מ.ב.א</title>
+<style>
+  :root {
+    --bg:#f4f6f8; --card:#fff; --ink:#1f2933; --muted:#52606d; --faint:#9aa5b1;
+    --brand:#123a8c; --brand-soft:#f0f4ff; --line:#e1e5ea; --alert:#bd0202;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:24px; background:var(--bg); color:var(--ink);
+         font-family:Arial,Helvetica,sans-serif; line-height:1.55; }
+  .wrap { max-width:900px; margin:0 auto; }
+  h1 { font-size:22px; margin:0 0 4px; color:var(--brand); }
+  .sub { color:var(--muted); font-size:14px; margin:0 0 20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:20px; margin-bottom:16px; }
+  label { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; }
+  input { width:100%; padding:10px 12px; font-size:16px; border:1px solid var(--line);
+          border-radius:8px; font-family:inherit; }
+  input:focus { outline:2px solid var(--brand); border-color:transparent; }
+  button { padding:10px 20px; font-size:15px; font-family:inherit; cursor:pointer;
+           background:var(--brand); color:#fff; border:0; border-radius:8px; }
+  button:disabled { background:var(--faint); cursor:default; }
+  button.ghost { background:transparent; color:var(--brand); border:1px solid var(--line); }
+  .row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:200px; }
+  .hint { font-size:12px; color:var(--faint); margin-top:14px; }
+  .status { font-size:14px; background:var(--brand-soft); color:var(--brand); }
+  .status.err { background:#fff0f0; color:var(--alert); }
+  h2 { font-size:16px; margin:18px 0 8px; }
+  h2:first-child { margin-top:0; }
+  h2.alert { color:var(--alert); }
+  ul { margin:0; padding-inline-start:20px; }
+  li { margin-bottom:4px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { border:1px solid var(--line); padding:6px 8px; text-align:right;
+           vertical-align:top; white-space:pre-line; }
+  th { background:#f7f9fb; }
+  .scroll { overflow-x:auto; }
+  .summary { white-space:pre-line; }
+  .meta { font-size:12px; color:var(--faint); margin-top:12px; }
+  .hit { padding:10px 12px; border:1px solid var(--line); border-radius:8px;
+         margin-bottom:8px; cursor:pointer; background:#fff; font-size:14px; }
+  .hit:hover { border-color:var(--brand); background:var(--brand-soft); }
+  .hit b { color:var(--brand); }
+  .hide { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>עוזר הוראות לקוח</h1>
+  <p class="sub">הוראות הלקוח הרלוונטיות למכשיר שמכיילים — מהאקסל המרכזי, מקבצי ההוראות ברשת ומהזמנת הלקוח בפריוריטי.</p>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label for="maba">מספר מבא</label>
+        <input id="maba" placeholder="לדוגמה 2601047/7" autocomplete="off" />
+      </div>
+      <button id="go">הצג הוראות</button>
+      <button id="refresh" class="ghost" title="מתעלם מהמטמון ומחשב מחדש">רענן</button>
+    </div>
+
+    <p class="hint">לא יודע את מספר המבא? חפש לפי דגם, יצרן, מס׳ סידורי או שם לקוח:</p>
+    <div class="row">
+      <div><input id="q" placeholder="לדוגמה DT4282" autocomplete="off" /></div>
+      <button id="search" class="ghost">חפש</button>
+    </div>
+  </div>
+
+  <div id="status" class="card status hide"></div>
+  <div id="hits" class="card hide"></div>
+  <div id="result" class="card hide"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// Everything rendered here is customer data or model output — always escaped, never injected.
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+let timer = null;
+
+function showStatus(text, isError) {
+  const el = $('status');
+  el.className = 'card status' + (isError ? ' err' : '');
+  el.textContent = text;
+  el.classList.remove('hide');
+}
+
+// The first lookup for an instrument runs a full AI summary (~45s); repeats come from the
+// cache instantly. Counting up keeps the wait legible instead of looking stuck.
+function startWaiting() {
+  const started = Date.now();
+  showStatus('טוען הוראות…', false);
+  timer = setInterval(() => {
+    const s = Math.round((Date.now() - started) / 1000);
+    showStatus('טוען הוראות… ' + s + ' שניות (החיפוש הראשון למכשיר אורך כ-45 שניות, אחריו מיידי)', false);
+  }, 1000);
+}
+
+function stopWaiting() {
+  if (timer) { clearInterval(timer); timer = null; }
+}
+
+function list(title, items, isAlert) {
+  if (!items || !items.length) return '';
+  return '<h2 class="' + (isAlert ? 'alert' : '') + '">' + esc(title) + '</h2><ul>' +
+         items.map(i => '<li>' + esc(i) + '</li>').join('') + '</ul>';
+}
+
+function table(rows) {
+  if (!rows || !rows.length) return '';
+  const cell = v => '<td>' + esc(v || '—') + '</td>';
+  return '<h2>דרישות כיול</h2><div class="scroll"><table><thead><tr>' +
+    '<th>פרמטר</th><th>נקודות בדיקה</th><th>טולרנס</th><th>הערות</th></tr></thead><tbody>' +
+    rows.map(r => '<tr>' + cell(r.measurementParameter) + cell(r.testPoints) +
+                  cell(r.calibrationTolerance) + cell(r.notes) + '</tr>').join('') +
+    '</tbody></table></div>';
+}
+
+function render(d, seconds) {
+  const c = d.context || {};
+  const who = [c.customerName || c.customerId, c.manufacturer, c.model,
+               c.serialNumber ? 'מס׳ סידורי ' + c.serialNumber : null]
+              .filter(Boolean).map(esc).join(' · ');
+
+  let html = who ? '<h2>' + who + '</h2>' : '';
+
+  if (d.noInstructionsFound) {
+    html += '<p>לא נמצאו הוראות רלוונטיות למכשיר הזה.</p>';
+  } else {
+    html += list('אזהרות', d.warnings, true);
+    html += list('נקודות מפתח', d.keyPoints, false);
+    html += table(d.requirements);
+    if (d.summaryMarkdown) {
+      html += '<h2>סיכום</h2><div class="summary">' + esc(d.summaryMarkdown) + '</div>';
+    }
+  }
+
+  if (d.sources && d.sources.length) {
+    html += '<h2>מקורות</h2><ul>' + d.sources.map(s =>
+      '<li>' + esc(s.title) + (s.matchReason ? ' — ' + esc(s.matchReason) : '') + '</li>').join('') + '</ul>';
+  }
+  if (d.notices && d.notices.length) {
+    html += '<ul class="meta">' + d.notices.map(n => '<li>' + esc(n) + '</li>').join('') + '</ul>';
+  }
+  html += '<p class="meta">נוצר ע״י ' + esc(d.generatedBy || '—') + ' · ' + seconds + ' שניות</p>';
+
+  $('result').innerHTML = html;
+  $('result').classList.remove('hide');
+}
+
+async function load(refresh) {
+  const maba = $('maba').value.trim();
+  if (!maba) { showStatus('הזן מספר מבא, או חפש מכשיר למטה.', true); return; }
+
+  $('hits').classList.add('hide');
+  $('result').classList.add('hide');
+  $('go').disabled = $('refresh').disabled = true;
+  startWaiting();
+
+  const started = Date.now();
+  try {
+    const url = '/api/instructions/summary?mabaNum=' + encodeURIComponent(maba) +
+                (refresh ? '&refresh=true' : '');
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('השרת החזיר ' + res.status);
+    const data = await res.json();
+    stopWaiting();
+    $('status').classList.add('hide');
+    render(data, Math.round((Date.now() - started) / 1000));
+  } catch (err) {
+    stopWaiting();
+    showStatus('הבקשה נכשלה: ' + err.message, true);
+  } finally {
+    $('go').disabled = $('refresh').disabled = false;
+  }
+}
+
+async function search() {
+  const q = $('q').value.trim();
+  if (q.length < 2) { showStatus('הזן לפחות שני תווים לחיפוש.', true); return; }
+
+  $('result').classList.add('hide');
+  showStatus('מחפש…', false);
+
+  try {
+    const res = await fetch('/api/instructions/search?q=' + encodeURIComponent(q));
+    if (!res.ok) throw new Error('השרת החזיר ' + res.status);
+    const data = await res.json();
+
+    if (!data.results || !data.results.length) {
+      showStatus('לא נמצאו מכשירים תואמים.', true);
+      $('hits').classList.add('hide');
+      return;
+    }
+
+    $('status').classList.add('hide');
+    $('hits').innerHTML = '<h2>בחר מכשיר</h2>' + data.results.map(r =>
+      '<div class="hit" data-maba="' + esc(r.mabaNum) + '">' +
+        '<b>' + esc(r.mabaNum) + '</b> — ' + esc(r.manufacturer) + ' ' + esc(r.model) +
+        '<div class="meta">' + esc(r.customer || '') +
+          (r.serial ? ' · מס׳ סידורי ' + esc(r.serial) : '') + '</div>' +
+      '</div>').join('');
+    $('hits').classList.remove('hide');
+
+    $('hits').querySelectorAll('.hit').forEach(el => el.addEventListener('click', () => {
+      $('maba').value = el.dataset.maba;
+      load(false);
+    }));
+  } catch (err) {
+    showStatus('החיפוש נכשל: ' + err.message, true);
+  }
+}
+
+$('go').addEventListener('click', () => load(false));
+$('refresh').addEventListener('click', () => load(true));
+$('search').addEventListener('click', search);
+$('maba').addEventListener('keydown', e => { if (e.key === 'Enter') load(false); });
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+</script>
+</body>
+</html>

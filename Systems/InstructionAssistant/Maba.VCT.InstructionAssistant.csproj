@@ -10,6 +10,12 @@
          Same deployment pattern as Maba.VCT.Priority. -->
   </PropertyGroup>
 
+  <!-- The operator UI is embedded rather than copied to disk: a Windows Service must not
+       depend on its working directory to find its own page. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Web\index.html" />
+  </ItemGroup>
+
   <!-- Local dev configs hold real secrets (the Priority connection string). They are gitignored,
        but the Web SDK also copies appsettings*.json into the publish output by default, which
        would carry those secrets onto the deployment server. In Production the secrets come from
