@@ -28,9 +28,27 @@ CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToOrderDetailsItems]
 --   and showing one on the diagram looks like a rendering bug rather than a dropped record. Pass
 --   @ReturnSummary = 1 to get back what was received, saved and skipped, and why. Off by default:
 --   the caller uses $executeRaw, which cannot take a result set.
--- NOT fixed here, because the procedure cannot know the intent: 170 of the 366 points arrive with
---   ChannelNumber = 99, which is not a channel on any logger. That is the UI's placeholder for
---   "no channel chosen" and has to stop at the source.
+-- ON ChannelNumber, because it is easy to confuse with the point count on the first page - they
+--   are different things and there are three of them in the chain:
+--     OrderDetailsItems.MeasurementPoints  how many points the calibration requires
+--     ChannelsToSensorRelation             which of the logger's channels that sensor occupies
+--     this table's ChannelNumber           which ONE of those channels this point is wired to
+--   Measured on STAGE: of the 366 saved points, 128 carry a channel that really is one of the
+--   sensor's assigned channels, which is what confirms the column means a logger channel and not a
+--   point index. The other 238 do not, and they split cleanly: 167 carry ChannelNumber = 99 on a
+--   sensor that has NO channels assigned at all. 99 is not an arbitrary placeholder - it is what
+--   gets written when the sensor-to-logger step was never completed and there was nothing to pick.
+--   A further 12 points name a channel their sensor does not have, which is a genuine mis-wiring.
+--   The procedure reports all of this through @ReturnSummary but does NOT refuse the point: a
+--   calibrator has physically placed it in the chamber, and dropping that is worse than storing it
+--   with a channel that still needs fixing.
+-- 2026-08-24, same round: OrderDetailsItemId, SensorMeasurementDeviceId and ChannelNumber were
+--   still typed INT in the OPENJSON WITH clauses. A non-numeric value in any of them raised error
+--   245 and the caller saw a bare Internal Server Error - exactly the failure mode the 2026-08-13
+--   hardening removed for the coordinates but never applied to the ids. Reproduced on STAGE with
+--   OrderDetailsItemId = 'abc' and SensorMeasurementDeviceId = 'abc'. All three are now read as
+--   text and coerced with TRY_CONVERT, so a bad id skips its point and is reported instead of
+--   taking the whole save down.
 -- JiraLink:
 -- =============================================
 --Example of json needs to be passed
@@ -141,12 +159,12 @@ INSERT #parsedData
 )
 
 SELECT 
-    d.OrderDetailsItemId,
+    TRY_CONVERT(INT, d.OrderDetailsItemId)        AS OrderDetailsItemId,
     c.MeasurmentPointName,
-    c.SensorMeasurementDeviceId,
+    TRY_CONVERT(INT, c.SensorMeasurementDeviceId) AS SensorMeasurementDeviceId,
     TRY_CONVERT(DECIMAL(10,4), REPLACE(c.MeasurmentPointCoordX, ',', '.')) AS MeasurmentPointCoordX,
     TRY_CONVERT(DECIMAL(10,4), REPLACE(c.MeasurmentPointCoordY, ',', '.')) AS MeasurmentPointCoordY,
-    c.ChannelNumber,
+    TRY_CONVERT(INT, c.ChannelNumber)             AS ChannelNumber,
     TRY_CONVERT(DECIMAL(10,4), REPLACE(c.MasterValue, ',', '.')) AS MasterValue,
     c.MasterValueUnitId,
     TRY_CONVERT(DECIMAL(10,4), REPLACE(c.AdditionalValue, ',', '.')) AS AdditionalValue,
@@ -157,7 +175,10 @@ SELECT
     c.MeasuredValueUnitId
 FROM OPENJSON(@Data) 
 WITH (
-    OrderDetailsItemId INT,
+    /* MBA-902: read as text and coerce. Typed INT here, a non-numeric id raised error 245 and the
+       caller got a bare Internal Server Error - the same failure the 2026-08-13 hardening fixed for
+       the coordinates but did not apply to the three id columns. */
+    OrderDetailsItemId NVARCHAR(50),
     Points NVARCHAR(MAX) AS JSON
 ) AS d
 OUTER APPLY OPENJSON(d.Points)
@@ -165,8 +186,8 @@ WITH (
     MeasurmentPointName NVARCHAR(100),
     MeasurmentPointCoordX NVARCHAR(50),
     MeasurmentPointCoordY NVARCHAR(50),
-    SensorMeasurementDeviceId INT,
-    ChannelNumber INT,
+    SensorMeasurementDeviceId NVARCHAR(50),   /* MBA-902: was INT - see the outer WITH above */
+    ChannelNumber NVARCHAR(50),               /* MBA-902: was INT */
 	MasterValue NVARCHAR(50),
     MasterValueUnitId INT,
     AdditionalValue NVARCHAR(50),
@@ -208,6 +229,25 @@ UPDATE b
 SET MeasurmentPointName = 'T' + CAST(bs.MaxUsed + b.rn AS NVARCHAR(10))
 FROM Blanks AS b
 INNER JOIN Base AS bs ON bs.OrderDetailsItemId = b.OrderDetailsItemId;
+
+/* MBA-902: a point is wired to ONE of the channels its sensor occupies on the logger. Flag the
+   ones that are not - reported, never refused; the point has been physically placed. */
+DROP TABLE IF EXISTS #channelWarnings;
+SELECT pd.OrderDetailsItemId, pd.MeasurmentPointName, pd.SensorMeasurementDeviceId, pd.ChannelNumber,
+       CASE WHEN NOT EXISTS (SELECT 1 FROM dbo.ChannelsToSensorRelation AS c
+                             WHERE c.SensorMeasurementDeviceId = pd.SensorMeasurementDeviceId
+                               AND c.IsDeleted = 0)
+                 THEN 'this sensor has no channels assigned to any logger yet'
+            ELSE 'channel is not one of the channels this sensor occupies'
+       END AS Warning
+INTO #channelWarnings
+FROM #parsedData AS pd
+WHERE pd.SensorMeasurementDeviceId IS NOT NULL
+  AND pd.ChannelNumber IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM dbo.ChannelsToSensorRelation AS c
+                  WHERE c.SensorMeasurementDeviceId = pd.SensorMeasurementDeviceId
+                    AND c.ChannelNumber = pd.ChannelNumber
+                    AND c.IsDeleted = 0);
 
 /* MBA-902: what this save is about to drop, captured before the MERGE filters it away. */
 DECLARE @Received INT = (SELECT COUNT(*) FROM #parsedData);
@@ -341,9 +381,10 @@ WHEN NOT MATCHED BY TARGET
 /* MBA-902: opt-in only - the caller uses $executeRaw, which cannot take a result set. */
 IF @ReturnSummary = 1
 BEGIN
-    SELECT @Received                                   AS pointsReceived,
-           @Received - (SELECT COUNT(*) FROM #skipped) AS pointsSaved,
-           (SELECT COUNT(*) FROM #skipped)             AS pointsSkipped;
+    SELECT @Received                                     AS pointsReceived,
+           @Received - (SELECT COUNT(*) FROM #skipped)   AS pointsSaved,
+           (SELECT COUNT(*) FROM #skipped)               AS pointsSkipped,
+           (SELECT COUNT(*) FROM #channelWarnings)       AS pointsWithAnInvalidChannel;
 
     SELECT OrderDetailsItemId        AS orderDetailsItemId,
            MeasurmentPointName       AS measurementPointName,
@@ -351,6 +392,14 @@ BEGIN
            ChannelNumber             AS channelNumber,
            Reason                    AS reason
     FROM #skipped;
+
+    /* saved, but the channel does not belong to the sensor - the calibration will read nothing */
+    SELECT OrderDetailsItemId        AS orderDetailsItemId,
+           MeasurmentPointName       AS measurementPointName,
+           SensorMeasurementDeviceId AS sensorMeasurementDeviceId,
+           ChannelNumber             AS channelNumber,
+           Warning                   AS warning
+    FROM #channelWarnings;
 END
 
 END
