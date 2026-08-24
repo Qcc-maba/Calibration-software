@@ -124,9 +124,12 @@ BEGIN
 
 	DECLARE @ExtIntFilter BIT = NULL
 
-	IF @Page IN (N'external-schedule',N'external-orders',N'coordinator-orders') SET @ExtIntFilter = 0 -- IsInHouse = 0 for external orders
+	/* MBA-902: external-validator and internal-validator were in neither list, so both pages
+	   returned the same rows. The mechanism was already here and coordinator-orders uses it -
+	   od.IsInHouse is the internal/external definition in this system. */
+	IF @Page IN (N'external-schedule',N'external-orders',N'coordinator-orders',N'external-validator') SET @ExtIntFilter = 0 -- IsInHouse = 0 for external orders
 
-	IF @Page IN (N'internal-orders') SET @ExtIntFilter = 1 -- IsInHouse = 0 for internal orders
+	IF @Page IN (N'internal-orders',N'internal-validator') SET @ExtIntFilter = 1 -- IsInHouse = 1 for internal orders
 	--validator-orders
 	/*-------------------------------------------------*/
 
