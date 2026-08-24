@@ -418,7 +418,7 @@ CONCAT(
 		MAX(CAST(od.CustomerPackingExists as TINYINT)) as CustomerPackingExists,
 		MAX(itm.ExpectedReturnDate) as ExpectedReturnDate,
 		MAX(itm.ActualReturnDate) as ActualReturnDate,
-		MIN(CASE WHEN itm.MbaReportNumber LIKE ''[0-9][0-9][0-9][0-9][0-9][0-9][0-9]/%'' THEN itm.MbaReportNumber END) as CalibratorMabaNumber,  
+		(SELECT MIN(i9.MbaReportNumber) FROM [dbo].[OrderDetailsItems] as i9 JOIN [dbo].[OrderDetails] as od9 ON od9.OrderDetailId = i9.OrderDetailId WHERE od9.OrderWorkPlanId = wp.[OrderWorkPlanId] AND ISNULL(od9.IsDeleted,0) = 0 AND ISNULL(i9.IsDeleted,0) = 0 AND i9.MbaReportNumber LIKE ''[0-9][0-9][0-9][0-9][0-9][0-9][0-9]/%'') as CalibratorMabaNumber, /* MBA-902: a correlated subquery, not an aggregate over itm. The report number belongs to the ORDER, and aggregating over itm would only see the items the validator status filter let through - on STAGE that is 1 order out of 49 instead of 6, because 3,470 of the 3,471 items carrying a real report number have no calibration status at all. */  
 	    COALESCE(MAX(clst.StatusDescriptionENG),''',@ClientConfirmationStatusDefault,''') as ClientConfirmationStatus,
 		MAX(wp.ShipTypeDesc) AS ShipTypeDesc,
 		MAX(c.ReportRequired) AS PrintedReport,
