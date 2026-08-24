@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { type Server } from "http";
 import { gzipSync } from "zlib";
 import { db } from "./db";
+import * as priority from "./priority";
 import { syncedCustomers, appSettings, defaultScoringConfig, companyDaysOff, insertCompanyDayOffSchema, upsExpenses, insertUpsExpenseSchema, shipShipments, departmentStats, calibratorDeptStats, calibrators, monthlyCallStats, companyReturnDocuments, companyCalibrationAlerts, operationalQueryRows, financialQueryRows, monthlyTargets } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import ExcelJS from "exceljs";
@@ -2718,6 +2719,18 @@ export async function registerRoutes(
       // limit=1 משמש את המסך כדי לשאול "אילו תאריכים בכלל קיימים" בלי למשוך את כל השורות
       const rowLimit = Math.max(0, Math.min(Number(req.query.limit) || 50000, 50000));
 
+      if (priority.isLiveEnabled()) {
+        const [page, available] = await Promise.all([
+          priority.operationalRows(dateFrom, dateTo, rowLimit),
+          priority.operationalAvailable(),
+        ]);
+        return res.json({
+          rows: page.rows, total: page.total, returned: page.rows.length,
+          truncated: page.total > page.rows.length,
+          syncedAt: new Date().toISOString(), live: true, available,
+        });
+      }
+
       // כל תאריך מסנן בנפרד — מילוי צד אחד בלבד הוא טווח פתוח, לא ביטול הסינון
       const conds: any[] = [];
       if (dateFrom) conds.push(sql`doc_date >= ${dateFrom}`);
@@ -2803,6 +2816,18 @@ export async function registerRoutes(
       // limit=1 משמש את המסך כדי לשאול "אילו תאריכים בכלל קיימים" בלי למשוך את כל השורות
       const rowLimit = Math.max(0, Math.min(Number(req.query.limit) || 50000, 50000));
 
+      if (priority.isLiveEnabled()) {
+        const [page, available] = await Promise.all([
+          priority.financialRows(dateFrom, dateTo, rowLimit),
+          priority.financialAvailable(),
+        ]);
+        return res.json({
+          rows: page.rows, total: page.total, returned: page.rows.length,
+          truncated: page.total > page.rows.length,
+          syncedAt: new Date().toISOString(), live: true, available,
+        });
+      }
+
       // כל תאריך מסנן בנפרד — מילוי צד אחד בלבד הוא טווח פתוח, לא ביטול הסינון
       const conds: any[] = [];
       if (dateFrom) conds.push(sql`iv_date >= ${dateFrom}`);
@@ -2880,6 +2905,13 @@ export async function registerRoutes(
     const dateFrom = (req.query.dateFrom as string) || '';
     const dateTo   = (req.query.dateTo   as string) || '';
     try {
+      if (priority.isLiveEnabled()) {
+        const [live, available] = await Promise.all([
+          priority.departmentsOverview(dateFrom, dateTo),
+          priority.operationalAvailable(),
+        ]);
+        return res.json({ ...live, available, live: true });
+      }
       const finFrom = dateFrom ? sql`AND iv_date >= ${dateFrom}` : sql``;
       const finTo   = dateTo   ? sql`AND iv_date <= ${dateTo}`   : sql``;
       const opFrom  = dateFrom ? sql`AND doc_date >= ${dateFrom}` : sql``;
@@ -2992,6 +3024,13 @@ export async function registerRoutes(
     const dateFrom = (req.query.dateFrom as string) || '';
     const dateTo   = (req.query.dateTo   as string) || '';
     try {
+      if (priority.isLiveEnabled()) {
+        const [rows, avail] = await Promise.all([
+          priority.financialBreakdown(dateFrom, dateTo),
+          priority.financialAvailable(),
+        ]);
+        return res.json({ rows, available: avail, live: true });
+      }
       const fromFilter = dateFrom ? sql`AND iv_date >= ${dateFrom}` : sql``;
       const toFilter   = dateTo   ? sql`AND iv_date <= ${dateTo}`   : sql``;
       const available = await db.execute(sql`
@@ -3026,6 +3065,13 @@ export async function registerRoutes(
     const dateFrom = (req.query.dateFrom as string) || '';
     const dateTo   = (req.query.dateTo   as string) || '';
     try {
+      if (priority.isLiveEnabled()) {
+        const [rows, avail] = await Promise.all([
+          priority.operationalBreakdown(dateFrom, dateTo),
+          priority.operationalAvailable(),
+        ]);
+        return res.json({ rows, available: avail, live: true });
+      }
       const fromFilter = dateFrom ? sql`AND doc_date >= ${dateFrom}` : sql``;
       const toFilter   = dateTo   ? sql`AND doc_date <= ${dateTo}`   : sql``;
       const available = await db.execute(sql`
