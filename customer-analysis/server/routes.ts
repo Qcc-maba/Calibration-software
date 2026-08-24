@@ -1074,25 +1074,26 @@ export async function registerRoutes(
         count: Number(row.count) || 0,
       }));
 
-      // Per-agent: from synced_customers returnDocuments JSONB (openDate = DD/MM/YYYY)
+      // Per-agent: same source as companyMonthly above (company_return_documents),
+      // joined to the customer→agent map. Previously this expanded the
+      // returnDocuments JSONB of every customer: 3.2s, and it disagreed with the
+      // company total on the same screen (7,604 docs / ₪20.9M vs 7,904 / ₪21.9M)
+      // because the two came from different sources.
+      // AS MATERIALIZED matters — without it the planner re-reads the 47MB JSONB
+      // column per join probe and the query goes back to ~3.2s.
       const agentResult = await db.execute(sql`
-        SELECT
-          data->>'agentName' as agent_name,
-          to_char(
-            to_date(doc->>'openDate', 'DD/MM/YYYY'),
-            'YYYY-MM'
-          ) as month,
-          SUM((doc->>'value')::numeric) as revenue,
-          COUNT(*) as count
-        FROM synced_customers,
-          jsonb_array_elements(data->'returnDocuments') doc
-        WHERE data->>'agentName' IS NOT NULL
-          AND data->>'agentName' != ''
-          AND doc->>'openDate' IS NOT NULL
-          AND doc->>'openDate' != ''
-          AND to_char(to_date(doc->>'openDate', 'DD/MM/YYYY'), 'YYYY') = ${String(year)}
-        GROUP BY data->>'agentName', month
-        ORDER BY agent_name, month
+        WITH agent AS MATERIALIZED (
+          SELECT id, data->>'agentName' AS agent_name FROM synced_customers
+        )
+        SELECT a.agent_name, d.month,
+               SUM(d.value)::numeric AS revenue,
+               COUNT(*)::int         AS count
+        FROM company_return_documents d
+        JOIN agent a ON a.id = d.customer_id
+        WHERE d.month LIKE ${year + '-%'}
+          AND COALESCE(a.agent_name, '') <> ''
+        GROUP BY 1, 2
+        ORDER BY 1, 2
       `);
 
       const byAgent: Record<string, { month: string; revenue: number; count: number }[]> = {};
@@ -1612,13 +1613,128 @@ export async function registerRoutes(
   });
 
   // GET all company-wide calibration alerts (from global sync table)
-  app.get("/api/company/calibration-alerts", async (_req, res) => {
+  // next_cal_date/last_cal_date מאוחסנים כטקסט DD/MM/YYYY. הסידור מחדש ל-YYYYMM
+  // הוא immutable (substr/||), ולכן ניתן להשוואה לקסיקוגרפית ישירות ב-SQL.
+  const YYYYMM = sql`substr(next_cal_date,7,4) || substr(next_cal_date,4,2)`;
+  const WELL_FORMED = sql`next_cal_date ~ '^[0-9]{2}/[0-9]{2}/[0-9]{4}$'`;
+
+  /** חלון ההתראות: מספר חודשים אחורה/קדימה מתחילת החודש הנוכחי */
+  function alertWindow(monthsBack: number, monthsAhead: number) {
+    const now = new Date();
+    const shift = (m: number) => {
+      const d = new Date(now.getFullYear(), now.getMonth() + m, 1);
+      return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`;
+    };
+    return { from: shift(-monthsBack), to: shift(monthsAhead) };
+  }
+
+  // התראות כיול — אגרגציה בלבד.
+  // קודם לכן זה החזיר את כל 452,269 השורות (165MB) והדפדפן ספר אותן בעצמו;
+  // זו הייתה הסיבה העיקרית לאיטיות של עמוד הסיכום.
+  app.get("/api/company/calibration-alerts", async (req, res) => {
     try {
-      const rows = await db.select().from(companyCalibrationAlerts);
-      res.json(rows);
+      const monthsBack  = Math.min(Math.max(Number(req.query.monthsBack)  || 36, 0), 240);
+      const monthsAhead = Math.min(Math.max(Number(req.query.monthsAhead) || 12, 0), 240);
+      const w = alertWindow(monthsBack, monthsAhead);
+
+      const [byMonth, outside, grand] = await Promise.all([
+        db.execute(sql`
+          SELECT substr(next_cal_date,7,4) || '-' || substr(next_cal_date,4,2) AS month,
+                 COALESCE(NULLIF(location,''), 'internal') AS location,
+                 COALESCE(NULLIF(type,''), 'warning')      AS type,
+                 COUNT(*)::int AS count
+          FROM company_calibration_alerts
+          WHERE ${WELL_FORMED} AND ${YYYYMM} BETWEEN ${w.from} AND ${w.to}
+          GROUP BY 1, 2, 3
+          ORDER BY 1
+        `),
+        db.execute(sql`
+          SELECT
+            COUNT(*) FILTER (WHERE NOT ${WELL_FORMED})                       ::int AS unparsable,
+            COUNT(*) FILTER (WHERE ${WELL_FORMED} AND ${YYYYMM} < ${w.from}) ::int AS older,
+            COUNT(*) FILTER (WHERE ${WELL_FORMED} AND ${YYYYMM} > ${w.to})   ::int AS ahead
+          FROM company_calibration_alerts
+        `),
+        db.execute(sql`SELECT COUNT(*)::int AS total FROM company_calibration_alerts`),
+      ]);
+
+      res.json({
+        window:        { from: w.from, to: w.to, monthsBack, monthsAhead },
+        byMonth:       byMonth.rows,
+        outsideWindow: outside.rows[0] ?? { unparsable: 0, older: 0, ahead: 0 },
+        grandTotal:    Number((grand.rows[0] as any)?.total ?? 0),
+      });
     } catch (error: any) {
       console.error('Error fetching company calibration alerts:', error);
       res.status(500).json({ error: 'Failed to fetch calibration alerts', message: error.message });
+    }
+  });
+
+  // הלקוחות עם הכי הרבה התראות בחלון — מזין את תצוגת "לפי לקוח"
+  app.get("/api/company/calibration-alerts/customers", async (req, res) => {
+    try {
+      const location    = String(req.query.location || 'all');
+      const type        = String(req.query.type || 'all');
+      const limit       = Math.min(Math.max(Number(req.query.limit) || 10, 1), 200);
+      const monthsBack  = Math.min(Math.max(Number(req.query.monthsBack)  || 36, 0), 240);
+      const monthsAhead = Math.min(Math.max(Number(req.query.monthsAhead) || 12, 0), 240);
+      const w = alertWindow(monthsBack, monthsAhead);
+
+      const conds = [WELL_FORMED, sql`${YYYYMM} BETWEEN ${w.from} AND ${w.to}`];
+      if (location !== 'all') conds.push(sql`COALESCE(NULLIF(location,''),'internal') = ${location}`);
+      if (type === 'overdue')  conds.push(sql`type = 'error'`);
+      if (type === 'upcoming') conds.push(sql`type <> 'error'`);
+
+      const result = await db.execute(sql`
+        SELECT customer_id AS "id", MIN(customer_name) AS "companyName", COUNT(*)::int AS "count"
+        FROM company_calibration_alerts
+        WHERE ${sql.join(conds, sql` AND `)}
+        GROUP BY customer_id
+        ORDER BY COUNT(*) DESC
+        LIMIT ${limit}
+      `);
+      res.json(result.rows);
+    } catch (error: any) {
+      console.error('Error fetching alert customers:', error);
+      res.status(500).json({ error: 'Failed to fetch alert customers', message: error.message });
+    }
+  });
+
+  // רשימת המכשירים של חודש בודד — נטענת רק כשפותחים את השורה בממשק
+  app.get("/api/company/calibration-alerts/devices", async (req, res) => {
+    try {
+      const month    = String(req.query.month || '');            // YYYY-MM
+      const location = String(req.query.location || 'all');
+      const type     = String(req.query.type || 'all');
+      const limit    = Math.min(Math.max(Number(req.query.limit) || 3000, 1), 10000);
+      if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'month must be YYYY-MM' });
+
+      const key   = month.replace('-', '');
+      const conds = [WELL_FORMED, sql`${YYYYMM} = ${key}`];
+      if (location !== 'all') conds.push(sql`COALESCE(NULLIF(location,''),'internal') = ${location}`);
+      if (type === 'overdue')  conds.push(sql`type = 'error'`);
+      if (type === 'upcoming') conds.push(sql`type <> 'error'`);
+
+      const [rows, count] = await Promise.all([
+        db.execute(sql`
+          SELECT customer_id AS "customerId", customer_name AS "customerName",
+                 device_name AS "deviceName", serial_no AS "serialNo",
+                 next_cal_date AS "nextCalDate", last_cal_date AS "lastCalDate",
+                 COALESCE(NULLIF(type,''),'warning')      AS type,
+                 COALESCE(NULLIF(location,''),'internal') AS location
+          FROM company_calibration_alerts
+          WHERE ${sql.join(conds, sql` AND `)}
+          ORDER BY customer_name, device_name
+          LIMIT ${limit}
+        `),
+        db.execute(sql`SELECT COUNT(*)::int AS n FROM company_calibration_alerts WHERE ${sql.join(conds, sql` AND `)}`),
+      ]);
+
+      const total = Number((count.rows[0] as any)?.n ?? 0);
+      res.json({ month, rows: rows.rows, total, truncated: total > rows.rows.length });
+    } catch (error: any) {
+      console.error('Error fetching calibration alert devices:', error);
+      res.status(500).json({ error: 'Failed to fetch devices', message: error.message });
     }
   });
 
@@ -2599,21 +2715,34 @@ export async function registerRoutes(
     try {
       const dateFrom = (req.query.dateFrom as string) || '';
       const dateTo   = (req.query.dateTo   as string) || '';
+      // limit=1 משמש את המסך כדי לשאול "אילו תאריכים בכלל קיימים" בלי למשוך את כל השורות
+      const rowLimit = Math.max(0, Math.min(Number(req.query.limit) || 50000, 50000));
 
-      let rows;
-      if (dateFrom && dateTo) {
-        rows = await db.select().from(operationalQueryRows)
-          .where(sql`${operationalQueryRows.docDate} >= ${dateFrom} AND ${operationalQueryRows.docDate} <= ${dateTo}`)
-          .orderBy(operationalQueryRows.docDate);
-      } else {
-        rows = await db.select().from(operationalQueryRows)
-          .orderBy(operationalQueryRows.docDate)
-          .limit(5000);
-      }
+      // כל תאריך מסנן בנפרד — מילוי צד אחד בלבד הוא טווח פתוח, לא ביטול הסינון
+      const conds: any[] = [];
+      if (dateFrom) conds.push(sql`doc_date >= ${dateFrom}`);
+      if (dateTo)   conds.push(sql`doc_date <= ${dateTo}`);
+      const where = conds.length ? sql`WHERE ${sql.join(conds, sql` AND `)}` : sql``;
 
-      const result = rows.map(r => r.data as Record<string, any>);
-      const syncedAt = rows.length > 0 ? rows[0].syncedAt : null;
-      res.json({ rows: result, total: result.length, syncedAt });
+      const [pageResult, statsResult, availableResult] = await Promise.all([
+        db.execute(sql`SELECT data FROM operational_query_rows ${where} ORDER BY doc_date LIMIT ${rowLimit}`),
+        db.execute(sql`SELECT COUNT(*)::int AS total, MAX(synced_at) AS synced_at FROM operational_query_rows ${where}`),
+        db.execute(sql`SELECT MIN(doc_date) AS min, MAX(doc_date) AS max, COUNT(*)::int AS count
+                       FROM operational_query_rows WHERE doc_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'`),
+      ]);
+
+      const result = pageResult.rows.map((r: any) => r.data as Record<string, any>);
+      const stats  = (statsResult.rows[0] ?? {}) as any;
+      const total  = Number(stats.total ?? result.length);
+
+      res.json({
+        rows:      result,
+        total,
+        returned:  result.length,
+        truncated: total > result.length,
+        syncedAt:  stats.synced_at ?? null,
+        available: availableResult.rows[0] ?? { min: null, max: null, count: 0 },
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -2671,21 +2800,34 @@ export async function registerRoutes(
     try {
       const dateFrom = (req.query.dateFrom as string) || '';
       const dateTo   = (req.query.dateTo   as string) || '';
+      // limit=1 משמש את המסך כדי לשאול "אילו תאריכים בכלל קיימים" בלי למשוך את כל השורות
+      const rowLimit = Math.max(0, Math.min(Number(req.query.limit) || 50000, 50000));
 
-      let rows;
-      if (dateFrom && dateTo) {
-        rows = await db.select().from(financialQueryRows)
-          .where(sql`${financialQueryRows.ivDate} >= ${dateFrom} AND ${financialQueryRows.ivDate} <= ${dateTo}`)
-          .orderBy(financialQueryRows.ivDate);
-      } else {
-        rows = await db.select().from(financialQueryRows)
-          .orderBy(financialQueryRows.ivDate)
-          .limit(5000);
-      }
+      // כל תאריך מסנן בנפרד — מילוי צד אחד בלבד הוא טווח פתוח, לא ביטול הסינון
+      const conds: any[] = [];
+      if (dateFrom) conds.push(sql`iv_date >= ${dateFrom}`);
+      if (dateTo)   conds.push(sql`iv_date <= ${dateTo}`);
+      const where = conds.length ? sql`WHERE ${sql.join(conds, sql` AND `)}` : sql``;
 
-      const result  = rows.map(r => r.data as Record<string, any>);
-      const syncedAt = rows.length > 0 ? rows[0].syncedAt : null;
-      res.json({ rows: result, total: result.length, syncedAt });
+      const [pageResult, statsResult, availableResult] = await Promise.all([
+        db.execute(sql`SELECT data FROM financial_query_rows ${where} ORDER BY iv_date LIMIT ${rowLimit}`),
+        db.execute(sql`SELECT COUNT(*)::int AS total, MAX(synced_at) AS synced_at FROM financial_query_rows ${where}`),
+        db.execute(sql`SELECT MIN(iv_date) AS min, MAX(iv_date) AS max, COUNT(*)::int AS count
+                       FROM financial_query_rows WHERE iv_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'`),
+      ]);
+
+      const result = pageResult.rows.map((r: any) => r.data as Record<string, any>);
+      const stats  = (statsResult.rows[0] ?? {}) as any;
+      const total  = Number(stats.total ?? result.length);
+
+      res.json({
+        rows:      result,
+        total,
+        returned:  result.length,
+        truncated: total > result.length,
+        syncedAt:  stats.synced_at ?? null,
+        available: availableResult.rows[0] ?? { min: null, max: null, count: 0 },
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -2743,7 +2885,7 @@ export async function registerRoutes(
       const opFrom  = dateFrom ? sql`AND doc_date >= ${dateFrom}` : sql``;
       const opTo    = dateTo   ? sql`AND doc_date <= ${dateTo}`   : sql``;
 
-      const [summaryResult, byAgentResult, byCalibratorResult] = await Promise.all([
+      const [summaryResult, byAgentResult, byCalibratorResult, availableResult] = await Promise.all([
         // Per dept+year summary: revenue from financial, calls+customers from operational
         db.execute(sql`
           WITH fin AS (
@@ -2815,12 +2957,30 @@ export async function registerRoutes(
           GROUP BY 1, 2, 3, 4
           ORDER BY call_count DESC NULLS LAST
         `),
+        // הטווח שקיים בפועל בשתי הטבלאות — כדי שהמסך יבחין בין "לא סונכרן"
+        // לבין "סונכרן, אבל לא לתאריכים שביקשת"
+        db.execute(sql`
+          SELECT MIN(d) AS min, MAX(d) AS max, SUM(n)::int AS count FROM (
+            SELECT MIN(iv_date) AS d, COUNT(*) AS n FROM financial_query_rows
+              WHERE iv_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+            UNION ALL
+            SELECT MAX(iv_date), 0 FROM financial_query_rows
+              WHERE iv_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+            UNION ALL
+            SELECT MIN(doc_date), COUNT(*) FROM operational_query_rows
+              WHERE doc_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+            UNION ALL
+            SELECT MAX(doc_date), 0 FROM operational_query_rows
+              WHERE doc_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          ) s
+        `),
       ]);
 
       res.json({
         summary:       summaryResult.rows,
         byAgent:       byAgentResult.rows,
         byCalibrator:  byCalibratorResult.rows,
+        available:     availableResult.rows[0] ?? { min: null, max: null, count: 0 },
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -2834,6 +2994,10 @@ export async function registerRoutes(
     try {
       const fromFilter = dateFrom ? sql`AND iv_date >= ${dateFrom}` : sql``;
       const toFilter   = dateTo   ? sql`AND iv_date <= ${dateTo}`   : sql``;
+      const available = await db.execute(sql`
+        SELECT MIN(iv_date) AS min, MAX(iv_date) AS max, COUNT(*)::int AS count
+        FROM financial_query_rows WHERE iv_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+      `);
       const result = await db.execute(sql`
         SELECT
           COALESCE(data->>'מספר מחלקה', '') AS dept_code,
@@ -2851,7 +3015,7 @@ export async function registerRoutes(
         GROUP BY 1, 2, 3, 4
         ORDER BY revenue DESC NULLS LAST
       `);
-      res.json(result.rows);
+      res.json({ rows: result.rows, available: available.rows[0] ?? { min: null, max: null, count: 0 } });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -2864,6 +3028,10 @@ export async function registerRoutes(
     try {
       const fromFilter = dateFrom ? sql`AND doc_date >= ${dateFrom}` : sql``;
       const toFilter   = dateTo   ? sql`AND doc_date <= ${dateTo}`   : sql``;
+      const available = await db.execute(sql`
+        SELECT MIN(doc_date) AS min, MAX(doc_date) AS max, COUNT(*)::int AS count
+        FROM operational_query_rows WHERE doc_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+      `);
       const result = await db.execute(sql`
         SELECT
           COALESCE(data->>'מספר מחלקה', '') AS dept_code,
@@ -2879,7 +3047,7 @@ export async function registerRoutes(
         GROUP BY 1, 2, 3, 4
         ORDER BY total_qty DESC NULLS LAST
       `);
-      res.json(result.rows);
+      res.json({ rows: result.rows, available: available.rows[0] ?? { min: null, max: null, count: 0 } });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

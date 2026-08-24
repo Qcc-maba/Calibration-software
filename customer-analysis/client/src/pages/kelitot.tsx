@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { RefreshCw, X, Download, Search, ChevronDown } from "lucide-react";
+import { DateInput } from "@/components/ui/date-input";
 import { cn } from "@/lib/utils";
 
 const SHEET_ID  = "1APkVKBDGz6p9TKOlBvzLh-J-pxlAZyZ-qSPXnzjaVgo";
@@ -502,13 +503,13 @@ export default function KelitotPage() {
               <>
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-gray-500 font-semibold">מ-</span>
-                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                    className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:border-blue-500 bg-white" />
+                  <DateInput value={dateFrom} onChange={setDateFrom}
+                    className="focus-within:border-blue-500" data-testid="kelitot-date-from" />
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-gray-500 font-semibold">עד-</span>
-                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                    className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:border-blue-500 bg-white" />
+                  <DateInput value={dateTo} onChange={setDateTo}
+                    className="focus-within:border-blue-500" data-testid="kelitot-date-to" />
                 </div>
                 <div className="w-px h-6 bg-gray-200" />
               </>

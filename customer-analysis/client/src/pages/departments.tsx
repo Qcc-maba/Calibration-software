@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { DateInput, isoToDisplay } from "@/components/ui/date-input";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line, LabelList
@@ -25,7 +26,64 @@ const MONTH_NAMES: Record<string, string> = {
 interface SummaryRow { dept_code: string; dept_name: string; year: string; revenue: string | number; customer_count: string | number; call_count: string | number; }
 interface AgentRow { dept_code: string; dept_name: string; agent_name: string; year: string; revenue: string | number; customer_count: string | number; }
 interface CalibratorRow { dept_code: string; dept_name: string; calibrator_name: string; year: string; call_count: string | number; }
-interface OverviewData { summary: SummaryRow[]; byAgent: AgentRow[]; byCalibrator: CalibratorRow[]; }
+/** טווח התאריכים שקיים בפועל בטבלאות המקור — מבדיל בין "לא סונכרן" ל"אין נתונים בטווח שביקשת" */
+interface Available { min: string | null; max: string | null; count: number; }
+interface OverviewData { summary: SummaryRow[]; byAgent: AgentRow[]; byCalibrator: CalibratorRow[]; available?: Available; }
+interface BreakdownResp { rows: any[]; available?: Available; }
+
+/**
+ * מצב ריק לטאבים של מסך המחלקות.
+ *
+ * הטבלאות financial_query_rows / operational_query_rows מכסות טווח תאריכים מוגבל,
+ * אז טווח שנבחר מחוץ לטווח הזה מחזיר 0 שורות. קודם כל המצבים האלה הציגו
+ * "יש להריץ סינכרון", מה ששלח את המשתמש להריץ סקריפט מיותר במקום לתקן את הטווח.
+ */
+function DeptEmptyState({ icon, available, applied, syncCommand, onUseFullRange }: {
+  icon: React.ReactNode;
+  available?: Available;
+  applied: { dateFrom: string; dateTo: string };
+  syncCommand: string;
+  onUseFullRange: () => void;
+}) {
+  const hasSyncedData  = (available?.count ?? 0) > 0;
+  const rangeRequested = Boolean(applied.dateFrom || applied.dateTo);
+
+  if (hasSyncedData && rangeRequested) {
+    return (
+      <Card>
+        <CardContent className="py-14">
+          <div className="text-center space-y-3" data-testid="dept-out-of-range">
+            <div className="text-4xl">🗓️</div>
+            <p className="font-medium text-gray-700">אין נתונים בטווח התאריכים שנבחר</p>
+            <p className="text-sm text-gray-500">
+              ביקשת {isoToDisplay(applied.dateFrom) || '…'} עד {isoToDisplay(applied.dateTo) || '…'}
+            </p>
+            <p className="text-sm text-gray-500">
+              קיימים {available!.count.toLocaleString()} רשומות, בין{' '}
+              <strong>{isoToDisplay(available!.min ?? '')}</strong> ל-<strong>{isoToDisplay(available!.max ?? '')}</strong>.
+            </p>
+            <Button onClick={onUseFullRange} className="mt-2">הצג את כל הטווח הקיים</Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="py-14">
+        <div className="text-center space-y-2 text-gray-500">
+          <div className="text-4xl">{icon}</div>
+          <p className="font-medium">אין נתוני מחלקות עדיין</p>
+          <p className="text-sm">יש להריץ סינכרון מחלקות מהמחשב המקומי:</p>
+          <code className="block mt-2 bg-gray-100 rounded px-3 py-2 text-xs text-gray-700 max-w-md mx-auto">
+            {syncCommand}
+          </code>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 const YEARS = ['2024', '2025', '2026'];
 const YEAR_COLORS: Record<string, string> = {
@@ -157,20 +215,22 @@ export default function DepartmentsPage() {
   };
 
   // Financial dept breakdown (lazy — only fetches when tab is active)
-  const { data: finBreakdownRaw = [] } = useQuery<any[]>({
+  const { data: finBreakdown } = useQuery<BreakdownResp>({
     queryKey: ['/api/departments/financial-breakdown', finApplied.dateFrom, finApplied.dateTo],
     queryFn: () => fetch(`/api/departments/financial-breakdown?dateFrom=${encodeURIComponent(finApplied.dateFrom)}&dateTo=${encodeURIComponent(finApplied.dateTo)}`).then(r => r.json()),
     refetchOnWindowFocus: false,
     enabled: activeTab === 'financial',
   });
+  const finBreakdownRaw = finBreakdown?.rows ?? [];
 
   // Operational dept breakdown
-  const { data: opBreakdownRaw = [] } = useQuery<any[]>({
+  const { data: opBreakdown } = useQuery<BreakdownResp>({
     queryKey: ['/api/departments/operational-breakdown', opApplied.dateFrom, opApplied.dateTo],
     queryFn: () => fetch(`/api/departments/operational-breakdown?dateFrom=${encodeURIComponent(opApplied.dateFrom)}&dateTo=${encodeURIComponent(opApplied.dateTo)}`).then(r => r.json()),
     refetchOnWindowFocus: false,
     enabled: activeTab === 'operational',
   });
+  const opBreakdownRaw = opBreakdown?.rows ?? [];
 
   // Monthly revenue for comparison
   const { data: monthlyA } = useQuery<MonthlyResp>({
@@ -498,6 +558,14 @@ export default function DepartmentsPage() {
             dateFrom={finDateFrom} setDateFrom={setFinDateFrom}
             dateTo={finDateTo} setDateTo={setFinDateTo}
             onApply={() => setFinApplied({ dateFrom: finDateFrom, dateTo: finDateTo })}
+            available={finBreakdown?.available}
+            applied={finApplied}
+            onUseFullRange={() => {
+              const a = finBreakdown?.available;
+              if (!a?.min || !a?.max) return;
+              setFinDateFrom(a.min); setFinDateTo(a.max);
+              setFinApplied({ dateFrom: a.min, dateTo: a.max });
+            }}
           />
         )}
 
@@ -507,6 +575,14 @@ export default function DepartmentsPage() {
             dateFrom={opDateFrom} setDateFrom={setOpDateFrom}
             dateTo={opDateTo} setDateTo={setOpDateTo}
             onApply={() => setOpApplied({ dateFrom: opDateFrom, dateTo: opDateTo })}
+            available={opBreakdown?.available}
+            applied={opApplied}
+            onUseFullRange={() => {
+              const a = opBreakdown?.available;
+              if (!a?.min || !a?.max) return;
+              setOpDateFrom(a.min); setOpDateTo(a.max);
+              setOpApplied({ dateFrom: a.min, dateTo: a.max });
+            }}
           />
         )}
 
@@ -519,14 +595,14 @@ export default function DepartmentsPage() {
             <div className="flex flex-wrap gap-3 items-end" dir="rtl">
               <div>
                 <label className="text-xs text-gray-500 block mb-1">מתאריך</label>
-                <input type="date" value={ovDateFrom} onChange={e => setOvDateFrom(e.target.value)}
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-400"
+                <DateInput value={ovDateFrom} onChange={setOvDateFrom}
+                  className="focus-within:border-indigo-400"
                   data-testid="ov-date-from" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 block mb-1">עד תאריך</label>
-                <input type="date" value={ovDateTo} onChange={e => setOvDateTo(e.target.value)}
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-400"
+                <DateInput value={ovDateTo} onChange={setOvDateTo}
+                  className="focus-within:border-indigo-400"
                   data-testid="ov-date-to" />
               </div>
               <button onClick={() => setOvApplied({ dateFrom: ovDateFrom, dateTo: ovDateTo })}
@@ -542,7 +618,7 @@ export default function DepartmentsPage() {
               )}
               {(ovApplied.dateFrom || ovApplied.dateTo) && (
                 <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-200">
-                  מסונן: {ovApplied.dateFrom || '—'} עד {ovApplied.dateTo || '—'}
+                  מסונן: {isoToDisplay(ovApplied.dateFrom) || '—'} עד {isoToDisplay(ovApplied.dateTo) || '—'}
                 </span>
               )}
             </div>
@@ -765,16 +841,18 @@ export default function DepartmentsPage() {
             <span>שגיאה בטעינת נתונים</span>
           </div>
         ) : !hasData ? (
-          <Card>
-            <CardContent className="pt-10 pb-10 text-center text-gray-500">
-              <Layers className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-              <p className="font-medium mb-1">אין נתוני מחלקות עדיין</p>
-              <p className="text-sm">יש להריץ סינכרון מחלקות מהמחשב המקומי:</p>
-              <code className="block mt-2 bg-gray-100 rounded px-3 py-2 text-xs text-gray-700 max-w-md mx-auto">
-                py sync-customer-data.py --departments
-              </code>
-            </CardContent>
-          </Card>
+          <DeptEmptyState
+            icon="🗂️"
+            available={overviewData?.available}
+            applied={ovApplied}
+            syncCommand="py sync-customer-data.py --departments"
+            onUseFullRange={() => {
+              const a = overviewData?.available;
+              if (!a?.min || !a?.max) return;
+              setOvDateFrom(a.min); setOvDateTo(a.max);
+              setOvApplied({ dateFrom: a.min, dateTo: a.max });
+            }}
+          />
         ) : (
           <>
             {/* Year Summary Cards */}
@@ -1062,9 +1140,10 @@ export default function DepartmentsPage() {
 interface FinDeptRow { dept_code: string; dept_name: string; agent_name: string; family_name: string; revenue: number; qty: number; line_count: number; }
 interface FinDept { deptCode: string; deptName: string; revenue: number; qty: number; lineCount: number; agents: { name: string; revenue: number; qty: number; lineCount: number }[]; }
 
-function FinancialDeptTab({ rows, dateFrom, setDateFrom, dateTo, setDateTo, onApply }: {
+function FinancialDeptTab({ rows, dateFrom, setDateFrom, dateTo, setDateTo, onApply, available, applied, onUseFullRange }: {
   rows: FinDeptRow[]; dateFrom: string; setDateFrom: (v: string) => void;
   dateTo: string; setDateTo: (v: string) => void; onApply: () => void;
+  available?: Available; applied: { dateFrom: string; dateTo: string }; onUseFullRange: () => void;
 }) {
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
 
@@ -1099,14 +1178,14 @@ function FinancialDeptTab({ rows, dateFrom, setDateFrom, dateTo, setDateTo, onAp
           <div className="flex flex-wrap gap-3 items-end" dir="rtl">
             <div>
               <label className="text-xs text-gray-500 block mb-1">מתאריך</label>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-400"
+              <DateInput value={dateFrom} onChange={setDateFrom}
+                className="focus-within:border-emerald-400"
                 data-testid="fin-dept-date-from" />
             </div>
             <div>
               <label className="text-xs text-gray-500 block mb-1">עד תאריך</label>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-400"
+              <DateInput value={dateTo} onChange={setDateTo}
+                className="focus-within:border-emerald-400"
                 data-testid="fin-dept-date-to" />
             </div>
             <button onClick={onApply} data-testid="fin-dept-apply"
@@ -1118,15 +1197,9 @@ function FinancialDeptTab({ rows, dateFrom, setDateFrom, dateTo, setDateTo, onAp
       </Card>
 
       {!hasData ? (
-        <Card>
-          <CardContent className="py-14">
-            <div className="text-center space-y-3">
-              <div className="text-4xl">💰</div>
-              <p className="text-base font-semibold text-amber-700">אין נתונים מסונכרנים</p>
-              <p className="text-sm text-gray-500">יש לסנכרן שאילתא כספית תחילה, ולאחר מכן להפעיל שאילתא</p>
-            </div>
-          </CardContent>
-        </Card>
+        <DeptEmptyState icon="💰" available={available} applied={applied}
+          syncCommand="python sync-financial-query.py --date-from 2024-01-01 --date-to 2024-12-31"
+          onUseFullRange={onUseFullRange} />
       ) : (
         <>
           <div className="grid grid-cols-3 gap-4">
@@ -1232,9 +1305,10 @@ function FinancialDeptTab({ rows, dateFrom, setDateFrom, dateTo, setDateTo, onAp
 interface OpDeptRow { dept_code: string; dept_name: string; calibrator_name: string; family_name: string; total_qty: number; doc_count: number; }
 interface OpDept { deptCode: string; deptName: string; totalQty: number; docCount: number; calibrators: { name: string; qty: number; docCount: number }[]; }
 
-function OperationalDeptTab({ rows, dateFrom, setDateFrom, dateTo, setDateTo, onApply }: {
+function OperationalDeptTab({ rows, dateFrom, setDateFrom, dateTo, setDateTo, onApply, available, applied, onUseFullRange }: {
   rows: OpDeptRow[]; dateFrom: string; setDateFrom: (v: string) => void;
   dateTo: string; setDateTo: (v: string) => void; onApply: () => void;
+  available?: Available; applied: { dateFrom: string; dateTo: string }; onUseFullRange: () => void;
 }) {
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
 
@@ -1270,14 +1344,14 @@ function OperationalDeptTab({ rows, dateFrom, setDateFrom, dateTo, setDateTo, on
           <div className="flex flex-wrap gap-3 items-end" dir="rtl">
             <div>
               <label className="text-xs text-gray-500 block mb-1">מתאריך</label>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              <DateInput value={dateFrom} onChange={setDateFrom}
+                className="focus-within:border-blue-400"
                 data-testid="op-dept-date-from" />
             </div>
             <div>
               <label className="text-xs text-gray-500 block mb-1">עד תאריך</label>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              <DateInput value={dateTo} onChange={setDateTo}
+                className="focus-within:border-blue-400"
                 data-testid="op-dept-date-to" />
             </div>
             <button onClick={onApply} data-testid="op-dept-apply"
@@ -1289,15 +1363,9 @@ function OperationalDeptTab({ rows, dateFrom, setDateFrom, dateTo, setDateTo, on
       </Card>
 
       {!hasData ? (
-        <Card>
-          <CardContent className="py-14">
-            <div className="text-center space-y-3">
-              <div className="text-4xl">📦</div>
-              <p className="text-base font-semibold text-blue-700">אין נתונים מסונכרנים</p>
-              <p className="text-sm text-gray-500">יש לסנכרן שאילתא תפעולית תחילה, ולאחר מכן להפעיל שאילתא</p>
-            </div>
-          </CardContent>
-        </Card>
+        <DeptEmptyState icon="📦" available={available} applied={applied}
+          syncCommand="python sync-operational-query.py --date-from 2024-01-01 --date-to 2024-12-31"
+          onUseFullRange={onUseFullRange} />
       ) : (
         <>
           <div className="grid grid-cols-3 gap-4">

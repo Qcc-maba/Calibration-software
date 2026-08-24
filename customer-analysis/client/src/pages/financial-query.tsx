@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { RefreshCw, Download, Search, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { DateInput, isoToDisplay, isoMinusMonths, maxIso } from "@/components/ui/date-input";
 import { cn } from "@/lib/utils";
 
 const COLUMNS = [
@@ -50,13 +51,19 @@ function fmt(n: number, money = false) {
   return n.toLocaleString("he-IL", { maximumFractionDigits: 4 });
 }
 
-export default function FinancialQueryPage() {
-  const now = new Date();
-  const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,"0")}-01`;
-  const lastOfMonth  = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+type Available = { min: string | null; max: string | null; count: number };
+type QueryResult = {
+  rows: Row[];
+  total: number;
+  returned: number;
+  truncated: boolean;
+  syncedAt: string | null;
+  available: Available;
+};
 
-  const [dateFrom, setDateFrom] = useState(firstOfMonth);
-  const [dateTo,   setDateTo]   = useState(lastOfMonth);
+export default function FinancialQueryPage() {
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo,   setDateTo]   = useState("");
   const [search,   setSearch]   = useState("");
   const [sortCol,  setSortCol]  = useState<string | null>(null);
   const [sortDir,  setSortDir]  = useState<1 | -1>(1);
@@ -65,9 +72,37 @@ export default function FinancialQueryPage() {
   const PAGE_SIZE = 50;
 
   const [queryParams, setQueryParams] = useState({ dateFrom: "", dateTo: "" });
+  const [hasRun, setHasRun] = useState(false);
 
-  const { data, isFetching, error, refetch } = useQuery<{ rows: Row[]; total: number; syncedAt: string | null }>({
+  // שאלה זולה: אילו תאריכים בכלל קיימים בטבלה. limit=1 לא מושך את השורות עצמן.
+  const { data: meta } = useQuery<QueryResult>({
+    queryKey: ["financial-query-meta"],
+    queryFn: () => fetch("/api/financial-query?limit=1").then(r => r.json()),
+    staleTime: Infinity,
+  });
+  const available = meta?.available;
+
+  // ברירת המחדל היא הטווח שבאמת קיים ב-DB, לא החודש הנוכחי —
+  // אחרת המסך נפתח על תקופה ריקה ונראה כאילו השאילתא לא עובדת.
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current || !available) return;
+    seeded.current = true;
+    if (available.min && available.max) {
+      // חודש אחרון בלבד. הטווח המלא הוא ~167 אלף שורות / ~100MB —
+      // כברירת מחדל בטעינת עמוד זה בלתי שמיש. "הצג את כל הטווח" עדיין זמין.
+      const from = maxIso(isoMinusMonths(available.max, 1), available.min);
+      setDateFrom(from);
+      setDateTo(available.max);
+      setQueryParams({ dateFrom: from, dateTo: available.max });
+    }
+    // גם כשהטבלה ריקה מריצים, כדי שהמסך יציג "אין נתונים מסונכרנים" ולא ספינר נצחי
+    setHasRun(true);
+  }, [available]);
+
+  const { data, isFetching, error, refetch } = useQuery<QueryResult>({
     queryKey: ["financial-query", queryParams.dateFrom, queryParams.dateTo],
+    enabled: hasRun,
     queryFn: async () => {
       const res = await fetch(`/api/financial-query?dateFrom=${encodeURIComponent(queryParams.dateFrom)}&dateTo=${encodeURIComponent(queryParams.dateTo)}`);
       if (!res.ok) {
@@ -82,7 +117,17 @@ export default function FinancialQueryPage() {
 
   function runQuery() {
     setPage(1);
+    setHasRun(true);
     setQueryParams({ dateFrom, dateTo });
+  }
+
+  function useFullRange() {
+    if (!available?.min || !available?.max) return;
+    setDateFrom(available.min);
+    setDateTo(available.max);
+    setPage(1);
+    setHasRun(true);
+    setQueryParams({ dateFrom: available.min, dateTo: available.max });
   }
 
   const visibleCols = showExtra ? [...COLUMNS, ...EXTRA_COLUMNS] : COLUMNS;
@@ -129,7 +174,7 @@ export default function FinancialQueryPage() {
     ].join("\r\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
-    a.download = `שאילתא_כספית_${dateFrom}_${dateTo}.csv`;
+    a.download = `שאילתא_כספית_${isoToDisplay(dateFrom)}_${isoToDisplay(dateTo)}.csv`.replace(/\//g, "-");
     a.click();
   }
 
@@ -154,6 +199,11 @@ export default function FinancialQueryPage() {
             {data && data.total > 0 && (
               <div className="text-right">
                 <span className="text-xs text-gray-400">{data.total.toLocaleString("he-IL")} שורות</span>
+                {data.truncated && (
+                  <span className="text-xs text-amber-600 font-semibold mr-1.5">
+                    (מוצגות {data.returned.toLocaleString("he-IL")} הראשונות)
+                  </span>
+                )}
                 {data.syncedAt && (
                   <div className="text-xs text-gray-400 opacity-70">
                     עודכן: {new Date(data.syncedAt).toLocaleDateString("he-IL")}
@@ -172,19 +222,28 @@ export default function FinancialQueryPage() {
         <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-gray-500 font-semibold whitespace-nowrap">מתאריך:</span>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:border-emerald-500 bg-white" />
+            <DateInput value={dateFrom} onChange={setDateFrom}
+              className="focus-within:border-emerald-500"
+              min={available?.min ?? undefined} max={available?.max ?? undefined}
+              data-testid="fin-query-date-from" />
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-gray-500 font-semibold whitespace-nowrap">עד תאריך:</span>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:border-emerald-500 bg-white" />
+            <DateInput value={dateTo} onChange={setDateTo}
+              className="focus-within:border-emerald-500"
+              min={available?.min ?? undefined} max={available?.max ?? undefined}
+              data-testid="fin-query-date-to" />
           </div>
           <button onClick={runQuery} disabled={isFetching} data-testid="btn-run-financial-query"
             className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 disabled:opacity-60 transition">
             <RefreshCw className={cn("w-3.5 h-3.5", isFetching && "animate-spin")} />
             {isFetching ? "טוען..." : "הפעל שאילתא"}
           </button>
+          {available?.min && available?.max && (
+            <span className="text-xs text-gray-400 whitespace-nowrap" data-testid="fin-query-available">
+              נתונים זמינים: {isoToDisplay(available.min)} – {isoToDisplay(available.max)}
+            </span>
+          )}
           <div className="flex-1 min-w-[200px] relative">
             <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
             <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
@@ -259,7 +318,7 @@ export default function FinancialQueryPage() {
 
           {!isFetching && !error && data && (
             <>
-              {data.rows.length === 0 ? (
+              {data.rows.length === 0 && !available?.count ? (
                 <div className="max-w-lg mx-auto mt-10 bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
                   <div className="text-3xl mb-3">💰</div>
                   <h3 className="font-bold text-amber-800 mb-2">אין נתונים מסונכרנים</h3>
@@ -268,6 +327,23 @@ export default function FinancialQueryPage() {
                     python sync-financial-query.py --date-from 2024-01-01 --date-to 2024-12-31
                   </div>
                   <p className="text-xs text-amber-600">לאחר הסנכרון, הנתונים יישמרו בבסיס הנתונים וניתן לסנן לפי תאריכים.</p>
+                </div>
+              ) : data.rows.length === 0 ? (
+                /* הטבלה מלאה — פשוט אין שורות בטווח שנבחר. לא לשלוח את המשתמש לסנכרן מחדש. */
+                <div className="max-w-lg mx-auto mt-10 bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center" data-testid="fin-query-out-of-range">
+                  <div className="text-3xl mb-3">🗓️</div>
+                  <h3 className="font-bold text-emerald-800 mb-2">אין חשבוניות בטווח שנבחר</h3>
+                  <p className="text-sm text-emerald-700 mb-1">
+                    ביקשת {isoToDisplay(queryParams.dateFrom) || "…"} – {isoToDisplay(queryParams.dateTo) || "…"}
+                  </p>
+                  <p className="text-sm text-emerald-700 mb-4">
+                    בטבלה יש {available?.count?.toLocaleString("he-IL")} שורות, בין{" "}
+                    <strong>{isoToDisplay(available?.min ?? "")}</strong> ל-<strong>{isoToDisplay(available?.max ?? "")}</strong>.
+                  </p>
+                  <button onClick={useFullRange}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700">
+                    הצג את כל הטווח הקיים
+                  </button>
                 </div>
               ) : sorted.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">

@@ -118,6 +118,30 @@ interface CompanyReturnsData {
 
 type ReturnDoc = { customerName: string; customerHp: string; customerId: string; docNumber: string; openDate: string; totalPrice: number };
 
+/** ספירות התראות הכיול, מצטברות בשרת לפי חודש/מיקום/סוג */
+type AlertCount = { month: string; location: string; type: string; count: number };
+type AlertsAggregate = {
+  window: { from: string; to: string; monthsBack: number; monthsAhead: number };
+  byMonth: AlertCount[];
+  outsideWindow: { unparsable: number; older: number; ahead: number };
+  grandTotal: number;
+};
+type MonthDevices = { rows: any[]; total: number; truncated: boolean; loading: boolean };
+
+/**
+ * סופר בתוך קבוצת חודש לפי הסינון הנבחר.
+ * גם הכותרת, גם התגיות וגם הגרף עוברים דרך הפונקציה הזו — לכן הם תמיד עקביים
+ * זה עם זה. קודם לכן הכותרת ספרה את החלון והתגיות ספרו את כל הטבלה.
+ */
+function countAlerts(counts: AlertCount[], location: string, type: string): number {
+  return counts.reduce((sum, c) => {
+    if (location !== 'all' && c.location !== location) return sum;
+    if (type === 'overdue'  && c.type !== 'error') return sum;
+    if (type === 'upcoming' && c.type === 'error') return sum;
+    return sum + c.count;
+  }, 0);
+}
+
 const SUMMARY_MONTH_NAMES = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
 
 const SUMMARY_HEBREW_HOLIDAYS: Date[] = [
@@ -258,14 +282,42 @@ export default function CompanySummary() {
     },
   });
 
-  const { data: companyCalibrationAlerts } = useQuery<any[]>({
+  // ספירות מצטברות בלבד. קודם לכן נמשכו כל 452,269 שורות ההתראות (165MB)
+  // רק כדי לספור אותן בדפדפן — זו הייתה הסיבה העיקרית לאיטיות העמוד.
+  const { data: alertsAgg } = useQuery<AlertsAggregate>({
     queryKey: ['/api/company/calibration-alerts'],
     queryFn: async () => {
       const res = await fetch('/api/company/calibration-alerts');
       if (!res.ok) throw new Error('Failed to fetch calibration alerts');
       return res.json();
     },
+    staleTime: 5 * 60 * 1000,
   });
+
+  // תצוגת "לפי לקוח" — גם היא מצטברת בשרת, על אותו חלון ואותם מסננים
+  const { data: alertCustomers } = useQuery<{ id: string; companyName: string; count: number }[]>({
+    queryKey: ['/api/company/calibration-alerts/customers', alertsLocation, alertsType],
+    queryFn: async () => {
+      const res = await fetch(`/api/company/calibration-alerts/customers?location=${alertsLocation}&type=${alertsType}&limit=10`);
+      if (!res.ok) throw new Error('Failed to fetch alert customers');
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // רשימת המכשירים של חודש נטענת רק כשפותחים אותו
+  const [monthDevices, setMonthDevices] = useState<Record<string, MonthDevices>>({});
+  const loadMonthDevices = useCallback(async (month: string, location: string, type: string) => {
+    const cacheKey = `${month}|${location}|${type}`;
+    setMonthDevices(prev => (prev[cacheKey] ? prev : { ...prev, [cacheKey]: { rows: [], total: 0, truncated: false, loading: true } }));
+    try {
+      const res = await fetch(`/api/company/calibration-alerts/devices?month=${month}&location=${location}&type=${type}`);
+      const json = await res.json();
+      setMonthDevices(prev => ({ ...prev, [cacheKey]: { rows: json.rows || [], total: json.total || 0, truncated: !!json.truncated, loading: false } }));
+    } catch {
+      setMonthDevices(prev => ({ ...prev, [cacheKey]: { rows: [], total: 0, truncated: false, loading: false } }));
+    }
+  }, []);
 
   type GlobalSyncStateStatus = 'idle' | 'requested' | 'running' | 'complete' | 'error';
   interface GlobalSyncStatus {
@@ -374,102 +426,69 @@ export default function CompanySummary() {
   // falls back to per-customer alerts from the customer list cache.
   // Filtered by selectedAgent when applicable.
   const monthlyAlertsMap = useMemo(() => {
-    const map = new Map<string, { monthLabel: string; year: number; month: number; isPast: boolean; errorCount: number; warningCount: number; entries: any[] }>();
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const threeYearsAgo = new Date(now.getFullYear() - 3, now.getMonth(), 1);
-    const twelveMonthsAhead = new Date(now.getFullYear(), now.getMonth() + 12, 1);
+    const label = (y: number, m: number) =>
+      new Date(y, m - 1, 1).toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
 
-    const processAlert = (entry: {
-      customerId: string; customerName: string; deviceName: string;
-      serialNo: string; nextCalDate: string; lastCalDate: string;
-      type: string; location: string; agentName?: string;
-    }) => {
-      if (!entry.nextCalDate) return;
-      if (alertsAgent !== 'all' && entry.agentName && entry.agentName !== alertsAgent) return;
-      try {
-        const parts = entry.nextCalDate.split('/');
-        if (parts.length < 3) return;
-        const [, mm, yy] = parts.map(Number);
-        const monthDate = new Date(yy, mm - 1, 1);
-        if (monthDate < threeYearsAgo || monthDate > twelveMonthsAhead) return;
-        const key = `${yy}-${String(mm).padStart(2, '0')}`;
-        const isPast = monthDate < thisMonthStart;
-        if (!map.has(key)) {
-          const monthName = monthDate.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
-          map.set(key, { monthLabel: monthName, year: yy, month: mm, isPast, errorCount: 0, warningCount: 0, entries: [] });
-        }
-        const group = map.get(key)!;
-        if (entry.type === 'error') group.errorCount++;
-        else group.warningCount++;
-        group.entries.push(entry);
-      } catch {}
-    };
-
-    const isUsingGlobalData = companyCalibrationAlerts && companyCalibrationAlerts.length > 0;
-
-    if (isUsingGlobalData) {
-      // Use global table data — full dataset, all months
-      companyCalibrationAlerts.forEach((alert: any) => {
-        processAlert({
-          customerId: alert.customerId || '',
-          customerName: alert.customerName || '',
-          deviceName: alert.deviceName || '',
-          serialNo: alert.serialNo || '',
-          nextCalDate: alert.nextCalDate || '',
-          lastCalDate: alert.lastCalDate || '',
-          type: alert.type || 'warning',
-          location: alert.location || 'internal',
-          agentName: alert.agentName || '',
-        });
-      });
-    } else {
-      // Fallback: per-customer alerts from customer list cache (limited to 10 per customer)
-      // Only process fully past months — current & future months skew artificially high because each
-      // customer's "next 10 alerts" cluster around the near future.
-      const fallbackCutoff = new Date(now.getFullYear(), now.getMonth(), 1); // start of current month (exclude it)
-      (data?.customers || []).forEach((c: any) => {
-        const serialToLocation = new Map<string, string>();
-        (c.devicesList || []).forEach((d: any) => {
-          if (d.serialNo) serialToLocation.set(d.serialNo, d.location || 'internal');
-        });
-        (c.alerts || []).forEach((alert: any) => {
-          // Skip future months in fallback mode — they produce artificial spikes
-          if (alert.nextCalDate) {
-            const parts = (alert.nextCalDate as string).split('/');
-            if (parts.length >= 3) {
-              const alertDate = new Date(Number(parts[2]), Number(parts[1]) - 1, 1);
-              if (alertDate >= fallbackCutoff) return;
-            }
-          }
-          processAlert({
-            customerId: c.id,
-            customerName: c.companyName,
-            deviceName: (alert.title || '').split(' - ')[0] || '',
-            serialNo: alert.serialNo || '',
-            nextCalDate: alert.nextCalDate || '',
-            lastCalDate: alert.lastCalDate || '',
-            type: alert.type || 'warning',
-            location: alert.location || serialToLocation.get(alert.serialNo || '') || 'internal',
-            agentName: c.agentName || '',
+    // מקור ראשי: הספירות המצטברות מהשרת (כבר מסוננות לחלון 3 שנים אחורה / 12 קדימה)
+    if (alertsAgg?.byMonth?.length) {
+      const map = new Map<string, { key: string; monthLabel: string; year: number; month: number; isPast: boolean; counts: AlertCount[] }>();
+      for (const row of alertsAgg.byMonth) {
+        const [yy, mm] = row.month.split('-').map(Number);
+        if (!yy || !mm) continue;
+        if (!map.has(row.month)) {
+          map.set(row.month, {
+            key: row.month, monthLabel: label(yy, mm), year: yy, month: mm,
+            isPast: new Date(yy, mm - 1, 1) < thisMonthStart, counts: [],
           });
-        });
-      });
+        }
+        map.get(row.month)!.counts.push({ ...row, count: Number(row.count) || 0 });
+      }
+      return Array.from(map.values()).sort((a, b) => b.key.localeCompare(a.key));
     }
 
-    return Array.from(map.entries())
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([key, val]) => ({ key, ...val, isUsingGlobalData }));
-  }, [data, companyCalibrationAlerts, alertsAgent]);
+    // גיבוי: כשאין נתונים גלובליים, נגזר מקאש הלקוחות.
+    // חודשים עתידיים מושמטים — "10 ההתראות הבאות" של כל לקוח מצטופפות סביב העתיד הקרוב
+    // ויוצרות קפיצה מלאכותית.
+    const map = new Map<string, { key: string; monthLabel: string; year: number; month: number; isPast: boolean; counts: AlertCount[] }>();
+    const threeYearsAgo = new Date(now.getFullYear() - 3, now.getMonth(), 1);
+    const bump = (key: string, y: number, m: number, location: string, type: string) => {
+      if (!map.has(key)) {
+        map.set(key, { key, monthLabel: label(y, m), year: y, month: m, isPast: new Date(y, m - 1, 1) < thisMonthStart, counts: [] });
+      }
+      const g = map.get(key)!;
+      const hit = g.counts.find(c => c.location === location && c.type === type);
+      if (hit) hit.count++;
+      else g.counts.push({ month: key, location, type, count: 1 });
+    };
+
+    (data?.customers || []).forEach((c: any) => {
+      const serialToLocation = new Map<string, string>();
+      (c.devicesList || []).forEach((d: any) => {
+        if (d.serialNo) serialToLocation.set(d.serialNo, d.location || 'internal');
+      });
+      (c.alerts || []).forEach((alert: any) => {
+        const parts = String(alert.nextCalDate || '').split('/');
+        if (parts.length < 3) return;
+        const [, mm, yy] = parts.map(Number);
+        if (!yy || !mm) return;
+        const monthDate = new Date(yy, mm - 1, 1);
+        if (monthDate >= thisMonthStart || monthDate < threeYearsAgo) return;
+        bump(`${yy}-${String(mm).padStart(2, '0')}`, yy, mm,
+             alert.location || serialToLocation.get(alert.serialNo || '') || 'internal',
+             alert.type || 'warning');
+      });
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.key.localeCompare(a.key));
+  }, [data, alertsAgg]);
 
   // Mini bar chart data — calibration load by location per month (chronological)
   const { calLoadChartData, calLoadAvg } = useMemo(() => {
     const raw = [...monthlyAlertsMap].reverse().map(group => {
-      const filtered = group.entries.filter(e =>
-        alertsType === 'all' || (alertsType === 'overdue' ? e.type === 'error' : e.type !== 'error')
-      );
-      const internal = filtered.filter(e => e.location === 'internal').length;
-      const external = filtered.filter(e => e.location === 'external').length;
+      const internal = countAlerts(group.counts, 'internal', alertsType);
+      const external = countAlerts(group.counts, 'external', alertsType);
       const shortLabel = new Date(group.year, group.month - 1, 1)
         .toLocaleDateString('he-IL', { month: 'short', year: '2-digit' });
       return { key: group.key, label: shortLabel, internal, external };
@@ -872,32 +891,15 @@ export default function CompanySummary() {
   // customersWithAlerts computed inline (not useMemo) to avoid Rules of Hooks violation
   // Must be after `customers` is defined (after early returns)
   let customersWithAlerts: any[] = [];
-  if (companyCalibrationAlerts && companyCalibrationAlerts.length > 0) {
-    // Build from global table: count devices per customer, filtered by alertsType
-    const byCustomer = new Map<string, { id: string; companyName: string; hp: string; count: number }>();
-    companyCalibrationAlerts
-      .filter((a: any) =>
-        (alertsType === 'all' || (alertsType === 'overdue' ? a.type === 'error' : a.type !== 'error')) &&
-        (alertsLocation === 'all' || (a.location || 'internal') === alertsLocation) &&
-        (alertsAgent === 'all' || a.agentName === alertsAgent)
-      )
-      .forEach((a: any) => {
-        const custId = a.customerId || '';
-        if (!byCustomer.has(custId)) {
-          byCustomer.set(custId, { id: custId, companyName: a.customerName || '', hp: custId, count: 0 });
-        }
-        byCustomer.get(custId)!.count++;
-      });
-    customersWithAlerts = Array.from(byCustomer.values())
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10)
-      .map(c => ({
-        id: c.id,
-        companyName: c.companyName,
-        hp: c.hp,
-        deviceInventory: { outForCalibration: c.count },
-        alerts: [] as any[],
-      }));
+  if (alertCustomers && alertCustomers.length > 0) {
+    // מצטבר בשרת על אותו חלון תאריכים ואותם מסננים
+    customersWithAlerts = alertCustomers.map(c => ({
+      id: c.id,
+      companyName: c.companyName,
+      hp: c.id,
+      deviceInventory: { outForCalibration: c.count },
+      alerts: [] as any[],
+    }));
   } else {
     customersWithAlerts = customers
       .filter(c => c.alerts && c.alerts.length > 0 && (alertsAgent === 'all' || c.agentName === alertsAgent))
@@ -1143,7 +1145,7 @@ export default function CompanySummary() {
               <CardTitle className="flex items-center gap-2">
                 התראות כיול
                 <span className="text-sm font-normal text-muted-foreground">
-                  ({monthlyAlertsMap.reduce((s, g) => s + g.entries.filter(e => (alertsLocation === 'all' || e.location === alertsLocation) && (alertsType === 'all' || (alertsType === 'overdue' ? e.type === 'error' : e.type !== 'error'))).length, 0)} מכשירים)
+                  ({monthlyAlertsMap.reduce((s, g) => s + countAlerts(g.counts, alertsLocation, alertsType), 0).toLocaleString()} מכשירים)
                 </span>
               </CardTitle>
               <div className="flex items-center gap-2 flex-wrap">
@@ -1190,18 +1192,18 @@ export default function CompanySummary() {
             </div>
             <div className="flex items-center justify-between flex-wrap gap-2 mt-1">
               <CardDescription>מכשירים שפג תוקף הכיול שלהם או שתוקפם יפוג בקרוב</CardDescription>
-              {companyCalibrationAlerts && companyCalibrationAlerts.length > 0 && (() => {
-                const totalAlerts = companyCalibrationAlerts.length;
-                const typeFiltered = (a: any) => alertsType === 'all' || (alertsType === 'overdue' ? a.type === 'error' : a.type !== 'error');
-                const locFiltered = (a: any) => alertsLocation === 'all' || (a.location || 'internal') === alertsLocation;
-                const internalCount = companyCalibrationAlerts.filter((a: any) => (a.location || 'internal') === 'internal' && typeFiltered(a)).length;
-                const externalCount = companyCalibrationAlerts.filter((a: any) => a.location === 'external' && typeFiltered(a)).length;
-                const subcontractorCount = companyCalibrationAlerts.filter((a: any) => a.location === 'subcontractor' && typeFiltered(a)).length;
+              {monthlyAlertsMap.length > 0 && (() => {
+                // כל התגיות נספרות מאותו חלון שהכותרת והגרף מציגים, ולכן הן מסתכמות אליו.
+                const all = monthlyAlertsMap.flatMap(g => g.counts);
+                const totalAlerts        = countAlerts(all, 'all', alertsType);
+                const internalCount      = countAlerts(all, 'internal', alertsType);
+                const externalCount      = countAlerts(all, 'external', alertsType);
+                const subcontractorCount = countAlerts(all, 'subcontractor', alertsType);
                 const internalPct = totalAlerts > 0 ? Math.round((internalCount / totalAlerts) * 100) : 0;
                 const externalPct = totalAlerts > 0 ? Math.round((externalCount / totalAlerts) * 100) : 0;
                 const subcontractorPct = totalAlerts > 0 ? Math.round((subcontractorCount / totalAlerts) * 100) : 0;
-                const overdueCount = companyCalibrationAlerts.filter((a: any) => a.type === 'error' && locFiltered(a)).length;
-                const upcomingCount = companyCalibrationAlerts.filter((a: any) => a.type !== 'error' && locFiltered(a)).length;
+                const overdueCount  = countAlerts(all, alertsLocation, 'overdue');
+                const upcomingCount = countAlerts(all, alertsLocation, 'upcoming');
                 return (
                   <div className="flex items-center gap-2 text-xs flex-wrap" data-testid="alerts-location-split">
                     <button
@@ -1352,23 +1354,25 @@ export default function CompanySummary() {
                 ) : (
                   <div className="space-y-2 pl-1">
                     {monthlyAlertsMap.map((group) => {
-                      const filteredEntries = group.entries.filter(e =>
-                        (alertsLocation === 'all' || e.location === alertsLocation) &&
-                        (alertsType === 'all' || (alertsType === 'overdue' ? e.type === 'error' : e.type !== 'error'))
-                      );
-                      if (filteredEntries.length === 0) return null;
+                      const shownCount = countAlerts(group.counts, alertsLocation, alertsType);
+                      if (shownCount === 0) return null;
                       const isOpen = expandedAlertMonths.has(group.key);
-                      const toggle = () => setExpandedAlertMonths(prev => {
-                        const next = new Set(prev);
-                        isOpen ? next.delete(group.key) : next.add(group.key);
-                        return next;
-                      });
+                      const devKey = `${group.key}|${alertsLocation}|${alertsType}`;
+                      const devices = monthDevices[devKey];
+                      const toggle = () => {
+                        setExpandedAlertMonths(prev => {
+                          const next = new Set(prev);
+                          isOpen ? next.delete(group.key) : next.add(group.key);
+                          return next;
+                        });
+                        if (!isOpen && !devices) loadMonthDevices(group.key, alertsLocation, alertsType);
+                      };
                       const rowBg = group.isPast
                         ? 'bg-red-50 border-red-200 hover:bg-red-100/70'
                         : 'bg-amber-50 border-amber-200 hover:bg-amber-100/70';
                       const badgeBg = group.isPast ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700';
-                      const filteredError = filteredEntries.filter(e => e.type === 'error').length;
-                      const filteredWarning = filteredEntries.filter(e => e.type !== 'error').length;
+                      const filteredError = countAlerts(group.counts, alertsLocation, 'overdue');
+                      const filteredWarning = countAlerts(group.counts, alertsLocation, 'upcoming');
                       return (
                         <div
                           key={group.key}
@@ -1382,7 +1386,7 @@ export default function CompanySummary() {
                           >
                             <div className="flex items-center gap-2">
                               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeBg}`}>
-                                {filteredEntries.length}
+                                {shownCount.toLocaleString()}
                               </span>
                               {filteredError > 0 && (
                                 <span className="text-xs text-red-600 font-medium">{filteredError} באיחור</span>
@@ -1398,13 +1402,21 @@ export default function CompanySummary() {
                           </button>
                           {/* Expanded device list */}
                           {isOpen && (() => {
-                            const byCustomer = new Map<string, typeof group.entries>();
-                            filteredEntries.forEach(entry => {
+                            if (!devices || devices.loading) {
+                              return <div className="px-4 py-4 text-xs text-muted-foreground text-center">טוען מכשירים…</div>;
+                            }
+                            const byCustomer = new Map<string, any[]>();
+                            devices.rows.forEach(entry => {
                               if (!byCustomer.has(entry.customerId)) byCustomer.set(entry.customerId, []);
                               byCustomer.get(entry.customerId)!.push(entry);
                             });
                             return (
                               <div className="divide-y divide-border">
+                                {devices.truncated && (
+                                  <div className="px-4 py-1.5 text-[11px] text-amber-700 bg-amber-50">
+                                    מוצגים {devices.rows.length.toLocaleString()} מתוך {devices.total.toLocaleString()} מכשירים
+                                  </div>
+                                )}
                                 {Array.from(byCustomer.entries()).map(([custId, entries]) => (
                                   <div key={custId}>
                                     <div

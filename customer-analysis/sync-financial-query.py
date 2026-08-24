@@ -41,7 +41,11 @@ def post_json(url: str, payload: dict, timeout: int = 90, debug: bool = False) -
     ctx.check_hostname = False
     ctx.verify_mode    = ssl.CERT_NONE
 
-    conn = http.client.HTTPSConnection(parsed.netloc, context=ctx, timeout=timeout)
+    # http:// חייב HTTPConnection — אחרת סנכרון לשרת מקומי נופל על handshake כושל
+    if parsed.scheme == "http":
+        conn = http.client.HTTPConnection(parsed.netloc, timeout=timeout)
+    else:
+        conn = http.client.HTTPSConnection(parsed.netloc, context=ctx, timeout=timeout)
     try:
         conn.request("POST", parsed.path or "/", body=body, headers={
             "Content-Type":   "application/json; charset=utf-8",
@@ -103,7 +107,7 @@ except ImportError:
 DEFAULT_API_URL = "https://client-analytics-dashboard--eliran8hadad.replit.app"
 
 QUERY = """
-SELECT TOP 10000
+SELECT TOP __TOP__
     INVOICES.IVNUM      AS [חשבונית]
   , FORMAT(DATEADD(minute, INVOICES.IVDATE, '01/01/1988'), 'dd/MM/yy') AS [תאריך החשבונית]
   , CUSTOMERS.CUSTNAME  AS [מספר לקוח]
@@ -234,6 +238,11 @@ def parse_args():
     p.add_argument("--clear",     action="store_true", help="Delete all rows before insert")
     p.add_argument("--url",       default=DEFAULT_API_URL)
     p.add_argument("--batch",     type=int, default=50)
+    p.add_argument("--top",       type=int, default=10000,
+                   help="Max rows to pull from SQL Server (default: 10000). "
+                        "Raise it for a full year — the old fixed cap silently truncated the range.")
+    p.add_argument("--sleep",     type=float, default=1.0,
+                   help="Seconds between batches (default: 1). Use 0 for a local dashboard.")
     return p.parse_args()
 
 
@@ -269,12 +278,15 @@ def run():
 
     conn   = connect_mssql()
     cursor = conn.cursor()
-    cursor.execute(QUERY, date_from_ms, date_to_ms)
+    cursor.execute(QUERY.replace("__TOP__", str(args.top)), date_from_ms, date_to_ms)
 
     columns  = [col[0] for col in cursor.description]
     rows_raw = cursor.fetchall()
     conn.close()
     print(f"  Fetched    : {len(rows_raw)} rows from SQL Server")
+    if len(rows_raw) == args.top:
+        print(f"  WARNING    : hit the --top cap ({args.top}) — the range is probably truncated. "
+              f"Re-run with a higher --top.")
 
     if not rows_raw:
         print("  Nothing to sync.")
@@ -318,8 +330,8 @@ def run():
         imported  = data.get("imported", 0)
         total_imp += imported
         print(f"  Batch {i+1}/{batches}: {len(batch)} → {imported} imported")
-        if i < batches - 1:
-            time.sleep(1)
+        if i < batches - 1 and args.sleep > 0:
+            time.sleep(args.sleep)
 
     print(f"\n✓ Done! Total: {total_imp} rows  (syncId: {sync_id})")
 
