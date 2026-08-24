@@ -25,12 +25,20 @@
     Removed instruments are ignored: kyulan's Removed column marks retirement, and a retired
     instrument must not resurrect a class onto a device someone is still using.
 
-    ONE DEVICE IS NEVER RECLASSIFIED: one that is currently wired into a logger. The first run of
-    this procedure moved 21-131 ('חוט TC-R + S') from Sensor to Cable because that is what the
-    registry calls it - and 21-131 is attached to logger 21-142 with ten channels assigned. It
-    vanished from the sensor picker while a calibrator was using it. A device connected to a logger
-    is a sensor in practice whatever the registry calls it, so those are now excluded from the
-    update rather than corrected afterwards.
+    A DEVICE IN USE IS NEVER RECLASSIFIED. The registry's taxonomy and this system's operational
+    reality disagree, and in a picker the operational one has to win. Three exclusions, each one
+    learned the hard way on the first run:
+
+      ConnectionPoints is set          -> it is a logger. kyulan calls 21-114 and 21-622 multimeters
+                                          and 21-479 a display; here they are configured loggers
+                                          with a connection and a channel count. Reclassifying them
+                                          took the wizard's logger picker from 36 down to 25.
+      wired into a logger              -> it is a sensor. 21-131 ('חוט TC-R + S') moved to Cable,
+                                          which is what the registry calls it, while attached to
+                                          logger 21-142 with ten channels assigned. It vanished
+                                          from the sensor picker mid-use.
+      used as a measurement point      -> it is a sensor. 31-77 moved to Thermometer while serving
+                                          as the sensor on a live measurement point.
 
     Sixteen other devices did move out of the sensor class on that run and were left there,
     because nothing is using them: fourteen 'מד חום סיפרתי עם רגש' became Thermometer and two
@@ -75,11 +83,16 @@ BEGIN
     INNER JOIN #Kyulan AS k ON k.MabaID = m.MabaID
     WHERE m.IsDeleted = 0
       AND (m.MainClassId IS NULL OR m.MainClassId <> k.MainClass)
-      /* never demote a sensor that is wired into a logger right now - see the header */
+      /* Never reclassify a device that is in use. See the header - the registry's taxonomy and
+         this system's operational reality disagree, and in a picker the operational one wins. */
+      AND m.ConnectionPoints IS NULL          /* a configured channel count means it is a logger */
       AND NOT EXISTS (SELECT 1 FROM dbo.SensorToLoggerRelation AS r
                       WHERE r.IsDeleted = 0
                         AND (r.SensorMeasurementDeviceId = m.ID
-                          OR r.LoggerMeasurementDeviceId = m.ID));
+                          OR r.LoggerMeasurementDeviceId = m.ID))
+      AND NOT EXISTS (SELECT 1 FROM dbo.MeasurmentPointsToOrderDetailsItems AS mp
+                      WHERE mp.IsDeleted = 0
+                        AND mp.SensorMeasurementDeviceId = m.ID);
 
     SELECT
         (SELECT COUNT(*) FROM #Kyulan)                                     AS KyulanActiveWithClass,
