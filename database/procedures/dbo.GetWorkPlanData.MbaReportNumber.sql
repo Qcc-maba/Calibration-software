@@ -109,6 +109,19 @@ BEGIN
 	/external-orders - @page = 'external-orders'
 	*/
 	/*-------------------------------------------------*/
+	/* MBA-902 / MBA-293 AC1: "As soon as Calibrator finishes calibration and generates the report,
+	   the Validator should see the calibration validation screen." The validator pages had no status
+	   filter at all - internal-validator, external-validator and internal-orders returned an
+	   identical 500 rows - so the screen listed orders that had not been calibrated yet, which is
+	   why every CRM-sourced column on it came back empty.
+	   These are the device statuses that mean calibration is over, taken from the story's own list. */
+	DECLARE @ValidatorDeviceStatuses NVARCHAR(200) = N'23,26,29,32,33,34,35,36'
+	/* 23 CalibrationSuccess  26 Adjusted  29 ReadyForPacking  32 TestedMetTheStandard
+	   33 TestedDidn'tMeetTheStandards  34 CannotBeDetermined  35 AwaitingComments  36 AwaitingSignature
+	   Deliberately excluded: 19/37 WaitingForCalibration, 20/38 InCalibration, 30 NotCalibrated -
+	   calibration has not finished; and 22 Packaged, 24 Delivered, 27 ReadyForDelivery,
+	   28 WaitingForPacking - those have already left the validator. */
+
 	DECLARE @ExtIntFilter BIT = NULL
 
 	IF @Page IN (N'external-schedule',N'external-orders',N'coordinator-orders') SET @ExtIntFilter = 0 -- IsInHouse = 0 for external orders
@@ -473,6 +486,9 @@ CONCAT(
 	,CASE WHEN @WorkPlanOpenDate IS NOT NULL THEN ' AND wp.WorkPlanOpenDate = '''+CAST(@WorkPlanOpenDate as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Notes IS NOT NULL THEN ' AND wp.Notes LIKE N''%'+ @Notes +'%'''ELSE ' ' END
 	,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
+	/* MBA-902: only devices whose calibration is finished reach the validator. */
+	,CASE WHEN @Page IN (N'internal-validator',N'external-validator',N'validator-orders')
+	      THEN ' AND itm.CalibrationStatusId IN ('+@ValidatorDeviceStatuses+') ' ELSE ' ' END
 	,'GROUP BY 
 	wp.[CustomerId],
  --   CASE ''',@Page,'''
