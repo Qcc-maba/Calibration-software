@@ -1,9 +1,7 @@
-﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-08-23.
--- Regenerated from the live object; see the in-body comments for what each change does
--- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
-CREATE   PROCEDURE [dbo].[AssignMeasurmentPointsToOrderDetailsItems]
+CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToOrderDetailsItems]
 @LoggedInUserEmail NVARCHAR(100),
-@Data NVARCHAR(MAX)
+@Data NVARCHAR(MAX),
+@ReturnSummary BIT = 0
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 31/07/2025
@@ -18,6 +16,21 @@ CREATE   PROCEDURE [dbo].[AssignMeasurmentPointsToOrderDetailsItems]
 -- dbo.MeasurementDevices is skipped instead of breaking the whole save.
 -- TRADE-OFF, deliberate: this turns a total failure into a partial save, so a malformed point is
 -- dropped quietly. The proper fix is on the FE (send numbers, not strings) — see the Jira ticket.
+-- 2026-08-24 (MBA-902) two follow-ups to that hardening, both visible on the chamber diagram.
+--   THE EMPTY CIRCLE. 220 of the 366 saved points carry MeasurmentPointName = ''. The column is
+--   NOT NULL, so a blank name is stored rather than refused, and the diagram draws a circle with
+--   nothing in it. The 146 points that do have a name all follow one convention, T1..T11 - and T1
+--   appears once against sixteen each for T2..T10, so it is the FIRST point that arrives unnamed.
+--   A blank name is now filled in as T<n>, numbered per order item and skipping every T number
+--   that item already uses, so a placed point always has something to draw.
+--   THE POINT THAT VANISHES. The partial-save trade-off below is right - one bad point must not
+--   take the whole save down - but it was silent. An item declaring two points on the first page
+--   and showing one on the diagram looks like a rendering bug rather than a dropped record. Pass
+--   @ReturnSummary = 1 to get back what was received, saved and skipped, and why. Off by default:
+--   the caller uses $executeRaw, which cannot take a result set.
+-- NOT fixed here, because the procedure cannot know the intent: 170 of the 366 points arrive with
+--   ChannelNumber = 99, which is not a channel on any logger. That is the UI's placeholder for
+--   "no channel chosen" and has to stop at the source.
 -- JiraLink:
 -- =============================================
 --Example of json needs to be passed
@@ -163,6 +176,61 @@ WITH (
     MeasuredValue NVARCHAR(50),
     MeasuredValueUnitId INT
 ) AS c
+/* MBA-902: a point with no name draws an empty circle. Give it the next free T number for its
+   order item, counting the names already stored and the named points in this same payload. */
+;WITH Used AS
+(
+    SELECT OrderDetailsItemId, TRY_CAST(SUBSTRING(MeasurmentPointName, 2, 10) AS INT) AS Num
+    FROM dbo.MeasurmentPointsToOrderDetailsItems
+    WHERE IsDeleted = 0 AND MeasurmentPointName LIKE 'T[0-9]%'
+    UNION ALL
+    SELECT OrderDetailsItemId, TRY_CAST(SUBSTRING(MeasurmentPointName, 2, 10) AS INT)
+    FROM #parsedData
+    WHERE MeasurmentPointName LIKE 'T[0-9]%'
+),
+Base AS
+(
+    SELECT pd.OrderDetailsItemId, ISNULL(MAX(u.Num), 0) AS MaxUsed
+    FROM #parsedData AS pd
+    LEFT JOIN Used AS u ON u.OrderDetailsItemId = pd.OrderDetailsItemId
+    GROUP BY pd.OrderDetailsItemId
+),
+Blanks AS
+(
+    SELECT pd.MeasurmentPointName, pd.OrderDetailsItemId,
+           ROW_NUMBER() OVER (PARTITION BY pd.OrderDetailsItemId
+                              ORDER BY pd.ChannelNumber, pd.MeasurmentPointCoordX,
+                                       pd.MeasurmentPointCoordY) AS rn
+    FROM #parsedData AS pd
+    WHERE LTRIM(RTRIM(ISNULL(pd.MeasurmentPointName, ''))) = ''
+)
+UPDATE b
+SET MeasurmentPointName = 'T' + CAST(bs.MaxUsed + b.rn AS NVARCHAR(10))
+FROM Blanks AS b
+INNER JOIN Base AS bs ON bs.OrderDetailsItemId = b.OrderDetailsItemId;
+
+/* MBA-902: what this save is about to drop, captured before the MERGE filters it away. */
+DECLARE @Received INT = (SELECT COUNT(*) FROM #parsedData);
+
+DROP TABLE IF EXISTS #skipped;
+SELECT pd.OrderDetailsItemId, pd.MeasurmentPointName, pd.SensorMeasurementDeviceId, pd.ChannelNumber,
+       CASE
+           WHEN pd.OrderDetailsItemId IS NULL         THEN 'no order item supplied'
+           WHEN pd.SensorMeasurementDeviceId IS NULL  THEN 'no sensor supplied'
+           WHEN pd.ChannelNumber IS NULL              THEN 'no channel supplied'
+           WHEN pd.MeasurmentPointCoordX IS NULL
+             OR pd.MeasurmentPointCoordY IS NULL      THEN 'coordinate could not be read as a number'
+           ELSE 'sensor does not exist'
+       END AS Reason
+INTO #skipped
+FROM #parsedData AS pd
+WHERE pd.OrderDetailsItemId IS NULL
+   OR pd.ChannelNumber IS NULL
+   OR pd.SensorMeasurementDeviceId IS NULL
+   OR pd.MeasurmentPointCoordX IS NULL
+   OR pd.MeasurmentPointCoordY IS NULL
+   OR NOT EXISTS (SELECT 1 FROM dbo.MeasurementDevices md WHERE md.ID = pd.SensorMeasurementDeviceId);
+
 /*Apply soft delete to data which no longer valid*/
 UPDATE dest
 SET IsDeleted = 1,
@@ -268,5 +336,21 @@ WHEN NOT MATCHED BY TARGET
             ,source.[MeasuredValue]
             ,source.[MeasuredValueUnitId]
 			);
+
+
+/* MBA-902: opt-in only - the caller uses $executeRaw, which cannot take a result set. */
+IF @ReturnSummary = 1
+BEGIN
+    SELECT @Received                                   AS pointsReceived,
+           @Received - (SELECT COUNT(*) FROM #skipped) AS pointsSaved,
+           (SELECT COUNT(*) FROM #skipped)             AS pointsSkipped;
+
+    SELECT OrderDetailsItemId        AS orderDetailsItemId,
+           MeasurmentPointName       AS measurementPointName,
+           SensorMeasurementDeviceId AS sensorMeasurementDeviceId,
+           ChannelNumber             AS channelNumber,
+           Reason                    AS reason
+    FROM #skipped;
+END
 
 END
