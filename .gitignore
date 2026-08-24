@@ -378,3 +378,7 @@ FodyWeavers.xsd
 # Generated DB doc PDF (binary; regenerate from DATABASES.html)
 docs/DATABASES.pdf
 docs/DATABASES.en.pdf
+
+# Packaged builds produced by scripts/Package-InstructionAssistant.ps1.
+# These carry a config.cmd with live credentials — never commit them.
+dist/
