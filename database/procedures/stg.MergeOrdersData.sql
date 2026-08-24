@@ -1,6 +1,4 @@
-﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-08-23.
--- Regenerated from the live object; see the in-body comments for what each change does
--- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
+﻿-- Mirrors the deployed definition, regenerated 2026-08-23. Not the source — redeploy after editing.
 
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -171,8 +169,8 @@ WHEN MATCHED AND
 		OR COALESCE(dest.[PART],0) <> COALESCE(source.[PART],0)
 		OR COALESCE(dest.[VPRICE],0) <> COALESCE(source.[VPRICE],0)
 		OR COALESCE(dest.[PRICE],0) <> COALESCE(source.[PRICE],0)
-		OR COALESCE(dest.[MainCategoryId],0) = COALESCE(source.[MainCategoryId],0)
-		OR COALESCE(dest.[SecondaryCategoryId],0) = COALESCE(source.[SecondaryCategoryId],0)
+		OR COALESCE(dest.[MainCategoryId],0) <> COALESCE(source.[MainCategoryId],0)
+		OR COALESCE(dest.[SecondaryCategoryId],0) <> COALESCE(source.[SecondaryCategoryId],0)
 		OR COALESCE(dest.[CustomerPackingExists],0) <> COALESCE(source.[CustomerPackingExists],0) 
 		OR COALESCE(dest.[CustomerSiteId],0) <> COALESCE(source.[CustomerSiteId],0)
 		OR COALESCE(dest.[PackageLocation],'') <> COALESCE(source.[PackageLocation],'')
@@ -287,25 +285,28 @@ USING (
 	) AS source
 	ON dest.OrderDetailId = source.OrderDetailId AND source.[Doc] = dest.[Doc]
   WHEN MATCHED
-        AND (COALESCE(dest.[SerialNumber],'') = COALESCE(source.[SerialNumber],'')
-		OR COALESCE(dest.[ManufacturerNumber],'') = COALESCE(source.[ManufacturerNumber],'')
-		OR COALESCE(dest.[DeviceModel],'') = COALESCE(source.[DeviceModel],'')
-		OR COALESCE(dest.[MbaReportNumber],'') = COALESCE(source.[MbaReportNumber],'')
-		OR COALESCE(dest.[UpdatedDate],'1900-01-01') = source.[UpdatedDate]
-		OR COALESCE(dest.[UpdateUserID],0) = source.[UpdateUserID]
-		OR COALESCE(dest.[Doc],0) = source.[Doc]
- 		OR COALESCE(dest.[ProductLocation],'')<> COALESCE(source.[ProductLocation],'')
-		OR COALESCE(dest.[NextCalibrationDate],'1900-01-01') = COALESCE(source.[NextCalibrationDate],'1900-01-01'))
-		OR COALESCE(dest.[AdditionalDeviceNumber],'')<> COALESCE(source.[AdditionalDeviceNumber],'')
+        AND (
+		-- change-detection corrected 2026-08-23: every predicate below is '<>', the group closes
+		-- at the END of the list, and dest.[Doc] = source.[Doc] is gone because the MERGE ON
+		-- clause already requires it — as a predicate it was always TRUE and on its own forced
+		-- an UPDATE of every matched row on every run.
+		   COALESCE(dest.[SerialNumber],'') <> COALESCE(source.[SerialNumber],'')
+		OR COALESCE(dest.[ManufacturerNumber],'') <> COALESCE(source.[ManufacturerNumber],'')
+		OR COALESCE(dest.[DeviceModel],'') <> COALESCE(source.[DeviceModel],'')
+		OR COALESCE(dest.[MbaReportNumber],'') <> COALESCE(source.[MbaReportNumber],'')
+		OR COALESCE(dest.[UpdatedDate],'1900-01-01') <> source.[UpdatedDate]
+		OR COALESCE(dest.[UpdateUserID],0) <> source.[UpdateUserID]
+		OR COALESCE(dest.[ProductLocation],'') <> COALESCE(source.[ProductLocation],'')
+		OR COALESCE(dest.[NextCalibrationDate],'1900-01-01') <> COALESCE(source.[NextCalibrationDate],'1900-01-01')
+		OR COALESCE(dest.[AdditionalDeviceNumber],'') <> COALESCE(source.[AdditionalDeviceNumber],'')
 		OR COALESCE(dest.[ActualCalibrationDate],'1900-01-01') <> COALESCE(source.[ActualCalibrationDate],'1900-01-01')
 		OR COALESCE(dest.CustomerReceivingDate,'1900-01-01') <> COALESCE(source.CustomerReceivingDate,'1900-01-01')
- 		--OR COALESCE(dest.CalibrationStatusId,0) = IIF(source.CalibrationStatusId = -1,dest.CalibrationStatusId,source.CalibrationStatusId) -- Calibration status can not be delivered, but on source report and calibration statuses same column 
-		--OR COALESCE(dest.CalibrationReportStatusId,0) = source.[CalibrationReportStatusId]
-		OR COALESCE(dest.[ShippingDoc],'') = COALESCE(source.[ShippingDoc],'')
-		OR COALESCE(dest.[ShippingAddress],'') = COALESCE(source.[ShippingAddress],'')
-		OR COALESCE(dest.[DOC_N],0) = COALESCE(source.[DOC_N],0)
-		OR COALESCE(dest.[ActualReturnDate],'1900-01-01') <> COALESCE(source.[ActualReturnDate],'1900-01-01') 
-		OR COALESCE(dest.[ExpectedReturnDate],'1900-01-01') <> COALESCE(source.[ExpectedReturnDate],'1900-01-01') 
+		OR COALESCE(dest.[ShippingDoc],'') <> COALESCE(source.[ShippingDoc],'')
+		OR COALESCE(dest.[ShippingAddress],'') <> COALESCE(source.[ShippingAddress],'')
+		OR COALESCE(dest.[DOC_N],0) <> COALESCE(source.[DOC_N],0)
+		OR COALESCE(dest.[ActualReturnDate],'1900-01-01') <> COALESCE(source.[ActualReturnDate],'1900-01-01')
+		OR COALESCE(dest.[ExpectedReturnDate],'1900-01-01') <> COALESCE(source.[ExpectedReturnDate],'1900-01-01')
+		)
 
 
 	THEN

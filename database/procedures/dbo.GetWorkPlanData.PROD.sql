@@ -1,13 +1,4 @@
-﻿-- Mirrors dbo.GetWorkPlanData as deployed on PROD (CalibratorProd), 2026-08-23.
--- PROD's definition predates STAGE's and is NOT the same procedure — it never had @ClientId, so the
--- customer-code filter is an ADDITION here rather than a correction. Patched today with:
---   @ClientCode NVARCHAR(50)  -> filters c.CustomerCode (the value users type). Not CustomerId:
---                                code 877 = אלכם מדיקל (CustomerId 4428) while CustomerId 877 is
---                                פינקלמן, and this collision exists on PROD too.
---   OrderInstructions         -> הנחיות לביצוע from dbo.CrmOrderInstructions (MBA-792).
--- Verified on PROD: 25 rows before and after, 30 -> 31 columns, coordinator/external/internal pages
--- all 0.39-0.61s, @ClientCode='877' -> 12 orders, unknown code -> 0 rows, no filter -> unchanged.
--- The STAGE version lives in dbo.GetWorkPlanData.sql; keep them separate until the two converge.
+﻿-- Mirrors the deployed definition, regenerated 2026-08-23. Not the source — redeploy after editing.
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 03/04/2025
@@ -196,7 +187,7 @@ BEGIN
 	    @ClientConfirmationStatusDefault = s.StatusDescriptionENG
 	FROM [dbo].[StatusesCategories] as c
 	JOIN [dbo].[Statuses] as s ON c.StatusCategoryId = s.StatusCategoryId
-	WHERE c.StatusDescriptionENG = N'ClientConfirmationStatus' AND s.StatusDescriptionENG = N'Pending'
+	WHERE c.StatusDescriptionENG = N'ClientConfirmationStatus' AND s.StatusDescriptionENG = N'New'   -- orders nobody has asked the customer about yet
 
 	DECLARE @StatusesForOrders NVARCHAR(MAX)
 
