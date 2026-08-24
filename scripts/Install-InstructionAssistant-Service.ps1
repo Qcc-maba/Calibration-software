@@ -25,17 +25,37 @@
 .PARAMETER Port
     TCP port the service listens on. Default 5311.
 
+.PARAMETER Bind
+    "localhost" (default) keeps the service reachable only from this machine.
+    "any" binds every interface and opens the firewall, so colleagues can use it over the LAN.
+
+.PARAMETER AccessKey
+    Shared secret the /api endpoints will require (header X-Api-Key, or a "key" query parameter).
+    Required when -Bind any, because the service returns customer instructions and every miss
+    spends money on the Anthropic API. Pass -AllowAnonymous to override that deliberately.
+
+.PARAMETER AllowAnonymous
+    Permit -Bind any without an access key. Only for a network you fully trust.
+
 .EXAMPLE
     .\Install-InstructionAssistant-Service.ps1 -PriorityConnectionString "Server=maba-priority\pri;Database=amaba;User Id=kyulan;Password=***;TrustServerCertificate=True;Encrypt=False"
 
 .EXAMPLE
     # Upgrade the binaries only; secrets already configured
     .\Install-InstructionAssistant-Service.ps1
+
+.EXAMPLE
+    # Share with the team over the internal network, behind a key
+    .\Install-InstructionAssistant-Service.ps1 -Bind any -AccessKey (New-Guid).Guid
 #>
 param(
     [string] $AnthropicApiKey,
     [string] $PriorityConnectionString,
-    [int]    $Port = 5311
+    [int]    $Port = 5311,
+    [ValidateSet('localhost', 'any')]
+    [string] $Bind = 'localhost',
+    [string] $AccessKey,
+    [switch] $AllowAnonymous
 )
 
 $ErrorActionPreference = 'Stop'
@@ -90,7 +110,28 @@ if (-not $AnthropicApiKey) {
 
 Set-MachineVar 'ANTHROPIC_API_KEY' $AnthropicApiKey -Secret
 Set-MachineVar 'InstructionAssistant__Priority__ConnectionString' $PriorityConnectionString -Secret
-Set-MachineVar 'ASPNETCORE_URLS' "http://localhost:$Port"
+Set-MachineVar 'InstructionAssistant__AccessKey' $AccessKey -Secret
+
+$listenHost = if ($Bind -eq 'any') { '0.0.0.0' } else { 'localhost' }
+Set-MachineVar 'ASPNETCORE_URLS' "http://${listenHost}:$Port"
+
+# Refuse to publish an unauthenticated service onto the network by accident.
+$effectiveAccessKey = [Environment]::GetEnvironmentVariable('InstructionAssistant__AccessKey', 'Machine')
+if ($Bind -eq 'any' -and -not $effectiveAccessKey -and -not $AllowAnonymous) {
+    Write-Host 'ERROR: -Bind any exposes the service to the whole network with no access key.' -ForegroundColor Red
+    Write-Host '       Pass -AccessKey <secret>, or -AllowAnonymous if that is really what you want.' -ForegroundColor Red
+    exit 1
+}
+
+$FirewallRule = 'Maba Instruction Assistant'
+Get-NetFirewallRule -DisplayName $FirewallRule -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
+if ($Bind -eq 'any') {
+    New-NetFirewallRule -DisplayName $FirewallRule -Direction Inbound -Protocol TCP `
+        -LocalPort $Port -Action Allow -Profile Domain, Private | Out-Null
+    Write-Host "  firewall: inbound TCP $Port allowed (Domain, Private)" -ForegroundColor Gray
+} else {
+    Write-Host '  firewall: no inbound rule (localhost only)' -ForegroundColor Gray
+}
 
 # Warn loudly rather than installing a service that silently answers without a summary.
 $effectiveKey = [Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY', 'Machine')
@@ -136,6 +177,17 @@ try {
     Write-Host "  sources          : $($health.sources -join ', ')" -ForegroundColor Gray
     Write-Host "  summarizer mode  : $($health.mode)" -ForegroundColor Gray
     Write-Host "  central Excel    : $(if ($health.centralExcelExists) { 'found' } else { 'NOT FOUND' })" -ForegroundColor Gray
+    Write-Host "  access           : $($health.accessKey)" -ForegroundColor Gray
+
+    if ($Bind -eq 'any') {
+        $shareUrl = "http://$($env:COMPUTERNAME):$Port/"
+        Write-Host ''
+        Write-Host "Share this address with colleagues: $shareUrl" -ForegroundColor Green
+        if ($effectiveAccessKey) {
+            Write-Host "They will be asked for the access key; or send them $shareUrl`?key=<the key>" -ForegroundColor Green
+        }
+        Write-Host 'Note: this machine must stay on for the address to work.' -ForegroundColor Yellow
+    }
     if (-not $health.centralExcelExists) {
         Write-Host 'WARNING: the central ECS workbook was not reachable. A service running as' -ForegroundColor Yellow
         Write-Host '         LocalSystem has no access to \\maba-dc - give the service a domain' -ForegroundColor Yellow

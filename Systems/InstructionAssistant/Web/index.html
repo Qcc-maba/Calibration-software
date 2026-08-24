@@ -85,6 +85,47 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
 
 let timer = null;
 
+// Access key. The service is open when no key is configured; once it is reachable beyond
+// localhost the installer sets one. A key in the URL (?key=…) is remembered, so a single link
+// can be handed to a colleague; otherwise we ask for it the first time the API refuses.
+const KEY_STORE = 'instruction-assistant-key';
+
+function readStoredKey() {
+  try { return localStorage.getItem(KEY_STORE) || ''; } catch { return ''; }
+}
+
+function storeKey(value) {
+  try { localStorage.setItem(KEY_STORE, value); } catch { /* private mode: keep it in memory only */ }
+  sessionKey = value;
+}
+
+let sessionKey = '';
+(function adoptKeyFromUrl() {
+  const fromUrl = new URLSearchParams(location.search).get('key');
+  if (fromUrl) {
+    storeKey(fromUrl);
+    history.replaceState(null, '', location.pathname);   // keep the secret out of the address bar
+  } else {
+    sessionKey = readStoredKey();
+  }
+})();
+
+// Sends the key when we have one, and on a 401 asks for it once and retries.
+async function apiFetch(url) {
+  const attempt = () => fetch(url, sessionKey ? { headers: { 'X-Api-Key': sessionKey } } : undefined);
+
+  let res = await attempt();
+  if (res.status === 401) {
+    const entered = window.prompt('השירות דורש מפתח גישה. הזן אותו:', '');
+    if (!entered) throw new Error('נדרש מפתח גישה');
+    storeKey(entered.trim());
+    res = await attempt();
+    if (res.status === 401) { storeKey(''); throw new Error('מפתח הגישה שגוי'); }
+  }
+  if (!res.ok) throw new Error('השרת החזיר ' + res.status);
+  return res.json();
+}
+
 function showStatus(text, isError) {
   const el = $('status');
   el.className = 'card status' + (isError ? ' err' : '');
@@ -168,9 +209,7 @@ async function load(refresh) {
   try {
     const url = '/api/instructions/summary?mabaNum=' + encodeURIComponent(maba) +
                 (refresh ? '&refresh=true' : '');
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('השרת החזיר ' + res.status);
-    const data = await res.json();
+    const data = await apiFetch(url);
     stopWaiting();
     $('status').classList.add('hide');
     render(data, Math.round((Date.now() - started) / 1000));
@@ -190,9 +229,7 @@ async function search() {
   showStatus('מחפש…', false);
 
   try {
-    const res = await fetch('/api/instructions/search?q=' + encodeURIComponent(q));
-    if (!res.ok) throw new Error('השרת החזיר ' + res.status);
-    const data = await res.json();
+    const data = await apiFetch('/api/instructions/search?q=' + encodeURIComponent(q));
 
     if (!data.results || !data.results.length) {
       showStatus('לא נמצאו מכשירים תואמים.', true);

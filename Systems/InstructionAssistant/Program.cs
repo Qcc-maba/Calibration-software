@@ -1,4 +1,5 @@
 using Maba.VCT.InstructionAssistant;
+using Maba.VCT.InstructionAssistant.Auth;
 using Maba.VCT.InstructionAssistant.Extraction;
 using Maba.VCT.InstructionAssistant.Models;
 using Maba.VCT.InstructionAssistant.Options;
@@ -52,6 +53,15 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
 var app = builder.Build();
 app.UseCors();
 
+// Shared-secret gate for the API. Left open when no key is configured (local development);
+// the installer sets one whenever the service is bound beyond localhost.
+var accessKey = builder.Configuration[$"{InstructionAssistantOptions.SectionName}:AccessKey"];
+
+async ValueTask<object?> RequireAccessKey(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next)
+    => AccessKey.Matches(AccessKey.Extract(ctx.HttpContext.Request), accessKey)
+        ? await next(ctx)
+        : Results.Json(new { error = "unauthorized" }, statusCode: StatusCodes.Status401Unauthorized);
+
 // Operator UI. Read once from the embedded resource; a missing resource degrades to a hint
 // rather than a 500, because the JSON API is what actually matters.
 var uiPage = new Lazy<string?>(() =>
@@ -75,6 +85,7 @@ app.MapGet("/health", (IEnumerable<IInstructionSourceProvider> sources,
     mode,
     centralExcelPath = opt.Value.CentralExcel.Path,
     centralExcelExists = !string.IsNullOrWhiteSpace(opt.Value.CentralExcel.Path) && File.Exists(opt.Value.CentralExcel.Path),
+    accessKey = string.IsNullOrEmpty(opt.Value.AccessKey) ? "open" : "required",
 }));
 
 // Auto (mabaNum) OR manual (customer/serial/deviceType) — "both" per the chosen design.
@@ -118,7 +129,7 @@ app.MapGet("/api/instructions/summary", async (
         summary.Notices.Add(resolveNotice);
 
     return Results.Ok(summary);
-});
+}).AddEndpointFilter(RequireAccessKey);
 
 // Manual fallback — find the MABA number by serial / model / manufacturer / customer.
 app.MapGet("/api/instructions/search", async (
@@ -140,6 +151,6 @@ app.MapGet("/api/instructions/search", async (
             customerAssetNumber = h.CustomerAssetNumber,
         }),
     });
-});
+}).AddEndpointFilter(RequireAccessKey);
 
 app.Run();

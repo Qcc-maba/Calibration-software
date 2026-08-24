@@ -13,6 +13,13 @@ public sealed class InstructionAssistantOptions
     public SummarizerOptions Summarizer { get; set; } = new();
     public PriorityInstructionOptions Priority { get; set; } = new();
 
+    /// <summary>
+    /// Shared secret required by the /api endpoints, as a header (X-Api-Key) or a "key" query
+    /// parameter. Empty leaves the service open, which is only safe while it listens on localhost.
+    /// Set it via the machine-scope env var InstructionAssistant__AccessKey — never in git.
+    /// </summary>
+    public string? AccessKey { get; set; }
+
     /// <summary>Replace customer names with an opaque id before sending text to the cloud.</summary>
     public bool RedactCustomerNames { get; set; } = false;
 
