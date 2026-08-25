@@ -466,7 +466,20 @@ CONCAT(
 		MAX(CAST(od.CustomerPackingExists as TINYINT)) as CustomerPackingExists,
 		MAX(itm.ExpectedReturnDate) as ExpectedReturnDate,
 		MAX(itm.ActualReturnDate) as ActualReturnDate,
-		(SELECT MIN(i9.MbaReportNumber) FROM [dbo].[OrderDetailsItems] as i9 JOIN [dbo].[OrderDetails] as od9 ON od9.OrderDetailId = i9.OrderDetailId WHERE od9.OrderWorkPlanId = wp.[OrderWorkPlanId] AND ISNULL(od9.IsDeleted,0) = 0 AND ISNULL(i9.IsDeleted,0) = 0 AND i9.MbaReportNumber LIKE ''[0-9][0-9][0-9][0-9][0-9][0-9][0-9]/%'') as CalibratorMabaNumber, /* MBA-902: a correlated subquery, not an aggregate over itm. The report number belongs to the ORDER, and aggregating over itm would only see the items the validator status filter let through - on STAGE that is 1 order out of 49 instead of 6, because 3,470 of the 3,471 items carrying a real report number have no calibration status at all. */  
+		(SELECT MIN(i9.MbaReportNumber) FROM [dbo].[OrderDetailsItems] as i9 JOIN [dbo].[OrderDetails] as od9 ON od9.OrderDetailId = i9.OrderDetailId WHERE od9.OrderWorkPlanId = wp.[OrderWorkPlanId] AND ISNULL(od9.IsDeleted,0) = 0 AND ISNULL(i9.IsDeleted,0) = 0 AND i9.MbaReportNumber LIKE ''[0-9][0-9][0-9][0-9][0-9][0-9][0-9]/%'') as CalibratorMabaNumber, 
+		/* MBA-902: the delivery note. Priority calls it ShippingDoc and it is what the packing
+		   screen means by its order-number column - the values are D26009347, D26009342 and the
+		   like. 2,353 of the 3,838 items carry one and every single one starts with D. An order can
+		   be shipped on more than one note, so they are listed rather than reduced to the first.
+		   STRING_AGG over a DISTINCT subquery rather than FOR XML: the XML data type methods need
+		   particular SET options and fail on a connection that does not have them. */
+		(SELECT STRING_AGG(sd.ShippingDoc, N'', '')
+		   FROM (SELECT DISTINCT i8.ShippingDoc
+		           FROM [dbo].[OrderDetailsItems] as i8
+		           JOIN [dbo].[OrderDetails] as od8 ON od8.OrderDetailId = i8.OrderDetailId
+		          WHERE od8.OrderWorkPlanId = wp.[OrderWorkPlanId]
+		            AND ISNULL(od8.IsDeleted,0) = 0 AND ISNULL(i8.IsDeleted,0) = 0
+		            AND NULLIF(LTRIM(RTRIM(i8.ShippingDoc)), '''') IS NOT NULL) as sd) as ShippingDoc, /* MBA-902: a correlated subquery, not an aggregate over itm. The report number belongs to the ORDER, and aggregating over itm would only see the items the validator status filter let through - on STAGE that is 1 order out of 49 instead of 6, because 3,470 of the 3,471 items carrying a real report number have no calibration status at all. */  
 	    COALESCE(MAX(clst.StatusDescriptionENG),''',@ClientConfirmationStatusDefault,''') as ClientConfirmationStatus,
 		MAX(wp.ShipTypeDesc) AS ShipTypeDesc,
 		MAX(c.ReportRequired) AS PrintedReport,
