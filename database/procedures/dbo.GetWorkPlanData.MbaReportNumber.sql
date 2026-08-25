@@ -479,7 +479,14 @@ CONCAT(
 		           JOIN [dbo].[OrderDetails] as od8 ON od8.OrderDetailId = i8.OrderDetailId
 		          WHERE od8.OrderWorkPlanId = wp.[OrderWorkPlanId]
 		            AND ISNULL(od8.IsDeleted,0) = 0 AND ISNULL(i8.IsDeleted,0) = 0
-		            AND NULLIF(LTRIM(RTRIM(i8.ShippingDoc)), '''') IS NOT NULL) as sd) as ShippingDoc, /* MBA-902: a correlated subquery, not an aggregate over itm. The report number belongs to the ORDER, and aggregating over itm would only see the items the validator status filter let through - on STAGE that is 1 order out of 49 instead of 6, because 3,470 of the 3,471 items carrying a real report number have no calibration status at all. */  
+		            AND NULLIF(LTRIM(RTRIM(i8.ShippingDoc)), '''') IS NOT NULL) as sd) as ShippingDoc, 
+		/* MBA-907: the notes a coordinator or validator wrote on this order. The column shows the
+		   latest and the count; the popup calls dbo.GetOrderNotes for the thread. */
+		(SELECT TOP 1 n.NoteText FROM dbo.OrderNote AS n
+		  WHERE n.OrderWorkPlanId = wp.[OrderWorkPlanId] AND n.IsDeleted = 0
+		  ORDER BY n.CreatedDate DESC, n.OrderNoteId DESC) as LatestOrderNote,
+		(SELECT COUNT(*) FROM dbo.OrderNote AS n
+		  WHERE n.OrderWorkPlanId = wp.[OrderWorkPlanId] AND n.IsDeleted = 0) as OrderNotesCount, /* MBA-902: a correlated subquery, not an aggregate over itm. The report number belongs to the ORDER, and aggregating over itm would only see the items the validator status filter let through - on STAGE that is 1 order out of 49 instead of 6, because 3,470 of the 3,471 items carrying a real report number have no calibration status at all. */  
 	    COALESCE(MAX(clst.StatusDescriptionENG),''',@ClientConfirmationStatusDefault,''') as ClientConfirmationStatus,
 		MAX(wp.ShipTypeDesc) AS ShipTypeDesc,
 		MAX(c.ReportRequired) AS PrintedReport,
