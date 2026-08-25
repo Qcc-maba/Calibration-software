@@ -19,9 +19,22 @@
     MabaID sorts on its two numeric segments rather than as text, so 21-9 comes before 21-86.
     The DISTINCT is kept in a derived table because ORDER BY cannot reference expressions that are
     not in a DISTINCT select list, and the sort keys are not worth returning to the caller.
+
+    2026-08-25 (MBA-902): the popup showed every logger anyone had ever configured. This procedure
+    resolved @LoggedInUserId and @SourceId at the top and then never used them, so a calibrator saw
+    other people's work and could not find their own.
+
+    It now returns the loggers THIS caller configured. Relations with no owner recorded are still
+    returned: SensorToLoggerRelation.UpdateUserID was NULL on every row because the insert in
+    dbo.AssignMeasurmentDevicesToCalibrator named only the two device ids and never the user. That
+    is fixed on the write side as of the same date, so the unowned set is historical and shrinks;
+    dropping it instead would have emptied the popup for everyone on the day of the change.
+
+    Pass @OnlyMine = 0 to see every configured logger, which is what this did before.
 */
 CREATE OR ALTER PROCEDURE [dbo].[GetLogersConfiguredByCalibrator] 
-@LoggedInUserEmail NVARCHAR(100)
+@LoggedInUserEmail NVARCHAR(100),
+@OnlyMine BIT = 1
 AS
 BEGIN
 SET NOCOUNT ON;
@@ -62,6 +75,10 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 		JOIN dbo.MeasurementDevicesMainClasses as mc ON ltc.MainClassId = mc.Id
 		JOIN dbo.SensorToLoggerRelation as srl ON ltc.ID = srl.LoggerMeasurementDeviceId AND srl.IsDeleted = 0
 		WHERE mc.NameEnglish = 'Data logger' AND ltc.IsDeleted = 0
+		  -- MBA-902: this caller's own configurations, plus the ones that predate owner tracking
+		  AND (@OnlyMine = 0
+		       OR srl.UpdateUserID = @LoggedInUserId
+		       OR srl.UpdateUserID IS NULL)
 	) AS l
 	ORDER BY
 		 TRY_CAST(LEFT(l.MabaID, CHARINDEX('-', l.MabaID + '-') - 1) AS INT),

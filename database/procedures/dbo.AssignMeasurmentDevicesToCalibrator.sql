@@ -85,14 +85,27 @@ BEGIN TRY
 		UpdateUserID = @LoggedInUserId
 	WHERE ID = @LoggerMeasurementDeviceId
 	
+	/* MBA-902: record WHO configured this. The insert named only the two device ids, so
+	   UpdateUserID stayed NULL on every relation ever created - which is why the logger popup
+	   could not tell one calibrator's configuration from another's and showed everybody
+	   everything. */
 	INSERT [dbo].[SensorToLoggerRelation](
 	[SensorMeasurementDeviceId],
-	[LoggerMeasurementDeviceId])
-	SELECT @SensorMeasurementDeviceId ,@LoggerMeasurementDeviceId 
+	[LoggerMeasurementDeviceId],
+	[UpdateUserID])
+	SELECT @SensorMeasurementDeviceId ,@LoggerMeasurementDeviceId ,@LoggedInUserId
 	WHERE NOT EXISTS (SELECT 1 FROM [dbo].[SensorToLoggerRelation] 
 					  WHERE [SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
 	                  AND [LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
 					  AND [IsDeleted] = 0)
+
+	/* an existing relation re-used by this calibrator becomes theirs to see */
+	UPDATE [dbo].[SensorToLoggerRelation]
+	SET UpdateUserID = @LoggedInUserId, UpdatedDate = GETDATE()
+	WHERE [SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
+	  AND [LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
+	  AND [IsDeleted] = 0
+	  AND UpdateUserID IS NULL
 	
 --Insert new data
 	INSERT [dbo].[ChannelsToSensorRelation]([SensorMeasurementDeviceId],[LoggerMeasurementDeviceId],[ChannelNumber])
