@@ -290,10 +290,21 @@ BEGIN
 
 	DECLARE @StatusesForOrders NVARCHAR(MAX)
 
+	/* MBA-902: this excluded 'Executed', a status that does not exist in dbo.Statuses - so it
+	   excluded nothing and finished orders stayed on every working screen. The status it meant is
+	   75 Finished (הסתיים); 'Executed' was presumably its earlier name and the rename never
+	   reached here.
+	   A finished order now leaves the working screens and appears on the calibration history page,
+	   which asks for exactly the statuses the others drop. */
+	DECLARE @FinishedOrderStatus NVARCHAR(50) = N'Finished'
+
 	SELECT @StatusesForOrders=STRING_AGG(s.StatusId,',')
 	FROM [dbo].[Statuses] as s
 	JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
-	WHERE sc.StatusDescriptionENG='OrderStatus' AND s.StatusDescriptionENG <> 'Executed'
+	WHERE sc.StatusDescriptionENG='OrderStatus'
+	  AND (  (@Page =  N'calibration-history' AND s.StatusDescriptionENG =  @FinishedOrderStatus)
+	      OR (@Page <> N'calibration-history' AND s.StatusDescriptionENG <> @FinishedOrderStatus)
+	      OR @Page IS NULL)
 
 	DROP TABLE IF EXISTS #OrderNumbers
 	CREATE TABLE #OrderNumbers
