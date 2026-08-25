@@ -114,7 +114,13 @@ BEGIN
 	   filter at all - internal-validator, external-validator and internal-orders returned an
 	   identical 500 rows - so the screen listed orders that had not been calibrated yet, which is
 	   why every CRM-sourced column on it came back empty.
-	   These are the device statuses that mean calibration is over, taken from the story's own list. */
+	   MBA-293 AC1 is "finishes calibration AND GENERATES THE REPORT", and the report number is the
+	   report - so a device belongs on the validator screen once it HAS one. That is the test used
+	   below, and it is the only one that holds up in the data: CalibrationStatusId is set on 91 of
+	   3,823 items, and 3,470 of the 3,471 items carrying a real report number have no calibration
+	   status at all. Filtering on the status instead produced 49 orders of which 43 showed a blank
+	   report number, which is the opposite of what the screen is for.
+	   The status list is kept here for when the lifecycle is actually maintained. */
 	DECLARE @ValidatorDeviceStatuses NVARCHAR(200) = N'23,26,29,32,33,34,35,36'
 	/* 23 CalibrationSuccess  26 Adjusted  29 ReadyForPacking  32 TestedMetTheStandard
 	   33 TestedDidn'tMeetTheStandards  34 CannotBeDetermined  35 AwaitingComments  36 AwaitingSignature
@@ -510,9 +516,9 @@ CONCAT(
 	,CASE WHEN @WorkPlanOpenDate IS NOT NULL THEN ' AND wp.WorkPlanOpenDate = '''+CAST(@WorkPlanOpenDate as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Notes IS NOT NULL THEN ' AND wp.Notes LIKE N''%'+ @Notes +'%'''ELSE ' ' END
 	,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
-	/* MBA-902: only devices whose calibration is finished reach the validator. */
+	/* MBA-902: a device reaches the validator once its report exists. */
 	,CASE WHEN @Page IN (N'internal-validator',N'external-validator',N'validator-orders')
-	      THEN ' AND itm.CalibrationStatusId IN ('+@ValidatorDeviceStatuses+') ' ELSE ' ' END
+	      THEN ' AND itm.MbaReportNumber LIKE ''[0-9][0-9][0-9][0-9][0-9][0-9][0-9]/%'' ' ELSE ' ' END
 	,'GROUP BY 
 	wp.[CustomerId],
  --   CASE ''',@Page,'''
