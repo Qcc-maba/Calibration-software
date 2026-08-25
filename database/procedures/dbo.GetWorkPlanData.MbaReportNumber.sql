@@ -141,6 +141,27 @@ BEGIN
 	--ExpectedReturnDate|ActualReturnDate
 	--|Location|WorkPlanOpenDate|Cars|Calibrators|EquipmentNames|Notes|MainCategory|CalibDate|ClientConfirmationStatus', 1;
 
+	/* MBA-902: the sparse CRM columns. Sorting one of them ascending put every empty row first, so
+	   the screen opened on nothing but dashes even though values exist further down - 6 of 38 rows
+	   carry a report number and 11 carry the return dates. Rows that HAVE a value now always come
+	   first and the requested direction orders them, the same treatment Cars, Calibrators and
+	   EquipmentNames already get below.
+	   The expressions are repeated rather than referenced by alias: ORDER BY may use a select-list
+	   alias on its own, but not wrapped inside IIF, and CalibratorMabaNumber is a correlated
+	   subquery rather than a plain column. */
+	DECLARE @SortExpr NVARCHAR(MAX) = NULL
+
+	IF @OrderBy = N'CalibratorMabaNumber' SET @SortExpr = N'(SELECT MIN(i9.MbaReportNumber) FROM [dbo].[OrderDetailsItems] as i9 JOIN [dbo].[OrderDetails] as od9 ON od9.OrderDetailId = i9.OrderDetailId WHERE od9.OrderWorkPlanId = wp.[OrderWorkPlanId] AND ISNULL(od9.IsDeleted,0) = 0 AND ISNULL(i9.IsDeleted,0) = 0 AND i9.MbaReportNumber LIKE ''[0-9][0-9][0-9][0-9][0-9][0-9][0-9]/%'')'
+	IF @OrderBy = N'ExpectedReturnDate'   SET @SortExpr = N'MAX(itm.ExpectedReturnDate)'
+	IF @OrderBy = N'ActualReturnDate'     SET @SortExpr = N'MAX(itm.ActualReturnDate)'
+
+	IF @SortExpr IS NOT NULL
+	BEGIN
+		SET @OrderBy = CONCAT(N'IIF(', @SortExpr, N' IS NULL,1,0) ASC, ', @SortExpr, N' ',
+		                      CASE WHEN @OrderByAsc = 0 THEN N'DESC' ELSE N'ASC' END)
+		SET @OrderByAsc = NULL
+	END
+
 	IF @OrderBy IN (N'Cars')
 		BEGIN
 		SET @OrderBy = CONCAT(N'IIF([Cars] IS NULL,0,1) ',CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END ,N' ,IIF([Calibrators] IS NULL,0,1)', N' ,IIF([EquipmentNames] IS NULL,0,1)')
