@@ -1,4 +1,16 @@
-﻿-- =============================================
+/*
+    MBA-902 (2026-08-25): the line separator was an empty string.
+
+    Priority stores this text one row per wrapped line in ORDERSTEXT / PARTTEXT / SERNTEXT, and it
+    wraps at a word boundary WITHOUT keeping the space - line 7 of order 108668 ends with '"Times'
+    and line 8 begins 'New Roman"'. Joining with nothing glued the words together, so the order
+    instructions read 'כלהמידע', 'מכונתהקפצה', 'ישלעבור' and 'תפעולפיקטיבית' on screen.
+
+    The separator is now a single space. It restores the word break Priority dropped, and it is
+    safe inside the HTML these columns actually carry - a space between two markup fragments
+    changes nothing.
+*/
+-- =============================================
 -- Proc:        dbo.RefreshCrmTextCache
 -- Jira:        MBA-806 (device/catalog text) · MBA-666 (part description + family) · MBA-792 (order instructions)
 -- Description: Local cache of the Priority CRM text, filled over the existing linked server
@@ -145,7 +157,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM #WantedPart)
         INSERT INTO dbo.CrmCatalogText(PART, CatalogText)
         SELECT pt.PART,
-               STRING_AGG(REVERSE(CONVERT(NVARCHAR(MAX), pt.[TEXT])), N'') WITHIN GROUP (ORDER BY pt.TEXTLINE, pt.TEXTORD)
+               STRING_AGG(REVERSE(CONVERT(NVARCHAR(MAX), pt.[TEXT])), N' ') WITHIN GROUP (ORDER BY pt.TEXTLINE, pt.TEXTORD)
         FROM [31.168.173.93].amaba.dbo.PARTTEXT AS pt
         WHERE pt.PART IN (SELECT PART FROM #WantedPart)
         GROUP BY pt.PART;
@@ -153,7 +165,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM #WantedSern)
         INSERT INTO dbo.CrmDeviceText(SERN, DeviceText)
         SELECT st.SERN,
-               STRING_AGG(REVERSE(CONVERT(NVARCHAR(MAX), st.[TEXT])), N'') WITHIN GROUP (ORDER BY st.TEXTLINE, st.TEXTORD)
+               STRING_AGG(REVERSE(CONVERT(NVARCHAR(MAX), st.[TEXT])), N' ') WITHIN GROUP (ORDER BY st.TEXTLINE, st.TEXTORD)
         FROM [31.168.173.93].amaba.dbo.SERNUMBERSTEXT AS st
         WHERE st.SERN IN (SELECT SERN FROM #WantedSern)
         GROUP BY st.SERN;
@@ -174,7 +186,7 @@ BEGIN
 
             INSERT INTO dbo.CrmOrderInstructions(ORD, OrderInstructionsZ)
             SELECT -ot.ORD,
-                   COMPRESS(STRING_AGG(REVERSE(CONVERT(NVARCHAR(MAX), ot.[TEXT])), N'') WITHIN GROUP (ORDER BY ot.TEXTLINE, ot.TEXTORD))
+                   COMPRESS(STRING_AGG(REVERSE(CONVERT(NVARCHAR(MAX), ot.[TEXT])), N' ') WITHIN GROUP (ORDER BY ot.TEXTLINE, ot.TEXTORD))
             FROM [31.168.173.93].amaba.dbo.ORDERSTEXT AS ot
             WHERE ot.ORD IN (SELECT -ORD FROM @OrdBatch)
             GROUP BY ot.ORD;
