@@ -1,4 +1,4 @@
-﻿-- =============================================
+-- =============================================
 -- Func:        dbo.fnStripHtml
 -- Jira:        MBA-792 / MBA-806
 -- Description: Turns the CRM's Word-exported HTML into readable single-line plain text, so a
@@ -43,6 +43,16 @@ BEGIN
     SET @s = REPLACE(@s, N'</LI>', N' | ');
     SET @s = REPLACE(@s, N'</TR>', N' | ');
     SET @s = REPLACE(@s, N'</tr>', N' | ');
+    -- MBA-902: most of this text is a two-column instructions table, so a cell boundary is a real
+    -- separator. Without these, "סוג לקוח:" ran straight into its value and the popup read as one
+    -- unbroken wall of words.
+    SET @s = REPLACE(@s, N'</TD>', N' | ');
+    SET @s = REPLACE(@s, N'</td>', N' | ');
+    SET @s = REPLACE(@s, N'</TABLE>', N' | ');
+    SET @s = REPLACE(@s, N'</table>', N' | ');
+    SET @s = REPLACE(@s, N'</UL>', N' | ');
+    SET @s = REPLACE(@s, N'</ul>', N' | ');
+    SET @s = REPLACE(@s, N'</li>', N' | ');
 
     -- 3. strip every remaining tag, leaving a SPACE behind rather than nothing.
     --    Priority breaks its text mid-sentence across TEXTLINE rows, and the reconstruction joins
@@ -75,4 +85,3 @@ BEGIN
 
     RETURN NULLIF(@s, N'');
 END
-GO
