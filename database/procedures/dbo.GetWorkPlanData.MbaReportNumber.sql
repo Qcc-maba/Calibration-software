@@ -121,12 +121,19 @@ BEGIN
 	   status at all. Filtering on the status instead produced 49 orders of which 43 showed a blank
 	   report number, which is the opposite of what the screen is for.
 	   The status list is kept here for when the lifecycle is actually maintained. */
-	DECLARE @ValidatorDeviceStatuses NVARCHAR(200) = N'23,26,29,32,33,34,35,36'
-	/* 23 CalibrationSuccess  26 Adjusted  29 ReadyForPacking  32 TestedMetTheStandard
-	   33 TestedDidn'tMeetTheStandards  34 CannotBeDetermined  35 AwaitingComments  36 AwaitingSignature
-	   Deliberately excluded: 19/37 WaitingForCalibration, 20/38 InCalibration, 30 NotCalibrated -
-	   calibration has not finished; and 22 Packaged, 24 Delivered, 27 ReadyForDelivery,
-	   28 WaitingForPacking - those have already left the validator. */
+	DECLARE @ValidatorDeviceStatuses NVARCHAR(200) = N'29,32,33,34,35,36,37,38'
+	/* The eight device statuses the design actually defines - Figma node 5429-395, the legend MBA-293
+	   links. In screen order: 37 ממתין לכיול, 38 כיול, 36 ממתין לחתימה, 35 ממתין להערות,
+	   34 לא ניתן לקבוע, 32 נבדק עומד, 33 נבדק - לא עומד, 29 מוכן לאריזה.
+
+	   23 CalibrationSuccess (כיול הצליח) is NOT one of them and was wrongly listed here before. It is
+	   also the status the system writes most: of the 90 items that carry any calibration status,
+	   71 are 23, 16 are 33 and 3 are 32. Every other status in the category, including five of the
+	   eight the design defines, has never been written once.
+
+	   Note the near-duplicate pairs in dbo.Statuses: the design's ממתין לכיול and כיול are 37 and 38,
+	   while 19 WaitingForCalibration and 20 InCalibration say the same thing and are what the
+	   front-end constant maps to. Both pairs are unused, so nothing depends on the answer yet. */
 
 	DECLARE @ExtIntFilter BIT = NULL
 
