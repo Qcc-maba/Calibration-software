@@ -100,7 +100,10 @@ BEGIN
        master with no certificate, and for a temperature+humidity master - that one needs the
        2D interpolation in dbo.fnHumidityAfterCorrection, which our range-shaped correction
        data cannot feed yet. NULL is honest; the screen shows a dash. */
-    OUTER APPLY dbo.fnMasterValueAfterCorrection(md.ID, combined.[MasterValue]) AS mvc
+    OUTER APPLY dbo.fnMasterValueAfterCorrection(md.ID, combined.[MasterValue], NULL) AS mvc
+    /* the third argument is passed explicitly: an inline table-valued function does not
+       apply parameter defaults the way a stored procedure does, and omitting it fails the
+       whole call with "an insufficient number of arguments". */
     WHERE itm.OrderDetailId = @OrderDetailId 
       AND itm.OrderDetailsItemId = @OrderDetailsItemId
     ORDER BY combined.[MeasurmentPointsToOrderDetailsItemId], combined.NominalValue
