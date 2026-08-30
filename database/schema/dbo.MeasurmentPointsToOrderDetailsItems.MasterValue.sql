@@ -23,6 +23,16 @@
     The OPENJSON declarations in AssignMeasurmentPointsToOrderDetailsItems and its V2 said
     DECIMAL(10,4) and are widened to match, so a reading is not silently truncated on the way in.
 */
+/* The same column, same wrong type, on the calibration-cycles table - found by sweeping every
+   decimal column in the database for one whose scale leaves three digits or fewer before the
+   point. Those two were the only hits. */
+IF EXISTS (SELECT 1 FROM sys.columns c
+           JOIN sys.types t ON t.user_type_id = c.user_type_id
+           WHERE c.object_id = OBJECT_ID('dbo.MeasurmentPointsToCalibrationCycles')
+             AND c.name = 'MasterValue' AND (c.precision <> 18 OR c.scale <> 6))
+    ALTER TABLE dbo.MeasurmentPointsToCalibrationCycles
+    ALTER COLUMN MasterValue DECIMAL(18,6) NULL;
+GO
 IF EXISTS (SELECT 1 FROM sys.columns c
            JOIN sys.types t ON t.user_type_id = c.user_type_id
            WHERE c.object_id = OBJECT_ID('dbo.MeasurmentPointsToOrderDetailsItems')
