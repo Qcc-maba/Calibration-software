@@ -1,7 +1,7 @@
 /*
     dbo.GetCustomerDashboardData                                                   MBA-865
     ---------------------------------------------------------------------------------
-    The ×××¨× ×¦×¤××× column is labelled *expected* return, but the procedure was
+    The חזרה צפויה column is labelled *expected* return, but the procedure was
     returning ActualReturnDate. It now returns ExpectedReturnDate, and only for in-house
     (lab) calibration - for on-site work there is nothing to return, so it is NULL.
 
@@ -13,7 +13,7 @@
 -- Create date: 26/02/2026
 -- Description:	Get customer dashboad data
 -- =============================================
-CREATE OR ALTER PROCEDURE [dbo].[GetCustomerDashboardData] 
+CREATE OR ALTER   PROCEDURE [dbo].[GetCustomerDashboardData] 
 @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
 @RowsOfPage AS INT = 50,                 -- Result page size
 @OrderBy AS NVARCHAR(MAX) = 'CalibratioinDate',      -- OrderBy column
@@ -51,11 +51,11 @@ CONCAT(
 AS
 (
 SELECT 
-COALESCE(clst.StatusDescriptionHEB,N'''+N'���� �����'+''') as DeviceStatus
+COALESCE(clst.StatusDescriptionHEB,N'''+N'מחכה לכיול'+''') as DeviceStatus
 ,itm.ActualCalibrationDate as CalibratioinDate
 ,itm.NextCalibrationDate
 ,od.OrderWorkPlanId
-,IIF(od.IsInHouse = 1,N'''+N'�����'+''',N'''+N'����'+''') as CalibratioinLocation
+,IIF(od.IsInHouse = 1,N'''+N'מעבדה'+''',N'''+N'לקוח'+''') as CalibratioinLocation
 ,pt.OrdersProductTypeName as DeviceDescription
 ,itm.SerialNumber
 ,IIF(od.IsInHouse = 1, itm.ExpectedReturnDate, NULL) as ActualReturnDate
@@ -84,7 +84,7 @@ devices_cnt
 AS
 (
 SELECT 
-IIF(d.IsLatestOrder = 1 AND d.CalibratioinDate > GETDATE(),N''�� �����'',d.DeviceStatus) as DeviceStatus
+COALESCE(NULLIF(d.DeviceStatus,N''''),N''לא ניתן לקבוע'') as DeviceStatus
 ,d.CalibratioinDate
 ,d.NextCalibrationDate
 ,d.CalibratioinLocation
@@ -100,7 +100,7 @@ IIF(d.IsLatestOrder = 1 AND d.CalibratioinDate > GETDATE(),N''�� ����
 ,SUM(IIF(d.IsLatestOrder = 1,1,NULL)) OVER( ORDER BY d.DeviceStatus) as OverallDevicesCount
 ,SUM(IIF(d.IsLatestOrder = 1 AND COALESCE(d.CalibratioinDate,''1900-01-01'') < GETDATE(),1,NULL)) OVER( ORDER BY d.DeviceStatus) as ExpiredevicesCount
 ,COALESCE(SUM(IIF(d.IsLatestOrder = 1 AND d.CalibratioinDate > GETDATE(),1,NULL)) OVER( ORDER BY d.DeviceStatus),0) as CalibratedDevicesCount
-,COALESCE(SUM(IIF(d.IsLatestOrder = 1 AND d.DeviceStatus=N'''+N'���� �����'+''',1,NULL)) OVER( ORDER BY d.DeviceStatus),0) as DevicesWaitingForCalibrationCount
+,COALESCE(SUM(IIF(d.IsLatestOrder = 1 AND d.DeviceStatus=N'''+N'מחכה לכיול'+''',1,NULL)) OVER( ORDER BY d.DeviceStatus),0) as DevicesWaitingForCalibrationCount
 FROM ds as d
 )
 SELECT 
@@ -128,4 +128,3 @@ WHERE ds.IsLatestOrder = 1'
 
 PRINT CAST(@sql as VARCHAR(MAX))
 EXEC (@sql)
-GO

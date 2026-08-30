@@ -1,0 +1,48 @@
+/*
+    dbo.GetCustomerContacts
+    ---------------------------------------------------------------------------------------------
+    Returns dbo.Source.SourceDisplayName aliased as SourceName.
+
+    SourceName itself cannot be renamed: it is the join key the whole Priority sync runs on
+    (stg.SourceSystem = Source.SourceName, in six Merge procedures), and Priority sends the
+    literal 'SEPHARM'. Renaming it would silently stop SE PHARMA syncing. The display name is a
+    separate column, and the alias keeps the result-set contract identical.
+*/
+-- =============================================
+-- Author:		Eduard Kudlaiev
+-- Create date: 04/05/2026
+-- Description:	This SP get data about customers contacts based 
+--              It get appopriate customer for filtering based on @LoggedInUserEmail
+-- JiraLink: 
+-- =============================================
+
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerContacts] 
+@LoggedInUserEmail NVARCHAR(100)
+AS
+
+SET NOCOUNT ON;
+
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+DECLARE @CustomerId INT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+,@CustomerId = d.CustomerId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
+
+SELECT c.[CustomerContactId]
+      ,c.[CustomerId]
+      ,c.[CustomerContactName]
+      ,c.[CustomerContactPersonRole]
+      ,c.[CustomerContactPhone]
+      ,c.[CustomerContactAdditionalPhoneNumber]
+      ,c.[CustomerContactEmail]
+      ,c.[SourceId]
+      ,s.[SourceDisplayName] AS [SourceName]
+      ,c.[CustomerSiteId]
+	  ,c.[IsDeleted]
+  FROM [dbo].[CustomerContacts] as c
+  LEFT JOIN [dbo].[Source] as s ON c.[SourceId] = s.[SourceId]
+  WHERE /*c.[IsDeleted] = 0 AND*/ c.CustomerId = @CustomerId
