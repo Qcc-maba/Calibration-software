@@ -1,36 +1,43 @@
-/*
-    dbo.GetCustomerSites
-    ---------------------------------------------------------------------------------------------
-    Returns dbo.Source.SourceDisplayName aliased as SourceName.
-
-    SourceName itself cannot be renamed: it is the join key the whole Priority sync runs on
-    (stg.SourceSystem = Source.SourceName, in six Merge procedures), and Priority sends the
-    literal 'SEPHARM'. Renaming it would silently stop SE PHARMA syncing. The display name is a
-    separate column, and the alias keeps the result-set contract identical.
-*/
 -- =============================================
--- Author:		Eduard Kudlaiev
+-- Author:      Eduard Kudlaiev
 -- Create date: 04/05/2026
--- Description:	This SP get data about customers sites. 
---              It get appopriate customer for filtering based on @LoggedInUserEmail
--- JiraLink: 
+-- Description: Sites (sub-sites) of the customer the caller belongs to.
+--              Used by the internal customer-management screen AND by the customer
+--              portal profile screen.
+--
+-- 2026-08-30 — FIX: portal users could not resolve.
+--
+--              Identical defect to GetCustomerContacts: the customer was resolved only
+--              through dbo.GetSourceFilterByEmail, a table-valued function over
+--              dbo.Users. A portal user lives in dbo.CustomerContacts and has no Users
+--              row, so the function returned no rows, @CustomerId stayed NULL, and
+--              `WHERE cs.CustomerId = @CustomerId` was always false.
+--
+--              Now: resolve from dbo.CustomerContacts first, fall back to the function,
+--              so the internal screen is unaffected.
+--
+--              The SELECT list is unchanged; no caller needs to change.
+-- JiraLink:
 -- =============================================
-
-CREATE OR ALTER PROCEDURE [dbo].[GetCustomerSites] 
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerSites]
 @LoggedInUserEmail NVARCHAR(100)
 AS
 
 SET NOCOUNT ON;
 
-DECLARE @LoggedInUserId INT 
-DECLARE @SourceId TINYINT
-DECLARE @CustomerId INT
+DECLARE @CustomerId INT = NULL;
 
-SELECT 
- @LoggedInUserId  = d.UserId 
-,@SourceId = d.SourceId
-,@CustomerId = d.CustomerId
-FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
+-- Primary resolution: portal contact login
+SELECT TOP 1 @CustomerId = cc.CustomerId
+FROM dbo.CustomerContacts AS cc
+WHERE cc.CustomerContactEmail = @LoggedInUserEmail;
+
+-- Fallback: internal staff account mapped to a customer
+IF @CustomerId IS NULL
+BEGIN
+    SELECT TOP 1 @CustomerId = d.CustomerId
+    FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) AS d;
+END
 
 SELECT cs.[CustomerId]
       ,cs.[CustomerSiteId]
@@ -48,7 +55,8 @@ SELECT cs.[CustomerId]
       ,cs.[CustomerSiteAddressENG]
       ,cs.[CustomerSiteStateENG]
       ,cs.[CustomerSiteDescriptionENG]
-	  ,cs.[IsDeleted]
+      ,cs.[IsDeleted]
   FROM [dbo].[CustomerSites] as cs
   LEFT JOIN [dbo].[Source] as s ON cs.[SourceId] = s.[SourceId]
   WHERE /*cs.[IsDeleted] = 0 AND */cs.CustomerId = @CustomerId
+GO
