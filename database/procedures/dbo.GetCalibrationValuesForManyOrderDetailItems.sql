@@ -88,6 +88,25 @@ BEGIN
            and at zero decimals the answer is 23 again. Both columns are available; this stays
            on the exact one until the display rule is settled. */
         ,mvc.CorrectedExact as [MasterValueAfterCorrection]
+        /* MBA-475: is the calibrator driving the master outside its own working range?
+           This is a DIFFERENT question from mvc.OutOfRange, which asks whether the reading fell
+           outside the CERTIFICATE and the deviation had to be clamped. A master can be well
+           inside its working range and still beyond its last calibrated point, and the reverse.
+           The threshold is the fixed 10 units the ticket specifies - range -80..200, reading 220,
+           20 beyond, so highlighted. It is written once, here and in the Many variant. */
+        ,md.WorkRangeMin as [SensorRangeMin]
+        ,md.WorkRangeMax as [SensorRangeMax]
+        ,CAST(CASE WHEN md.WorkRangeMin IS NULL OR md.WorkRangeMax IS NULL THEN NULL
+                   WHEN combined.[MasterValue] IS NULL THEN NULL
+                   WHEN combined.[MasterValue] > md.WorkRangeMax + 10 THEN 1
+                   WHEN combined.[MasterValue] < md.WorkRangeMin - 10 THEN 1
+                   ELSE 0 END AS BIT) as [OutOfSensorRange]
+        ,CAST(CASE WHEN md.WorkRangeMin IS NULL OR md.WorkRangeMax IS NULL THEN NULL
+                   WHEN combined.[MasterValue] > md.WorkRangeMax THEN combined.[MasterValue] - md.WorkRangeMax
+                   WHEN combined.[MasterValue] < md.WorkRangeMin THEN md.WorkRangeMin - combined.[MasterValue]
+                   ELSE 0 END AS DECIMAL(18,6)) as [BeyondSensorRangeBy]
+        /* and whether the compensation itself had to extrapolate */
+        ,mvc.OutOfRange as [BeyondCertificateRange]
         ,combined.MeasuredValue
         ,combined.MeasuredValueUnitId
         ,mdu3.[ShortNameHe] as MeasuredUUTDescription
