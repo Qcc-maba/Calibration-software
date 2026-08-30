@@ -1,5 +1,28 @@
 -- =============================================
 -- Proc:        dbo.GetWorkPlanData
+-- Description: The live definition, as deployed to STAGE. This file is the current lineage;
+--              dbo.GetWorkPlanData.sql and dbo.GetWorkPlanData.PROD.sql are older snapshots and
+--              should not be deployed over this one.
+--
+-- Latest changes (MBA, 30/08)
+--   1. PlacementDate is the EARLIEST assignment date rather than every one of them concatenated.
+--      An order can run over several days and CarsToOrder holds one row per day, so this column
+--      used to read "2026-06-03 00:00:00,2026-06-09 00:00:00,2026-05-14 00:00:00" - unsorted,
+--      unparseable, and it made the MAX() over it a string comparison. Product's rule: an order
+--      that spans days is dated by its first day. LA26101800 now reports 2026-05-14.
+--      Still NVARCHAR and still the same shape as one element of the old list, so no caller has
+--      to change. It also answers the "possible bug. Not clear which date should be used"
+--      comment that was sitting on the CalibDate line.
+--   2. coordinator-orders is limited to work opened in the last three months, plus anything
+--      confirmed whose assignment fell in the last week, so an older order still on the road does
+--      not disappear. 708 rows -> 467 on STAGE. Scheduling is manual and most orders carry no
+--      assignment at all, which is expected - those match on the first leg alone.
+--
+-- Earlier: 'Finished' (status 75) leaves the working screens and is what @Page =
+--          'calibration-history' asks for; ClientConfirmationStatus falls back to 'New' (חדש).
+-- =============================================
+-- =============================================
+-- Proc:        dbo.GetWorkPlanData
 -- Jira:        MBA — "אישור תיאום כיול ע"י הלקוח" (order-approval by e-mail)
 -- Description: Verbatim copy of the live dbo.GetWorkPlanData with ONE behavioural change:
 --              the fallback ClientConfirmationStatus for orders whose
@@ -354,12 +377,19 @@ BEGIN
 	CREATE TABLE #CarsAndPlacement (
 		OrderWorkPlanId INT,
 		Cars NVARCHAR(400) COLLATE Latin1_General_100_CI_AI_SC,
-		PlacementDate NVARCHAR(800) COLLATE Latin1_General_100_CI_AI_SC
+		/* MBA: the EARLIEST assignment date, not a list.
+		   An order can run over several days, so CarsToOrder holds one row per day. This used to
+		   be a STRING_AGG of all of them - "2026-06-03 00:00:00,2026-06-09 00:00:00,2026-05-14
+		   00:00:00", unsorted - which no caller could parse and which made MAX() below compare
+		   strings rather than dates. Per product: an order that spans days is dated by its first
+		   day. Kept NVARCHAR, and the shape is one element of the old list, so nothing that reads
+		   this column has to change. */
+		PlacementDate NVARCHAR(19) COLLATE Latin1_General_100_CI_AI_SC
 	);
 	IF @DateFrom IS NOT NULL AND @DateTo IS NOT NULL AND @Page <> N'external-orders'
 	BEGIN
 		INSERT INTO #CarsAndPlacement (OrderWorkPlanId, Cars, PlacementDate)
-		SELECT co.OrderWorkPlanId, STRING_AGG(CAST(co.CarId as NVARCHAR(MAX)),','), STRING_AGG(CAST(co.AssignDate as NVARCHAR(MAX)),',')
+		SELECT co.OrderWorkPlanId, STRING_AGG(CAST(co.CarId as NVARCHAR(MAX)),','), CONVERT(NVARCHAR(19), MIN(co.AssignDate), 120)
 		FROM [dbo].[CarsToOrder] as co 
 		WHERE co.IsDeleted = 0 AND co.[AssignDate] >= @DateFrom AND co.[AssignDate] <= @DateTo
 		GROUP BY co.OrderWorkPlanId;
@@ -367,7 +397,7 @@ BEGIN
 	ELSE
 	BEGIN
 		INSERT INTO #CarsAndPlacement (OrderWorkPlanId, Cars, PlacementDate)
-		SELECT co.OrderWorkPlanId, STRING_AGG(CAST(co.CarId as NVARCHAR(MAX)),','), STRING_AGG(CAST(co.AssignDate as NVARCHAR(MAX)),',')
+		SELECT co.OrderWorkPlanId, STRING_AGG(CAST(co.CarId as NVARCHAR(MAX)),','), CONVERT(NVARCHAR(19), MIN(co.AssignDate), 120)
 		FROM [dbo].[CarsToOrder] as co 
 		WHERE co.IsDeleted = 0
 		GROUP BY co.OrderWorkPlanId;
@@ -447,7 +477,7 @@ CONCAT(
 		--	ELSE wp.[OrderNumber] 
 		--END) AS [OrderNumber],
 		wp.[OrderNumber],
-        MAX(co.[PlacementDate]) AS [CalibDate], -- possible bug. Not clear which date should be used
+        MAX(co.[PlacementDate]) AS [CalibDate], -- one row per work plan, so this is the earliest assignment; see #CarsAndPlacement
 		wp.[CustomerId] as [CustomerId], 
 		wp.[OrderWorkPlanId],
         spc.[SpecialCares],
@@ -554,6 +584,22 @@ CONCAT(
 	,CASE WHEN @WorkPlanOpenDate IS NOT NULL THEN ' AND wp.WorkPlanOpenDate = '''+CAST(@WorkPlanOpenDate as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Notes IS NOT NULL THEN ' AND wp.Notes LIKE N''%'+ @Notes +'%'''ELSE ' ' END
 	,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
+	/* MBA: what the coordinator screen is allowed to show.
+	   Recent work, plus anything confirmed that was scheduled in the last week - so an older
+	   order still on the road does not vanish off the screen. Scheduling is manual, so most
+	   orders carry no assignment at all and are matched by the first leg alone.
+	   The second leg matches if ANY of a multi-day order's days falls in the window. */
+	,CASE WHEN @Page = N'coordinator-orders'
+	      THEN ' AND ( wp.WorkPlanOpenDate >= DATEADD(month,-3,GETDATE())
+	                OR EXISTS (SELECT 1
+	                             FROM dbo.CarsToOrder AS cf
+	                             JOIN dbo.Statuses    AS sf ON sf.StatusId = wp.ClientConfirmationStatusId
+	                            WHERE cf.OrderWorkPlanId = wp.OrderWorkPlanId
+	                              AND cf.IsDeleted = 0
+	                              AND sf.StatusDescriptionENG = ''Confirmed''
+	                              AND cf.AssignDate <  GETDATE()
+	                              AND cf.AssignDate >= DATEADD(day,-7,GETDATE())) ) '
+	      ELSE ' ' END
 	/* MBA-902: a device reaches the validator once its report exists. */
 	,CASE WHEN @Page IN (N'internal-validator',N'external-validator',N'validator-orders')
 	      THEN ' AND itm.MbaReportNumber LIKE ''[0-9][0-9][0-9][0-9][0-9][0-9][0-9]/%'' ' ELSE ' ' END
