@@ -1,14 +1,36 @@
-/*  TRANCHE A - schema only. Additive: new tables and new columns.
-    Nothing here drops or alters an existing column. Safe to re-run.  */
+/*
+    Tranche A - schema. Run this FIRST.
+    ---------------------------------------------------------------------------------------------
+    Additive except for one column widening, which is also safe: nothing is dropped, no data is
+    rewritten, and every statement is guarded so the file can be re-run.
 
-/* ---- dbo.CustomerPortalRequest ---- */
-IF OBJECT_ID('dbo.CustomerPortalRequest','U') IS NULL
-BEGIN
-CREATE TABLE [dbo].[CustomerPortalRequest]
+    Generated from the live STAGE schema, so what lands on PROD is what is running on STAGE.
+*/
+SET NOCOUNT ON;
+GO
+
+/* ---- seven tables that do not exist on PROD ---- */
+
+IF OBJECT_ID('dbo.CrmDeviceDescription') IS NULL
+CREATE TABLE dbo.CrmDeviceDescription
+(
+    [CrmDeviceDescriptionId] int IDENTITY(1,1) NOT NULL,
+    [DescriptionRaw] nvarchar(200) NOT NULL,
+    [Description] nvarchar(200) NOT NULL,
+    [NeedsReview] bit NOT NULL,
+    [Devices] int NOT NULL,
+    [Parts] int NOT NULL,
+    [RefreshedAt] datetime2(7) NOT NULL,
+    PRIMARY KEY CLUSTERED ([CrmDeviceDescriptionId])
+);
+GO
+
+IF OBJECT_ID('dbo.CustomerPortalRequest') IS NULL
+CREATE TABLE dbo.CustomerPortalRequest
 (
     [CustomerPortalRequestId] bigint IDENTITY(1,1) NOT NULL,
     [RequestType] nvarchar(40) NOT NULL,
-    [Status] nvarchar(20) NOT NULL DEFAULT (N'New'),
+    [Status] nvarchar(20) NOT NULL,
     [CustomerId] int NOT NULL,
     [CustomerContactId] int NULL,
     [SubmittedByEmail] nvarchar(100) NOT NULL,
@@ -28,20 +50,17 @@ CREATE TABLE [dbo].[CustomerPortalRequest]
     [CalibrationLocation] nvarchar(20) NULL,
     [CalibrateToDeviceSpec] bit NULL,
     [AttachmentPath] nvarchar(400) NULL,
-    [CreatedDate] datetime2(3) NOT NULL DEFAULT (sysutcdatetime()),
+    [CreatedDate] datetime2(3) NOT NULL,
     [ResolvedDate] datetime2(3) NULL,
     [ResolvedByUserId] int NULL,
     [ResolutionNotes] nvarchar(1000) NULL,
-    [IsDeleted] bit NOT NULL DEFAULT ((0)),
-    CONSTRAINT [PK_CustomerPortalRequest] PRIMARY KEY CLUSTERED ([CustomerPortalRequestId])
+    [IsDeleted] bit NOT NULL,
+    PRIMARY KEY CLUSTERED ([CustomerPortalRequestId])
 );
-END
 GO
 
-/* ---- dbo.CustomerPortalRequestItem ---- */
-IF OBJECT_ID('dbo.CustomerPortalRequestItem','U') IS NULL
-BEGIN
-CREATE TABLE [dbo].[CustomerPortalRequestItem]
+IF OBJECT_ID('dbo.CustomerPortalRequestItem') IS NULL
+CREATE TABLE dbo.CustomerPortalRequestItem
 (
     [CustomerPortalRequestItemId] bigint IDENTITY(1,1) NOT NULL,
     [CustomerPortalRequestId] bigint NOT NULL,
@@ -50,15 +69,12 @@ CREATE TABLE [dbo].[CustomerPortalRequestItem]
     [MbaReportNumber] nvarchar(100) NULL,
     [SerialNumber] nvarchar(100) NULL,
     [Notes] nvarchar(1000) NULL,
-    CONSTRAINT [PK_CustomerPortalRequestItem] PRIMARY KEY CLUSTERED ([CustomerPortalRequestItemId])
+    PRIMARY KEY CLUSTERED ([CustomerPortalRequestItemId])
 );
-END
 GO
 
-/* ---- dbo.MeasurmentPointsToCalibrationCycles ---- */
-IF OBJECT_ID('dbo.MeasurmentPointsToCalibrationCycles','U') IS NULL
-BEGIN
-CREATE TABLE [dbo].[MeasurmentPointsToCalibrationCycles]
+IF OBJECT_ID('dbo.MeasurmentPointsToCalibrationCycles') IS NULL
+CREATE TABLE dbo.MeasurmentPointsToCalibrationCycles
 (
     [MeasurmentPointsToCalibrationCycleId] int IDENTITY(1,1) NOT NULL,
     [OrderDetailsItemId] int NOT NULL,
@@ -68,11 +84,11 @@ CREATE TABLE [dbo].[MeasurmentPointsToCalibrationCycles]
     [MeasurmentPointCoordX] decimal(10,4) NOT NULL,
     [MeasurmentPointCoordY] decimal(10,4) NOT NULL,
     [ChannelNumber] int NOT NULL,
-    [CreateDate] datetime2(0) NOT NULL DEFAULT (getdate()),
+    [CreateDate] datetime2(0) NOT NULL,
     [UpdatedDate] datetime2(0) NULL,
     [UpdateUserID] int NULL,
-    [IsDeleted] bit NOT NULL DEFAULT ((0)),
-    [MasterValue] decimal(10,8) NULL,
+    [IsDeleted] bit NOT NULL,
+    [MasterValue] decimal(18,6) NULL,
     [MasterValueUnitId] int NULL,
     [AdditionalValue] decimal(10,4) NULL,
     [AdditionalValueUnitId] int NULL,
@@ -80,15 +96,12 @@ CREATE TABLE [dbo].[MeasurmentPointsToCalibrationCycles]
     [UncertancyValue] decimal(10,4) NULL,
     [MeasuredValue] decimal(10,4) NULL,
     [MeasuredValueUnitId] int NULL,
-    CONSTRAINT [PK_MeasurmentPointsToCalibrationCycles] PRIMARY KEY CLUSTERED ([OrderDetailsItemId], [CalibrationCycleStartDate], [SensorMeasurementDeviceId], [ChannelNumber], [MeasurmentPointsToCalibrationCycleId])
+    PRIMARY KEY CLUSTERED ([OrderDetailsItemId], [CalibrationCycleStartDate], [SensorMeasurementDeviceId], [ChannelNumber], [MeasurmentPointsToCalibrationCycleId])
 );
-END
 GO
 
-/* ---- dbo.OrderApprovalRequest ---- */
-IF OBJECT_ID('dbo.OrderApprovalRequest','U') IS NULL
-BEGIN
-CREATE TABLE [dbo].[OrderApprovalRequest]
+IF OBJECT_ID('dbo.OrderApprovalRequest') IS NULL
+CREATE TABLE dbo.OrderApprovalRequest
 (
     [OrderApprovalRequestId] bigint IDENTITY(1,1) NOT NULL,
     [OrderWorkPlanId] int NOT NULL,
@@ -97,7 +110,7 @@ CREATE TABLE [dbo].[OrderApprovalRequest]
     [CustomerId] int NULL,
     [CustomerContactId] int NULL,
     [SentToEmail] nvarchar(100) NOT NULL,
-    [CreatedAt] datetime2(3) NOT NULL DEFAULT (sysutcdatetime()),
+    [CreatedAt] datetime2(3) NOT NULL,
     [ExpiresAt] datetime2(3) NOT NULL,
     [RespondedAt] datetime2(3) NULL,
     [Decision] nvarchar(10) NULL,
@@ -107,48 +120,42 @@ CREATE TABLE [dbo].[OrderApprovalRequest]
     [PriorityDocumentNumber] nvarchar(50) NULL,
     [PriorityError] nvarchar(1000) NULL,
     [PriorityCompletedAt] datetime2(3) NULL,
-    CONSTRAINT [PK_OrderApprovalRequest] PRIMARY KEY CLUSTERED ([OrderApprovalRequestId])
+    PRIMARY KEY CLUSTERED ([OrderApprovalRequestId])
 );
-END
 GO
 
-/* ---- dbo.OrderNote ---- */
-IF OBJECT_ID('dbo.OrderNote','U') IS NULL
-BEGIN
-CREATE TABLE [dbo].[OrderNote]
+IF OBJECT_ID('dbo.OrderNote') IS NULL
+CREATE TABLE dbo.OrderNote
 (
     [OrderNoteId] bigint IDENTITY(1,1) NOT NULL,
     [OrderWorkPlanId] int NOT NULL,
     [NoteText] nvarchar(2000) NOT NULL,
     [CreatedByUserId] int NULL,
     [CreatedByEmail] nvarchar(100) NULL,
-    [CreatedDate] datetime2(3) NOT NULL DEFAULT (sysutcdatetime()),
-    [IsDeleted] bit NOT NULL DEFAULT ((0)),
+    [CreatedDate] datetime2(3) NOT NULL,
+    [IsDeleted] bit NOT NULL,
     [DeletedDate] datetime2(3) NULL,
     [DeletedByUserId] int NULL,
-    CONSTRAINT [PK_OrderNote] PRIMARY KEY CLUSTERED ([OrderNoteId])
+    PRIMARY KEY CLUSTERED ([OrderNoteId])
 );
-END
 GO
 
-/* ---- dbo.UserSensorTablePreferences ---- */
-IF OBJECT_ID('dbo.UserSensorTablePreferences','U') IS NULL
-BEGIN
-CREATE TABLE [dbo].[UserSensorTablePreferences]
+IF OBJECT_ID('dbo.UserSensorTablePreferences') IS NULL
+CREATE TABLE dbo.UserSensorTablePreferences
 (
     [Id] int IDENTITY(1,1) NOT NULL,
     [UserId] int NULL,
-    [ColumnVisibility] nvarchar(max) NULL,
-    [ColumnOrder] nvarchar(max) NULL,
-    [LockedColumns] nvarchar(max) NULL,
+    [ColumnVisibility] nvarchar(MAX) NULL,
+    [ColumnOrder] nvarchar(MAX) NULL,
+    [LockedColumns] nvarchar(MAX) NULL,
     [UpdatedDate] datetime2(7) NULL,
     [UpdateUserID] int NULL,
-    CONSTRAINT [PK__UserSens__3214EC077A272941] PRIMARY KEY CLUSTERED ([Id])
+    PRIMARY KEY CLUSTERED ([Id])
 );
-END
 GO
 
-/* ---- three columns on dbo.MeasurementDevices ---- */
+
+/* ---- seven columns on existing tables ---- */
 IF COL_LENGTH('dbo.MeasurementDevices','WorkRangeMin2') IS NULL
     ALTER TABLE dbo.MeasurementDevices ADD WorkRangeMin2 NUMERIC(18,6) NULL;
 GO
@@ -158,16 +165,46 @@ GO
 IF COL_LENGTH('dbo.MeasurementDevices','WorkRangeUnitId2') IS NULL
     ALTER TABLE dbo.MeasurementDevices ADD WorkRangeUnitId2 INT NULL;
 GO
-
-/* ---- three columns on dbo.OrderDetailsItems  (MBA-577, sensor identification) ---- */
+/* MBA-577 - the sensor identification page */
 IF COL_LENGTH('dbo.OrderDetailsItems','Tolerance') IS NULL
     ALTER TABLE dbo.OrderDetailsItems ADD Tolerance DECIMAL(18,6) NULL;
 GO
 IF COL_LENGTH('dbo.OrderDetailsItems','Resolution') IS NULL
     ALTER TABLE dbo.OrderDetailsItems ADD Resolution DECIMAL(18,6) NULL;
 GO
-/* CSV of ids - Reference Document is multi-select. The singular SpecificationReferenceId
-   column stays as it is. See dbo.AssignProductIdentificationData.sql for why. */
 IF COL_LENGTH('dbo.OrderDetailsItems','SpecificationReferenceIds') IS NULL
     ALTER TABLE dbo.OrderDetailsItems ADD SpecificationReferenceIds NVARCHAR(MAX) NULL;
+GO
+/* The subsidiary should read SEPharma on screen. SourceName itself cannot change - it is the join
+   key the whole Priority sync matches on, and Priority sends the literal SEPHARM. */
+IF COL_LENGTH('dbo.Source','SourceDisplayName') IS NULL
+    ALTER TABLE dbo.Source ADD SourceDisplayName NVARCHAR(100) NULL;
+GO
+UPDATE dbo.Source SET SourceDisplayName = N'MABA'     WHERE SourceId = 1 AND SourceDisplayName IS NULL;
+UPDATE dbo.Source SET SourceDisplayName = N'SEPharma' WHERE SourceId = 2 AND SourceDisplayName IS NULL;
+UPDATE dbo.Source SET SourceDisplayName = SourceName  WHERE SourceDisplayName IS NULL;
+GO
+
+/* ---- the one type change, and the reason it matters most in this file ----
+   MasterValue is DECIMAL(10,8) on PROD. Precision 10 with scale 8 leaves TWO digits before the
+   decimal point, so the column cannot hold 100. A calibrator entering any reading of 100 or more
+   gets "arithmetic overflow", the save is rejected, and NOTHING on screen says so - the typed
+   value stays in the box and the row's UpdatedDate still moves. 31-77's certificate runs to 349.98
+   and other masters reach 1104, so this covers most of the working range.
+
+   Widening is safe: no index, default or check constraint is bound to the column, and by
+   definition every value already in it is under 100. */
+IF EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON t.user_type_id=c.user_type_id
+           WHERE c.object_id=OBJECT_ID('dbo.MeasurmentPointsToOrderDetailsItems')
+             AND c.name='MasterValue' AND (c.precision<>18 OR c.scale<>6))
+    ALTER TABLE dbo.MeasurmentPointsToOrderDetailsItems ALTER COLUMN MasterValue DECIMAL(18,6) NULL;
+GO
+
+/* ---- the index the compensation call needs ----
+   Without it GetCalibrationValuesForManyOrderDetailItems takes 2.1 s per request instead of 0.27 s,
+   because every correction lookup scans the whole table. */
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_MDC_Device_Version_Value')
+CREATE NONCLUSTERED INDEX IX_MDC_Device_Version_Value
+    ON dbo.MeasurementDevicesCorrections (MeasurementDevicesId, CorVersion DESC, Value1)
+    INCLUDE (Deviation, MeasurementId, IsDeleted, Value2);
 GO

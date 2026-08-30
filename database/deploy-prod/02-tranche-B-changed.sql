@@ -1,8 +1,21 @@
-/*  TRANCHE B - procedures that exist on PROD with a different body.
-    These CHANGE existing behaviour. Deploy after tranche A.
-    Every one is CREATE OR ALTER, so re-running is safe.  */
+/*
+    Tranche B - objects that already exist on PROD with a different body. Run this LAST.
+    ---------------------------------------------------------------------------------------------
+    This is the only tranche that can break something that works today. Every statement is
+    CREATE OR ALTER, so it is one statement per object and nothing is dropped.
 
-/* ================= dbo.AddCalibrationCycle ================= */
+    Take a copy of the current definitions BEFORE running it - that is the rollback:
+
+        SELECT o.name, OBJECT_DEFINITION(o.object_id) FROM sys.objects o
+        WHERE o.type IN ('P','FN','IF','TF','V');
+
+    To roll one object back, run its saved definition with CREATE changed to CREATE OR ALTER.
+*/
+SET NOCOUNT ON;
+GO
+
+/* ===== dbo.AddCalibrationCycle ===== */
+GO
 CREATE OR ALTER PROCEDURE [dbo].[AddCalibrationCycle]
 @UserEmail NVARCHAR(50),
 @OrderDetailsItemId INT,
@@ -64,8 +77,8 @@ BEGIN
 END
 END
 GO
-
-/* ================= dbo.AssignCalibrationEnvironmentalConditions ================= */
+/* ===== dbo.AssignCalibrationEnvironmentalConditions ===== */
+GO
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 07/01/2026
@@ -152,9 +165,10 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 				);
 
 END
-GO
 
-/* ================= dbo.AssignCarToOrder ================= */
+GO
+/* ===== dbo.AssignCarToOrder ===== */
+GO
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 17/03/2025
@@ -316,9 +330,10 @@ WHERE OrderNumber = @OrderNumber
 */
 
 END
-GO
 
-/* ================= dbo.AssignMeasurmentDevicesToCalibrator ================= */
+GO
+/* ===== dbo.AssignMeasurmentDevicesToCalibrator ===== */
+GO
 /*
     dbo.AssignMeasurmentDevicesToCalibrator
     ---------------------------------------------------------------------------------------------
@@ -461,9 +476,10 @@ BEGIN CATCH
 	ROLLBACK
 END CATCH 
 END
-GO
 
-/* ================= dbo.AssignMeasurmentPointsToOrderDetailsItems ================= */
+GO
+/* ===== dbo.AssignMeasurmentPointsToOrderDetailsItems ===== */
+GO
 CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToOrderDetailsItems]
 @LoggedInUserEmail NVARCHAR(100),
 @Data NVARCHAR(MAX),
@@ -596,7 +612,7 @@ CREATE TABLE #parsedData
     MeasurmentPointCoordX DECIMAL(10,4),
     MeasurmentPointCoordY DECIMAL(10,4),
 	ChannelNumber INT,
-	MasterValue DECIMAL(10,4),
+	MasterValue DECIMAL(18,6)   /* MBA-811: the column is (18,6) */,
     MasterValueUnitId INT,
     AdditionalValue DECIMAL(10,4),
     AdditionalValueUnitId INT,
@@ -631,7 +647,7 @@ SELECT
     TRY_CONVERT(DECIMAL(10,4), REPLACE(c.MeasurmentPointCoordX, ',', '.')) AS MeasurmentPointCoordX,
     TRY_CONVERT(DECIMAL(10,4), REPLACE(c.MeasurmentPointCoordY, ',', '.')) AS MeasurmentPointCoordY,
     TRY_CONVERT(INT, c.ChannelNumber)             AS ChannelNumber,
-    TRY_CONVERT(DECIMAL(10,4), REPLACE(c.MasterValue, ',', '.')) AS MasterValue,
+    TRY_CONVERT(DECIMAL(18,6), REPLACE(c.MasterValue, ',', '.')) AS MasterValue,
     c.MasterValueUnitId,
     TRY_CONVERT(DECIMAL(10,4), REPLACE(c.AdditionalValue, ',', '.')) AS AdditionalValue,
     c.AdditionalValueUnitId,
@@ -869,9 +885,201 @@ BEGIN
 END
 
 END
-GO
 
-/* ================= dbo.GetAllCalibrationDevices ================= */
+GO
+/* ===== dbo.AssignProductIdentificationData ===== */
+GO
+-- =============================================
+-- Author:		Eduard Kudlaiev
+-- Create date: 21/06/2025
+-- Description:	Procedure enrich data for calibrated device in orders
+-- JiraLink: 
+-- =============================================
+CREATE OR ALTER PROCEDURE [dbo].[AssignProductIdentificationData]
+@UserEmail NVARCHAR(50),
+@OrderDetailId INT,
+@OrderDetailsItemId INT = NULL,
+@ActualCalibrationDate DATETIME2(0)= NULL,	
+@NextCalibrationDate DATETIME2(0)= NULL,	
+@SerialNumber NVARCHAR(100)= NULL,
+@ManufacturerNumber	NVARCHAR(100)= NULL,
+@DeviceModel NVARCHAR(100)= NULL,	
+@AdditionalDeviceNumber NVARCHAR(100)= NULL,
+@OrdersMainCategoryId INT= NULL,
+@OrdersSecondaryCategoryId INT= NULL,
+@OrdersDeviceManufacturer NVARCHAR(100) = NULL,
+@OrdersProductTypeId INT= NULL,
+@CalibrationSpecificationId INT= NULL,
+@SpecificationReferenceId INT= NULL,
+@MeasurementUnitId INT= NULL,
+@MeasurementPoints INT= NULL,
+@MeasurementValueList NVARCHAR(MAX) = NULL,
+@OrderLineCnt_new INT = NULL,
+@Accuracy TINYINT = NULL,
+@MbaReportNumber NVARCHAR(100) =NULL,
+@StickerAmount TINYINT = NULL,
+@StickerTypeId INT = NULL,
+@SecondCalibratorId INT = NULL,
+@MainCalibratorId INT = NULL,
+@Volume DECIMAL(16,4) = NULL,
+@VisualCheck NVARCHAR(200) = NULL,
+@ShouldShowGraphV BIT = NULL, 
+@ShouldShowCertificateIcon BIT = NULL,
+@RequiredProbability TINYINT = NULL,
+@ReportLanguage NVARCHAR(50) = NULL,
+@SiteAddress NVARCHAR(100) = NULL,
+@ProductLocation NVARCHAR(50) = NULL,
+@ControllerType NVARCHAR(40) = NULL,
+@DiagramMapLink NVARCHAR(200) = NULL,
+	/* MBA-577: sensor identification. Tolerance and Resolution are scalar.
+	   SpecificationReferenceIds is a CSV because Reference Document became multi-select;
+	   the older singular SpecificationReferenceId is left in place so anything still
+	   sending it keeps working. */
+	@Tolerance DECIMAL(18,6) = NULL,
+	@Resolution DECIMAL(18,6) = NULL,
+	@SpecificationReferenceIds NVARCHAR(MAX) = NULL
+AS
+BEGIN 
+
+	DECLARE @OrderDetailItemIdInserted INT
+	DECLARE @UserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @UserEmail) 
+
+	/*In some cases there are no information in order details and we need to insert it*/
+	IF NOT EXISTS (SELECT 1 FROM [dbo].[OrderDetailsItems] WHERE OrderDetailId = @OrderDetailId AND OrderDetailsItemId =@OrderDetailsItemId )
+		BEGIN
+			INSERT INTO [dbo].[OrderDetailsItems]
+					   ([OrderDetailId]
+					   ,[ActualCalibrationDate]
+					   ,[NextCalibrationDate]
+					   ,[SerialNumber]
+					   ,[ManufacturerNumber]
+					   ,[DeviceModel]
+					   ,[AdditionalDeviceNumber]
+					   ,[CalibrationSpecificationId]
+					   ,[SpecificationReferenceId]
+					   ,[MeasurementUnitId]
+					   ,[MeasurementPoints]
+					   ,[MeasurementValueList]
+					   ,[CreatedDate]
+					   ,[CreatedByUserId]
+					   ,[Accuracy]
+					   ,[IsManuallyAdded]
+					   ,[MbaReportNumber]
+					   ,[StickerAmount]
+					   ,[StickerTypeId]
+					   ,[SecondCalibratorId]
+					   ,[MainCalibratorId]
+					   ,[Volume]
+					   ,[VisualCheck]
+					   ,[ShouldShowGraphV]
+					   ,[ShouldShowCertificateIcon]
+					   ,[RequiredProbability]
+					   ,[ReportLanguage]
+					   ,[SiteAddress]
+					   ,[ProductLocation]
+					   ,[OrdersDeviceManufacturer] 
+					   ,[ControllerType]
+					   ,[DiagramMapLink]
+					   ,[Tolerance]
+					   ,[Resolution]
+					   ,[SpecificationReferenceIds]
+					)
+				 SELECT
+					@OrderDetailId,	
+					@ActualCalibrationDate,	
+					@NextCalibrationDate,	
+					@SerialNumber,
+					@ManufacturerNumber,
+					@DeviceModel,	
+					@AdditionalDeviceNumber,
+					@CalibrationSpecificationId,
+					@SpecificationReferenceId,
+					@MeasurementUnitId,
+					@MeasurementPoints,
+					@MeasurementValueList,
+					GETDATE(),
+					@UserId,
+					@Accuracy,
+					1,
+					@MbaReportNumber,
+					@StickerAmount,
+					@StickerTypeId,
+					@SecondCalibratorId,
+					@MainCalibratorId,
+					@Volume,
+					@VisualCheck,
+					@ShouldShowGraphV,
+					@ShouldShowCertificateIcon,
+					@RequiredProbability,
+					@ReportLanguage,
+					@SiteAddress,
+					@ProductLocation,
+					@OrdersDeviceManufacturer,
+					@ControllerType,
+					@DiagramMapLink,
+					@Tolerance,
+					@Resolution,
+					NULLIF(@SpecificationReferenceIds, '')
+				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
+
+		END
+
+	UPDATE [dbo].[OrderDetails] 
+	SET [OrdersProductTypeId] = IIF(@OrdersProductTypeId IS NULL,[OrdersProductTypeId], @OrdersProductTypeId)
+		,[MainCategoryId] = IIF(@OrdersMainCategoryId IS NULL,[MainCategoryId], @OrdersMainCategoryId)
+		,[SecondaryCategoryId] =IIF(@OrdersSecondaryCategoryId IS NULL,[SecondaryCategoryId],@OrdersSecondaryCategoryId)
+	WHERE OrderDetailId = @OrderDetailId-- AND [OrdersProductTypeId] <> @OrdersProductTypeId
+
+	UPDATE [dbo].[OrderDetails] 
+	SET [OrderLineCnt] = IIF(@OrderLineCnt_new IS NULL,[OrderLineCnt], @OrderLineCnt_new)
+	WHERE OrderDetailId = @OrderDetailId AND [OrderLineCnt] <> COALESCE(@OrderLineCnt_new,[OrderLineCnt])
+
+	UPDATE [dbo].[OrderDetailsItems]
+			SET 
+			 [ActualCalibrationDate] = IIF(@ActualCalibrationDate IS NULL,[ActualCalibrationDate],@ActualCalibrationDate)
+			,[NextCalibrationDate] = IIF(@NextCalibrationDate IS NULL,[NextCalibrationDate],@NextCalibrationDate)
+			,[SerialNumber] = IIF(@SerialNumber IS NULL,[SerialNumber],@SerialNumber)
+			,[ManufacturerNumber] = IIF(@ManufacturerNumber IS NULL,[ManufacturerNumber],@ManufacturerNumber)
+			,[DeviceModel] = IIF(@DeviceModel IS NULL,[DeviceModel],@DeviceModel)
+			,[AdditionalDeviceNumber] = IIF(@AdditionalDeviceNumber IS NULL,[AdditionalDeviceNumber],@AdditionalDeviceNumber)
+			,[CalibrationSpecificationId] = IIF(@CalibrationSpecificationId IS NULL,[CalibrationSpecificationId],@CalibrationSpecificationId)
+			,[SpecificationReferenceId] = IIF(@SpecificationReferenceId IS NULL,[SpecificationReferenceId],@SpecificationReferenceId)
+			,[MeasurementUnitId] = IIF(@MeasurementUnitId IS NULL,[MeasurementUnitId],@MeasurementUnitId)
+			,[MeasurementPoints] = IIF(@MeasurementPoints IS NULL,[MeasurementPoints],@MeasurementPoints)
+			,[MeasurementValueList] = IIF(@MeasurementValueList IS NULL,[MeasurementValueList],@MeasurementValueList)
+			,[UpdatedDate] = GETDATE()
+			,[UpdateUserID] = @UserId
+			,[Accuracy] = IIF(@Accuracy IS NULL,[Accuracy],@Accuracy)
+			,[MbaReportNumber] = IIF(@MbaReportNumber IS NULL,[MbaReportNumber],@MbaReportNumber)
+			,[StickerAmount] = IIF(@StickerAmount IS NULL,[StickerAmount],@StickerAmount)
+			,[StickerTypeId] = IIF(@StickerTypeId IS NULL,[StickerTypeId],@StickerTypeId)
+			,[SecondCalibratorId] = COALESCE(@SecondCalibratorId,[SecondCalibratorId])
+			,[MainCalibratorId] = COALESCE(@MainCalibratorId,[MainCalibratorId])
+			,[Volume] = COALESCE(@Volume,[Volume])
+			,[VisualCheck] = COALESCE(@VisualCheck,[VisualCheck])
+			,[ShouldShowGraphV] = COALESCE(@ShouldShowGraphV,[ShouldShowGraphV])
+			,[ShouldShowCertificateIcon] = COALESCE(@ShouldShowCertificateIcon,[ShouldShowCertificateIcon])
+			,[RequiredProbability] = COALESCE(@RequiredProbability,[RequiredProbability])
+			,[ReportLanguage] = COALESCE(@ReportLanguage,[ReportLanguage])
+			,[SiteAddress] = COALESCE(@SiteAddress,[SiteAddress])
+			,[ProductLocation] = COALESCE(@ProductLocation,[ProductLocation])
+			,[OrdersDeviceManufacturer] = COALESCE(@OrdersDeviceManufacturer,[OrdersDeviceManufacturer])
+			,[ControllerType] = COALESCE(@ControllerType,[ControllerType])
+			,[DiagramMapLink] = IIF(@DiagramMapLink ='',NULL,COALESCE(@DiagramMapLink,[DiagramMapLink]))
+			,[Tolerance] = COALESCE(@Tolerance,[Tolerance])
+			,[Resolution] = COALESCE(@Resolution,[Resolution])
+			/* '' clears the selection, NULL leaves it alone. Deselecting every reference
+			   document has to be storable, and COALESCE on its own would make that
+			   impossible. Same shape as DiagramMapLink above. */
+			,[SpecificationReferenceIds] = IIF(@SpecificationReferenceIds = '',NULL,COALESCE(@SpecificationReferenceIds,[SpecificationReferenceIds]))
+	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
+
+	SELECT COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) as OrderDetailsItemId
+END
+
+GO
+/* ===== dbo.GetAllCalibrationDevices ===== */
+GO
 /*
     dbo.GetAllCalibrationDevices
     ---------------------------------------------------------------------------------------------
@@ -984,9 +1192,10 @@ BEGIN
 	EXEC sp_executesql @sql
 
 END
-GO
 
-/* ================= dbo.GetAllEquipment ================= */
+GO
+/* ===== dbo.GetAllEquipment ===== */
+GO
 /*
     dbo.GetAllEquipment
     ---------------------------------------------------------------------------------------------
@@ -1062,9 +1271,82 @@ ORDER BY
 	 TRY_CAST(LEFT(STUFF(c.MabaID, 1, CHARINDEX('-', c.MabaID + '-'), ''),
 	               CHARINDEX('/', STUFF(c.MabaID, 1, CHARINDEX('-', c.MabaID + '-'), '') + '/') - 1) AS INT),
 	 c.MabaID
+
+GO
+/* ===== dbo.GetAllOrderClients ===== */
+GO
+-- =============================================
+-- Author:		Eduard Kudlaiev
+-- Create date: 08/06/2025
+-- Description:	This SP return customers for orders
+-- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-276
+-- =============================================
+CREATE OR ALTER PROCEDURE [dbo].[GetAllOrderClients]
+AS
+BEGIN
+	SELECT DISTINCT
+	       c.CustomerId	
+	      ,c.CustomerName	
+		  ,c.CustomerPhone	
+		  ,c.CustomerCity	
+		  ,c.CustomerAddress
+		  ,c.SourceId
+		  ,ss.SourceDisplayName AS SourceName
+	  FROM [dbo].[Customers] as c
+	  JOIN [dbo].[Source] as ss ON c.[SourceId] = ss.[SourceId]
+	  JOIN [dbo].[OrderWorkPlans] as od ON od.[CustomerId] = c.[CustomerId]
+	  WHERE c.[IsDeleted] = 0
+END
+
+GO
+/* ===== dbo.GetAllOrderLocations ===== */
+GO
+-- =============================================
+-- Author:		Eduard Kudlaiev
+-- Create date: 08/06/2025
+-- Description:	This SP return customer locations
+-- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-276
+-- =============================================
+CREATE OR ALTER PROCEDURE [dbo].[GetAllOrderLocations]
+AS
+BEGIN
+	SELECT DISTINCT
+		   c.[CustomerCity] as CustomerLocation,
+		   c.[CustomerId],
+		   od.[SourceId],
+		   s.[SourceDisplayName] AS [SourceName]
+	  FROM [dbo].[Customers] as c
+	  JOIN [dbo].[OrderWorkPlans] as od ON od.[CustomerId] = c.[CustomerId]
+	  JOIN [dbo].[Source] as s ON od.SourceId = s.SourceId
+	  WHERE c.[IsDeleted] = 0 AND LEN([CustomerCity]) > 0
+END
+
+GO
+/* ===== dbo.GetAllProductTypes ===== */
+GO
+-- =============================================
+-- Author:		Eduard Kudlaiev
+-- Create date: 08/06/2025
+-- Description:	This SP return customers for orders
+-- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-276
+-- =============================================
+CREATE OR ALTER PROCEDURE [dbo].[GetAllProductTypes]
+AS
+BEGIN
+	SELECT DISTINCT
+	       od.PartName as ProductType,
+		   wp.[SourceId],
+		   s.[SourceDisplayName] AS [SourceName]
+	  FROM [dbo].[OrderWorkPlans] as wp
+	  JOIN [dbo].[OrderDetails] as od ON od.[OrderWorkPlanId] = wp.[OrderWorkPlanId]
+	  LEFT JOIN [dbo].[Source] as s ON wp.SourceId = s.SourceId
+	  WHERE od.[IsDeleted] = 0 and wp.[IsCancelled] = 0
+END
+
+GO
+/* ===== dbo.GetCalibrationCycles ===== */
 GO
 
-/* ================= dbo.GetCalibrationCycles ================= */
 CREATE OR ALTER PROCEDURE [dbo].[GetCalibrationCycles]
 @OrderDetailsItemId INT,
 @ShowOnlyLatest BIT = 0 
@@ -1122,9 +1404,169 @@ WHERE (@ShowOnlyLatest = 0 OR ds.LatestCycle = 1)
 ORDER BY ds.[CycleNumber] ASC  -- Bug #2 fix: ensure cycles are always returned in creation order
 
 END
-GO
 
-/* ================= dbo.GetCalibrationValuesForOrderDetailItem ================= */
+GO
+/* ===== dbo.GetCalibrationValuesForManyOrderDetailItems ===== */
+GO
+-- =============================================
+-- Proc:        dbo.GetCalibrationValuesForManyOrderDetailItems
+-- Jira:        the calibration wizard's `sensors.getCalibrationValuesForManyOrderDetailItems`
+--
+-- WHY: the front-end deployed on 2026-08-13 calls a batch version of
+-- dbo.GetCalibrationValuesForOrderDetailItem, but only the SINGULAR proc existed — on STAGE and on
+-- PROD. Every call failed, which is the 400 that survived every other fix on stg.qcc.co.il.
+--
+-- This is the singular proc's query, unchanged, with three differences:
+--   1. it takes a LIST of OrderDetailsItemIds instead of one (comma separated, the convention used
+--      by @OrderWorkPlanIds / @EquipmentIds / @AssignedCalibratorsIds elsewhere in this database);
+--   2. OrderDetailsItemId is RETURNED as the first column, so the caller can group the flat result
+--      back per item — a batch endpoint is useless without it;
+--   3. @OrderDetailIds is optional. The singular proc also filters on OrderDetailId, but that
+--      column is not unique (OrderDetailId 58 exists on two different work plans), so the item id
+--      is the only safe key. Pass the list only if you specifically want that extra restriction.
+--
+-- The per-item pairing of measurement points to environmental conditions is unchanged: both sides
+-- are numbered with ROW_NUMBER() PARTITION BY OrderDetailsItemId and FULL OUTER JOINed on
+-- (OrderDetailsItemId, rn), so batching cannot mix rows between items.
+--
+-- CONTRACT NOT CONFIRMED WITH THE FE. The parameter name and shape are inferred from this
+-- database's conventions. If the router sends something else (a JSON array, a different name),
+-- this still will not bind — tell me the exact signature and it is a one-line change.
+-- =============================================
+CREATE OR ALTER PROCEDURE [dbo].[GetCalibrationValuesForManyOrderDetailItems]
+    @OrderDetailsItemIds NVARCHAR(MAX),
+    @OrderDetailIds      NVARCHAR(MAX) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @items TABLE(OrderDetailsItemId INT PRIMARY KEY);
+    INSERT INTO @items(OrderDetailsItemId)
+    SELECT DISTINCT TRY_CONVERT(INT, LTRIM(RTRIM(value)))
+    FROM STRING_SPLIT(ISNULL(@OrderDetailsItemIds, N''), ',')
+    WHERE LTRIM(RTRIM(value)) <> N''            -- TRY_CONVERT(INT, N'') returns 0, not NULL:
+      AND TRY_CONVERT(INT, LTRIM(RTRIM(value))) IS NOT NULL;   -- without this an empty list becomes {0}
+
+    DECLARE @details TABLE(OrderDetailId INT PRIMARY KEY);
+    INSERT INTO @details(OrderDetailId)
+    SELECT DISTINCT TRY_CONVERT(INT, LTRIM(RTRIM(value)))
+    FROM STRING_SPLIT(ISNULL(@OrderDetailIds, N''), ',')
+    WHERE LTRIM(RTRIM(value)) <> N''            -- TRY_CONVERT(INT, N'') returns 0, not NULL:
+      AND TRY_CONVERT(INT, LTRIM(RTRIM(value))) IS NOT NULL;   -- without this an empty list becomes {0}
+
+    SELECT
+         itm.[OrderDetailsItemId]
+        ,COALESCE(combined.[MbaReportNumber], itm.[MbaReportNumber]) as [MbaReportNumber]
+        ,COALESCE(combined.[SerialNumber], itm.[SerialNumber]) as [SerialNumber]
+        ,itm.[UnitUnderTestValue]
+        ,itm.[MeasurementUnitId] as UUTId
+        ,mdu4.[ShortNameHe] as UUTDescription
+        ,N'P' + CAST(combined.[ChannelNumber] as NVARCHAR(30)) as [ChannelNumber]
+        ,combined.[SensorMeasurementDeviceId]
+        ,md.[MabaID] AS MasterSensorMabaID
+        ,md.ID as [MeasurementDeviceId]
+        ,combined.[Tolerance]
+        ,combined.[NominalValue]
+        ,wp.[OrderNumber]
+        ,combined.[MasterValue]
+        ,combined.[MasterValueUnitId]
+        ,mdu.[ShortNameHe] as MasterValueUnitDescription
+        /* CorrectedExact, not Corrected: rounding to the reading's own precision is what was
+           asked for, but it erases the correction. A reading of 23 has deviation -0.001792,
+           and at zero decimals the answer is 23 again. Both columns are available; this stays
+           on the exact one until the display rule is settled. */
+        ,mvc.CorrectedExact as [MasterValueAfterCorrection]
+        /* MBA-475: is the calibrator driving the master outside its own working range?
+           This is a DIFFERENT question from mvc.OutOfRange, which asks whether the reading fell
+           outside the CERTIFICATE and the deviation had to be clamped. A master can be well
+           inside its working range and still beyond its last calibrated point, and the reverse.
+           The threshold is the fixed 10 units the ticket specifies - range -80..200, reading 220,
+           20 beyond, so highlighted. It is written once, here and in the Many variant. */
+        ,md.WorkRangeMin as [SensorRangeMin]
+        ,md.WorkRangeMax as [SensorRangeMax]
+        ,CAST(CASE WHEN md.WorkRangeMin IS NULL OR md.WorkRangeMax IS NULL THEN NULL
+                   WHEN combined.[MasterValue] IS NULL THEN NULL
+                   WHEN combined.[MasterValue] > md.WorkRangeMax + 10 THEN 1
+                   WHEN combined.[MasterValue] < md.WorkRangeMin - 10 THEN 1
+                   ELSE 0 END AS BIT) as [OutOfSensorRange]
+        ,CAST(CASE WHEN md.WorkRangeMin IS NULL OR md.WorkRangeMax IS NULL THEN NULL
+                   WHEN combined.[MasterValue] > md.WorkRangeMax THEN combined.[MasterValue] - md.WorkRangeMax
+                   WHEN combined.[MasterValue] < md.WorkRangeMin THEN md.WorkRangeMin - combined.[MasterValue]
+                   ELSE 0 END AS DECIMAL(18,6)) as [BeyondSensorRangeBy]
+        /* and whether the compensation itself had to extrapolate */
+        ,mvc.OutOfRange as [BeyondCertificateRange]
+        ,combined.MeasuredValue
+        ,combined.MeasuredValueUnitId
+        ,mdu3.[ShortNameHe] as MeasuredUUTDescription
+        ,combined.[AdditionalValue]
+        ,combined.[AdditionalValueUnitId]
+        ,mdu2.[ShortNameHe] as AdditionalUUTDescription
+        ,combined.[MasterValue] - combined.[NominalValue] as [Deviation]
+        ,((combined.[MasterValue] - combined.[NominalValue])/COALESCE(NULLIF(combined.[Tolerance],0),1))*100 as AllowedDeviation
+        ,combined.[UncertancyValue]
+        /* MBA-811: still unimplemented, but a typed NULL rather than a string that reaches the
+           screen as text. Computing it needs a decision on what "last calibration" means for
+           this device and point - raised separately. */
+        ,CAST(NULL AS DECIMAL(18,6)) as DriftFromLastCalibration
+        ,combined.StabilityValue
+        ,combined.[MeasurmentPointsToOrderDetailsItemId]
+    FROM [dbo].[OrderDetailsItems] as itm
+    JOIN @items AS want ON want.OrderDetailsItemId = itm.OrderDetailsItemId
+    JOIN [dbo].[OrderDetails] as od ON itm.OrderDetailId = od.OrderDetailId
+    JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderWorkPlanId = od.OrderWorkPlanId
+    LEFT JOIN (
+        SELECT
+            COALESCE(mpo.OrderDetailsItemId, evnc.OrderDetailsItemId) as OrderDetailsItemId,
+            mpo.ChannelNumber,
+            mpo.SensorMeasurementDeviceId,
+            mpo.MasterValue,
+            mpo.MasterValueUnitId,
+            mpo.MeasuredValue,
+            mpo.MeasuredValueUnitId,
+            mpo.AdditionalValue,
+            mpo.AdditionalValueUnitId,
+            mpo.UncertancyValue,
+            mpo.StabilityValue,
+            mpo.MeasurmentPointsToOrderDetailsItemId,
+            mpo.SerialNumber,
+            mpo.MbaReportNumber,
+            COALESCE(mpo.Tolerance, evnc.Tolerance) as Tolerance,
+            COALESCE(mpo.NominalValue, evnc.NominalValue) as NominalValue
+        FROM (
+            SELECT *,
+                   ROW_NUMBER() OVER(PARTITION BY OrderDetailsItemId ORDER BY MeasurmentPointsToOrderDetailsItemId) as rn
+            FROM [dbo].[MeasurmentPointsToOrderDetailsItems]
+            WHERE IsDeleted = 0
+              AND OrderDetailsItemId IN (SELECT OrderDetailsItemId FROM @items)
+        ) mpo
+        FULL OUTER JOIN (
+            SELECT *,
+                   ROW_NUMBER() OVER(PARTITION BY OrderDetailsItemId ORDER BY NominalValue, CreateDate) as rn
+            FROM [dbo].[CalibrationEnvironmentalConditions]
+            WHERE IsDeleted = 0
+              AND OrderDetailsItemId IN (SELECT OrderDetailsItemId FROM @items)
+        ) evnc ON mpo.OrderDetailsItemId = evnc.OrderDetailsItemId AND mpo.rn = evnc.rn
+    ) as combined ON itm.OrderDetailsItemId = combined.OrderDetailsItemId
+    LEFT JOIN [dbo].[MeasurementDeviceUnits] as mdu  ON combined.[MasterValueUnitId] = mdu.[MeasurementDeviceUnitId]
+    LEFT JOIN [dbo].[MeasurementDeviceUnits] as mdu2 ON combined.[AdditionalValueUnitId] = mdu2.[MeasurementDeviceUnitId]
+    LEFT JOIN [dbo].[MeasurementDeviceUnits] as mdu3 ON combined.MeasuredValueUnitId = mdu3.[MeasurementDeviceUnitId]
+    LEFT JOIN [dbo].[MeasurementDeviceUnits] as mdu4 ON itm.MeasurementUnitId = mdu4.[MeasurementDeviceUnitId]
+    LEFT JOIN [dbo].[MeasurementDevices] as md ON md.ID = combined.[SensorMeasurementDeviceId]
+    /* MBA-811: the master reading with its certificate deviation applied. Returns NULL for a
+       master with no certificate, and for a temperature+humidity master - that one needs the
+       2D interpolation in dbo.fnHumidityAfterCorrection, which our range-shaped correction
+       data cannot feed yet. NULL is honest; the screen shows a dash. */
+    OUTER APPLY dbo.fnMasterValueAfterCorrection(md.ID, combined.[MasterValue], NULL) AS mvc
+    /* the third argument is passed explicitly: an inline table-valued function does not
+       apply parameter defaults the way a stored procedure does, and omitting it fails the
+       whole call with "an insufficient number of arguments". */
+    WHERE (NOT EXISTS (SELECT 1 FROM @details) OR itm.OrderDetailId IN (SELECT OrderDetailId FROM @details))
+    ORDER BY itm.[OrderDetailsItemId], combined.[MeasurmentPointsToOrderDetailsItemId], combined.NominalValue;
+END
+
+GO
+/* ===== dbo.GetCalibrationValuesForOrderDetailItem ===== */
+GO
 CREATE OR ALTER PROCEDURE [dbo].[GetCalibrationValuesForOrderDetailItem]
 @OrderDetailId INT, 
 @OrderDetailsItemId INT
@@ -1146,7 +1588,30 @@ BEGIN
         ,combined.[MasterValue]
         ,combined.[MasterValueUnitId] 
         ,mdu.[ShortNameHe] as MasterValueUnitDescription
-        ,'0_mocked_val' as [MasterValueAfterCorrection]
+        /* CorrectedExact, not Corrected: rounding to the reading's own precision is what was
+           asked for, but it erases the correction. A reading of 23 has deviation -0.001792,
+           and at zero decimals the answer is 23 again. Both columns are available; this stays
+           on the exact one until the display rule is settled. */
+        ,mvc.CorrectedExact as [MasterValueAfterCorrection]
+        /* MBA-475: is the calibrator driving the master outside its own working range?
+           This is a DIFFERENT question from mvc.OutOfRange, which asks whether the reading fell
+           outside the CERTIFICATE and the deviation had to be clamped. A master can be well
+           inside its working range and still beyond its last calibrated point, and the reverse.
+           The threshold is the fixed 10 units the ticket specifies - range -80..200, reading 220,
+           20 beyond, so highlighted. It is written once, here and in the Many variant. */
+        ,md.WorkRangeMin as [SensorRangeMin]
+        ,md.WorkRangeMax as [SensorRangeMax]
+        ,CAST(CASE WHEN md.WorkRangeMin IS NULL OR md.WorkRangeMax IS NULL THEN NULL
+                   WHEN combined.[MasterValue] IS NULL THEN NULL
+                   WHEN combined.[MasterValue] > md.WorkRangeMax + 10 THEN 1
+                   WHEN combined.[MasterValue] < md.WorkRangeMin - 10 THEN 1
+                   ELSE 0 END AS BIT) as [OutOfSensorRange]
+        ,CAST(CASE WHEN md.WorkRangeMin IS NULL OR md.WorkRangeMax IS NULL THEN NULL
+                   WHEN combined.[MasterValue] > md.WorkRangeMax THEN combined.[MasterValue] - md.WorkRangeMax
+                   WHEN combined.[MasterValue] < md.WorkRangeMin THEN md.WorkRangeMin - combined.[MasterValue]
+                   ELSE 0 END AS DECIMAL(18,6)) as [BeyondSensorRangeBy]
+        /* and whether the compensation itself had to extrapolate */
+        ,mvc.OutOfRange as [BeyondCertificateRange]
         ,combined.MeasuredValue
         ,combined.MeasuredValueUnitId
         ,mdu3.[ShortNameHe] as MeasuredUUTDescription
@@ -1156,7 +1621,10 @@ BEGIN
         ,combined.[MasterValue] - combined.[NominalValue] as [Deviation]
         ,((combined.[MasterValue] - combined.[NominalValue])/COALESCE(NULLIF(combined.[Tolerance],0),1))*100 as AllowedDeviation
         ,combined.[UncertancyValue]
-        ,'0_mocked_val' as DriftFromLastCalibration
+        /* MBA-811: still unimplemented, but a typed NULL rather than a string that reaches the
+           screen as text. Computing it needs a decision on what "last calibration" means for
+           this device and point - raised separately. */
+        ,CAST(NULL AS DECIMAL(18,6)) as DriftFromLastCalibration
         ,combined.StabilityValue
         ,combined.[MeasurmentPointsToOrderDetailsItemId]  
     FROM [dbo].[OrderDetailsItems] as itm
@@ -1198,13 +1666,63 @@ BEGIN
     LEFT JOIN [dbo].[MeasurementDeviceUnits] as mdu3 ON combined.MeasuredValueUnitId = mdu3.[MeasurementDeviceUnitId]
     LEFT JOIN [dbo].[MeasurementDeviceUnits] as mdu4 ON itm.MeasurementUnitId = mdu4.[MeasurementDeviceUnitId]
     LEFT JOIN [dbo].[MeasurementDevices] as md ON md.ID = combined.[SensorMeasurementDeviceId]
+    /* MBA-811: the master reading with its certificate deviation applied. Returns NULL for a
+       master with no certificate, and for a temperature+humidity master - that one needs the
+       2D interpolation in dbo.fnHumidityAfterCorrection, which our range-shaped correction
+       data cannot feed yet. NULL is honest; the screen shows a dash. */
+    OUTER APPLY dbo.fnMasterValueAfterCorrection(md.ID, combined.[MasterValue], NULL) AS mvc
+    /* the third argument is passed explicitly: an inline table-valued function does not
+       apply parameter defaults the way a stored procedure does, and omitting it fails the
+       whole call with "an insufficient number of arguments". */
     WHERE itm.OrderDetailId = @OrderDetailId 
       AND itm.OrderDetailsItemId = @OrderDetailsItemId
     ORDER BY combined.[MeasurmentPointsToOrderDetailsItemId], combined.NominalValue
 END
 GO
+/* ===== dbo.GetCustomerContacts ===== */
+GO
+-- =============================================
+-- Author:		Eduard Kudlaiev
+-- Create date: 04/05/2026
+-- Description:	This SP get data about customers contacts based 
+--              It get appopriate customer for filtering based on @LoggedInUserEmail
+-- JiraLink: 
+-- =============================================
 
-/* ================= dbo.GetCustomerDashboardData ================= */
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerContacts] 
+@LoggedInUserEmail NVARCHAR(100)
+AS
+
+SET NOCOUNT ON;
+
+DECLARE @LoggedInUserId INT 
+DECLARE @SourceId TINYINT
+DECLARE @CustomerId INT
+
+SELECT 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+,@CustomerId = d.CustomerId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
+
+SELECT c.[CustomerContactId]
+      ,c.[CustomerId]
+      ,c.[CustomerContactName]
+      ,c.[CustomerContactPersonRole]
+      ,c.[CustomerContactPhone]
+      ,c.[CustomerContactAdditionalPhoneNumber]
+      ,c.[CustomerContactEmail]
+      ,c.[SourceId]
+      ,s.[SourceDisplayName] AS [SourceName]
+      ,c.[CustomerSiteId]
+	  ,c.[IsDeleted]
+  FROM [dbo].[CustomerContacts] as c
+  LEFT JOIN [dbo].[Source] as s ON c.[SourceId] = s.[SourceId]
+  WHERE /*c.[IsDeleted] = 0 AND*/ c.CustomerId = @CustomerId
+
+GO
+/* ===== dbo.GetCustomerDashboardData ===== */
+GO
 /*
     dbo.GetCustomerDashboardData                                                   MBA-865
     ---------------------------------------------------------------------------------
@@ -1335,39 +1853,58 @@ WHERE ds.IsLatestOrder = 1'
 
 PRINT CAST(@sql as VARCHAR(MAX))
 EXEC (@sql)
-GO
 
-/* ================= dbo.GetCustomerSupportData ================= */
+GO
+/* ===== dbo.GetCustomerSites ===== */
+GO
 -- =============================================
 -- Author:		Eduard Kudlaiev
--- Create date: 10/03/2026
--- Description:	Get customer support data. 
---              We can define only one employee as customer support contact
+-- Create date: 04/05/2026
+-- Description:	This SP get data about customers sites. 
+--              It get appopriate customer for filtering based on @LoggedInUserEmail
+-- JiraLink: 
 -- =============================================
-CREATE OR ALTER PROCEDURE [dbo].[GetCustomerSupportData] 
-@LoggedInUserEmail NVARCHAR(50)
+
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerSites] 
+@LoggedInUserEmail NVARCHAR(100)
 AS
 
-DECLARE @CustomerId INT = 0
+SET NOCOUNT ON;
+
+DECLARE @LoggedInUserId INT 
 DECLARE @SourceId TINYINT
+DECLARE @CustomerId INT
 
 SELECT 
-	@CustomerId  = d.CustomerId 
-	,@SourceId = d.SourceId
-FROM [dbo].[Users] as d
-WHERE d.Email = @LoggedInUserEmail 
+ @LoggedInUserId  = d.UserId 
+,@SourceId = d.SourceId
+,@CustomerId = d.CustomerId
+FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 
-SELECT 
-	 u.FirstName
-	,u.LastName
-	,u.Email	
-	,u.Phone
-FROM [dbo].[Customers] as c
-JOIN [dbo].[Users] as u ON c.[CustomerSupportContactId] = u.ID
-WHERE c.CustomerId = @CustomerId
+SELECT cs.[CustomerId]
+      ,cs.[CustomerSiteId]
+      ,cs.[CustomerSiteAddress]
+      ,cs.[CustomerSiteState]
+      ,cs.[CustomerSiteZIP]
+      ,cs.[CustomerSitePhone]
+      ,cs.[CustomerSiteDescription]
+      ,cs.[CustomerSiteCode]
+      ,cs.[CreateDate]
+      ,cs.[UpdatedDate]
+      ,cs.[UpdateUserID]
+      ,cs.[SourceId]
+      ,s.[SourceDisplayName] AS [SourceName]
+      ,cs.[CustomerSiteAddressENG]
+      ,cs.[CustomerSiteStateENG]
+      ,cs.[CustomerSiteDescriptionENG]
+	  ,cs.[IsDeleted]
+  FROM [dbo].[CustomerSites] as cs
+  LEFT JOIN [dbo].[Source] as s ON cs.[SourceId] = s.[SourceId]
+  WHERE /*cs.[IsDeleted] = 0 AND */cs.CustomerId = @CustomerId
+
 GO
-
-/* ================= dbo.GetDevicesGroupsByOrder ================= */
+/* ===== dbo.GetDevicesGroupsByOrder ===== */
+GO
 CREATE OR ALTER PROCEDURE [dbo].[GetDevicesGroupsByOrder] 
 	@OrderNumber NVARCHAR(20),
 	@MainCategories NVARCHAR(MAX) = NULL,
@@ -1575,9 +2112,14 @@ PRINT @sql
 EXEC sp_executesql @sql
 
 END
+
+GO
+/* ===== dbo.GetDevicesUngroupedByOrder ===== */
 GO
 
-/* ================= dbo.GetDevicesUngroupedByOrder ================= */
+
+
+
 -- =============================================
 
 -- Author:		Eduard Kudlaiev
@@ -2004,193 +2546,11 @@ EXEC sp_executesql @sql
 
 
 END
+
+
 GO
-
-/* ================= dbo.GetDevicesUngroupedByOrderV2 ================= */
-CREATE OR ALTER PROCEDURE [dbo].[GetDevicesUngroupedByOrderV2]
-    @OrderNumber NVARCHAR(20) = NULL,
-    @MainCategories NVARCHAR(MAX) = NULL,
-    @SecondaryCategories NVARCHAR(MAX) = NULL,
-    @DeviceManufacturer NVARCHAR(50) = NULL,
-    @DeviceModels NVARCHAR(MAX) = NULL,
-    @GlobalSearch NVARCHAR(MAX) = NULL,
-    @Page NVARCHAR(100) = 'coordinator-orders',
-    @PageNumber AS INT = 1,
-    @RowsOfPage AS INT = 10,
-    @OrderBy AS NVARCHAR(MAX) = 'OrderNumber',
-    @OrderByAsc AS BIT = 1,
-    @OrderWorkPlanIds NVARCHAR(MAX) = NULL,
-    @OrderWorkDetailsItemsIds NVARCHAR(MAX) = NULL,
-    @ExcludeAwaitingCollectionOrders BIT = 0
-AS
-BEGIN
-SET NOCOUNT ON;
-
-DECLARE @ExtIntFilter BIT = NULL
-
-IF @Page IN (N'external-schedule', N'external-orders', N'coordinator-orders') SET @ExtIntFilter = 0
-IF @Page IN (N'internal-orders') SET @ExtIntFilter = 1
-
-IF @ExcludeAwaitingCollectionOrders = 1
-BEGIN
-    DROP TABLE IF EXISTS #AwaitingCollectionOrders
-    CREATE TABLE #AwaitingCollectionOrders(OrderWorkPlanId INT)
-
-    INSERT #AwaitingCollectionOrders(OrderWorkPlanId)
-    SELECT wp.OrderWorkPlanId
-    FROM [dbo].[OrderWorkPlans] as wp
-    JOIN Statuses as s ON wp.OrderOverallStatusId = s.StatusId
-    WHERE s.StatusDescriptionENG = 'AwaitingCollection'
-
-    CREATE UNIQUE CLUSTERED INDEX IDX_AwaitingCollectionOrders
-    ON #AwaitingCollectionOrders(OrderWorkPlanId)
-END
-
-DROP TABLE IF EXISTS #MainCategories
-CREATE TABLE #MainCategories(MainCategory NVARCHAR(50))
-
-INSERT #MainCategories(MainCategory)
-SELECT DISTINCT CAST(v.Value AS NVARCHAR(50))
-FROM dbo.ParseCSVToTable(@MainCategories) as v
-
-DROP TABLE IF EXISTS #SecondaryCategories
-CREATE TABLE #SecondaryCategories(SecondaryCategory NVARCHAR(50))
-
-INSERT #SecondaryCategories(SecondaryCategory)
-SELECT DISTINCT v.Value
-FROM dbo.ParseCSVToTable(@SecondaryCategories) as v
-
-DROP TABLE IF EXISTS #DeviceModels
-CREATE TABLE #DeviceModels(DeviceModel NVARCHAR(30))
-
-INSERT #DeviceModels(DeviceModel)
-SELECT DISTINCT v.Value
-FROM dbo.ParseCSVToTable(@DeviceModels) as v
-
-DECLARE @StatusesForOrders NVARCHAR(MAX)
-
-SELECT @StatusesForOrders = STRING_AGG(s.StatusId, ',')
-FROM [dbo].[Statuses] as s
-JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
-WHERE sc.StatusDescriptionENG = 'OrderStatus'
-  AND s.StatusDescriptionENG <> 'Executed'
-
-DECLARE @sql NVARCHAR(MAX) =
-CONCAT(
-N'SELECT
-     IIF(', COALESCE(CAST(@ExtIntFilter AS NVARCHAR(1)), N'0'), N' = 1, itm.MbaReportNumber, op.OrderNumber) as OrderNumber
-    ,od.OrderWorkPlanId as OrderId
-    ,od.OrderDetailId
-    ,itm.OrderDetailsItemId
-    ,od.PART as CatalogPartId
-    ,od.PartName as CatalogNumber
-    ,itm.SERN
-    ,opt.OrdersProductTypeName AS DeviceType
-    ,mc.ID AS DepartmentId
-    ,mc.MainCategoryName as MainCategory
-    ,sc.SecondaryCategoryName AS SecondCategory
-    ,itm.SerialNumber
-    ,itm.AdditionalDeviceNumber
-    ,itm.DeviceModel
-    ,itm.MbaReportNumber
-    ,itm.OrdersDeviceManufacturer as DeviceManufacturer
-    ,cals.[StatusDescriptionHEB] as CalibrationStatus
-    ,ordst.[StatusDescriptionHEB] as OrderStatus
-    ,ordst.[StatusDescriptionENG] as OrderStatusENG
-    ,itm.[IsChecked]
-    ,op.[CustomerId]
-    ,itm.[ActualCalibrationDate]
-    ,itm.ExpectedReturnDate as CalibrationDeadline
-    ,c.CustomerName
-    ,cbl.Calibrators
-    ,scs.StatusDescriptionHEB as SpecialTreatment
-    ,itm.CustomerReceivingDate
-    ,itm.ShippingDoc
-    ,itm.ShippingAddress
-    ,c.CustomerAddress
-    ,custeqv.details as AdditionalEquipment
-    ,op.ShipTypeDesc as ShippingMethod
-    ,itm.[StickerAmount]
-    ,stist.[StatusDescriptionHEB] as [StickerType]
-    ,ct.CatalogText as TextToCatalogNumber
-    ,dt.DeviceText as TextToDevice
-    ,op.CustomerComment
-    ,COUNT(1) OVER() as ItemsCount
-FROM [dbo].[OrderDetails] as od
-JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
-LEFT JOIN [dbo].[Statuses] as scs ON od.SpecialCareTypeId = scs.StatusId
-LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
-LEFT JOIN [dbo].[Customers] as c ON op.[CustomerId] = c.[CustomerId]
-LEFT JOIN [dbo].[MainCategories] as mc ON od.MainCategoryId = mc.ID
-LEFT JOIN [dbo].[SecondaryCategories] sc ON od.SecondaryCategoryId = sc.ID
-LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
-LEFT JOIN [dbo].[Statuses] as cals ON cals.[StatusId] = itm.[CalibrationStatusId]
-LEFT JOIN [dbo].[Statuses] as ordst ON ordst.[StatusId] = op.[OrderOverallStatusId]
-LEFT JOIN [dbo].[Statuses] as stist ON stist.[StatusId] = itm.[StickerTypeId]
-LEFT JOIN [dbo].[CrmCatalogText] as ct ON ct.PART = od.PART
-LEFT JOIN [dbo].[CrmDeviceText] as dt ON dt.SERN = itm.SERN
-
-OUTER APPLY
-(
-    SELECT
-        [OrderWorkPlanId],
-        STRING_AGG(CONCAT(u.FirstName, '' '', u.LastName), '','') as Calibrators
-    FROM [dbo].[CalibratorsToWorkPlan] as c
-    JOIN [dbo].[Users] as u ON c.[CalibratorId] = u.[ID]
-    WHERE op.OrderWorkPlanId = c.[OrderWorkPlanId]
-    GROUP BY [OrderWorkPlanId]
-) as cbl
-
-OUTER APPLY
-(
-    SELECT
-        d.OrderDetailsItemId,
-        ''['' +
-        STRING_AGG(
-            CONCAT(
-                ''{'',
-                ''"ItemsCount":'', d.[ItemsCount], '','',
-                ''"AccessoryDescription":'', ''"'', d.[AccessoryDescription], ''","'',
-                ''"AccessoryLocation":'', ''"'', d.[AccessoryLocation], ''"'',
-                ''}''
-            ),
-            '',''
-        )
-        + '']'' AS details
-    FROM [dbo].[ClientAccessoryOrderDetailsItems] AS d
-    WHERE d.OrderDetailsItemId = itm.OrderDetailsItemId
-    GROUP BY d.OrderDetailsItemId
-) as custeqv
-'
-,IIF(@OrderWorkPlanIds IS NOT NULL, N' JOIN STRING_SPLIT(''' + @OrderWorkPlanIds + N''', '','') as wpf ON op.OrderWorkPlanId = wpf.value', N' ')
-,IIF(@OrderWorkDetailsItemsIds IS NOT NULL, N' JOIN STRING_SPLIT(''' + @OrderWorkDetailsItemsIds + N''', '','') as wpf1 ON itm.OrderDetailsItemId = wpf1.value', N' ')
-,IIF(@MainCategories IS NOT NULL, N' JOIN #MainCategories as mcf ON mc.MainCategoryName COLLATE DATABASE_DEFAULT = mcf.MainCategory COLLATE DATABASE_DEFAULT', N' ')
-,IIF(@SecondaryCategories IS NOT NULL, N' JOIN #SecondaryCategories as scf ON sc.SecondaryCategoryName COLLATE DATABASE_DEFAULT = scf.SecondaryCategory COLLATE DATABASE_DEFAULT ', N' ')
-,IIF(@DeviceModels IS NOT NULL, N' JOIN #DeviceModels as dm ON itm.DeviceModel COLLATE DATABASE_DEFAULT = dm.DeviceModel COLLATE DATABASE_DEFAULT ', N' ')
-,N'
-WHERE op.OrderOverallStatusId IN(', @StatusesForOrders, N')
-'
-,IIF(@ExcludeAwaitingCollectionOrders = 1, N'AND NOT EXISTS (SELECT 1 FROM #AwaitingCollectionOrders as f WHERE f.OrderWorkPlanId = op.OrderWorkPlanId)', N'')
-,IIF(@OrderNumber IS NOT NULL, N'AND op.OrderNumber = TRIM(''' + @OrderNumber + N''')', N' ')
-,IIF(@DeviceManufacturer IS NOT NULL, N'AND itm.OrdersDeviceManufacturer LIKE ''%' + @DeviceManufacturer + N'%''', N' ')
-,CASE WHEN @ExtIntFilter IS NOT NULL THEN N' AND od.IsInHouse=' + CAST(@ExtIntFilter as NVARCHAR(MAX)) + N' ' ELSE N' ' END
-,CASE WHEN @GlobalSearch IS NOT NULL THEN
-    N' AND CONCAT(op.OrderNumber,opt.OrdersProductTypeName,mc.MainCategoryName,sc.SecondaryCategoryName,itm.SerialNumber,itm.AdditionalDeviceNumber,itm.DeviceModel,itm.MbaReportNumber,itm.OrdersDeviceManufacturer,cals.[StatusDescriptionHEB],c.CustomerName,cbl.Calibrators,scs.StatusDescriptionHEB,od.PART,od.PartName,itm.SERN,ct.CatalogText,dt.DeviceText,op.CustomerComment) LIKE N''%' + @GlobalSearch + N'%'''
- ELSE N' ' END
-,N'ORDER BY ', @OrderBy,
-  CASE WHEN @OrderByAsc = 1 THEN N' ASC' WHEN @OrderByAsc = 0 THEN N' DESC' ELSE N'' END,
-  N' OFFSET ', (@PageNumber - 1) * @RowsOfPage,
-  N' ROWS FETCH NEXT ', @RowsOfPage,
-  N' ROWS ONLY OPTION(RECOMPILE); '
-)
-
-PRINT @sql
-EXEC sp_executesql @sql
-
-END
+/* ===== dbo.GetLogersConfiguredByCalibrator ===== */
 GO
-
-/* ================= dbo.GetLogersConfiguredByCalibrator ================= */
 /*
     dbo.GetLogersConfiguredByCalibrator
     ---------------------------------------------------------------------------------------------
@@ -2280,9 +2640,10 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 		 l.MabaID
 
 END
-GO
 
-/* ================= dbo.GetOrderDetailsDevices ================= */
+GO
+/* ===== dbo.GetOrderDetailsDevices ===== */
+GO
 -- =============================================
 -- Author:		Kate Zashalovska
 -- Create date: 18/06/2026
@@ -2430,6 +2791,9 @@ r.IsChecked,
 r.StickerAmount,
 r.StickerTypeId,
 r.StickerType,
+odi.Tolerance,
+odi.Resolution,
+odi.SpecificationReferenceIds,
 ds.EnvironmentalConditions,
 odi.SecondCalibratorId,
 odi.MainCalibratorId,
@@ -2488,9 +2852,10 @@ FOR JSON PATH
 WHERE (@OrderDetailsItems IS NULL OR r.OrderDetailsItemId = @OrderDetailsItems)
 ORDER BY [OrderDetailId]
 option (maxrecursion 0)
+    
 GO
-
-/* ================= dbo.GetSensorsConfiguredByCalibrator ================= */
+/* ===== dbo.GetSensorsConfiguredByCalibrator ===== */
+GO
 -- =============================================
 -- Proc:        dbo.GetSensorsConfiguredByCalibrator   (original author: Eduard Kudlaiev, 02/07/2025)
 -- Jira:        MBA-476 "Connecting multiple sensors" / MBA-475 "Disconnect Detection"
@@ -2607,9 +2972,10 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
         ltc.MabaID
 
 END
-GO
 
-/* ================= dbo.GetUserNames ================= */
+GO
+/* ===== dbo.GetUserNames ===== */
+GO
 /*
     dbo.GetUserNames
     ---------------------------------------------------------------------------------------------
@@ -2660,9 +3026,10 @@ BEGIN
       AND ISNULL(r.UserRoleName, N'') <> N'Customer' -- staff only; see header
     ORDER BY u.Email;
 END
-GO
 
-/* ================= dbo.GetWorkPlanData ================= */
+GO
+/* ===== dbo.GetWorkPlanData ===== */
+GO
 -- =============================================
 -- Proc:        dbo.GetWorkPlanData
 -- Jira:        MBA — "אישור תיאום כיול ע"י הלקוח" (order-approval by e-mail)
@@ -3019,12 +3386,19 @@ BEGIN
 	CREATE TABLE #CarsAndPlacement (
 		OrderWorkPlanId INT,
 		Cars NVARCHAR(400) COLLATE Latin1_General_100_CI_AI_SC,
-		PlacementDate NVARCHAR(800) COLLATE Latin1_General_100_CI_AI_SC
+		/* MBA: the EARLIEST assignment date, not a list.
+		   An order can run over several days, so CarsToOrder holds one row per day. This used to
+		   be a STRING_AGG of all of them - "2026-06-03 00:00:00,2026-06-09 00:00:00,2026-05-14
+		   00:00:00", unsorted - which no caller could parse and which made MAX() below compare
+		   strings rather than dates. Per product: an order that spans days is dated by its first
+		   day. Kept NVARCHAR, and the shape is one element of the old list, so nothing that reads
+		   this column has to change. */
+		PlacementDate NVARCHAR(19) COLLATE Latin1_General_100_CI_AI_SC
 	);
 	IF @DateFrom IS NOT NULL AND @DateTo IS NOT NULL AND @Page <> N'external-orders'
 	BEGIN
 		INSERT INTO #CarsAndPlacement (OrderWorkPlanId, Cars, PlacementDate)
-		SELECT co.OrderWorkPlanId, STRING_AGG(CAST(co.CarId as NVARCHAR(MAX)),','), STRING_AGG(CAST(co.AssignDate as NVARCHAR(MAX)),',')
+		SELECT co.OrderWorkPlanId, STRING_AGG(CAST(co.CarId as NVARCHAR(MAX)),','), CONVERT(NVARCHAR(19), MIN(co.AssignDate), 120)
 		FROM [dbo].[CarsToOrder] as co 
 		WHERE co.IsDeleted = 0 AND co.[AssignDate] >= @DateFrom AND co.[AssignDate] <= @DateTo
 		GROUP BY co.OrderWorkPlanId;
@@ -3032,7 +3406,7 @@ BEGIN
 	ELSE
 	BEGIN
 		INSERT INTO #CarsAndPlacement (OrderWorkPlanId, Cars, PlacementDate)
-		SELECT co.OrderWorkPlanId, STRING_AGG(CAST(co.CarId as NVARCHAR(MAX)),','), STRING_AGG(CAST(co.AssignDate as NVARCHAR(MAX)),',')
+		SELECT co.OrderWorkPlanId, STRING_AGG(CAST(co.CarId as NVARCHAR(MAX)),','), CONVERT(NVARCHAR(19), MIN(co.AssignDate), 120)
 		FROM [dbo].[CarsToOrder] as co 
 		WHERE co.IsDeleted = 0
 		GROUP BY co.OrderWorkPlanId;
@@ -3112,7 +3486,7 @@ CONCAT(
 		--	ELSE wp.[OrderNumber] 
 		--END) AS [OrderNumber],
 		wp.[OrderNumber],
-        MAX(co.[PlacementDate]) AS [CalibDate], -- possible bug. Not clear which date should be used
+        MAX(co.[PlacementDate]) AS [CalibDate], -- one row per work plan, so this is the earliest assignment; see #CarsAndPlacement
 		wp.[CustomerId] as [CustomerId], 
 		wp.[OrderWorkPlanId],
         spc.[SpecialCares],
@@ -3219,6 +3593,22 @@ CONCAT(
 	,CASE WHEN @WorkPlanOpenDate IS NOT NULL THEN ' AND wp.WorkPlanOpenDate = '''+CAST(@WorkPlanOpenDate as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Notes IS NOT NULL THEN ' AND wp.Notes LIKE N''%'+ @Notes +'%'''ELSE ' ' END
 	,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
+	/* MBA: what the coordinator screen is allowed to show.
+	   Recent work, plus anything confirmed that was scheduled in the last week - so an older
+	   order still on the road does not vanish off the screen. Scheduling is manual, so most
+	   orders carry no assignment at all and are matched by the first leg alone.
+	   The second leg matches if ANY of a multi-day order's days falls in the window. */
+	,CASE WHEN @Page = N'coordinator-orders'
+	      THEN ' AND ( wp.WorkPlanOpenDate >= DATEADD(month,-3,GETDATE())
+	                OR EXISTS (SELECT 1
+	                             FROM dbo.CarsToOrder AS cf
+	                             JOIN dbo.Statuses    AS sf ON sf.StatusId = wp.ClientConfirmationStatusId
+	                            WHERE cf.OrderWorkPlanId = wp.OrderWorkPlanId
+	                              AND cf.IsDeleted = 0
+	                              AND sf.StatusDescriptionENG = ''Confirmed''
+	                              AND cf.AssignDate <  GETDATE()
+	                              AND cf.AssignDate >= DATEADD(day,-7,GETDATE())) ) '
+	      ELSE ' ' END
 	/* MBA-902: a device reaches the validator once its report exists. */
 	,CASE WHEN @Page IN (N'internal-validator',N'external-validator',N'validator-orders')
 	      THEN ' AND itm.MbaReportNumber LIKE ''[0-9][0-9][0-9][0-9][0-9][0-9][0-9]/%'' ' ELSE ' ' END
@@ -3252,8 +3642,9 @@ EXEC (@sql)
 
 END
 GO
+/* ===== dbo.RefreshCrmTextCache ===== */
+GO
 
-/* ================= dbo.RefreshCrmTextCache ================= */
 CREATE OR ALTER PROCEDURE [dbo].[RefreshCrmTextCache]
     @IncrementalOnly BIT = 0
 AS
@@ -3401,9 +3792,10 @@ BEGIN
     SELECT w.ORD, NULL FROM #WantedOrd AS w
     WHERE NOT EXISTS (SELECT 1 FROM dbo.CrmOrderInstructions c WHERE c.ORD = w.ORD);
 END
-GO
 
-/* ================= dbo.fnStripHtml ================= */
+GO
+/* ===== dbo.fnStripHtml ===== */
+GO
 -- =============================================
 -- Func:        dbo.fnStripHtml
 -- Jira:        MBA-792 / MBA-806
@@ -3491,9 +3883,10 @@ BEGIN
 
     RETURN NULLIF(@s, N'');
 END
-GO
 
-/* ================= stg.MergeCustomersContactsData ================= */
+GO
+/* ===== stg.MergeCustomersContactsData ===== */
+GO
 CREATE OR ALTER PROCEDURE [stg].[MergeCustomersContactsData]
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -3626,9 +4019,11 @@ BEGIN
 				*/
 
 END
+
+GO
+/* ===== stg.MergeOrdersData ===== */
 GO
 
-/* ================= stg.MergeOrdersData ================= */
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 02/04/2025
@@ -4036,229 +4431,6 @@ WHEN NOT MATCHED BY TARGET
 	BEGIN CATCH
 		/* swallowed on purpose - see above */
 	END CATCH
-END
-GO
-
-GO
-/* =====================================================================
-   dbo.AssignProductIdentificationData  (MBA-577)
-   Not in the original diff - PROD and STAGE matched when this package was
-   generated. STAGE has since gained the three sensor fields, so PROD needs
-   this too. Depends on the three OrderDetailsItems columns in tranche A.
-   ===================================================================== */
-/*
-    dbo.AssignProductIdentificationData                                                MBA-577
-    ---------------------------------------------------------------------------------------------
-    Saves the Identification page. This copy adds the three fields the sensor calibration wizard
-    needs, which the front end was already sending and the procedure was rejecting:
-
-        Tolerance                  "סטייה מותרת"   DECIMAL(18,6)
-        Resolution                 "רזולוציה"      DECIMAL(18,6)
-        SpecificationReferenceIds  reference docs  NVARCHAR(MAX), a CSV of ids
-
-    Why a CSV and not a link table
-    ------------------------------
-    Reference Document became multi-select. The column that held it, SpecificationReferenceId, is
-    a single INT and stays exactly as it was so anything still sending it keeps working. The new
-    column follows MeasurementValueList on the same table - a comma-separated list in one NVARCHAR
-    - because that is the pattern this table already uses and the one the front end is coded to.
-    A proper link table would be tidier and is a separate change.
-
-    The NULL convention, and the one place it breaks
-    ------------------------------------------------
-    Every parameter here means "leave it alone" when NULL. That works for Tolerance and Resolution.
-    It does not work for a multi-select: deselecting every reference document has to be storable,
-    and under COALESCE the last selection would be impossible to remove. So an empty string clears
-    the column and NULL leaves it - the same shape DiagramMapLink already uses on the line above.
-
-    Round-tripped on STAGE against a live item: write, clear-the-list, restore.
-*/
--- =============================================
--- Author:		Eduard Kudlaiev
--- Create date: 21/06/2025
--- Description:	Procedure enrich data for calibrated device in orders
--- JiraLink: 
--- =============================================
-CREATE OR ALTER PROCEDURE [dbo].[AssignProductIdentificationData]
-@UserEmail NVARCHAR(50),
-@OrderDetailId INT,
-@OrderDetailsItemId INT = NULL,
-@ActualCalibrationDate DATETIME2(0)= NULL,	
-@NextCalibrationDate DATETIME2(0)= NULL,	
-@SerialNumber NVARCHAR(100)= NULL,
-@ManufacturerNumber	NVARCHAR(100)= NULL,
-@DeviceModel NVARCHAR(100)= NULL,	
-@AdditionalDeviceNumber NVARCHAR(100)= NULL,
-@OrdersMainCategoryId INT= NULL,
-@OrdersSecondaryCategoryId INT= NULL,
-@OrdersDeviceManufacturer NVARCHAR(100) = NULL,
-@OrdersProductTypeId INT= NULL,
-@CalibrationSpecificationId INT= NULL,
-@SpecificationReferenceId INT= NULL,
-@MeasurementUnitId INT= NULL,
-@MeasurementPoints INT= NULL,
-@MeasurementValueList NVARCHAR(MAX) = NULL,
-@OrderLineCnt_new INT = NULL,
-@Accuracy TINYINT = NULL,
-@MbaReportNumber NVARCHAR(100) =NULL,
-@StickerAmount TINYINT = NULL,
-@StickerTypeId INT = NULL,
-@SecondCalibratorId INT = NULL,
-@MainCalibratorId INT = NULL,
-@Volume DECIMAL(16,4) = NULL,
-@VisualCheck NVARCHAR(200) = NULL,
-@ShouldShowGraphV BIT = NULL, 
-@ShouldShowCertificateIcon BIT = NULL,
-@RequiredProbability TINYINT = NULL,
-@ReportLanguage NVARCHAR(50) = NULL,
-@SiteAddress NVARCHAR(100) = NULL,
-@ProductLocation NVARCHAR(50) = NULL,
-@ControllerType NVARCHAR(40) = NULL,
-@DiagramMapLink NVARCHAR(200) = NULL,
-	/* MBA-577: sensor identification. Tolerance and Resolution are scalar.
-	   SpecificationReferenceIds is a CSV because Reference Document became multi-select;
-	   the older singular SpecificationReferenceId is left in place so anything still
-	   sending it keeps working. */
-	@Tolerance DECIMAL(18,6) = NULL,
-	@Resolution DECIMAL(18,6) = NULL,
-	@SpecificationReferenceIds NVARCHAR(MAX) = NULL
-AS
-BEGIN 
-
-	DECLARE @OrderDetailItemIdInserted INT
-	DECLARE @UserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @UserEmail) 
-
-	/*In some cases there are no information in order details and we need to insert it*/
-	IF NOT EXISTS (SELECT 1 FROM [dbo].[OrderDetailsItems] WHERE OrderDetailId = @OrderDetailId AND OrderDetailsItemId =@OrderDetailsItemId )
-		BEGIN
-			INSERT INTO [dbo].[OrderDetailsItems]
-					   ([OrderDetailId]
-					   ,[ActualCalibrationDate]
-					   ,[NextCalibrationDate]
-					   ,[SerialNumber]
-					   ,[ManufacturerNumber]
-					   ,[DeviceModel]
-					   ,[AdditionalDeviceNumber]
-					   ,[CalibrationSpecificationId]
-					   ,[SpecificationReferenceId]
-					   ,[MeasurementUnitId]
-					   ,[MeasurementPoints]
-					   ,[MeasurementValueList]
-					   ,[CreatedDate]
-					   ,[CreatedByUserId]
-					   ,[Accuracy]
-					   ,[IsManuallyAdded]
-					   ,[MbaReportNumber]
-					   ,[StickerAmount]
-					   ,[StickerTypeId]
-					   ,[SecondCalibratorId]
-					   ,[MainCalibratorId]
-					   ,[Volume]
-					   ,[VisualCheck]
-					   ,[ShouldShowGraphV]
-					   ,[ShouldShowCertificateIcon]
-					   ,[RequiredProbability]
-					   ,[ReportLanguage]
-					   ,[SiteAddress]
-					   ,[ProductLocation]
-					   ,[OrdersDeviceManufacturer] 
-					   ,[ControllerType]
-					   ,[DiagramMapLink]
-					   ,[Tolerance]
-					   ,[Resolution]
-					   ,[SpecificationReferenceIds]
-					)
-				 SELECT
-					@OrderDetailId,	
-					@ActualCalibrationDate,	
-					@NextCalibrationDate,	
-					@SerialNumber,
-					@ManufacturerNumber,
-					@DeviceModel,	
-					@AdditionalDeviceNumber,
-					@CalibrationSpecificationId,
-					@SpecificationReferenceId,
-					@MeasurementUnitId,
-					@MeasurementPoints,
-					@MeasurementValueList,
-					GETDATE(),
-					@UserId,
-					@Accuracy,
-					1,
-					@MbaReportNumber,
-					@StickerAmount,
-					@StickerTypeId,
-					@SecondCalibratorId,
-					@MainCalibratorId,
-					@Volume,
-					@VisualCheck,
-					@ShouldShowGraphV,
-					@ShouldShowCertificateIcon,
-					@RequiredProbability,
-					@ReportLanguage,
-					@SiteAddress,
-					@ProductLocation,
-					@OrdersDeviceManufacturer,
-					@ControllerType,
-					@DiagramMapLink,
-					@Tolerance,
-					@Resolution,
-					NULLIF(@SpecificationReferenceIds, '')
-				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
-
-		END
-
-	UPDATE [dbo].[OrderDetails] 
-	SET [OrdersProductTypeId] = IIF(@OrdersProductTypeId IS NULL,[OrdersProductTypeId], @OrdersProductTypeId)
-		,[MainCategoryId] = IIF(@OrdersMainCategoryId IS NULL,[MainCategoryId], @OrdersMainCategoryId)
-		,[SecondaryCategoryId] =IIF(@OrdersSecondaryCategoryId IS NULL,[SecondaryCategoryId],@OrdersSecondaryCategoryId)
-	WHERE OrderDetailId = @OrderDetailId-- AND [OrdersProductTypeId] <> @OrdersProductTypeId
-
-	UPDATE [dbo].[OrderDetails] 
-	SET [OrderLineCnt] = IIF(@OrderLineCnt_new IS NULL,[OrderLineCnt], @OrderLineCnt_new)
-	WHERE OrderDetailId = @OrderDetailId AND [OrderLineCnt] <> COALESCE(@OrderLineCnt_new,[OrderLineCnt])
-
-	UPDATE [dbo].[OrderDetailsItems]
-			SET 
-			 [ActualCalibrationDate] = IIF(@ActualCalibrationDate IS NULL,[ActualCalibrationDate],@ActualCalibrationDate)
-			,[NextCalibrationDate] = IIF(@NextCalibrationDate IS NULL,[NextCalibrationDate],@NextCalibrationDate)
-			,[SerialNumber] = IIF(@SerialNumber IS NULL,[SerialNumber],@SerialNumber)
-			,[ManufacturerNumber] = IIF(@ManufacturerNumber IS NULL,[ManufacturerNumber],@ManufacturerNumber)
-			,[DeviceModel] = IIF(@DeviceModel IS NULL,[DeviceModel],@DeviceModel)
-			,[AdditionalDeviceNumber] = IIF(@AdditionalDeviceNumber IS NULL,[AdditionalDeviceNumber],@AdditionalDeviceNumber)
-			,[CalibrationSpecificationId] = IIF(@CalibrationSpecificationId IS NULL,[CalibrationSpecificationId],@CalibrationSpecificationId)
-			,[SpecificationReferenceId] = IIF(@SpecificationReferenceId IS NULL,[SpecificationReferenceId],@SpecificationReferenceId)
-			,[MeasurementUnitId] = IIF(@MeasurementUnitId IS NULL,[MeasurementUnitId],@MeasurementUnitId)
-			,[MeasurementPoints] = IIF(@MeasurementPoints IS NULL,[MeasurementPoints],@MeasurementPoints)
-			,[MeasurementValueList] = IIF(@MeasurementValueList IS NULL,[MeasurementValueList],@MeasurementValueList)
-			,[UpdatedDate] = GETDATE()
-			,[UpdateUserID] = @UserId
-			,[Accuracy] = IIF(@Accuracy IS NULL,[Accuracy],@Accuracy)
-			,[MbaReportNumber] = IIF(@MbaReportNumber IS NULL,[MbaReportNumber],@MbaReportNumber)
-			,[StickerAmount] = IIF(@StickerAmount IS NULL,[StickerAmount],@StickerAmount)
-			,[StickerTypeId] = IIF(@StickerTypeId IS NULL,[StickerTypeId],@StickerTypeId)
-			,[SecondCalibratorId] = COALESCE(@SecondCalibratorId,[SecondCalibratorId])
-			,[MainCalibratorId] = COALESCE(@MainCalibratorId,[MainCalibratorId])
-			,[Volume] = COALESCE(@Volume,[Volume])
-			,[VisualCheck] = COALESCE(@VisualCheck,[VisualCheck])
-			,[ShouldShowGraphV] = COALESCE(@ShouldShowGraphV,[ShouldShowGraphV])
-			,[ShouldShowCertificateIcon] = COALESCE(@ShouldShowCertificateIcon,[ShouldShowCertificateIcon])
-			,[RequiredProbability] = COALESCE(@RequiredProbability,[RequiredProbability])
-			,[ReportLanguage] = COALESCE(@ReportLanguage,[ReportLanguage])
-			,[SiteAddress] = COALESCE(@SiteAddress,[SiteAddress])
-			,[ProductLocation] = COALESCE(@ProductLocation,[ProductLocation])
-			,[OrdersDeviceManufacturer] = COALESCE(@OrdersDeviceManufacturer,[OrdersDeviceManufacturer])
-			,[ControllerType] = COALESCE(@ControllerType,[ControllerType])
-			,[DiagramMapLink] = IIF(@DiagramMapLink ='',NULL,COALESCE(@DiagramMapLink,[DiagramMapLink]))
-			,[Tolerance] = COALESCE(@Tolerance,[Tolerance])
-			,[Resolution] = COALESCE(@Resolution,[Resolution])
-			/* '' clears the selection, NULL leaves it alone. Deselecting every reference
-			   document has to be storable, and COALESCE on its own would make that
-			   impossible. Same shape as DiagramMapLink above. */
-			,[SpecificationReferenceIds] = IIF(@SpecificationReferenceIds = '',NULL,COALESCE(@SpecificationReferenceIds,[SpecificationReferenceIds]))
-	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
-
-	SELECT COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) as OrderDetailsItemId
 END
 
 GO

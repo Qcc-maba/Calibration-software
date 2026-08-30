@@ -1,7 +1,15 @@
-/*  TRANCHE C - procedures that do not exist on PROD at all.
-    Lowest risk: nothing calls them yet. Deploy after tranche A.  */
+/*
+    Tranche C - objects that do NOT exist on PROD. Run this SECOND, before tranche B.
+    ---------------------------------------------------------------------------------------------
+    Nothing on PROD calls any of these yet, so if one is wrong the blast radius is zero. Running it
+    before B gets the safe half in and shakes out any missing dependency from tranche A while
+    nothing is at stake.
+*/
+SET NOCOUNT ON;
+GO
 
-/* ================= dbo.AddOrderNote ================= */
+/* ===== dbo.AddOrderNote ===== */
+GO
 /*
     dbo.AddOrderNote                                                                    MBA-907
     ---------------------------------------------------------------------------------------------
@@ -55,9 +63,10 @@ BEGIN
     LEFT JOIN dbo.Users AS u ON u.ID = n.CreatedByUserId
     WHERE n.OrderNoteId = @NoteId;
 END
-GO
 
-/* ================= dbo.AssignMeasurmentPointsToCalibrationCycle ================= */
+GO
+/* ===== dbo.AssignMeasurmentPointsToCalibrationCycle ===== */
+GO
 CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToCalibrationCycle]
     @LoggedInUserEmail NVARCHAR(200),
     @Data NVARCHAR(MAX)
@@ -278,9 +287,10 @@ BEGIN
         THROW;
     END CATCH
 END
-GO
 
-/* ================= dbo.AssignMeasurmentPointsToOrderDetailsItemsV2 ================= */
+GO
+/* ===== dbo.AssignMeasurmentPointsToOrderDetailsItemsV2 ===== */
+GO
 CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToOrderDetailsItemsV2]
 @LoggedInUserEmail NVARCHAR(255),
 @Data NVARCHAR(MAX)
@@ -327,7 +337,9 @@ BEGIN
         MeasurmentPointCoordY DECIMAL(10,4),
         SensorMeasurementDeviceId INT,
         ChannelNumber INT,
-        MasterValue DECIMAL(10,4),
+        /* MBA-811: was DECIMAL(10,4) here while the column itself was DECIMAL(10,8).
+           Both are now (18,6), matching NominalValue - the value this is compared against. */
+        MasterValue DECIMAL(18,6),
         MasterValueUnitId INT,
         AdditionalValue DECIMAL(10,4),
         AdditionalValueUnitId INT,
@@ -402,8 +414,8 @@ BEGIN
 
 END
 GO
-
-/* ================= dbo.BackfillMeasurementPointNames ================= */
+/* ===== dbo.BackfillMeasurementPointNames ===== */
+GO
 /*
     dbo.BackfillMeasurementPointNames                                                   MBA-902
     ---------------------------------------------------------------------------------------------
@@ -472,9 +484,10 @@ BEGIN
         SELECT TOP (50) OrderDetailsItemId, ChannelNumber, NewName
         FROM #Apply ORDER BY OrderDetailsItemId, NewName;
 END
-GO
 
-/* ================= dbo.BackfillSensorWorkRangeFromText ================= */
+GO
+/* ===== dbo.BackfillSensorWorkRangeFromText ===== */
+GO
 /*
     dbo.BackfillSensorWorkRangeFromText                                                MBA-902
     ---------------------------------------------------------------------------------------------
@@ -601,9 +614,10 @@ BEGIN
                WorkRangeMin2, WorkRangeMax2, WorkRangeUnitId2
         FROM #Apply ORDER BY MabaID;
 END
-GO
 
-/* ================= dbo.ClassifyUnclassifiedMeasurementDevices ================= */
+GO
+/* ===== dbo.ClassifyUnclassifiedMeasurementDevices ===== */
+GO
 /*
     dbo.ClassifyUnclassifiedMeasurementDevices                                         MBA-902
     ---------------------------------------------------------------------------------------------
@@ -674,9 +688,10 @@ BEGIN
     ELSE
         SELECT MabaID, Description, Connection, NewMainClassId FROM #Apply ORDER BY NewMainClassId, MabaID;
 END
-GO
 
-/* ================= dbo.CreateCustomerPortalRequest ================= */
+GO
+/* ===== dbo.CreateCustomerPortalRequest ===== */
+GO
 /*
     dbo.CreateCustomerPortalRequest                                                     MBA-903
     ---------------------------------------------------------------------------------------------
@@ -808,9 +823,10 @@ BEGIN
            (SELECT COUNT(*) FROM #Owned)           AS itemCount,
            @Rejected                               AS rejectedItemCount;
 END
-GO
 
-/* ================= dbo.CreateOrderApprovalRequest ================= */
+GO
+/* ===== dbo.CreateOrderApprovalRequest ===== */
+GO
 /*
     dbo.CreateOrderApprovalRequest
     ------------------------------
@@ -907,8 +923,8 @@ BEGIN
            @Superseded                      AS SupersededCount;
 END
 GO
-
-/* ================= dbo.DeleteCalibrationCycle ================= */
+/* ===== dbo.DeleteCalibrationCycle ===== */
+GO
 -- =============================================
 -- Author:		Kate Zashalovska
 -- Create date: 31/07/2025
@@ -945,8 +961,8 @@ BEGIN
       AND IsDeleted = 0;
 END
 GO
-
-/* ================= dbo.DeleteOrderNote ================= */
+/* ===== dbo.DeleteOrderNote ===== */
+GO
 /*
     dbo.DeleteOrderNote                                                                 MBA-907
     ---------------------------------------------------------------------------------------------
@@ -982,9 +998,10 @@ BEGIN
 
     SELECT @OrderNoteId AS id;
 END
-GO
 
-/* ================= dbo.DuplicateCustomerDevice ================= */
+GO
+/* ===== dbo.DuplicateCustomerDevice ===== */
+GO
 /*
     dbo.DuplicateCustomerDevice                                                         MBA-903
     ---------------------------------------------------------------------------------------------
@@ -1093,9 +1110,69 @@ BEGIN
     INNER JOIN #Serials AS s ON s.SerialNumber = d.SerialNumber
     WHERE d.CustomerId = @CustomerId AND d.IsDeleted = 0;
 END
-GO
 
-/* ================= dbo.GetCustomerPortalRequestList ================= */
+GO
+/* ===== dbo.GetCalibrationItems ===== */
+GO
+/*
+    dbo.GetCalibrationItems                                                            MBA-666
+    ---------------------------------------------------------------------------------------------
+    The list a calibrator picks the "פריט כיול" from, taken from Priority's DEVICE description.
+
+    Which column, and why the first attempt was wrong
+    -------------------------------------------------
+    MBA-666 asks for "תיאור מכשיר". An earlier version of this procedure read OrdersProductType,
+    which is "תיאור מוצר" - the sales line, one value per catalogue item. Catalogue item 110102 has
+    a single product description, "תנור עד 550C", and several device descriptions beneath it:
+    "תנור שריפה", "תנור לטיפול תרמי". The calibrator needs the latter.
+
+    The device description is amaba.dbo.MBA_DOCLOAD.SERNDES, cached here in
+    dbo.CrmDeviceDescription. 3,000 distinct values over 3.8M device records.
+
+    No stripping is needed any more. בהסמכה / באתרכם / ק.משנה and the rest of the commercial tail
+    belong to the product line, not the device - none of them appear in SERNDES. The nine-marker
+    cut this procedure used to perform is gone.
+
+    NeedsReview - read this before putting a value on a certificate
+    ---------------------------------------------------------------
+    Priority stores this text in visual order: the Hebrew reads correctly but each run of digits
+    or Latin is reversed. "זחון אלקטרוני עד 051" is a 150 mm caliper. Description holds the
+    un-reversed value; DescriptionRaw holds Priority's, so nothing is lost.
+
+    Reversing a single number is exact. Two things are not, and those rows carry NeedsReview = 1:
+
+      Latin letters   case cannot be recovered. "MN 622-0" un-reverses to "NM 0-226"; the
+                      instrument is 0-226 Nm.
+      several runs    their order is ambiguous. "מדיד חלק טבעת 05-1.5" could be several things.
+
+    1,611 of the 3,000 are clean - Hebrew only, or a single number - and are safe as they stand.
+    1,389 want a human eye. Pass @ReviewedOnly = 1 to see only the safe ones.
+*/
+CREATE OR ALTER PROCEDURE dbo.GetCalibrationItems
+    @Search       NVARCHAR(200) = NULL,
+    @MinDevices   INT           = 1,   /* raise to hide descriptions almost nothing uses */
+    @ReviewedOnly BIT           = 0    /* 1 = only rows safe to print as-is */
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT CalibrationItem = d.Description,
+           PriorityRaw     = d.DescriptionRaw,
+           d.NeedsReview,
+           d.Devices,
+           CatalogueItems  = d.Parts
+    FROM dbo.CrmDeviceDescription AS d
+    WHERE d.Devices >= ISNULL(@MinDevices, 1)
+      AND (@ReviewedOnly = 0 OR d.NeedsReview = 0)
+      AND (@Search IS NULL
+           OR d.Description    LIKE N'%' + @Search + N'%'
+           OR d.DescriptionRaw LIKE N'%' + @Search + N'%')
+    ORDER BY d.Devices DESC, d.Description;
+END
+
+GO
+/* ===== dbo.GetCustomerPortalRequestList ===== */
+GO
 /*
     dbo.GetCustomerPortalRequestList                                                    MBA-903
     ---------------------------------------------------------------------------------------------
@@ -1186,9 +1263,10 @@ BEGIN
       AND (@RequestType IS NULL OR r.RequestType = @RequestType)
     ORDER BY r.CreatedDate DESC;
 END
-GO
 
-/* ================= dbo.GetMeasurmentPointsForCalibrationCycle ================= */
+GO
+/* ===== dbo.GetMeasurmentPointsForCalibrationCycle ===== */
+GO
 -- =============================================
 -- Author:		Kate Zashalovska
 -- Create date: 03/06/2026
@@ -1208,8 +1286,8 @@ BEGIN
       AND IsDeleted = 0;
 END
 GO
-
-/* ================= dbo.GetOrderApprovalDetails ================= */
+/* ===== dbo.GetOrderApprovalDetails ===== */
+GO
 /*
     dbo.GetOrderApprovalDetails
     ---------------------------
@@ -1422,8 +1500,8 @@ BEGIN
     WHERE wp.OrderWorkPlanId = @OrderWorkPlanId;
 END
 GO
-
-/* ================= dbo.GetOrderApprovalRequestByToken ================= */
+/* ===== dbo.GetOrderApprovalRequestByToken ===== */
+GO
 /*
     dbo.GetOrderApprovalRequestByToken
     ----------------------------------
@@ -1496,8 +1574,8 @@ BEGIN
     WHERE r.TokenHash = @TokenHash;
 END
 GO
-
-/* ================= dbo.GetOrderNotes ================= */
+/* ===== dbo.GetOrderNotes ===== */
+GO
 /*
     dbo.GetOrderNotes                                                                   MBA-907
     ---------------------------------------------------------------------------------------------
@@ -1527,10 +1605,12 @@ BEGIN
       AND n.IsDeleted = 0
     ORDER BY n.CreatedDate DESC, n.OrderNoteId DESC;
 END
+
+GO
+/* ===== dbo.GetSensorTableColumnPreferences ===== */
 GO
 
-/* ================= dbo.GetSensorTableColumnPreferences ================= */
-CREATE OR ALTER PROCEDURE dbo.GetSensorTableColumnPreferences
+    CREATE OR ALTER PROCEDURE dbo.GetSensorTableColumnPreferences
       @UserEmail NVARCHAR(50)
     AS
     BEGIN
@@ -1547,10 +1627,12 @@ CREATE OR ALTER PROCEDURE dbo.GetSensorTableColumnPreferences
       FROM dbo.UserSensorTablePreferences
       WHERE UserId = @UserId;
     END
+  
+GO
+/* ===== dbo.GetSensorTableLockedColumns ===== */
 GO
 
-/* ================= dbo.GetSensorTableLockedColumns ================= */
-CREATE OR ALTER PROCEDURE dbo.GetSensorTableLockedColumns
+    CREATE OR ALTER PROCEDURE dbo.GetSensorTableLockedColumns
     AS
     BEGIN
       SET NOCOUNT ON;
@@ -1559,9 +1641,10 @@ CREATE OR ALTER PROCEDURE dbo.GetSensorTableLockedColumns
       FROM dbo.UserSensorTablePreferences
       WHERE UserId IS NULL;
     END
+  
 GO
-
-/* ================= dbo.ImportMeasurementDeviceClassFromKyulan ================= */
+/* ===== dbo.ImportMeasurementDeviceClassFromKyulan ===== */
+GO
 /*
     dbo.ImportMeasurementDeviceClassFromKyulan                                          MBA-902
     ---------------------------------------------------------------------------------------------
@@ -1685,9 +1768,10 @@ BEGIN
         LEFT JOIN dbo.MeasurementDevicesMainClasses AS ck ON ck.Id = a.KyulanClassId
         ORDER BY a.CurrentClassId, a.KyulanClassId, a.MabaID;
 END
-GO
 
-/* ================= dbo.ImportMissingDevicesFromKyulan ================= */
+GO
+/* ===== dbo.ImportMissingDevicesFromKyulan ===== */
+GO
 /*
     dbo.ImportMissingDevicesFromKyulan                                                  MBA-902
     ---------------------------------------------------------------------------------------------
@@ -1819,9 +1903,10 @@ BEGIN
                CONVERT(VARCHAR(10), NextCalibration, 104) AS NextCalibration
         FROM #New ORDER BY MabaID;
 END
-GO
 
-/* ================= dbo.MergeDuplicateLoggerDevices ================= */
+GO
+/* ===== dbo.MergeDuplicateLoggerDevices ===== */
+GO
 /*
     dbo.MergeDuplicateLoggerDevices                                                     MBA-902
     ---------------------------------------------------------------------------------------------
@@ -1943,9 +2028,10 @@ BEGIN
         JOIN dbo.MeasurementDevices AS drop_ ON drop_.ID = m.DropId
         ORDER BY SensorLinksOnDropped DESC, m.MabaID;
 END
-GO
 
-/* ================= dbo.RefreshCustomerRemarksFromPriority ================= */
+GO
+/* ===== dbo.RefreshCustomerRemarksFromPriority ===== */
+GO
 /*
     dbo.RefreshCustomerRemarksFromPriority                                              MBA-902
     ---------------------------------------------------------------------------------------------
@@ -2014,9 +2100,83 @@ BEGIN
         SELECT TOP (20) CustomerId, LEFT(Current_, 90) AS before_, LEFT(Rebuilt, 90) AS after_
         FROM #Diff ORDER BY CustomerId;
 END
-GO
 
-/* ================= dbo.RefreshPackingDataFromPriority ================= */
+GO
+/* ===== dbo.RefreshDeviceDescriptions ===== */
+GO
+/*
+    dbo.RefreshDeviceDescriptions                                                      MBA-666
+    ---------------------------------------------------------------------------------------------
+    Rebuilds dbo.CrmDeviceDescription from Priority's device description, MBA_DOCLOAD.SERNDES -
+    "תאור מכשיר" on the Priority form. 3,000 distinct values over 3.8M device records.
+
+    This is the list a calibrator picks a פריט כיול from. It is NOT the product description
+    (PART.PARTDES / OrdersProductType), which is one value per catalogue item: item 110102 reads
+    "תנור עד 550C" as a product but covers "תנור שריפה" and "תנור לטיפול תרמי" as devices.
+
+    Two columns, on purpose. DescriptionRaw is Priority's own text, kept verbatim so nothing is
+    lost. Description is that text with its digit and Latin runs un-reversed - see
+    dbo.fnUnreverseVisualText. NeedsReview flags the rows where the un-reversal cannot be trusted
+    without a human: Latin letters, whose case is gone, or several runs, whose order is ambiguous.
+
+    Reading only. Bounded to one aggregated pull, so it does not drag 3.8M rows across the link.
+    Safe to re-run; it replaces the table's contents in a transaction.
+*/
+CREATE OR ALTER PROCEDURE dbo.RefreshDeviceDescriptions
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    DROP TABLE IF EXISTS #D;
+    SELECT * INTO #D FROM OPENQUERY([31.168.173.93], '
+      SELECT SERNDES = LTRIM(RTRIM(dl.SERNDES)),
+             Devices = COUNT(*),
+             Parts   = COUNT(DISTINCT dl.PART)
+      FROM amaba.dbo.MBA_DOCLOAD dl
+      WHERE LTRIM(RTRIM(ISNULL(dl.SERNDES, ''''))) <> ''''
+      GROUP BY LTRIM(RTRIM(dl.SERNDES))
+    ');
+
+    IF NOT EXISTS (SELECT 1 FROM #D)
+    BEGIN
+        SELECT Descriptions = 0, Note = N'Priority returned nothing - existing rows left alone.';
+        RETURN;
+    END
+
+    BEGIN TRANSACTION;
+
+        DELETE FROM dbo.CrmDeviceDescription;
+
+        INSERT INTO dbo.CrmDeviceDescription
+              (DescriptionRaw, Description, NeedsReview, Devices, Parts, RefreshedAt)
+        SELECT LEFT(d.SERNDES, 200),
+               LEFT(dbo.fnUnreverseVisualText(d.SERNDES), 200),
+               /* Latin letters lose their case; more than one run and the order is a guess */
+               /* what the un-reversal cannot be trusted to get right on its own */
+               CAST(CASE WHEN d.SERNDES LIKE N'%[A-Za-z]%'         THEN 1  /* Latin case is lost: MN -> Nm */
+                         WHEN d.SERNDES LIKE N'%[0-9]% %[0-9]%'    THEN 1  /* two runs, order is a guess */
+                         WHEN d.SERNDES LIKE N'%[0-9]%-%[0-9]%'    THEN 1  /* a range: 05-1.5 is ambiguous */
+                         WHEN d.SERNDES LIKE N'%[*]%'              THEN 1  /* ערוצי*21 must read *12 */
+                         ELSE 0 END AS BIT),
+
+               d.Devices,
+               d.Parts,
+               SYSUTCDATETIME()
+        FROM #D AS d;
+
+    COMMIT TRANSACTION;
+
+    SELECT Descriptions = COUNT(*),
+           SafeAsIs     = SUM(IIF(NeedsReview = 0, 1, 0)),
+           NeedsReview  = SUM(IIF(NeedsReview = 1, 1, 0)),
+           DeviceRecords= SUM(Devices)
+    FROM dbo.CrmDeviceDescription;
+END
+
+GO
+/* ===== dbo.RefreshPackingDataFromPriority ===== */
+GO
 /*
     dbo.RefreshPackingDataFromPriority
     ---------------------------------------------------------------------------------------------
@@ -2171,8 +2331,8 @@ BEGIN
            @DetailsFlagged                                     AS DetailsFlagged;
 END
 GO
-
-/* ================= dbo.ResolveCustomerPortalRequest ================= */
+/* ===== dbo.ResolveCustomerPortalRequest ===== */
+GO
 /*
     dbo.ResolveCustomerPortalRequest                                                    MBA-903
     ---------------------------------------------------------------------------------------------
@@ -2245,9 +2405,10 @@ BEGIN
 
     SELECT @CustomerPortalRequestId AS customerPortalRequestId, @Status AS status;
 END
-GO
 
-/* ================= dbo.ResolveOrderApprovalRequest ================= */
+GO
+/* ===== dbo.ResolveOrderApprovalRequest ===== */
+GO
 /*
     dbo.ResolveOrderApprovalRequest
     -------------------------------
@@ -2403,9 +2564,101 @@ BEGIN
             WHERE r.TokenHash = @TokenHash)      AS ResponseNotes;
 END
 GO
+/* ===== dbo.SaveCalibrationFilterValueV2 ===== */
+GO
+CREATE OR ALTER PROCEDURE [dbo].[SaveCalibrationFilterValueV2]
+    @LoggedInUserEmail  NVARCHAR(255),
+    @OrderDetailsItemId INT,
+    @MasterValue        DECIMAL(18, 4),
+    @MasterValueUnitId  INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
 
-/* ================= dbo.SaveSensorTableColumnPreferences ================= */
-CREATE OR ALTER PROCEDURE dbo.SaveSensorTableColumnPreferences
+    DECLARE @UserId INT = (
+        SELECT TOP 1 ID FROM dbo.Users WHERE Email = @LoggedInUserEmail
+    );
+
+    DECLARE @DefaultSensorId INT = (
+        SELECT TOP 1 ID FROM dbo.MeasurementDevices ORDER BY ID ASC
+    );
+
+    -- Format nicely: e.g. 200 instead of 200.0000
+    DECLARE @PointName NVARCHAR(50) = CAST(CAST(@MasterValue AS FLOAT) AS NVARCHAR(50));
+
+    -- Safe MasterValue for decimal(10,8) column
+    DECLARE @SafeMasterValue DECIMAL(10, 8) = NULL;
+    IF @MasterValue > -100 AND @MasterValue < 100
+        SET @SafeMasterValue = CAST(@MasterValue AS DECIMAL(10, 8));
+
+    -- If the filter point already exists and is active, do nothing
+    IF EXISTS (
+        SELECT 1
+        FROM dbo.MeasurmentPointsToOrderDetailsItems
+        WHERE OrderDetailsItemId = @OrderDetailsItemId
+          AND (NominalValue = @MasterValue OR MeasurmentPointName = @PointName)
+          AND IsDeleted = 0
+    )
+    BEGIN
+        RETURN;
+    END
+
+    -- If it was soft-deleted, restore it
+    IF EXISTS (
+        SELECT 1
+        FROM dbo.MeasurmentPointsToOrderDetailsItems
+        WHERE OrderDetailsItemId = @OrderDetailsItemId
+          AND (NominalValue = @MasterValue OR MeasurmentPointName = @PointName)
+          AND IsDeleted = 1
+    )
+    BEGIN
+        UPDATE dbo.MeasurmentPointsToOrderDetailsItems
+        SET IsDeleted = 0,
+            MasterValueUnitId = @MasterValueUnitId,
+            MasterValue = @SafeMasterValue,
+            NominalValue = @MasterValue,
+            UpdatedDate = GETDATE(),
+            UpdateUserID = @UserId
+        WHERE OrderDetailsItemId = @OrderDetailsItemId
+          AND (NominalValue = @MasterValue OR MeasurmentPointName = @PointName)
+          AND IsDeleted = 1;
+        RETURN;
+    END
+
+    -- Insert new calibration filter point
+    INSERT INTO dbo.MeasurmentPointsToOrderDetailsItems (
+        OrderDetailsItemId,
+        SensorMeasurementDeviceId,
+        MeasurmentPointName,
+        MeasurmentPointCoordX,
+        MeasurmentPointCoordY,
+        ChannelNumber,
+        MasterValue,
+        NominalValue,
+        MasterValueUnitId,
+        UpdateUserID,
+        IsDeleted
+    )
+    VALUES (
+        @OrderDetailsItemId,
+        @DefaultSensorId,   -- valid sensor FK
+        @PointName,         -- e.g. "200"
+        0,                  -- CoordX
+        0,                  -- CoordY
+        0,                  -- ChannelNumber = 0
+        @SafeMasterValue,   -- MasterValue
+        @MasterValue,       -- NominalValue
+        @MasterValueUnitId,
+        @UserId,
+        0
+    );
+END
+
+GO
+/* ===== dbo.SaveSensorTableColumnPreferences ===== */
+GO
+
+    CREATE OR ALTER PROCEDURE dbo.SaveSensorTableColumnPreferences
       @UserEmail        NVARCHAR(50),
       @ColumnVisibility NVARCHAR(MAX) = NULL,
       @ColumnOrder      NVARCHAR(MAX) = NULL
@@ -2442,10 +2695,12 @@ CREATE OR ALTER PROCEDURE dbo.SaveSensorTableColumnPreferences
           (@UserId, @ColumnVisibility, @ColumnOrder, GETDATE(), @UserId);
       END
     END
+  
+GO
+/* ===== dbo.SaveSensorTableLockedColumns ===== */
 GO
 
-/* ================= dbo.SaveSensorTableLockedColumns ================= */
-CREATE OR ALTER PROCEDURE dbo.SaveSensorTableLockedColumns
+    CREATE OR ALTER PROCEDURE dbo.SaveSensorTableLockedColumns
       @LockedColumns     NVARCHAR(MAX),
       @LoggedInUserEmail NVARCHAR(50)
     AS
@@ -2486,9 +2741,10 @@ CREATE OR ALTER PROCEDURE dbo.SaveSensorTableLockedColumns
           (NULL, @LockedColumns, GETDATE(), @UserId);
       END
     END
+  
 GO
-
-/* ================= dbo.SetOrderApprovalPriorityResult ================= */
+/* ===== dbo.SetOrderApprovalPriorityResult ===== */
+GO
 /*
     dbo.SetOrderApprovalPriorityResult
     ----------------------------------
@@ -2523,4 +2779,261 @@ BEGIN
 
     SELECT CAST(CASE WHEN @@ROWCOUNT = 1 THEN N'Updated' ELSE N'NotFound' END AS NVARCHAR(20)) AS Status;
 END
+GO
+/* ===== dbo.fnHumidityAfterCorrection ===== */
+GO
+
+CREATE OR ALTER FUNCTION dbo.fnHumidityAfterCorrection
+(
+    @MeasurementDevicesId INT,
+    @Temperature          FLOAT,
+    @Humidity             FLOAT,
+    @UseSyntheticCorners  BIT = 1
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    WITH Ranked AS
+    (
+        SELECT T = CAST(c.Value1 AS FLOAT),
+               H = CAST(c.Value2 AS FLOAT),
+               D = CAST(c.Deviation AS FLOAT),
+               Rnk = RANK() OVER (ORDER BY c.CorVersion DESC)
+        FROM dbo.MeasurementDevicesCorrections AS c
+        WHERE c.MeasurementDevicesId = @MeasurementDevicesId
+          AND ISNULL(c.IsDeleted, 0) = 0
+          AND c.Deviation IS NOT NULL
+          AND c.Value2    IS NOT NULL
+          AND @Temperature IS NOT NULL
+          AND @Humidity    IS NOT NULL
+    ),
+    Actual AS (SELECT T, H, D FROM Ranked WHERE Rnk = 1),
+    Ext  AS (SELECT MinT = MIN(T), MaxT = MAX(T), MinH = MIN(H), MaxH = MAX(H) FROM Actual),
+    E AS
+    (
+        SELECT
+          d_TminHmin = (SELECT TOP (1) D FROM Actual ORDER BY FLOOR(H/5)*5 ASC,  T ASC),
+          t_TminHmin = (SELECT TOP (1) T FROM Actual ORDER BY FLOOR(H/5)*5 ASC,  T ASC),
+          d_TmaxHmin = (SELECT TOP (1) D FROM Actual ORDER BY FLOOR(H/5)*5 ASC,  T DESC),
+          t_TmaxHmin = (SELECT TOP (1) T FROM Actual ORDER BY FLOOR(H/5)*5 ASC,  T DESC),
+          d_TminHmax = (SELECT TOP (1) D FROM Actual ORDER BY FLOOR(H/5)*5 DESC, T ASC),
+          t_TminHmax = (SELECT TOP (1) T FROM Actual ORDER BY FLOOR(H/5)*5 DESC, T ASC),
+          d_TmaxHmax = (SELECT TOP (1) D FROM Actual ORDER BY FLOOR(H/5)*5 DESC, T DESC),
+          t_TmaxHmax = (SELECT TOP (1) T FROM Actual ORDER BY FLOOR(H/5)*5 DESC, T DESC),
+          d_HminTmin = (SELECT TOP (1) D FROM Actual ORDER BY FLOOR(T) ASC,  FLOOR(H/5)*5 ASC),
+          h_HminTmin = (SELECT TOP (1) H FROM Actual ORDER BY FLOOR(T) ASC,  FLOOR(H/5)*5 ASC),
+          d_HmaxTmin = (SELECT TOP (1) D FROM Actual ORDER BY FLOOR(T) ASC,  FLOOR(H/5)*5 DESC),
+          h_HmaxTmin = (SELECT TOP (1) H FROM Actual ORDER BY FLOOR(T) ASC,  FLOOR(H/5)*5 DESC),
+          d_HminTmax = (SELECT TOP (1) D FROM Actual ORDER BY FLOOR(T) DESC, FLOOR(H/5)*5 ASC),
+          h_HminTmax = (SELECT TOP (1) H FROM Actual ORDER BY FLOOR(T) DESC, FLOOR(H/5)*5 ASC),
+          d_HmaxTmax = (SELECT TOP (1) D FROM Actual ORDER BY FLOOR(T) DESC, FLOOR(H/5)*5 DESC),
+          h_HmaxTmax = (SELECT TOP (1) H FROM Actual ORDER BY FLOOR(T) DESC, FLOOR(H/5)*5 DESC)
+    ),
+    W AS
+    (
+        SELECT TempRange = NULLIF(x.MaxT - x.MinT, 0),
+               HumRange  = NULLIF(x.MaxH - x.MinH, 0),
+               x.MinT, x.MaxT, x.MinH, x.MaxH, e.*
+        FROM Ext AS x CROSS JOIN E AS e
+    ),
+    Corners AS
+    (
+        SELECT T = w.MinT - 10, H = CAST(0 AS FLOAT),
+               D = ((a.w1et * w.d_HminTmin) + (a.w1eh * w.d_TminHmin)) / NULLIF(a.w1et + a.w1eh, 0)
+        FROM W AS w
+        CROSS APPLY (SELECT w1et = (w.MaxH - w.h_HminTmin) / w.HumRange,
+                            w1eh = (w.MaxT - w.t_TminHmin) / w.TempRange) AS a
+        WHERE @UseSyntheticCorners = 1
+        UNION ALL
+        SELECT w.MaxT + 10, CAST(0 AS FLOAT),
+               ((a.w3et * w.d_HminTmax) + (a.w2eh * w.d_TmaxHmin)) / NULLIF(a.w3et + a.w2eh, 0)
+        FROM W AS w
+        CROSS APPLY (SELECT w3et = (w.MaxH - w.h_HminTmax) / w.HumRange,
+                            w2eh = (w.t_TmaxHmin - w.MinT) / w.TempRange) AS a
+        WHERE @UseSyntheticCorners = 1
+        UNION ALL
+        SELECT w.MinT - 10, CAST(100 AS FLOAT),
+               ((a.w2et * w.d_HmaxTmin) + (a.w3eh * w.d_TminHmax)) / NULLIF(a.w2et + a.w3eh, 0)
+        FROM W AS w
+        CROSS APPLY (SELECT w2et = (w.h_HmaxTmin - w.MinH) / w.HumRange,
+                            w3eh = (w.MaxT - w.t_TminHmax) / w.TempRange) AS a
+        WHERE @UseSyntheticCorners = 1
+        UNION ALL
+        SELECT w.MaxT + 10, CAST(100 AS FLOAT),
+               ((a.w4et * w.d_HmaxTmax) + (a.w4eh * w.d_TmaxHmax)) / NULLIF(a.w4et + a.w4eh, 0)
+        FROM W AS w
+        CROSS APPLY (SELECT w4et = (w.h_HmaxTmax - w.MinH) / w.HumRange,
+                            w4eh = (w.MaxT - w.t_TmaxHmax) / w.TempRange) AS a
+        WHERE @UseSyntheticCorners = 1
+    ),
+    P AS
+    (
+        SELECT T, H, D, Idx = ROW_NUMBER() OVER (ORDER BY T, H)
+        FROM (SELECT T, H, D FROM Actual
+              UNION ALL
+              SELECT T, H, D FROM Corners WHERE D IS NOT NULL) AS u
+    ),
+    Tri AS
+    (
+        SELECT p1.D AS d1, p2.D AS d2, p3.D AS d3,
+               p1.H AS h1, p2.H AS h2, p3.H AS h3,
+               w1 = a.x1 / a.x2,
+               w3 = SQRT(SQUARE(p1.H - @Humidity) + SQUARE(p1.T - @Temperature))
+                  + SQRT(SQUARE(p2.H - @Humidity) + SQUARE(p2.T - @Temperature))
+                  + SQRT(SQUARE(p3.H - @Humidity) + SQUARE(p3.T - @Temperature))
+        FROM P AS p1
+        JOIN P AS p2 ON p2.Idx > p1.Idx
+        JOIN P AS p3 ON p3.Idx > p2.Idx
+        CROSS APPLY (SELECT
+              x1 = ((p1.T * (p3.H - p1.H)) + (@Humidity - p1.H) * (p3.T - p1.T))
+                   - (@Temperature * (p3.H - p1.H)),
+              x2 = NULLIF(((p2.H - p1.H) * (p3.T - p1.T)) - ((p2.T - p1.T) * (p3.H - p1.H)), 0)
+        ) AS a
+        WHERE a.x2 IS NOT NULL
+    ),
+    Valid AS
+    (
+        SELECT t.d1, t.d2, t.d3, t.w1, t.w3, b.w2
+        FROM Tri AS t
+        CROSS APPLY (SELECT w2 = (@Humidity - t.h1 - (t.w1 * (t.h2 - t.h1)))
+                                 / NULLIF(t.h3 - t.h1, 0)) AS b
+        WHERE t.w1 >= 0 AND b.w2 >= 0 AND t.w1 + b.w2 <= 1
+    ),
+    Best AS (SELECT TOP (1) d1, d2, d3, w1, w2, w3 FROM Valid ORDER BY w3)
+    SELECT Deviation = CAST(c.dev AS DECIMAL(18,6)),
+           Corrected = CAST(ROUND(@Humidity - c.dev, 2) AS DECIMAL(18,6)),
+           Triangles = (SELECT COUNT(*) FROM Valid)
+    FROM Best AS b
+    CROSS APPLY (SELECT dev = b.d1 + (b.w1 * (b.d2 - b.d1)) + (b.w2 * (b.d3 - b.d1))) AS c
+);
+
+GO
+/* ===== dbo.fnMasterValueAfterCorrection ===== */
+GO
+
+CREATE OR ALTER FUNCTION dbo.fnMasterValueAfterCorrection
+(
+    @MeasurementDevicesId INT,
+    @Reading              DECIMAL(18,6),
+    @MeasurementId        INT = NULL
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    WITH Ranked AS
+    (
+        SELECT c.MeasurementId, c.Value1, c.Deviation,
+               Rnk = RANK() OVER (ORDER BY c.CorVersion DESC)
+        FROM dbo.MeasurementDevicesCorrections AS c
+        WHERE c.MeasurementDevicesId = @MeasurementDevicesId
+          AND ISNULL(c.IsDeleted, 0) = 0
+          AND c.Deviation IS NOT NULL
+          AND @Reading IS NOT NULL
+    ),
+    Newest AS (SELECT MeasurementId, Value1, Deviation FROM Ranked WHERE Rnk = 1),
+    Chosen AS
+    (
+        SELECT TOP (1) MeasurementId FROM Newest
+        WHERE @MeasurementId IS NULL OR MeasurementId = @MeasurementId
+        GROUP BY MeasurementId ORDER BY COUNT(*) DESC, MeasurementId
+    ),
+    Pts    AS (SELECT n.Value1, n.Deviation FROM Newest AS n JOIN Chosen AS c ON c.MeasurementId = n.MeasurementId),
+    Bounds AS (SELECT LoEdge = MIN(Value1), HiEdge = MAX(Value1) FROM Pts),
+    Below  AS (SELECT TOP (1) Value1, Deviation FROM Pts WHERE Value1 <= @Reading ORDER BY Value1 DESC),
+    Above  AS (SELECT TOP (1) Value1, Deviation FROM Pts WHERE Value1 >  @Reading ORDER BY Value1 ASC),
+    Edge   AS (SELECT LoDev = (SELECT TOP (1) Deviation FROM Pts ORDER BY Value1 ASC),
+                      HiDev = (SELECT TOP (1) Deviation FROM Pts ORDER BY Value1 DESC)),
+    /* how many decimals the reading itself carries, once trailing zeros are dropped */
+    Scale AS
+    (
+        SELECT Decimals = CASE WHEN CHARINDEX('.', t.txt) = 0 THEN 0
+                               ELSE LEN(t.txt) - CHARINDEX('.', t.txt) END
+        FROM (SELECT s1 = CAST(@Reading AS NVARCHAR(40))) AS a
+        CROSS APPLY (SELECT txt = CASE WHEN CHARINDEX('.', a.s1) = 0 THEN a.s1
+                                       ELSE LEFT(a.s1, LEN(REPLACE(RTRIM(REPLACE(a.s1,'0',' ')),' ','0'))) END) AS b
+        CROSS APPLY (SELECT txt = CASE WHEN RIGHT(b.txt,1) = '.' THEN LEFT(b.txt, LEN(b.txt)-1) ELSE b.txt END) AS t
+    ),
+    Dev AS
+    (
+        SELECT Deviation =
+            CASE
+                WHEN b.LoEdge IS NULL     THEN NULL
+                WHEN @Reading <  b.LoEdge THEN e.LoDev
+                WHEN @Reading >= b.HiEdge THEN e.HiDev
+                WHEN a.Value1  IS NULL    THEN lo.Deviation
+                WHEN lo.Value1 = @Reading THEN lo.Deviation
+                ELSE lo.Deviation
+                     + ((a.Deviation - lo.Deviation) / NULLIF(a.Value1 - lo.Value1, 0))
+                       * (@Reading - lo.Value1)
+            END,
+            UsedMeasurementId = (SELECT MeasurementId FROM Chosen),
+            OutOfRange = CASE WHEN b.LoEdge IS NULL          THEN NULL
+                              WHEN @Reading < b.LoEdge       THEN CAST(1 AS BIT)
+                              WHEN @Reading > b.HiEdge       THEN CAST(1 AS BIT)
+                              ELSE CAST(0 AS BIT) END
+        FROM Bounds AS b
+        CROSS JOIN Edge AS e
+        LEFT JOIN Below AS lo ON 1 = 1
+        LEFT JOIN Above AS a  ON 1 = 1
+    )
+    SELECT Deviation = CAST(d.Deviation AS DECIMAL(18,6)),
+           /* full precision - use this for anything that is stored or calculated on */
+           CorrectedExact = CAST(@Reading - d.Deviation AS DECIMAL(18,6)),
+           /* for the screen: as many decimals as the reading itself carries */
+           Corrected      = CAST(ROUND(@Reading - d.Deviation, s.Decimals) AS DECIMAL(18,6)),
+           ReadingDecimals = s.Decimals,
+           d.OutOfRange,
+           d.UsedMeasurementId
+    FROM Dev AS d CROSS JOIN Scale AS s
+);
+
+GO
+/* ===== dbo.fnUnreverseVisualText ===== */
+GO
+/*
+    dbo.fnUnreverseVisualText
+    ---------------------------------------------------------------------------------------------
+    Priority stores text in VISUAL order. The Hebrew reads correctly, but every run of digits or
+    Latin inside it is reversed: a 150 mm caliper is stored "זחון אלקטרוני עד 051", and a 100 kg
+    scale as "מאזניים עד 001 ק'ג".
+
+    This walks the string and reverses each non-Hebrew run in place, leaving the Hebrew alone.
+    Brackets come out right on their own - ")3-1M(" reverses to "(M1-3)" - so they are NOT mirrored
+    separately; doing both would flip them back.
+
+    What it cannot recover, and callers must not assume it does:
+      - the case of Latin letters. "MN 622-0" becomes "NM 0-226"; the instrument is 0-226 Nm.
+      - the order of several runs separated by Hebrew or spaces.
+    dbo.CrmDeviceDescription.NeedsReview marks both cases.
+*/
+CREATE OR ALTER FUNCTION dbo.fnUnreverseVisualText(@s NVARCHAR(400))
+RETURNS NVARCHAR(400)
+AS
+BEGIN
+    IF @s IS NULL RETURN NULL;
+
+    DECLARE @out NVARCHAR(400) = N'',
+            @run NVARCHAR(400) = N'',
+            @i   INT = 1,
+            @n   INT = LEN(@s),
+            @c   NCHAR(1);
+
+    WHILE @i <= @n
+    BEGIN
+        SET @c = SUBSTRING(@s, @i, 1);
+        IF (UNICODE(@c) BETWEEN 1424 AND 1535) OR @c = N' '   -- 0x0590..0x05FF is Hebrew
+        BEGIN
+            SET @out = @out + REVERSE(@run) + @c;
+            SET @run = N'';
+        END
+        ELSE
+            SET @run = @run + @c;
+        SET @i += 1;
+    END
+
+    RETURN @out + REVERSE(@run);
+END
+
 GO
