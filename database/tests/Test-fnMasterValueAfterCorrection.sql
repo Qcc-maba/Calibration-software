@@ -11,6 +11,10 @@
     reading of 1001 still returns a number. These tests pin that down so it cannot drift, and they
     are where an InRange / Clamped flag gets verified once it exists.
 
+    The arithmetic is checked against CorrectedExact, the full-precision column. Corrected is the
+    same number rounded to however many decimals the reading itself carries - a display rule, not a
+    metrology one, and it is deliberately not what these assertions measure.
+
     Anything other than 'PASS' in Result is a failure.
 */
 SET NOCOUNT ON;
@@ -51,12 +55,12 @@ VALUES (N'interpolated between two points', @Mid, @Mid - (@d1 + ((@d2-@d1)/(@t2-
 SELECT Test     = c.Name,
        Reading  = c.Reading,
        Expected = c.Expected,
-       Actual   = f.Corrected,
-       Result   = CASE WHEN f.Corrected IS NULL THEN N'FAIL - no value returned'
+       Actual   = f.CorrectedExact,
+       Result   = CASE WHEN f.CorrectedExact IS NULL THEN N'FAIL - no value returned'
                        /* 1e-5: the function and this test divide in slightly different orders,
                           which lands the last digit up to 5e-6 apart. Far below anything a
                           calibration reading resolves to, and not worth chasing. */
-                       WHEN ABS(f.Corrected - c.Expected) <= 0.00001 THEN N'PASS'
+                       WHEN ABS(f.CorrectedExact - c.Expected) <= 0.00001 THEN N'PASS'
                        ELSE N'FAIL' END
 FROM @Cases AS c
 CROSS APPLY dbo.fnMasterValueAfterCorrection(@Dev, c.Reading, NULL) AS f
@@ -64,14 +68,14 @@ ORDER BY c.Seq;
 
 /* the cases that must return nothing rather than a plausible number */
 SELECT Test = N'a master with no certificate returns NULL',
-       Result = CASE WHEN (SELECT Corrected FROM dbo.fnMasterValueAfterCorrection(x.ID, 25.0, NULL)) IS NULL
+       Result = CASE WHEN (SELECT CorrectedExact FROM dbo.fnMasterValueAfterCorrection(x.ID, 25.0, NULL)) IS NULL
                      THEN N'PASS' ELSE N'FAIL' END
 FROM (SELECT TOP (1) d.ID FROM dbo.MeasurementDevices d
       WHERE NOT EXISTS (SELECT 1 FROM dbo.MeasurementDevicesCorrections c
                         WHERE c.MeasurementDevicesId = d.ID AND ISNULL(c.IsDeleted,0)=0)) AS x;
 
 SELECT Test = N'a NULL reading returns NULL',
-       Result = CASE WHEN (SELECT Corrected FROM dbo.fnMasterValueAfterCorrection(@Dev, NULL, NULL)) IS NULL
+       Result = CASE WHEN (SELECT CorrectedExact FROM dbo.fnMasterValueAfterCorrection(@Dev, NULL, NULL)) IS NULL
                      THEN N'PASS' ELSE N'FAIL' END;
 
 SELECT Test = N'only the newest certificate is used',
@@ -82,8 +86,8 @@ SELECT Test = N'only the newest certificate is used',
 
 SELECT Test = N'every master with a certificate answers',
        Masters = COUNT(*),
-       Answered = SUM(CASE WHEN f.Corrected IS NOT NULL THEN 1 ELSE 0 END),
-       Result = CASE WHEN COUNT(*) = SUM(CASE WHEN f.Corrected IS NOT NULL THEN 1 ELSE 0 END)
+       Answered = SUM(CASE WHEN f.CorrectedExact IS NOT NULL THEN 1 ELSE 0 END),
+       Result = CASE WHEN COUNT(*) = SUM(CASE WHEN f.CorrectedExact IS NOT NULL THEN 1 ELSE 0 END)
                      THEN N'PASS' ELSE N'FAIL' END
 FROM dbo.MeasurementDevices AS d
 CROSS APPLY (SELECT n = COUNT(*) FROM dbo.MeasurementDevicesCorrections c

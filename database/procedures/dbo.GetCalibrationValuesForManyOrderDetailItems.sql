@@ -83,7 +83,11 @@ BEGIN
         ,combined.[MasterValue]
         ,combined.[MasterValueUnitId]
         ,mdu.[ShortNameHe] as MasterValueUnitDescription
-        ,mvc.Corrected as [MasterValueAfterCorrection]
+        /* CorrectedExact, not Corrected: rounding to the reading's own precision is what was
+           asked for, but it erases the correction. A reading of 23 has deviation -0.001792,
+           and at zero decimals the answer is 23 again. Both columns are available; this stays
+           on the exact one until the display rule is settled. */
+        ,mvc.CorrectedExact as [MasterValueAfterCorrection]
         ,combined.MeasuredValue
         ,combined.MeasuredValueUnitId
         ,mdu3.[ShortNameHe] as MeasuredUUTDescription
