@@ -1,111 +1,55 @@
 /*
     dbo.GetCalibrationItems                                                            MBA-666
     ---------------------------------------------------------------------------------------------
-    The list a calibrator picks the "פריט כיול" from.
+    The list a calibrator picks the "פריט כיול" from, taken from Priority's DEVICE description.
 
-    MBA-666 asks for the list to come from Priority's "תיאור מכשיר". Three columns could be read
-    that way, and MBA-901 settled which:
+    Which column, and why the first attempt was wrong
+    -------------------------------------------------
+    MBA-666 asks for "תיאור מכשיר". An earlier version of this procedure read OrdersProductType,
+    which is "תיאור מוצר" - the sales line, one value per catalogue item. Catalogue item 110102 has
+    a single product description, "תנור עד 550C", and several device descriptions beneath it:
+    "תנור שריפה", "תנור לטיפול תרמי". The calibrator needs the latter.
 
-      DeviceFamily      too coarse - every scale is the single word "מאזניים", and product asked
-                        for "מאזניים אנליטיים" / "מאזניים חצי אנליטיים" to be distinguishable.
-      PartDescription   the raw Priority value, and unusable: Priority stores it in visual order,
-                        so a 100 kg scale reads "מאזניים עד 001 ק'ג" and 1,000 reads "עד 000,1".
-                        Putting that on a report would misstate the instrument.
-      OrdersProductType what this uses. Our sync already un-reverses it, so the digits are right,
-                        and it carries the granularity product wanted.
+    The device description is amaba.dbo.MBA_DOCLOAD.SERNDES, cached here in
+    dbo.CrmDeviceDescription. 3,000 distinct values over 3.8M device records.
 
-    What it strips
-    --------------
-    A product type is a sales line, not a device: "מאזניים עד 100 ק'ג-כיול בהסמכה-באתרכם". The
-    device is the part before the commercial tail. The tail is cut at the FIRST of these markers,
-    whichever appears earliest:
+    No stripping is needed any more. בהסמכה / באתרכם / ק.משנה and the rest of the commercial tail
+    belong to the product line, not the device - none of them appear in SERNDES. The nine-marker
+    cut this procedure used to perform is gone.
 
-        בהסמכה · ק.משנה · קבלן משנה · באתרכם · במבא · מכירת ציוד · תיקון · כיול חוזר · כיוון
+    NeedsReview - read this before putting a value on a certificate
+    ---------------------------------------------------------------
+    Priority stores this text in visual order: the Hebrew reads correctly but each run of digits
+    or Latin is reversed. "זחון אלקטרוני עד 051" is a 150 mm caliper. Description holds the
+    un-reversed value; DescriptionRaw holds Priority's, so nothing is lost.
 
-    Cutting at one fixed separator is not enough - the markers appear with a dash, with a space,
-    or with neither, and an earlier attempt keyed only on "-כיול" left the tail attached on 86
-    items. After the cut, trailing separators and a dangling "כיול" are peeled off, which is what
-    collapses "מאזניים חצי אנליטיים-כיול" and "מאזניים חצי אנליטיים" into one entry rather than
-    two.
+    Reversing a single number is exact. Two things are not, and those rows carry NeedsReview = 1:
 
-    Result on STAGE: 586 product types collapse to 460 items. "מאזניים חצי אנליטיים" merges seven
-    sales variants, "מאזניים עד 30 ק'ג" merges five.
+      Latin letters   case cannot be recovered. "MN 622-0" un-reverses to "NM 0-226"; the
+                      instrument is 0-226 Nm.
+      several runs    their order is ambiguous. "מדיד חלק טבעת 05-1.5" could be several things.
 
-    Service lines
-    -------------
-    58 of the 460 are not devices at all - נסיעת טכנאי, הובלה בתשלום, הדרכה, שרותי איכות. They are
-    billing lines and product already agreed (MBA-901) they carry no category. @IncludeServiceLines
-    defaults to 0 so they stay out of a calibrator's picker; pass 1 if a screen genuinely needs the
-    full catalogue.
-
-    @UsedOnly = 1 narrows to items that actually appear on an order, which is almost all of them -
-    464 of 465 under the earlier rule - so it is off by default and exists for a screen that wants
-    to hide catalogue entries nobody has ever ordered.
+    1,611 of the 3,000 are clean - Hebrew only, or a single number - and are safe as they stand.
+    1,389 want a human eye. Pass @ReviewedOnly = 1 to see only the safe ones.
 */
 CREATE OR ALTER PROCEDURE dbo.GetCalibrationItems
-    @Search              NVARCHAR(200) = NULL,
-    @IncludeServiceLines BIT           = 0,
-    @UsedOnly            BIT           = 0
+    @Search       NVARCHAR(200) = NULL,
+    @MinDevices   INT           = 1,   /* raise to hide descriptions almost nothing uses */
+    @ReviewedOnly BIT           = 0    /* 1 = only rows safe to print as-is */
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @Marker TABLE (Marker NVARCHAR(40) COLLATE DATABASE_DEFAULT);
-    INSERT @Marker VALUES
-        (N'בהסמכה'), (N'ק.משנה'), (N'קבלן משנה'), (N'באתרכם'),
-        (N'במבא'), (N'מכירת ציוד'), (N'תיקון'), (N'כיול חוזר'), (N'כיוון');
-
-    /* the earliest commercial marker in each product type */
-    DROP TABLE IF EXISTS #Cut;
-    SELECT pt.OrdersProductTypeId,
-           CutAt = MIN(NULLIF(CHARINDEX(m.Marker, pt.OrdersProductTypeName COLLATE DATABASE_DEFAULT), 0))
-    INTO #Cut
-    FROM dbo.OrdersProductTypes AS pt
-    CROSS JOIN @Marker AS m
-    GROUP BY pt.OrdersProductTypeId;
-
-    DROP TABLE IF EXISTS #Item;
-    SELECT pt.OrdersProductTypeId,
-           pt.OrdersProductTypeName AS ProductTypeName,
-           CalibrationItem = LTRIM(RTRIM(
-               CASE WHEN c.CutAt IS NULL THEN pt.OrdersProductTypeName
-                    ELSE LEFT(pt.OrdersProductTypeName, c.CutAt - 1) END))
-    INTO #Item
-    FROM dbo.OrdersProductTypes AS pt
-    JOIN #Cut AS c ON c.OrdersProductTypeId = pt.OrdersProductTypeId;
-
-    /* peel the leftovers: a trailing separator, or a "כיול" the cut left dangling.
-       Four passes because a tail can be several of these in a row. */
-    DECLARE @Pass INT = 0;
-    WHILE @Pass < 4
-    BEGIN
-        UPDATE #Item
-        SET CalibrationItem = LTRIM(RTRIM(
-            CASE WHEN RIGHT(CalibrationItem, 1) IN (N'-', N',', N' ')
-                   THEN LEFT(CalibrationItem, LEN(CalibrationItem) - 1)
-                 WHEN RIGHT(CalibrationItem, 4) = N'כיול'
-                   THEN LEFT(CalibrationItem, LEN(CalibrationItem) - 4)
-                 ELSE CalibrationItem END));
-        SET @Pass += 1;
-    END
-
-    DELETE FROM #Item WHERE NULLIF(LTRIM(RTRIM(CalibrationItem)), N'') IS NULL;
-
-    SELECT i.CalibrationItem,
-           SalesVariants = COUNT(DISTINCT i.OrdersProductTypeId),
-           OrderLines    = COUNT(DISTINCT od.OrderDetailId)
-    FROM #Item AS i
-    LEFT JOIN dbo.OrderDetails AS od
-           ON od.OrdersProductTypeId = i.OrdersProductTypeId
-          AND ISNULL(od.IsDeleted, 0) = 0
-    WHERE (@Search IS NULL OR i.CalibrationItem LIKE N'%' + @Search + N'%')
-      AND (@IncludeServiceLines = 1
-           OR NOT (i.CalibrationItem LIKE N'%נסיע%'
-                OR i.CalibrationItem LIKE N'%הובלה%'
-                OR i.CalibrationItem LIKE N'%הדרכה%'
-                OR i.CalibrationItem LIKE N'%שרותי איכות%'
-                OR i.CalibrationItem LIKE N'%שירותי איכות%'))
-    GROUP BY i.CalibrationItem
-    HAVING (@UsedOnly = 0 OR COUNT(DISTINCT od.OrderDetailId) > 0)
-    ORDER BY i.CalibrationItem;
+    SELECT CalibrationItem = d.Description,
+           PriorityRaw     = d.DescriptionRaw,
+           d.NeedsReview,
+           d.Devices,
+           CatalogueItems  = d.Parts
+    FROM dbo.CrmDeviceDescription AS d
+    WHERE d.Devices >= ISNULL(@MinDevices, 1)
+      AND (@ReviewedOnly = 0 OR d.NeedsReview = 0)
+      AND (@Search IS NULL
+           OR d.Description    LIKE N'%' + @Search + N'%'
+           OR d.DescriptionRaw LIKE N'%' + @Search + N'%')
+    ORDER BY d.Devices DESC, d.Description;
 END
