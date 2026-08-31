@@ -1389,44 +1389,41 @@ GO
 -- Create date: 04/08/2026
 -- Description: Returns the customer profile / main-site header for the
 --              logged-in customer user (screen: customer/profile, MBA-612).
---              Customer-scoped: @CustomerId is resolved from dbo.CustomerContacts
---              by @LoggedInUserEmail (same convention as GetCustomerDashboardData),
---              with a fallback to dbo.Users so support/portal logins also resolve.
---              Returns a single header row. The sub-sites list and the MABA
+--              Returns a SINGLE header row. The sub-sites list and the MABA
 --              contact cards on the same screen are served by the existing
 --              GetCustomerSites / GetCustomerContacts / GetCustomerSupportData SPs
 --              and are intentionally NOT duplicated here.
+--
+-- 2026-08-31 - MBA-939: which customer, when the address serves several.
+--
+--              This screen describes ONE company - name, address, phone, shipping - so it
+--              cannot be a union without breaking its contract with the front end, which maps
+--              a single row. It now returns the caller's PRIMARY customer (the one holding the
+--              most devices) instead of the one with the lowest CustomerContactId. For
+--              davide@iscar.co.il that moves the profile from ישקר בע"מ, which holds none of
+--              his work, to ישקר-מתק"ש-תפן, which holds most of it.
+--
+--              Note the asymmetry, and that it is deliberate: the profile header names one
+--              company while GetCustomerSites and GetCustomerContacts beneath it now list all
+--              of them. If that reads as confusing on screen, the fix belongs in the front end
+--              (label the header, or let the user switch) rather than here - see MBA-940.
+--
+--              @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided
+--              not to build.
 -- JiraLink:    MBA-612
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerProfile]
-    @LoggedInUserEmail NVARCHAR(50),
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
 
     DECLARE @CustomerId INT = NULL;
 
-    -- Primary resolution: portal contact login
-        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP 1 @CustomerId = cc.CustomerId
-        FROM dbo.CustomerContacts AS cc
-        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
-        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
+    /* MBA-939: primary = most devices, lowest contact id to break a tie. */
+    SELECT @CustomerId = CustomerId
+    FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail)
+    WHERE IsPrimary = 1;
 
     -- Fallback: user account login (support / staff mapped to a customer)
     IF @CustomerId IS NULL
@@ -1466,6 +1463,10 @@ BEGIN
         -- comes from GetCustomerSites.
         ,(SELECT COUNT(*) FROM dbo.CustomerSites AS s
           WHERE s.CustomerId = c.CustomerId AND s.IsDeleted = 0)   AS SubSitesCount
+        -- MBA-939: how many company records this caller covers in total. 1 for almost everyone;
+        -- above 1 tells the front end the header names only one of several.
+        ,(SELECT COUNT(*) FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail))
+                                                                   AS RelatedCompaniesCount
     FROM dbo.Customers AS c
     WHERE c.CustomerId = @CustomerId
       AND c.IsDeleted = 0;
@@ -1518,85 +1519,39 @@ END
 GO
 /* ===== dbo.GetCustomerRequests ===== */
 GO
--- =============================================
--- Proc:        dbo.GetCustomerRequests
--- Jira:        MBA-858 (Customer Support — customer-inquiry / requests list + action modals)
--- Description: Read SP that backs the customer-portal "requests / inquiries" list shown in the
---              Customer Support area (FE: components/customers/QuotesDialog.tsx, mock MOCK_QUOTES,
---              row shape TQuoteRow in components/customers/constants/quotes-dialog.ts). Returns one
---              row per calibration order (OrderWorkPlan) belonging to the logged-in customer — an
---              order IS the "request/quote" the customer submitted and that the 4 action modals
---              (cancel calibration / devices deleted / order for shipping / reject request) act on.
---
---              Identity + scoping follow the other customer-portal SPs
---              (@LoggedInUserEmail -> CustomerId via dbo.CustomerContacts), consistent with
---              dbo.GetCustomerDashboardData / dbo.GetCustomerDeviceList. Filtering / sorting are
---              done client-side (TanStack table), so the full clean set is returned, no paging.
---
--- Output columns (camelCase, exactly matching FE TQuoteRow):
---   status, quoteNumber, deviceCount, expectedCalibrationDate, calibrationLocation, price, note
---     * status                 -> FE quoteStatuses code. Sourced from the OrderStatus category
---                                 (StatusesCategories.StatusCategoryId = 9) via
---                                 COALESCE(wp.OrderStatusId, wp.OrderOverallStatusId). The 4 codes
---                                 the FE combobox styles are mapped explicitly; any other status
---                                 falls back to a lower-camel of StatusDescriptionENG (same pattern
---                                 as GetCustomerDeviceList).
---                                   66 Sent                -> 'sent'
---                                   72 Rejected            -> 'rejected'
---                                   73 AwaitingConfirmation -> 'waitingForCustomer'
---                                   76 WaitingForCalibration-> 'waitingForCalibration'
---     * quoteNumber            -> wp.OrderNumber.
---     * deviceCount            -> COUNT of non-deleted OrderDetailsItems in the order.
---     * expectedCalibrationDate-> DD.MM.YYYY (CONVERT 104) — MIN(OrderDetailsItems.NextCalibrationDate).
---     * calibrationLocation    -> 'lab' if any order line IsInHouse=1, else 'customer' (NULL if no lines).
---     * price                  -> SUM(OrderDetails.PRICE) net, DECIMAL(18,2) (NULL if none).
---     * note                   -> wp.Notes (fallback wp.CustomerComment).
---
--- NOTE for review (Ariel / Dako) — best-guess mappings, please confirm:
---   * status: STAGE has wp.OrderStatusId 100% NULL and wp.OrderOverallStatusId = 76 for every
---     order, so every row currently returns 'waitingForCalibration'. The id->FE-code map above is
---     the assumed lifecycle; confirm which OrderStatus ids represent sent / rejected / waiting-for-
---     customer once real status data flows in.
---   * expectedCalibrationDate: no dedicated column exists — using earliest item NextCalibrationDate.
---     Alt candidates: wp.WorkPlanOpenDate, OrderDetails.ActualCalibrationDate.
---   * price: net (PRICE). Alt: VPRICE (VAT-inclusive), as used by dbo.GetCustomerInvoicesQuotes.
---   Write actions (cancel calibration / devices deleted / order for shipping / reject request) are
---   OUT OF SCOPE here and tracked as separate follow-ups — see the Jira ticket.
--- =============================================
+/*
+    dbo.GetCustomerRequests
+    ---------------------------------------------------------------------------------------------
+    The customer's orders as the portal shows them ("בקשות"): one row per OrderWorkPlan, with the
+    device count, the earliest next-calibration date, whether any line is in-house, and the net
+    price.
+
+    2026-08-31 - MBA-939: scoped to the caller's customer SET rather than a single customer.
+
+    An e-mail address is a contact of several customers in 3,684 cases, and orders are filed
+    against whichever company owns the devices. Resolving to the lowest CustomerContactId showed
+    davide@iscar.co.il the orders of ישקר בע"מ - none - while his real orders sat under three other
+    ישקר divisions.
+
+    The set comes from dbo.GetPortalCustomerIds, which is derived from the caller's own contact
+    rows and takes nothing from the request, so no order of another customer can be reached.
+
+    @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided not to build.
+
+    NEW COLUMN: customerName - which company each order belongs to. Front end: MBA-940.
+*/
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerRequests]
-    @LoggedInUserEmail NVARCHAR(50),
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
-
-    DECLARE @CustomerId INT = NULL;
-
-        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP (1) @CustomerId = cc.CustomerId
-        FROM [dbo].[CustomerContacts] AS cc
-        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
-        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
 
     ;WITH req AS
     (
         SELECT
              wp.OrderWorkPlanId
             ,wp.OrderNumber
+            ,mine.CustomerName
             ,COALESCE(wp.OrderStatusId, wp.OrderOverallStatusId)      AS StatusId
             ,COALESCE(NULLIF(LTRIM(RTRIM(wp.Notes)), N''),
                       NULLIF(LTRIM(RTRIM(wp.CustomerComment)), N''))   AS Note
@@ -1632,9 +1587,9 @@ BEGIN
                   AND ISNULL(od5.IsDeleted, 0)  = 0
                   AND ISNULL(od5.IsCancelled,0) = 0
              )                                                         AS NetPrice
-        FROM [dbo].[OrderWorkPlans] AS wp
-        WHERE wp.CustomerId  = @CustomerId
-          AND wp.IsCancelled = 0
+        FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail) AS mine
+        JOIN [dbo].[OrderWorkPlans] AS wp ON wp.CustomerId = mine.CustomerId
+        WHERE wp.IsCancelled = 0
     )
     SELECT
          CASE r.StatusId
@@ -1659,6 +1614,7 @@ BEGIN
          END                                                          AS calibrationLocation
         ,CAST(r.NetPrice AS DECIMAL(18,2))                            AS price
         ,r.Note                                                       AS note
+        ,r.CustomerName                                               AS customerName
     FROM req AS r
     LEFT JOIN [dbo].[Statuses] AS st
            ON st.StatusId = r.StatusId
@@ -1973,7 +1929,7 @@ GO
 -- Create date: 03/04/2025
 -- Description:	Get work plan data
 -- =============================================
-CREATE   PROCEDURE [dbo].[GetWorkPlanData]
+CREATE OR ALTER PROCEDURE [dbo].[GetWorkPlanData]
     @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
     @RowsOfPage AS INT = 50,                 -- Result page size
     @OrderBy AS NVARCHAR(MAX) = 'OrderWorkPlanId',      -- OrderBy column

@@ -129,11 +129,50 @@ def verify(cur, tranche):
     return good
 
 
+PLAIN_CREATE = re.compile(
+    r"^[ \t]*CREATE[ \t]+(?!OR[ \t]+ALTER)(PROCEDURE|PROC|FUNCTION|VIEW)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def inspect(path, bs):
+    """Refuse a file that would fail halfway through, rather than finding out on PROD.
+
+    Two faults cost three failed runs before this existed. A plain CREATE on an object PROD
+    already has stops with "There is already an object named X" - it happened to GetWorkPlanData,
+    whose comment header mentions CREATE OR ALTER in prose, so a naive rewrite of the first match
+    in the text changed the sentence and left the statement alone. And a procedure that reads a
+    column from a table-valued function has to come after it, or it fails on Invalid column name.
+    """
+    problems = []
+    for i, b in enumerate(bs, 1):
+        m = PLAIN_CREATE.search(b)
+        if m:
+            problems.append(f"batch {i} uses a plain {m.group(1).upper()}, which cannot re-apply")
+
+    order = [i for i, b in enumerate(bs)
+             if re.search(r"(?im)^[ \t]*CREATE OR ALTER[ \t]+(FUNCTION|PROCEDURE)", b)]
+    first_proc = next((i for i in order
+                       if re.search(r"(?im)^[ \t]*CREATE OR ALTER[ \t]+PROCEDURE", bs[i])), None)
+    last_func = max((i for i in order
+                     if re.search(r"(?im)^[ \t]*CREATE OR ALTER[ \t]+FUNCTION", bs[i])), default=None)
+    if first_proc is not None and last_func is not None and last_func > first_proc:
+        problems.append("a function is created after a procedure; functions must come first")
+    return problems
+
+
 def run(cur, code, filename, note, dry):
     path = os.path.join(HERE, filename)
     bs = batches(path)
     print(f"\n=== tranche {code} - {note}")
     print(f"    {filename}, {len(bs)} batches")
+
+    problems = inspect(path, bs)
+    if problems:
+        print("    refusing to run - the file itself is wrong:")
+        for p in problems:
+            print(f"      {p}")
+        return False
     if dry:
         return True
     failed = 0
