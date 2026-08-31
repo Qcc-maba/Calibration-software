@@ -14,6 +14,306 @@
 SET NOCOUNT ON;
 GO
 
+/* ===== dbo.fnMasterValueAfterCorrection ===== */
+GO
+
+CREATE OR ALTER FUNCTION dbo.fnMasterValueAfterCorrection
+(
+    @MeasurementDevicesId INT,
+    @Reading              DECIMAL(18,6),
+    @MeasurementId        INT = NULL
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    WITH Ranked AS
+    (
+        SELECT c.MeasurementId, c.Value1, c.Value2, c.Deviation,
+               Rnk = RANK() OVER (ORDER BY c.CorVersion DESC)
+        FROM dbo.MeasurementDevicesCorrections AS c
+        WHERE c.MeasurementDevicesId = @MeasurementDevicesId
+          AND ISNULL(c.IsDeleted, 0) = 0
+          AND c.Deviation IS NOT NULL
+          AND @Reading IS NOT NULL
+    ),
+    Newest AS (SELECT MeasurementId, Value1, Value2, Deviation FROM Ranked WHERE Rnk = 1),
+    Chosen AS
+    (
+        SELECT TOP (1) MeasurementId FROM Newest
+        WHERE @MeasurementId IS NULL OR MeasurementId = @MeasurementId
+        GROUP BY MeasurementId ORDER BY COUNT(*) DESC, MeasurementId
+    ),
+    Pts    AS (SELECT n.Value1, n.Value2, n.Deviation FROM Newest AS n JOIN Chosen AS c ON c.MeasurementId = n.MeasurementId),
+    /* Two different upper edges, and confusing them is what made 31-77 look truncated.
+       LastPoint is the highest calibrated point - interpolation cannot go past it, so that is
+       where the deviation starts being clamped, exactly as the C# does.
+       CertTop is the end of the last RANGE, which is how far the certificate actually covers.
+       31-77: last point 349.98, certificate top 399.923. A reading of 380 is inside the
+       certificate and must not be reported as beyond it. */
+    Bounds AS (SELECT LoEdge  = MIN(Value1),
+                      HiEdge  = MAX(Value1),
+                      CertTop = MAX(COALESCE(Value2, Value1)) FROM Pts),
+    Below  AS (SELECT TOP (1) Value1, Deviation FROM Pts WHERE Value1 <= @Reading ORDER BY Value1 DESC),
+    Above  AS (SELECT TOP (1) Value1, Deviation FROM Pts WHERE Value1 >  @Reading ORDER BY Value1 ASC),
+    Edge   AS (SELECT LoDev = (SELECT TOP (1) Deviation FROM Pts ORDER BY Value1 ASC),
+                      HiDev = (SELECT TOP (1) Deviation FROM Pts ORDER BY Value1 DESC)),
+    /* how many decimals the reading itself carries, once trailing zeros are dropped */
+    Scale AS
+    (
+        SELECT Decimals = CASE WHEN CHARINDEX('.', t.txt) = 0 THEN 0
+                               ELSE LEN(t.txt) - CHARINDEX('.', t.txt) END
+        FROM (SELECT s1 = CAST(@Reading AS NVARCHAR(40))) AS a
+        CROSS APPLY (SELECT txt = CASE WHEN CHARINDEX('.', a.s1) = 0 THEN a.s1
+                                       ELSE LEFT(a.s1, LEN(REPLACE(RTRIM(REPLACE(a.s1,'0',' ')),' ','0'))) END) AS b
+        CROSS APPLY (SELECT txt = CASE WHEN RIGHT(b.txt,1) = '.' THEN LEFT(b.txt, LEN(b.txt)-1) ELSE b.txt END) AS t
+    ),
+    Dev AS
+    (
+        SELECT Deviation =
+            CASE
+                WHEN b.LoEdge IS NULL     THEN NULL
+                WHEN @Reading <  b.LoEdge THEN e.LoDev
+                WHEN @Reading >= b.HiEdge THEN e.HiDev
+                WHEN a.Value1  IS NULL    THEN lo.Deviation
+                WHEN lo.Value1 = @Reading THEN lo.Deviation
+                ELSE lo.Deviation
+                     + ((a.Deviation - lo.Deviation) / NULLIF(a.Value1 - lo.Value1, 0))
+                       * (@Reading - lo.Value1)
+            END,
+            UsedMeasurementId = (SELECT MeasurementId FROM Chosen),
+            OutOfRange = CASE WHEN b.LoEdge IS NULL     THEN NULL
+                              WHEN @Reading < b.LoEdge  THEN CAST(1 AS BIT)
+                              WHEN @Reading > b.CertTop THEN CAST(1 AS BIT)
+                              ELSE CAST(0 AS BIT) END,
+            /* the deviation stopped following the curve and is being held flat */
+            Extrapolated = CASE WHEN b.LoEdge IS NULL    THEN NULL
+                                WHEN @Reading < b.LoEdge THEN CAST(1 AS BIT)
+                                WHEN @Reading > b.HiEdge THEN CAST(1 AS BIT)
+                                ELSE CAST(0 AS BIT) END,
+            CertificateTop = b.CertTop,
+            LastCalibratedPoint = b.HiEdge
+        FROM Bounds AS b
+        CROSS JOIN Edge AS e
+        LEFT JOIN Below AS lo ON 1 = 1
+        LEFT JOIN Above AS a  ON 1 = 1
+    )
+    SELECT Deviation = CAST(d.Deviation AS DECIMAL(18,6)),
+           /* full precision - use this for anything that is stored or calculated on */
+           CorrectedExact = CAST(@Reading - d.Deviation AS DECIMAL(18,6)),
+           /* for the screen: as many decimals as the reading itself carries */
+           /* At least 3 decimals, however few the reading carried. Rounding purely to the
+              reading's own precision erased the correction: a reading of 23 has deviation
+              -0.001792 and came back as 23, so the calibrator saw nothing happen. Three is
+              enough to show every deviation in the data - they run from about 0.001 to 2 -
+              without printing six digits the measurement cannot justify. */
+           Corrected      = CAST(ROUND(@Reading - d.Deviation,
+                                       CASE WHEN s.Decimals < 3 THEN 3 ELSE s.Decimals END)
+                                 AS DECIMAL(18,6)),
+           ReadingDecimals = s.Decimals,
+           d.OutOfRange,
+           d.Extrapolated,
+           d.CertificateTop,
+           d.LastCalibratedPoint,
+           d.UsedMeasurementId
+    FROM Dev AS d CROSS JOIN Scale AS s
+);
+
+GO
+/* ===== dbo.fnStripHtml ===== */
+GO
+-- =============================================
+-- Func:        dbo.fnStripHtml
+-- Jira:        MBA-792 / MBA-806
+-- Description: Turns the CRM's Word-exported HTML into readable single-line plain text, so a
+--              coordinator sees "כיול מבוצע ע\"י לרית / לרית צריכים להגיע עם 1000 ק\"ג" in a table
+--              cell instead of "<P dir=rtl><SPAN lang=HE style='FONT-SIZE...".
+--
+-- Deliberately used at CACHE-FILL time (dbo.RefreshCrmTextCache), not inside a list query: this is
+-- a scalar UDF with a WHILE loop, so it is fine over ~1,000 rows once and a bad idea per request.
+--
+-- Order matters: the <style> block goes first (it is CSS, not content), then block-level tags
+-- become separators so two sentences do not weld into one, then all remaining tags are stripped,
+-- then entities are decoded, then whitespace is collapsed.
+-- =============================================
+CREATE OR ALTER FUNCTION dbo.fnStripHtml (@html NVARCHAR(MAX))
+RETURNS NVARCHAR(MAX)
+WITH SCHEMABINDING
+AS
+BEGIN
+    IF @html IS NULL RETURN NULL;
+
+    DECLARE @s NVARCHAR(MAX) = @html;
+    DECLARE @i INT, @j INT;
+
+    -- 1. drop the CSS block entirely
+    SET @i = CHARINDEX('<style', @s);
+    WHILE @i > 0
+    BEGIN
+        SET @j = CHARINDEX('</style>', @s, @i);
+        IF @j = 0 BREAK;
+        SET @s = STUFF(@s, @i, @j + 8 - @i, N'');
+        SET @i = CHARINDEX('<style', @s);
+    END
+
+    -- 2. block-level tags become separators, so lines stay distinguishable
+    SET @s = REPLACE(@s, N'<BR>',  N' | ');
+    SET @s = REPLACE(@s, N'<br>',  N' | ');
+    SET @s = REPLACE(@s, N'<BR/>', N' | ');
+    SET @s = REPLACE(@s, N'</P>',  N' | ');
+    SET @s = REPLACE(@s, N'</p>',  N' | ');
+    SET @s = REPLACE(@s, N'</DIV>', N' | ');
+    SET @s = REPLACE(@s, N'</div>', N' | ');
+    SET @s = REPLACE(@s, N'</LI>', N' | ');
+    SET @s = REPLACE(@s, N'</TR>', N' | ');
+    SET @s = REPLACE(@s, N'</tr>', N' | ');
+    -- MBA-902: most of this text is a two-column instructions table, so a cell boundary is a real
+    -- separator. Without these, "סוג לקוח:" ran straight into its value and the popup read as one
+    -- unbroken wall of words.
+    SET @s = REPLACE(@s, N'</TD>', N' | ');
+    SET @s = REPLACE(@s, N'</td>', N' | ');
+    SET @s = REPLACE(@s, N'</TABLE>', N' | ');
+    SET @s = REPLACE(@s, N'</table>', N' | ');
+    SET @s = REPLACE(@s, N'</UL>', N' | ');
+    SET @s = REPLACE(@s, N'</ul>', N' | ');
+    SET @s = REPLACE(@s, N'</li>', N' | ');
+
+    -- 3. strip every remaining tag, leaving a SPACE behind rather than nothing.
+    --    Priority breaks its text mid-sentence across TEXTLINE rows, and the reconstruction joins
+    --    them with no delimiter, so removing a tag outright welds words together
+    --    ("חייב להיות עד27/08/26"). The space is collapsed again in step 5.
+    SET @i = CHARINDEX('<', @s);
+    WHILE @i > 0
+    BEGIN
+        SET @j = CHARINDEX('>', @s, @i);
+        IF @j = 0 BREAK;                      -- a stray '<' with no closing '>' — leave it alone
+        SET @s = STUFF(@s, @i, @j - @i + 1, N' ');
+        SET @i = CHARINDEX('<', @s);
+    END
+
+    -- 4. entities
+    SET @s = REPLACE(@s, N'&nbsp;', N' ');
+    SET @s = REPLACE(@s, N'&amp;',  N'&');
+    SET @s = REPLACE(@s, N'&quot;', N'"');
+    SET @s = REPLACE(@s, N'&#39;',  N'''');
+    SET @s = REPLACE(@s, N'&lt;',   N'<');
+    SET @s = REPLACE(@s, N'&gt;',   N'>');
+
+    -- 5. collapse whitespace and tidy the separators
+    SET @s = REPLACE(REPLACE(REPLACE(@s, CHAR(13), N' '), CHAR(10), N' '), CHAR(9), N' ');
+    WHILE CHARINDEX(N'  ', @s) > 0 SET @s = REPLACE(@s, N'  ', N' ');
+    WHILE CHARINDEX(N'| |', @s) > 0 SET @s = REPLACE(@s, N'| |', N'|');
+    SET @s = LTRIM(RTRIM(@s));
+    WHILE LEN(@s) > 0 AND RIGHT(@s, 1) IN (N'|', N' ') SET @s = LTRIM(RTRIM(LEFT(@s, LEN(@s) - 1)));
+    WHILE LEN(@s) > 0 AND LEFT(@s, 1) IN (N'|', N' ') SET @s = LTRIM(RTRIM(RIGHT(@s, LEN(@s) - 1)));
+
+    RETURN NULLIF(@s, N'');
+END
+
+GO
+/* ===== dbo.fnUnreverseVisualText ===== */
+GO
+/*
+    dbo.fnUnreverseVisualText
+    ---------------------------------------------------------------------------------------------
+    Priority stores text in VISUAL order. The Hebrew reads correctly, but every run of digits or
+    Latin inside it is reversed: a 150 mm caliper is stored "׳–׳—׳•׳ ׳׳׳§׳˜׳¨׳•׳ ׳™ ׳¢׳“ 051", and a 100 kg
+    scale as "׳׳׳–׳ ׳™׳™׳ ׳¢׳“ 001 ׳§'׳’".
+
+    This walks the string and reverses each non-Hebrew run in place, leaving the Hebrew alone.
+    Brackets come out right on their own - ")3-1M(" reverses to "(M1-3)" - so they are NOT mirrored
+    separately; doing both would flip them back.
+
+    TRAILING SENTENCE PUNCTUATION IS NOT PART OF THE RUN                        (fixed 31/08/2026)
+    ------------------------------------------------------------------------------------------
+    Priority reverses only the strong LTR characters and leaves a neutral like ':' where it is.
+    Verified by code point, not by looking at a terminal - a terminal re-orders bidi text and will
+    lie to you about what is stored. The subject "RE: ׳”׳¦׳¢׳× ׳׳—׳™׳¨ A26004904" is stored as:
+
+        E(69) R(82) :(58) space  ׳” ׳¦ ׳¢ ׳×  space  ׳ ׳— ׳™ ׳¨  space  4 0 9 4 0 0 6 2 A
+
+    so the letters are reversed, "RE" -> "ER", while the colon stays at the end. Reversing the
+    whole run produced ":RE". The run is now split: a tail of :;!? is peeled off, the core is
+    reversed, and the tail is put back unchanged.
+
+    THREE characters are deliberately NOT in that set, each for its own reason:
+
+      '.' and ','  are numeric separators here far more often than sentence punctuation. 24 device
+                   descriptions store a leading decimal fraction such as ".0005" as "'5000." -
+                   the period has to travel with the reversal to land back in front. Peeling it
+                   produced "0005'." Measured on STAGE before shipping; this is why the set is
+                   narrow.
+
+      brackets     a mirrored pair has to travel with the reversal. Reversing ")3-1M(" is what
+                   turns it back into "(M1-3)"; peeling would break what already worked.
+
+    A ':' inside a run - a time like "10:30" - is untouched, because only a TRAILING run of these
+    characters is peeled.
+
+    AMBIGUOUS RUNS ARE LEFT ALONE. Priority does not place the neutral consistently: "RE:" is
+    stored "ER:" with the colon last, but "FW:" is stored ":WF" with it first, because the bidi
+    algorithm resolves a neutral from whatever surrounds it. When a run carries one of these
+    characters at BOTH ends - ":dwF:" from a forwarded chain - there is no way to tell which end
+    is the sentence punctuation, so nothing is peeled and the previous whole-run reversal stands.
+    Better an unchanged oddity than a confidently wrong repair.
+
+    What it cannot recover, and callers must not assume it does:
+      - the case of Latin letters. "MN 622-0" becomes "NM 0-226"; the instrument is 0-226 Nm.
+      - the order of several runs separated by Hebrew or spaces.
+    dbo.CrmDeviceDescription.NeedsReview marks both cases.
+*/
+CREATE OR ALTER FUNCTION dbo.fnUnreverseVisualText(@s NVARCHAR(400))
+RETURNS NVARCHAR(400)
+AS
+BEGIN
+    IF @s IS NULL RETURN NULL;
+
+    DECLARE @out  NVARCHAR(400) = N'',
+            @run  NVARCHAR(400) = N'',
+            @tail NVARCHAR(400) = N'',
+            @i    INT = 1,
+            @n    INT = LEN(@s),
+            @c    NCHAR(1);
+
+    /* Neutrals that trail an LTR run in logical order and are left in place by Priority.
+       Deliberately excludes '.' ',' and brackets - see the header. */
+    DECLARE @trailing NVARCHAR(10) = N':;!?';
+
+    WHILE @i <= @n
+    BEGIN
+        SET @c = SUBSTRING(@s, @i, 1);
+        IF (UNICODE(@c) BETWEEN 1424 AND 1535) OR @c = N' '   -- 0x0590..0x05FF is Hebrew
+        BEGIN
+            SET @tail = N'';
+            /* Only peel when the run does not ALSO start with one of these - see the header. */
+            IF LEN(@run) > 0 AND CHARINDEX(LEFT(@run, 1), @trailing) = 0
+                WHILE LEN(@run) > 0 AND CHARINDEX(RIGHT(@run, 1), @trailing) > 0
+                BEGIN
+                    SET @tail = RIGHT(@run, 1) + @tail;
+                    SET @run  = LEFT(@run, LEN(@run) - 1);
+                END
+
+            SET @out = @out + REVERSE(@run) + @tail + @c;
+            SET @run = N'';
+        END
+        ELSE
+            SET @run = @run + @c;
+        SET @i += 1;
+    END
+
+    /* Same peel for a run that ends the string. */
+    SET @tail = N'';
+    IF LEN(@run) > 0 AND CHARINDEX(LEFT(@run, 1), @trailing) = 0
+        WHILE LEN(@run) > 0 AND CHARINDEX(RIGHT(@run, 1), @trailing) > 0
+        BEGIN
+            SET @tail = RIGHT(@run, 1) + @tail;
+            SET @run  = LEFT(@run, LEN(@run) - 1);
+        END
+
+    RETURN @out + REVERSE(@run) + @tail;
+END
+
+GO
 /* ===== dbo.AssignCalibrationEnvironmentalConditions ===== */
 GO
 -- =============================================
@@ -2464,306 +2764,6 @@ BEGIN
     INSERT INTO dbo.CrmOrderInstructions(ORD, OrderInstructionsZ)
     SELECT w.ORD, NULL FROM #WantedOrd AS w
     WHERE NOT EXISTS (SELECT 1 FROM dbo.CrmOrderInstructions c WHERE c.ORD = w.ORD);
-END
-
-GO
-/* ===== dbo.fnMasterValueAfterCorrection ===== */
-GO
-
-CREATE OR ALTER FUNCTION dbo.fnMasterValueAfterCorrection
-(
-    @MeasurementDevicesId INT,
-    @Reading              DECIMAL(18,6),
-    @MeasurementId        INT = NULL
-)
-RETURNS TABLE
-AS
-RETURN
-(
-    WITH Ranked AS
-    (
-        SELECT c.MeasurementId, c.Value1, c.Value2, c.Deviation,
-               Rnk = RANK() OVER (ORDER BY c.CorVersion DESC)
-        FROM dbo.MeasurementDevicesCorrections AS c
-        WHERE c.MeasurementDevicesId = @MeasurementDevicesId
-          AND ISNULL(c.IsDeleted, 0) = 0
-          AND c.Deviation IS NOT NULL
-          AND @Reading IS NOT NULL
-    ),
-    Newest AS (SELECT MeasurementId, Value1, Value2, Deviation FROM Ranked WHERE Rnk = 1),
-    Chosen AS
-    (
-        SELECT TOP (1) MeasurementId FROM Newest
-        WHERE @MeasurementId IS NULL OR MeasurementId = @MeasurementId
-        GROUP BY MeasurementId ORDER BY COUNT(*) DESC, MeasurementId
-    ),
-    Pts    AS (SELECT n.Value1, n.Value2, n.Deviation FROM Newest AS n JOIN Chosen AS c ON c.MeasurementId = n.MeasurementId),
-    /* Two different upper edges, and confusing them is what made 31-77 look truncated.
-       LastPoint is the highest calibrated point - interpolation cannot go past it, so that is
-       where the deviation starts being clamped, exactly as the C# does.
-       CertTop is the end of the last RANGE, which is how far the certificate actually covers.
-       31-77: last point 349.98, certificate top 399.923. A reading of 380 is inside the
-       certificate and must not be reported as beyond it. */
-    Bounds AS (SELECT LoEdge  = MIN(Value1),
-                      HiEdge  = MAX(Value1),
-                      CertTop = MAX(COALESCE(Value2, Value1)) FROM Pts),
-    Below  AS (SELECT TOP (1) Value1, Deviation FROM Pts WHERE Value1 <= @Reading ORDER BY Value1 DESC),
-    Above  AS (SELECT TOP (1) Value1, Deviation FROM Pts WHERE Value1 >  @Reading ORDER BY Value1 ASC),
-    Edge   AS (SELECT LoDev = (SELECT TOP (1) Deviation FROM Pts ORDER BY Value1 ASC),
-                      HiDev = (SELECT TOP (1) Deviation FROM Pts ORDER BY Value1 DESC)),
-    /* how many decimals the reading itself carries, once trailing zeros are dropped */
-    Scale AS
-    (
-        SELECT Decimals = CASE WHEN CHARINDEX('.', t.txt) = 0 THEN 0
-                               ELSE LEN(t.txt) - CHARINDEX('.', t.txt) END
-        FROM (SELECT s1 = CAST(@Reading AS NVARCHAR(40))) AS a
-        CROSS APPLY (SELECT txt = CASE WHEN CHARINDEX('.', a.s1) = 0 THEN a.s1
-                                       ELSE LEFT(a.s1, LEN(REPLACE(RTRIM(REPLACE(a.s1,'0',' ')),' ','0'))) END) AS b
-        CROSS APPLY (SELECT txt = CASE WHEN RIGHT(b.txt,1) = '.' THEN LEFT(b.txt, LEN(b.txt)-1) ELSE b.txt END) AS t
-    ),
-    Dev AS
-    (
-        SELECT Deviation =
-            CASE
-                WHEN b.LoEdge IS NULL     THEN NULL
-                WHEN @Reading <  b.LoEdge THEN e.LoDev
-                WHEN @Reading >= b.HiEdge THEN e.HiDev
-                WHEN a.Value1  IS NULL    THEN lo.Deviation
-                WHEN lo.Value1 = @Reading THEN lo.Deviation
-                ELSE lo.Deviation
-                     + ((a.Deviation - lo.Deviation) / NULLIF(a.Value1 - lo.Value1, 0))
-                       * (@Reading - lo.Value1)
-            END,
-            UsedMeasurementId = (SELECT MeasurementId FROM Chosen),
-            OutOfRange = CASE WHEN b.LoEdge IS NULL     THEN NULL
-                              WHEN @Reading < b.LoEdge  THEN CAST(1 AS BIT)
-                              WHEN @Reading > b.CertTop THEN CAST(1 AS BIT)
-                              ELSE CAST(0 AS BIT) END,
-            /* the deviation stopped following the curve and is being held flat */
-            Extrapolated = CASE WHEN b.LoEdge IS NULL    THEN NULL
-                                WHEN @Reading < b.LoEdge THEN CAST(1 AS BIT)
-                                WHEN @Reading > b.HiEdge THEN CAST(1 AS BIT)
-                                ELSE CAST(0 AS BIT) END,
-            CertificateTop = b.CertTop,
-            LastCalibratedPoint = b.HiEdge
-        FROM Bounds AS b
-        CROSS JOIN Edge AS e
-        LEFT JOIN Below AS lo ON 1 = 1
-        LEFT JOIN Above AS a  ON 1 = 1
-    )
-    SELECT Deviation = CAST(d.Deviation AS DECIMAL(18,6)),
-           /* full precision - use this for anything that is stored or calculated on */
-           CorrectedExact = CAST(@Reading - d.Deviation AS DECIMAL(18,6)),
-           /* for the screen: as many decimals as the reading itself carries */
-           /* At least 3 decimals, however few the reading carried. Rounding purely to the
-              reading's own precision erased the correction: a reading of 23 has deviation
-              -0.001792 and came back as 23, so the calibrator saw nothing happen. Three is
-              enough to show every deviation in the data - they run from about 0.001 to 2 -
-              without printing six digits the measurement cannot justify. */
-           Corrected      = CAST(ROUND(@Reading - d.Deviation,
-                                       CASE WHEN s.Decimals < 3 THEN 3 ELSE s.Decimals END)
-                                 AS DECIMAL(18,6)),
-           ReadingDecimals = s.Decimals,
-           d.OutOfRange,
-           d.Extrapolated,
-           d.CertificateTop,
-           d.LastCalibratedPoint,
-           d.UsedMeasurementId
-    FROM Dev AS d CROSS JOIN Scale AS s
-);
-
-GO
-/* ===== dbo.fnStripHtml ===== */
-GO
--- =============================================
--- Func:        dbo.fnStripHtml
--- Jira:        MBA-792 / MBA-806
--- Description: Turns the CRM's Word-exported HTML into readable single-line plain text, so a
---              coordinator sees "כיול מבוצע ע\"י לרית / לרית צריכים להגיע עם 1000 ק\"ג" in a table
---              cell instead of "<P dir=rtl><SPAN lang=HE style='FONT-SIZE...".
---
--- Deliberately used at CACHE-FILL time (dbo.RefreshCrmTextCache), not inside a list query: this is
--- a scalar UDF with a WHILE loop, so it is fine over ~1,000 rows once and a bad idea per request.
---
--- Order matters: the <style> block goes first (it is CSS, not content), then block-level tags
--- become separators so two sentences do not weld into one, then all remaining tags are stripped,
--- then entities are decoded, then whitespace is collapsed.
--- =============================================
-CREATE OR ALTER FUNCTION dbo.fnStripHtml (@html NVARCHAR(MAX))
-RETURNS NVARCHAR(MAX)
-WITH SCHEMABINDING
-AS
-BEGIN
-    IF @html IS NULL RETURN NULL;
-
-    DECLARE @s NVARCHAR(MAX) = @html;
-    DECLARE @i INT, @j INT;
-
-    -- 1. drop the CSS block entirely
-    SET @i = CHARINDEX('<style', @s);
-    WHILE @i > 0
-    BEGIN
-        SET @j = CHARINDEX('</style>', @s, @i);
-        IF @j = 0 BREAK;
-        SET @s = STUFF(@s, @i, @j + 8 - @i, N'');
-        SET @i = CHARINDEX('<style', @s);
-    END
-
-    -- 2. block-level tags become separators, so lines stay distinguishable
-    SET @s = REPLACE(@s, N'<BR>',  N' | ');
-    SET @s = REPLACE(@s, N'<br>',  N' | ');
-    SET @s = REPLACE(@s, N'<BR/>', N' | ');
-    SET @s = REPLACE(@s, N'</P>',  N' | ');
-    SET @s = REPLACE(@s, N'</p>',  N' | ');
-    SET @s = REPLACE(@s, N'</DIV>', N' | ');
-    SET @s = REPLACE(@s, N'</div>', N' | ');
-    SET @s = REPLACE(@s, N'</LI>', N' | ');
-    SET @s = REPLACE(@s, N'</TR>', N' | ');
-    SET @s = REPLACE(@s, N'</tr>', N' | ');
-    -- MBA-902: most of this text is a two-column instructions table, so a cell boundary is a real
-    -- separator. Without these, "סוג לקוח:" ran straight into its value and the popup read as one
-    -- unbroken wall of words.
-    SET @s = REPLACE(@s, N'</TD>', N' | ');
-    SET @s = REPLACE(@s, N'</td>', N' | ');
-    SET @s = REPLACE(@s, N'</TABLE>', N' | ');
-    SET @s = REPLACE(@s, N'</table>', N' | ');
-    SET @s = REPLACE(@s, N'</UL>', N' | ');
-    SET @s = REPLACE(@s, N'</ul>', N' | ');
-    SET @s = REPLACE(@s, N'</li>', N' | ');
-
-    -- 3. strip every remaining tag, leaving a SPACE behind rather than nothing.
-    --    Priority breaks its text mid-sentence across TEXTLINE rows, and the reconstruction joins
-    --    them with no delimiter, so removing a tag outright welds words together
-    --    ("חייב להיות עד27/08/26"). The space is collapsed again in step 5.
-    SET @i = CHARINDEX('<', @s);
-    WHILE @i > 0
-    BEGIN
-        SET @j = CHARINDEX('>', @s, @i);
-        IF @j = 0 BREAK;                      -- a stray '<' with no closing '>' — leave it alone
-        SET @s = STUFF(@s, @i, @j - @i + 1, N' ');
-        SET @i = CHARINDEX('<', @s);
-    END
-
-    -- 4. entities
-    SET @s = REPLACE(@s, N'&nbsp;', N' ');
-    SET @s = REPLACE(@s, N'&amp;',  N'&');
-    SET @s = REPLACE(@s, N'&quot;', N'"');
-    SET @s = REPLACE(@s, N'&#39;',  N'''');
-    SET @s = REPLACE(@s, N'&lt;',   N'<');
-    SET @s = REPLACE(@s, N'&gt;',   N'>');
-
-    -- 5. collapse whitespace and tidy the separators
-    SET @s = REPLACE(REPLACE(REPLACE(@s, CHAR(13), N' '), CHAR(10), N' '), CHAR(9), N' ');
-    WHILE CHARINDEX(N'  ', @s) > 0 SET @s = REPLACE(@s, N'  ', N' ');
-    WHILE CHARINDEX(N'| |', @s) > 0 SET @s = REPLACE(@s, N'| |', N'|');
-    SET @s = LTRIM(RTRIM(@s));
-    WHILE LEN(@s) > 0 AND RIGHT(@s, 1) IN (N'|', N' ') SET @s = LTRIM(RTRIM(LEFT(@s, LEN(@s) - 1)));
-    WHILE LEN(@s) > 0 AND LEFT(@s, 1) IN (N'|', N' ') SET @s = LTRIM(RTRIM(RIGHT(@s, LEN(@s) - 1)));
-
-    RETURN NULLIF(@s, N'');
-END
-
-GO
-/* ===== dbo.fnUnreverseVisualText ===== */
-GO
-/*
-    dbo.fnUnreverseVisualText
-    ---------------------------------------------------------------------------------------------
-    Priority stores text in VISUAL order. The Hebrew reads correctly, but every run of digits or
-    Latin inside it is reversed: a 150 mm caliper is stored "׳–׳—׳•׳ ׳׳׳§׳˜׳¨׳•׳ ׳™ ׳¢׳“ 051", and a 100 kg
-    scale as "׳׳׳–׳ ׳™׳™׳ ׳¢׳“ 001 ׳§'׳’".
-
-    This walks the string and reverses each non-Hebrew run in place, leaving the Hebrew alone.
-    Brackets come out right on their own - ")3-1M(" reverses to "(M1-3)" - so they are NOT mirrored
-    separately; doing both would flip them back.
-
-    TRAILING SENTENCE PUNCTUATION IS NOT PART OF THE RUN                        (fixed 31/08/2026)
-    ------------------------------------------------------------------------------------------
-    Priority reverses only the strong LTR characters and leaves a neutral like ':' where it is.
-    Verified by code point, not by looking at a terminal - a terminal re-orders bidi text and will
-    lie to you about what is stored. The subject "RE: ׳”׳¦׳¢׳× ׳׳—׳™׳¨ A26004904" is stored as:
-
-        E(69) R(82) :(58) space  ׳” ׳¦ ׳¢ ׳×  space  ׳ ׳— ׳™ ׳¨  space  4 0 9 4 0 0 6 2 A
-
-    so the letters are reversed, "RE" -> "ER", while the colon stays at the end. Reversing the
-    whole run produced ":RE". The run is now split: a tail of :;!? is peeled off, the core is
-    reversed, and the tail is put back unchanged.
-
-    THREE characters are deliberately NOT in that set, each for its own reason:
-
-      '.' and ','  are numeric separators here far more often than sentence punctuation. 24 device
-                   descriptions store a leading decimal fraction such as ".0005" as "'5000." -
-                   the period has to travel with the reversal to land back in front. Peeling it
-                   produced "0005'." Measured on STAGE before shipping; this is why the set is
-                   narrow.
-
-      brackets     a mirrored pair has to travel with the reversal. Reversing ")3-1M(" is what
-                   turns it back into "(M1-3)"; peeling would break what already worked.
-
-    A ':' inside a run - a time like "10:30" - is untouched, because only a TRAILING run of these
-    characters is peeled.
-
-    AMBIGUOUS RUNS ARE LEFT ALONE. Priority does not place the neutral consistently: "RE:" is
-    stored "ER:" with the colon last, but "FW:" is stored ":WF" with it first, because the bidi
-    algorithm resolves a neutral from whatever surrounds it. When a run carries one of these
-    characters at BOTH ends - ":dwF:" from a forwarded chain - there is no way to tell which end
-    is the sentence punctuation, so nothing is peeled and the previous whole-run reversal stands.
-    Better an unchanged oddity than a confidently wrong repair.
-
-    What it cannot recover, and callers must not assume it does:
-      - the case of Latin letters. "MN 622-0" becomes "NM 0-226"; the instrument is 0-226 Nm.
-      - the order of several runs separated by Hebrew or spaces.
-    dbo.CrmDeviceDescription.NeedsReview marks both cases.
-*/
-CREATE OR ALTER FUNCTION dbo.fnUnreverseVisualText(@s NVARCHAR(400))
-RETURNS NVARCHAR(400)
-AS
-BEGIN
-    IF @s IS NULL RETURN NULL;
-
-    DECLARE @out  NVARCHAR(400) = N'',
-            @run  NVARCHAR(400) = N'',
-            @tail NVARCHAR(400) = N'',
-            @i    INT = 1,
-            @n    INT = LEN(@s),
-            @c    NCHAR(1);
-
-    /* Neutrals that trail an LTR run in logical order and are left in place by Priority.
-       Deliberately excludes '.' ',' and brackets - see the header. */
-    DECLARE @trailing NVARCHAR(10) = N':;!?';
-
-    WHILE @i <= @n
-    BEGIN
-        SET @c = SUBSTRING(@s, @i, 1);
-        IF (UNICODE(@c) BETWEEN 1424 AND 1535) OR @c = N' '   -- 0x0590..0x05FF is Hebrew
-        BEGIN
-            SET @tail = N'';
-            /* Only peel when the run does not ALSO start with one of these - see the header. */
-            IF LEN(@run) > 0 AND CHARINDEX(LEFT(@run, 1), @trailing) = 0
-                WHILE LEN(@run) > 0 AND CHARINDEX(RIGHT(@run, 1), @trailing) > 0
-                BEGIN
-                    SET @tail = RIGHT(@run, 1) + @tail;
-                    SET @run  = LEFT(@run, LEN(@run) - 1);
-                END
-
-            SET @out = @out + REVERSE(@run) + @tail + @c;
-            SET @run = N'';
-        END
-        ELSE
-            SET @run = @run + @c;
-        SET @i += 1;
-    END
-
-    /* Same peel for a run that ends the string. */
-    SET @tail = N'';
-    IF LEN(@run) > 0 AND CHARINDEX(LEFT(@run, 1), @trailing) = 0
-        WHILE LEN(@run) > 0 AND CHARINDEX(RIGHT(@run, 1), @trailing) > 0
-        BEGIN
-            SET @tail = RIGHT(@run, 1) + @tail;
-            SET @run  = LEFT(@run, LEN(@run) - 1);
-        END
-
-    RETURN @out + REVERSE(@run) + @tail;
 END
 
 GO

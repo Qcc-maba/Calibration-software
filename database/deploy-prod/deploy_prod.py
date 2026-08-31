@@ -53,6 +53,15 @@ CHECKS = {
             WHERE (t.name='MeasurementDevices' AND c.name IN ('WorkRangeMin2','WorkRangeMax2','WorkRangeUnitId2'))
                OR (t.name='OrderDetailsItems'  AND c.name IN ('Tolerance','Resolution','SpecificationReferenceIds'))
                OR (t.name='Source'             AND c.name='SourceDisplayName')""", 7),
+        # These were added after the first round. The check list did not cover them, so tranche A
+        # reported "ok" while they were missing, and tranche C then failed on Invalid column name
+        # 'IsPrimary'. A verification that only looks at part of a tranche is worse than none.
+        ("6 later columns", """
+            SELECT COUNT(*) FROM sys.columns c JOIN sys.tables t ON t.object_id = c.object_id
+            JOIN sys.schemas s ON s.schema_id = t.schema_id
+            WHERE (t.name='CustomerContacts'     AND c.name IN ('IsPrimary','DoNotMail'))
+               OR (t.name='stg_CustomerContacts' AND c.name IN ('IsPrimary','DoNotMail'))
+               OR (t.name='MeasurementDevices'   AND c.name IN ('AllowMinOutOfRange','AllowMaxOutOfRange'))""", 6),
         ("MasterValue widened to (18,6)", """
             SELECT COUNT(*) FROM sys.columns c
             WHERE c.object_id=OBJECT_ID('dbo.MeasurmentPointsToOrderDetailsItems')
