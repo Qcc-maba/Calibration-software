@@ -1,0 +1,9 @@
+# Local secrets & environment — never commit the Anthropic key or per-machine paths.
+appsettings.Development.json
+appsettings.Local.json
+*.local.json
+.env
+
+# Build output
+bin/
+obj/
