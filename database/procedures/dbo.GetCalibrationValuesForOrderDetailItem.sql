@@ -64,7 +64,15 @@ BEGIN
                    WHEN combined.[MasterValue] < md.WorkRangeMin THEN md.WorkRangeMin - combined.[MasterValue]
                    ELSE 0 END AS DECIMAL(18,6)) as [BeyondSensorRangeBy]
         /* and whether the compensation itself had to extrapolate */
-        ,mvc.OutOfRange as [BeyondCertificateRange]
+        ,mvc.OutOfRange   as [BeyondCertificateRange]
+        ,mvc.Extrapolated as [DeviationExtrapolated]
+        ,mvc.CertificateTop      as [CertificateTop]
+        ,mvc.LastCalibratedPoint as [LastCalibratedPoint]
+        /* MBA-475: whether this instrument is permitted to go out of range at all, from the
+           kyulan registry. 328 instruments permit neither end; for those, any overshoot may
+           deserve the highlight rather than only one past 10. */
+        ,md.AllowMinOutOfRange as [AllowMinOutOfRange]
+        ,md.AllowMaxOutOfRange as [AllowMaxOutOfRange]
         ,combined.MeasuredValue
         ,combined.MeasuredValueUnitId
         ,mdu3.[ShortNameHe] as MeasuredUUTDescription

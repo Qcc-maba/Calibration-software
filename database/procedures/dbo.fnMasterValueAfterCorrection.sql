@@ -52,7 +52,7 @@ RETURN
 (
     WITH Ranked AS
     (
-        SELECT c.MeasurementId, c.Value1, c.Deviation,
+        SELECT c.MeasurementId, c.Value1, c.Value2, c.Deviation,
                Rnk = RANK() OVER (ORDER BY c.CorVersion DESC)
         FROM dbo.MeasurementDevicesCorrections AS c
         WHERE c.MeasurementDevicesId = @MeasurementDevicesId
@@ -60,15 +60,23 @@ RETURN
           AND c.Deviation IS NOT NULL
           AND @Reading IS NOT NULL
     ),
-    Newest AS (SELECT MeasurementId, Value1, Deviation FROM Ranked WHERE Rnk = 1),
+    Newest AS (SELECT MeasurementId, Value1, Value2, Deviation FROM Ranked WHERE Rnk = 1),
     Chosen AS
     (
         SELECT TOP (1) MeasurementId FROM Newest
         WHERE @MeasurementId IS NULL OR MeasurementId = @MeasurementId
         GROUP BY MeasurementId ORDER BY COUNT(*) DESC, MeasurementId
     ),
-    Pts    AS (SELECT n.Value1, n.Deviation FROM Newest AS n JOIN Chosen AS c ON c.MeasurementId = n.MeasurementId),
-    Bounds AS (SELECT LoEdge = MIN(Value1), HiEdge = MAX(Value1) FROM Pts),
+    Pts    AS (SELECT n.Value1, n.Value2, n.Deviation FROM Newest AS n JOIN Chosen AS c ON c.MeasurementId = n.MeasurementId),
+    /* Two different upper edges, and confusing them is what made 31-77 look truncated.
+       LastPoint is the highest calibrated point - interpolation cannot go past it, so that is
+       where the deviation starts being clamped, exactly as the C# does.
+       CertTop is the end of the last RANGE, which is how far the certificate actually covers.
+       31-77: last point 349.98, certificate top 399.923. A reading of 380 is inside the
+       certificate and must not be reported as beyond it. */
+    Bounds AS (SELECT LoEdge  = MIN(Value1),
+                      HiEdge  = MAX(Value1),
+                      CertTop = MAX(COALESCE(Value2, Value1)) FROM Pts),
     Below  AS (SELECT TOP (1) Value1, Deviation FROM Pts WHERE Value1 <= @Reading ORDER BY Value1 DESC),
     Above  AS (SELECT TOP (1) Value1, Deviation FROM Pts WHERE Value1 >  @Reading ORDER BY Value1 ASC),
     Edge   AS (SELECT LoDev = (SELECT TOP (1) Deviation FROM Pts ORDER BY Value1 ASC),
@@ -97,10 +105,17 @@ RETURN
                        * (@Reading - lo.Value1)
             END,
             UsedMeasurementId = (SELECT MeasurementId FROM Chosen),
-            OutOfRange = CASE WHEN b.LoEdge IS NULL          THEN NULL
-                              WHEN @Reading < b.LoEdge       THEN CAST(1 AS BIT)
-                              WHEN @Reading > b.HiEdge       THEN CAST(1 AS BIT)
-                              ELSE CAST(0 AS BIT) END
+            OutOfRange = CASE WHEN b.LoEdge IS NULL     THEN NULL
+                              WHEN @Reading < b.LoEdge  THEN CAST(1 AS BIT)
+                              WHEN @Reading > b.CertTop THEN CAST(1 AS BIT)
+                              ELSE CAST(0 AS BIT) END,
+            /* the deviation stopped following the curve and is being held flat */
+            Extrapolated = CASE WHEN b.LoEdge IS NULL    THEN NULL
+                                WHEN @Reading < b.LoEdge THEN CAST(1 AS BIT)
+                                WHEN @Reading > b.HiEdge THEN CAST(1 AS BIT)
+                                ELSE CAST(0 AS BIT) END,
+            CertificateTop = b.CertTop,
+            LastCalibratedPoint = b.HiEdge
         FROM Bounds AS b
         CROSS JOIN Edge AS e
         LEFT JOIN Below AS lo ON 1 = 1
@@ -113,6 +128,9 @@ RETURN
            Corrected      = CAST(ROUND(@Reading - d.Deviation, s.Decimals) AS DECIMAL(18,6)),
            ReadingDecimals = s.Decimals,
            d.OutOfRange,
+           d.Extrapolated,
+           d.CertificateTop,
+           d.LastCalibratedPoint,
            d.UsedMeasurementId
     FROM Dev AS d CROSS JOIN Scale AS s
 );
