@@ -14,69 +14,6 @@
 SET NOCOUNT ON;
 GO
 
-/* ===== dbo.AddCalibrationCycle ===== */
-GO
-CREATE OR ALTER PROCEDURE [dbo].[AddCalibrationCycle]
-@UserEmail NVARCHAR(50),
-@OrderDetailsItemId INT,
-@CalibrationCycleStartDate DATETIME2(0),
-@CalibrationCycleEndDate DATETIME2(0),
-@CalibrationCycleName NVARCHAR(200),
-@UnitId INT,
-@TestedValue DECIMAL(18,6),
-@SpecificationReferenceIds NVARCHAR(100),
-@CalibrationCycleStatusId INT = NULL,
-@CalibrationCycleNameStatusId INT = NULL
-AS
-BEGIN
-SET NOCOUNT ON;
-
-DECLARE @UserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @UserEmail) 
-
-IF EXISTS (SELECT 1 FROM [dbo].[CalibrationCycles] WHERE [OrderDetailsItemId] = @OrderDetailsItemId AND [CalibrationCycleStartDate] = @CalibrationCycleStartDate) 
-BEGIN
-    UPDATE [dbo].[CalibrationCycles]
-    SET [CalibrationCycleEndDate] = @CalibrationCycleEndDate,
-        [CalibrationCycleStatusId] = @CalibrationCycleStatusId,
-        [CalibrationCycleName] = @CalibrationCycleName,
-        [UnitId] = @UnitId,
-        [TestedValue] = @TestedValue,
-        [SpecificationReferenceIds] = @SpecificationReferenceIds,
-        [CalibrationCycleNameStatusId] = @CalibrationCycleNameStatusId,
-        [IsDeleted] = 0,
-        [UpdatedDate] = GETDATE(),
-        [UpdateUserID] = @UserId
-    WHERE [OrderDetailsItemId] = @OrderDetailsItemId AND [CalibrationCycleStartDate] = @CalibrationCycleStartDate
-END
-ELSE
-BEGIN
-    INSERT INTO [dbo].[CalibrationCycles]
-               ([OrderDetailsItemId]
-               ,[CalibrationCycleStartDate]
-               ,[CalibrationCycleEndDate]
-               ,[CalibrationCycleStatusId]
-               ,[CreatedUserID]
-               ,[CalibrationCycleName]
-               ,[UnitId]
-               ,[TestedValue]
-               ,[SpecificationReferenceIds]
-               ,[CalibrationCycleNameStatusId]
-               )
-         VALUES
-               (@OrderDetailsItemId,
-                @CalibrationCycleStartDate,
-                @CalibrationCycleEndDate,
-                @CalibrationCycleStatusId,
-                @UserId,
-                @CalibrationCycleName,
-                @UnitId,
-                @TestedValue,
-                @SpecificationReferenceIds,
-                @CalibrationCycleNameStatusId
-                )
-END
-END
-GO
 /* ===== dbo.AssignCalibrationEnvironmentalConditions ===== */
 GO
 -- =============================================
@@ -167,1245 +104,6 @@ FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 END
 
 GO
-/* ===== dbo.AssignCarToOrder ===== */
-GO
--- =============================================
--- Author:		Eduard Kudlaiev
--- Create date: 17/03/2025
--- Description:	This SP should assign a car to a specific order. It should return the status of the operation.
--- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-182
--- =============================================
-CREATE OR ALTER PROCEDURE [dbo].[AssignCarToOrder]
-@CarID INT,
-@OrderNumber NCHAR(12),
-@Date DATE,
-@QuartersOfDay NVARCHAR(10),
-@LoggedInUserEmail NVARCHAR(100) = NULL
---EXEC dbo.AssignCarToOrder @CarID = 3,@OrderNumber = 'LA25101669',@Date = '2025-04-11',@QuartersOfDay ='0,1,2,3'
-
-AS
-BEGIN
-
-DECLARE @LoggedInUserId INT 
-DECLARE @SourceId TINYINT
-
-SELECT 
- @LoggedInUserId  = d.UserId 
-,@SourceId = d.SourceId
-FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
-
-DROP TABLE IF EXISTS #QuartersOfDay
-CREATE TABLE #QuartersOfDay
-(
-QuarterId INT
-)
-
-INSERT #QuartersOfDay(QuarterId)
-SELECT Value FROM dbo.ParseCSVToTable(@QuartersOfDay)
-
-if (SELECT SUM(QuarterId) FROM #QuartersOfDay) > 6
-THROW 51000, 'Incorrect values passed for quaters.', 1;
-
-DECLARE @OrderWorkPlanId INT
-SELECT @OrderWorkPlanId =  o.OrderWorkPlanId FROM [dbo].[OrderWorkPlans] as o 
-WHERE o.OrderNumber = @OrderNumber AND o.IsCancelled = 0
-IF @OrderWorkPlanId IS NULL
-THROW 51000, 'Incorrect or not active order number passed.', 1;
-
-if NOT EXISTS (
-SELECT 1 FROM dbo.Cars as c
-WHERE c.CarId = @CarID
-)
-THROW 51000, 'Incorrect car id passed.', 1;
-
-DECLARE 
-@part0db BIT,
-@part1db BIT,
-@part2db BIT,
-@part3db BIT,
-@exists BIT
-
-SELECT  
-    @part0db = MAX(CASE WHEN QuarterId = 0 THEN 1 ELSE NULL END),
-    @part1db = MAX(CASE WHEN QuarterId = 1 THEN 1 ELSE NULL END),
-    @part2db = MAX(CASE WHEN QuarterId = 2 THEN 1 ELSE NULL END),
-    @part3db = MAX(CASE WHEN QuarterId = 3 THEN 1 ELSE NULL END)
-FROM #QuartersOfDay;
-
-SELECT  @part0db =  COALESCE(@part0db,AssignQuater0),
-		@part1db =  COALESCE(@part1db,AssignQuater1),
-		@part2db =  COALESCE(@part2db,AssignQuater2),
-		@part3db =  COALESCE(@part3db,AssignQuater3),
-		@exists = 1
-FROM [dbo].[CarsToOrder] as cto
-WHERE cto.CarId = @CarID AND cto.OrderWorkPlanId = @OrderWorkPlanId 
-		AND cto.AssignDate = @Date AND cto.IsDeleted = 0
-
-BEGIN TRY
-	BEGIN TRAN
-		IF @exists IS NULL
-
-		INSERT [dbo].[CarsToOrder](CarId,OrderWorkPlanId,AssignDate,AssignQuater0,AssignQuater1,AssignQuater2,AssignQuater3,UpdateUserID)
-		SELECT @CarID as CarID, 
-			   @OrderWorkPlanId as OrderWorkPlanId,
-			   @Date as AssignDate,
-			   @part0db as AssignQuater0,
-			   @part1db as AssignQuater1,
-			   @part2db as AssignQuater2,
-			   @part3db as AssignQuater3,
-			   @LoggedInUserId
-
-
-		ELSE
-
-		UPDATE [dbo].[CarsToOrder]
-		SET AssignQuater0 = @part0db,
-			AssignQuater1 = @part1db,
-			AssignQuater2 = @part2db,
-			AssignQuater3 = @part3db,
-			UpdatedDate = GETDATE(),
-			UpdateUserID = @LoggedInUserId
-		WHERE CarId = @CarID AND OrderWorkPlanId = @OrderWorkPlanId 
-				AND AssignDate = @Date AND IsDeleted = 0
-		
-		IF EXISTS (SELECT 1 FROM [dbo].[MeasurementDevicesToOrderHeaders] WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId IS NULL AND AssigmentDate IS NULL AND IsDeleted = 0)
-			UPDATE [dbo].[MeasurementDevicesToOrderHeaders]
-			SET CarId = @CarID,
-				AssigmentDate = @Date
-			WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId IS NULL AND AssigmentDate IS NULL
-		
-		IF NOT EXISTS (SELECT 1 FROM [dbo].[MeasurementDevicesToOrderHeaders] WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId = @CarID AND AssigmentDate = @Date AND IsDeleted = 0)
-			INSERT INTO [dbo].[MeasurementDevicesToOrderHeaders]
-					   ([OrderWorkPlanId]
-					   ,[MeasurementDeviceId]
-					   ,[CreatedByUserId]
-					   ,[AssigmentDate]
-					   ,[CarId])
-
-			SELECT TOP 1 WITH TIES
-					@OrderWorkPlanId,
-					[MeasurementDeviceId],
-					@LoggedInUserId,
-					@Date,
-					@CarID
-			FROM [dbo].[MeasurementDevicesToOrderHeaders] 
-			WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId = @CarID AND IsDeleted = 0
-			ORDER BY RANK() OVER(PARTITION BY OrderWorkPlanId ORDER BY AssigmentDate)
-
-		IF EXISTS (SELECT 1 FROM [dbo].[CalibratorsToWorkPlan] WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId IS NULL AND AssigmentDate IS NULL AND IsDeleted = 0)
-			UPDATE [dbo].[CalibratorsToWorkPlan]
-			SET CarId = @CarID,
-				AssigmentDate = @Date
-			WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId IS NULL AND AssigmentDate IS NULL
-
-		IF NOT EXISTS (SELECT 1 FROM [dbo].[CalibratorsToWorkPlan] WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId = @CarID AND AssigmentDate = @Date AND IsDeleted = 0)
-			INSERT INTO [dbo].[CalibratorsToWorkPlan]
-					   ([OrderWorkPlanId]
-					   ,[CalibratorId]
-					   ,[UpdateUserID]
-					   ,[AssigmentDate]
-					   ,[CarId])
-
-			SELECT TOP 1 WITH TIES
-					@OrderWorkPlanId,
-					[CalibratorId],
-					@LoggedInUserId,
-					@Date,
-					@CarID
-			FROM [dbo].[CalibratorsToWorkPlan] 
-			WHERE OrderWorkPlanId = @OrderWorkPlanId AND CarId = @CarID AND IsDeleted = 0
-			ORDER BY RANK() OVER(PARTITION BY OrderWorkPlanId ORDER BY AssigmentDate)
-
-	COMMIT
-END TRY
-
-BEGIN CATCH
-	ROLLBACK
-END CATCH
-
-/*
-UPDATE [dbo].[OrderWorkPlans]
-SET AssigmentDate = @Date
-WHERE OrderNumber = @OrderNumber
-*/
-
-END
-
-GO
-/* ===== dbo.AssignMeasurmentDevicesToCalibrator ===== */
-GO
-/*
-    dbo.AssignMeasurmentDevicesToCalibrator
-    ---------------------------------------------------------------------------------------------
-    Original author: Eduard Kudlaiev, 02/07/2025
-    Assigns a logger + sensor + channel combination to a calibrator.
-
-    MBA-902 (2026-08-24): pressing refresh in the logger popup wiped the sensor's channel
-    assignments. Two defects, both in how @ChannelNumbers was turned into #Channels.
-
-      1. STRING_SPLIT('', ',') returns ONE row holding an empty string, and CAST('' AS INT) is 0.
-         An empty parameter therefore inserted a phantom assignment to channel 0. Five such rows
-         were found on STAGE.
-
-      2. The final UPDATE marks every already-assigned channel that is not in #Channels as deleted.
-         That is right when the calibrator genuinely removed a channel, but an empty list made it
-         delete all of them at once - 11 rows in the same second on 2026-07-15.
-
-    Fixed by ignoring blank and non-numeric entries when building #Channels, and by treating an
-    empty list as "I have nothing to say about the channels" rather than "remove them all".
-    Deliberate removal has its own procedure, DeleteCalibratorSensorChannelAssignment.
-*/
-CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentDevicesToCalibrator]
-@LoggedInUserEmail NVARCHAR(100),
-@LoggerMeasurementDeviceId INT,
-@FlowRate NVARCHAR(20),
-@Interval INT,
-@CommunicationProtocol NVARCHAR(100),
-@CommunicationDetails NVARCHAR(100),
-@SensorMeasurementDeviceId INT,
-@UnitId INT NULL,
-@WorkRangeUnitId INT NULL,
-@ChannelNumbers NVARCHAR(MAX)
-
-AS
-BEGIN
-
-DECLARE @LoggedInUserId INT 
-DECLARE @SourceId TINYINT
-
-SELECT 
- @LoggedInUserId  = d.UserId 
-,@SourceId = d.SourceId
-FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
-
-if NOT EXISTS (
-SELECT 1 FROM dbo.MeasurementDevices as md
-JOIN dbo.MeasurementDevicesMainClasses as mc ON md.MainClassId = mc.Id
-WHERE mc.NameEnglish = 'Data logger' AND md.ID = @LoggerMeasurementDeviceId AND md.IsDeleted = 0
-)
-THROW 51000, 'Incorrect @LoggerMeasurementDeviceId passed. Device is not data logger or inactive.', 1;
-
-if NOT EXISTS (
-SELECT 1 FROM dbo.MeasurementDevices as md
-JOIN dbo.MeasurementDevicesMainClasses as mc ON md.MainClassId = mc.Id
-WHERE mc.NameEnglish = 'Sensor' AND md.ID = @SensorMeasurementDeviceId AND md.IsDeleted = 0
-)
-THROW 51000, 'Incorrect @SensorMeasurementDeviceId passed. Device is not sensor or inactive.', 1;
-
-DROP TABLE IF EXISTS #Channels
-
-CREATE TABLE #Channels
-(
-ChannelNumber INT
-)
-
-/* MBA-902: blanks and stray separators must not become channel 0. */
-INSERT #Channels(ChannelNumber)
-SELECT DISTINCT CAST(LTRIM(RTRIM(value)) AS INT)
-FROM STRING_SPLIT(@ChannelNumbers,',')
-WHERE LTRIM(RTRIM(value)) <> ''
-      AND LTRIM(RTRIM(value)) NOT LIKE '%[^0-9]%'
-
-DECLARE @HasChannels BIT = IIF(EXISTS (SELECT 1 FROM #Channels), 1, 0)
-
-BEGIN TRY
-	
-	BEGIN TRAN
-
-	UPDATE [dbo].[MeasurementDevices]
-	SET FlowRate = @FlowRate,
-		Interval = @Interval,
-		Connection = @CommunicationProtocol,
-		IP = @CommunicationDetails,
-		UpdateDate = GETDATE(),
-		UpdateUserID = @LoggedInUserId
-	WHERE ID = @LoggerMeasurementDeviceId
-	
-	/* MBA-902: record WHO configured this. The insert named only the two device ids, so
-	   UpdateUserID stayed NULL on every relation ever created - which is why the logger popup
-	   could not tell one calibrator's configuration from another's and showed everybody
-	   everything. */
-	INSERT [dbo].[SensorToLoggerRelation](
-	[SensorMeasurementDeviceId],
-	[LoggerMeasurementDeviceId],
-	[UpdateUserID])
-	SELECT @SensorMeasurementDeviceId ,@LoggerMeasurementDeviceId ,@LoggedInUserId
-	WHERE NOT EXISTS (SELECT 1 FROM [dbo].[SensorToLoggerRelation] 
-					  WHERE [SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
-	                  AND [LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
-					  AND [IsDeleted] = 0)
-
-	/* an existing relation re-used by this calibrator becomes theirs to see */
-	UPDATE [dbo].[SensorToLoggerRelation]
-	SET UpdateUserID = @LoggedInUserId, UpdatedDate = GETDATE()
-	WHERE [SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
-	  AND [LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
-	  AND [IsDeleted] = 0
-	  AND UpdateUserID IS NULL
-	
---Insert new data
-	INSERT [dbo].[ChannelsToSensorRelation]([SensorMeasurementDeviceId],[LoggerMeasurementDeviceId],[ChannelNumber])
-	SELECT @SensorMeasurementDeviceId,@LoggerMeasurementDeviceId, c.ChannelNumber
-	FROM #Channels as c
-	LEFT JOIN [dbo].[ChannelsToSensorRelation] as cr ON cr.[SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
-	                                                AND cr.[LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
-													AND c.ChannelNumber = cr.ChannelNumber
-							
-	WHERE cr.[SensorMeasurementDeviceId] IS NULL
-
---In case if it was previously assigned revert deleted flag
---MBA-902: only when a list was actually supplied. An empty list is not a request to unassign
---         everything - that is what pressing refresh was doing.
-    IF @HasChannels = 1
-    BEGIN
-        UPDATE cr
-	    SET IsDeleted = IIF(c.ChannelNumber IS NULL,1,0),
-		    UpdatedDate = GETDATE(),
-		    UpdateUserID = @LoggedInUserId
-	    FROM [dbo].[ChannelsToSensorRelation] as cr
-	    LEFT JOIN #Channels as c ON cr.ChannelNumber = c.ChannelNumber
-	    WHERE cr.[SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
-	          AND cr.[LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
-    END
-
-	COMMIT
-END TRY
-
-BEGIN CATCH
-	SELECT ERROR_MESSAGE() as error
-	ROLLBACK
-END CATCH 
-END
-
-GO
-/* ===== dbo.AssignMeasurmentPointsToOrderDetailsItems ===== */
-GO
-CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToOrderDetailsItems]
-@LoggedInUserEmail NVARCHAR(100),
-@Data NVARCHAR(MAX),
-@ReturnSummary BIT = 0
--- =============================================
--- Author:		Eduard Kudlaiev
--- Create date: 31/07/2025
--- Description:	Populate table MeasurmentPointsToOrderDetailsItems during calibration process setup
--- 2026-08-13 hardening: the calibration wizard was getting a bare 500 from this proc whenever the
--- payload was slightly off. Reproduced on STAGE: an empty MeasurmentPointCoordX -> 8114 (nvarchar
--- to decimal), a comma decimal "4,35" -> 8114, a coordinate >= 1,000,000 -> 8115 (overflow), and an
--- empty SensorMeasurementDeviceId -> 547 (FK violation). The FE types all of these as z.string()
--- with no numeric validation, so an empty string passes zod and explodes here.
--- Now: every decimal is read out of the JSON as text and coerced with TRY_CONVERT (a comma decimal
--- is accepted, anything unparseable becomes NULL), and a point whose sensor id does not exist in
--- dbo.MeasurementDevices is skipped instead of breaking the whole save.
--- TRADE-OFF, deliberate: this turns a total failure into a partial save, so a malformed point is
--- dropped quietly. The proper fix is on the FE (send numbers, not strings) — see the Jira ticket.
--- 2026-08-24 (MBA-902) two follow-ups to that hardening, both visible on the chamber diagram.
---   THE EMPTY CIRCLE. 220 of the 366 saved points carry MeasurmentPointName = ''. The column is
---   NOT NULL, so a blank name is stored rather than refused, and the diagram draws a circle with
---   nothing in it. The 146 points that do have a name all follow one convention, T1..T11 - and T1
---   appears once against sixteen each for T2..T10, so it is the FIRST point that arrives unnamed.
---   A blank name is now filled in as T<n>, numbered per order item and skipping every T number
---   that item already uses, so a placed point always has something to draw.
---   THE POINT THAT VANISHES. The partial-save trade-off below is right - one bad point must not
---   take the whole save down - but it was silent. An item declaring two points on the first page
---   and showing one on the diagram looks like a rendering bug rather than a dropped record. Pass
---   @ReturnSummary = 1 to get back what was received, saved and skipped, and why. Off by default:
---   the caller uses $executeRaw, which cannot take a result set.
--- ON ChannelNumber, because it is easy to confuse with the point count on the first page - they
---   are different things and there are three of them in the chain:
---     OrderDetailsItems.MeasurementPoints  how many points the calibration requires
---     ChannelsToSensorRelation             which of the logger's channels that sensor occupies
---     this table's ChannelNumber           which ONE of those channels this point is wired to
---   Measured on STAGE: of the 366 saved points, 128 carry a channel that really is one of the
---   sensor's assigned channels, which is what confirms the column means a logger channel and not a
---   point index. The other 238 do not, and they split cleanly: 167 carry ChannelNumber = 99 on a
---   sensor that has NO channels assigned at all. 99 is not an arbitrary placeholder - it is what
---   gets written when the sensor-to-logger step was never completed and there was nothing to pick.
---   A further 12 points name a channel their sensor does not have, which is a genuine mis-wiring.
---   The procedure reports all of this through @ReturnSummary but does NOT refuse the point: a
---   calibrator has physically placed it in the chamber, and dropping that is worse than storing it
---   with a channel that still needs fixing.
--- 2026-08-24, same round: OrderDetailsItemId, SensorMeasurementDeviceId and ChannelNumber were
---   still typed INT in the OPENJSON WITH clauses. A non-numeric value in any of them raised error
---   245 and the caller saw a bare Internal Server Error - exactly the failure mode the 2026-08-13
---   hardening removed for the coordinates but never applied to the ids. Reproduced on STAGE with
---   OrderDetailsItemId = 'abc' and SensorMeasurementDeviceId = 'abc'. All three are now read as
---   text and coerced with TRY_CONVERT, so a bad id skips its point and is reported instead of
---   taking the whole save down.
--- JiraLink:
--- =============================================
---Example of json needs to be passed
---'
---{
---  "OrderDetailsItemId": "1",
---  "Points": [
---    {
---      "MeasurmentPointName": "T1",
---      "MeasurmentPointCoordX": "4.35",
---      "MeasurmentPointCoordY": "3.35",
---      "SensorMeasurementDeviceId": "1",
---      "ChannelNumber": 1,
---      "UncertancyValue": 2,
---		"MasterValue": 36.44,
---		"MasterValueUnitId": 1,
---		"MeasuredValue": 35,
---		"MeasuredValueUnitId": 1,
---		"StabilityValue": 2,
---		"AdditionalValue": 33,
---		"AdditionalValueUnitId": 3
---    },
---    {
---      "MeasurmentPointName": "T2",
---      "MeasurmentPointCoordX": "8.35",
---      "MeasurmentPointCoordY": "4.25",
---      "SensorMeasurementDeviceId": "1",
---      "ChannelNumber": 15,
---      "UncertancyValue": 2,
---		"MasterValue": 39.44,
---		"MasterValueUnitId": 1,
---		"MeasuredValue": 35,
---		"MeasuredValueUnitId": 1,
---		"StabilityValue": 2,
---		"AdditionalValue": 33,
---		"AdditionalValueUnitId":3
---    },
---    {
---      "MeasurmentPointName": "T3",
---      "MeasurmentPointCoordX": "12.35",
---      "MeasurmentPointCoordY": "5.3",
---      "SensorMeasurementDeviceId": "2",
---      "ChannelNumber": 17,
---      "UncertancyValue": 2,
---		"MasterValue": 38.44,
---		"MasterValueUnitId": 1,
---		"MeasuredValue": 35,
---		"MeasuredValueUnitId": 1,
---		"StabilityValue": 2,
---		"AdditionalValue": 33,
---		"AdditionalValueUnitId":3
---    }
---  ]
---}
---'
-
-
-AS
-
-BEGIN 
-
-SET NOCOUNT ON;
-
-DECLARE @LoggedInUserId INT 
-DECLARE @SourceId TINYINT
-
-SELECT 
- @LoggedInUserId  = d.UserId 
-,@SourceId = d.SourceId
-FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
-
-DROP TABLE IF EXISTS #parsedData
-
-CREATE TABLE #parsedData
-(
-	OrderDetailsItemId INT,
-    MeasurmentPointName NVARCHAR(100) COLLATE Latin1_General_100_CI_AI_SC,
-    SensorMeasurementDeviceId INT,
-    MeasurmentPointCoordX DECIMAL(10,4),
-    MeasurmentPointCoordY DECIMAL(10,4),
-	ChannelNumber INT,
-	MasterValue DECIMAL(18,6)   /* MBA-811: the column is (18,6) */,
-    MasterValueUnitId INT,
-    AdditionalValue DECIMAL(10,4),
-    AdditionalValueUnitId INT,
-    StabilityValue DECIMAL(10,4),
-    UncertancyValue DECIMAL(10,4),
-    MeasuredValue DECIMAL(10,4),
-    MeasuredValueUnitId INT
-)
-
-INSERT #parsedData
-(
-	OrderDetailsItemId,
-    MeasurmentPointName,
-    SensorMeasurementDeviceId,
-    MeasurmentPointCoordX,
-    MeasurmentPointCoordY,
-	ChannelNumber,
-	MasterValue,
-    MasterValueUnitId,
-    AdditionalValue,
-    AdditionalValueUnitId,
-    StabilityValue,
-    UncertancyValue,
-    MeasuredValue,
-    MeasuredValueUnitId
-)
-
-SELECT 
-    TRY_CONVERT(INT, d.OrderDetailsItemId)        AS OrderDetailsItemId,
-    c.MeasurmentPointName,
-    TRY_CONVERT(INT, c.SensorMeasurementDeviceId) AS SensorMeasurementDeviceId,
-    TRY_CONVERT(DECIMAL(10,4), REPLACE(c.MeasurmentPointCoordX, ',', '.')) AS MeasurmentPointCoordX,
-    TRY_CONVERT(DECIMAL(10,4), REPLACE(c.MeasurmentPointCoordY, ',', '.')) AS MeasurmentPointCoordY,
-    TRY_CONVERT(INT, c.ChannelNumber)             AS ChannelNumber,
-    TRY_CONVERT(DECIMAL(18,6), REPLACE(c.MasterValue, ',', '.')) AS MasterValue,
-    c.MasterValueUnitId,
-    TRY_CONVERT(DECIMAL(10,4), REPLACE(c.AdditionalValue, ',', '.')) AS AdditionalValue,
-    c.AdditionalValueUnitId,
-    TRY_CONVERT(DECIMAL(10,4), REPLACE(c.StabilityValue, ',', '.')) AS StabilityValue,
-    TRY_CONVERT(DECIMAL(10,4), REPLACE(c.UncertancyValue, ',', '.')) AS UncertancyValue,
-    TRY_CONVERT(DECIMAL(10,4), REPLACE(c.MeasuredValue, ',', '.')) AS MeasuredValue,
-    c.MeasuredValueUnitId
-FROM OPENJSON(@Data) 
-WITH (
-    /* MBA-902: read as text and coerce. Typed INT here, a non-numeric id raised error 245 and the
-       caller got a bare Internal Server Error - the same failure the 2026-08-13 hardening fixed for
-       the coordinates but did not apply to the three id columns. */
-    OrderDetailsItemId NVARCHAR(50),
-    Points NVARCHAR(MAX) AS JSON
-) AS d
-OUTER APPLY OPENJSON(d.Points)
-WITH (
-    MeasurmentPointName NVARCHAR(100),
-    MeasurmentPointCoordX NVARCHAR(50),
-    MeasurmentPointCoordY NVARCHAR(50),
-    SensorMeasurementDeviceId NVARCHAR(50),   /* MBA-902: was INT - see the outer WITH above */
-    ChannelNumber NVARCHAR(50),               /* MBA-902: was INT */
-	MasterValue NVARCHAR(50),
-    MasterValueUnitId INT,
-    AdditionalValue NVARCHAR(50),
-    AdditionalValueUnitId INT,
-    StabilityValue NVARCHAR(50),
-    UncertancyValue NVARCHAR(50),
-    MeasuredValue NVARCHAR(50),
-    MeasuredValueUnitId INT
-) AS c
-/* MBA-902: a point with no name draws an empty circle. Give it the next free T number for its
-   order item, counting the names already stored and the named points in this same payload. */
-;WITH Used AS
-(
-    SELECT OrderDetailsItemId, TRY_CAST(SUBSTRING(MeasurmentPointName, 2, 10) AS INT) AS Num
-    FROM dbo.MeasurmentPointsToOrderDetailsItems
-    WHERE IsDeleted = 0 AND MeasurmentPointName LIKE 'T[0-9]%'
-    UNION ALL
-    SELECT OrderDetailsItemId, TRY_CAST(SUBSTRING(MeasurmentPointName, 2, 10) AS INT)
-    FROM #parsedData
-    WHERE MeasurmentPointName LIKE 'T[0-9]%'
-),
-Base AS
-(
-    SELECT pd.OrderDetailsItemId, ISNULL(MAX(u.Num), 0) AS MaxUsed
-    FROM #parsedData AS pd
-    LEFT JOIN Used AS u ON u.OrderDetailsItemId = pd.OrderDetailsItemId
-    GROUP BY pd.OrderDetailsItemId
-),
-Blanks AS
-(
-    SELECT pd.MeasurmentPointName, pd.OrderDetailsItemId,
-           ROW_NUMBER() OVER (PARTITION BY pd.OrderDetailsItemId
-                              ORDER BY pd.ChannelNumber, pd.MeasurmentPointCoordX,
-                                       pd.MeasurmentPointCoordY) AS rn
-    FROM #parsedData AS pd
-    WHERE LTRIM(RTRIM(ISNULL(pd.MeasurmentPointName, ''))) = ''
-)
-UPDATE b
-SET MeasurmentPointName = 'T' + CAST(bs.MaxUsed + b.rn AS NVARCHAR(10))
-FROM Blanks AS b
-INNER JOIN Base AS bs ON bs.OrderDetailsItemId = b.OrderDetailsItemId;
-
-/* MBA-902: a point is wired to ONE of the channels its sensor occupies on the logger. Flag the
-   ones that are not - reported, never refused; the point has been physically placed. */
-DROP TABLE IF EXISTS #channelWarnings;
-SELECT pd.OrderDetailsItemId, pd.MeasurmentPointName, pd.SensorMeasurementDeviceId, pd.ChannelNumber,
-       CASE WHEN NOT EXISTS (SELECT 1 FROM dbo.ChannelsToSensorRelation AS c
-                             WHERE c.SensorMeasurementDeviceId = pd.SensorMeasurementDeviceId
-                               AND c.IsDeleted = 0)
-                 THEN 'this sensor has no channels assigned to any logger yet'
-            ELSE 'channel is not one of the channels this sensor occupies'
-       END AS Warning
-INTO #channelWarnings
-FROM #parsedData AS pd
-WHERE pd.SensorMeasurementDeviceId IS NOT NULL
-  AND pd.ChannelNumber IS NOT NULL
-  AND NOT EXISTS (SELECT 1 FROM dbo.ChannelsToSensorRelation AS c
-                  WHERE c.SensorMeasurementDeviceId = pd.SensorMeasurementDeviceId
-                    AND c.ChannelNumber = pd.ChannelNumber
-                    AND c.IsDeleted = 0);
-
-/* MBA-902: what this save is about to drop, captured before the MERGE filters it away. */
-DECLARE @Received INT = (SELECT COUNT(*) FROM #parsedData);
-
-DROP TABLE IF EXISTS #skipped;
-SELECT pd.OrderDetailsItemId, pd.MeasurmentPointName, pd.SensorMeasurementDeviceId, pd.ChannelNumber,
-       CASE
-           WHEN pd.OrderDetailsItemId IS NULL         THEN 'no order item supplied'
-           WHEN pd.SensorMeasurementDeviceId IS NULL  THEN 'no sensor supplied'
-           WHEN pd.ChannelNumber IS NULL              THEN 'no channel supplied'
-           WHEN pd.MeasurmentPointCoordX IS NULL
-             OR pd.MeasurmentPointCoordY IS NULL      THEN 'coordinate could not be read as a number'
-           ELSE 'sensor does not exist'
-       END AS Reason
-INTO #skipped
-FROM #parsedData AS pd
-WHERE pd.OrderDetailsItemId IS NULL
-   OR pd.ChannelNumber IS NULL
-   OR pd.SensorMeasurementDeviceId IS NULL
-   OR pd.MeasurmentPointCoordX IS NULL
-   OR pd.MeasurmentPointCoordY IS NULL
-   OR NOT EXISTS (SELECT 1 FROM dbo.MeasurementDevices md WHERE md.ID = pd.SensorMeasurementDeviceId);
-
-/*Apply soft delete to data which no longer valid*/
-UPDATE dest
-SET IsDeleted = 1,
-    UpdatedDate = GETDATE()
-FROM [dbo].[MeasurmentPointsToOrderDetailsItems] as dest 
-LEFT JOIN #parsedData as pd
-	ON pd.OrderDetailsItemId = dest.OrderDetailsItemId
-	   AND pd.SensorMeasurementDeviceId = dest.SensorMeasurementDeviceId
-	   AND pd.ChannelNumber = dest.ChannelNumber
-WHERE dest.IsDeleted = 0 AND pd.SensorMeasurementDeviceId IS NULL
-AND dest.OrderDetailsItemId IN (SELECT OrderDetailsItemId FROM #parsedData)
-/*Insert new data or updating existing*/
-MERGE INTO [dbo].[MeasurmentPointsToOrderDetailsItems] AS dest
-USING (
-	SELECT
-		d.OrderDetailsItemId,
-		d.SensorMeasurementDeviceId,
-		d.MeasurmentPointName,
-		d.MeasurmentPointCoordX,
-		d.MeasurmentPointCoordY,
-		d.ChannelNumber,
-		d.MasterValue,
-        d.MasterValueUnitId,
-        d.AdditionalValue,
-        d.AdditionalValueUnitId,
-        d.StabilityValue,
-        d.UncertancyValue,
-        d.MeasuredValue,
-        d.MeasuredValueUnitId
-	FROM #parsedData as d
-	WHERE d.OrderDetailsItemId IS NOT NULL AND d.ChannelNumber IS NOT NULL AND d.SensorMeasurementDeviceId IS NOT NULL
-	  AND EXISTS (SELECT 1 FROM dbo.MeasurementDevices md WHERE md.ID = d.SensorMeasurementDeviceId)
-	  /* Both coordinates are NOT NULL on the target table, so an unparseable one cannot be written.
-	     Skip that point rather than defaulting to 0 — a point silently placed at (0,0) would show up
-	     in the wrong spot on the chamber diagram, which is worse than a point that is missing. */
-	  AND d.MeasurmentPointCoordX IS NOT NULL AND d.MeasurmentPointCoordY IS NOT NULL
-	) AS source
-	ON   dest.[OrderDetailsItemId] = source.[OrderDetailsItemId]
-		 AND dest.[SensorMeasurementDeviceId] = source.[SensorMeasurementDeviceId]
-		 AND dest.[ChannelNumber] = source.[ChannelNumber]
-		 AND dest.[IsDeleted] = 0
-    WHEN MATCHED AND ( 
-	           COALESCE(dest.[MeasurmentPointName],'') <> COALESCE(source.[MeasurmentPointName],'')
-			OR COALESCE(dest.[MeasurmentPointCoordX],0) <> COALESCE(source.[MeasurmentPointCoordX],1)
-			OR COALESCE(dest.[MeasurmentPointCoordY],0) <> COALESCE(source.[MeasurmentPointCoordY],1)
-            OR COALESCE(dest.[MasterValue],0) <> COALESCE(source.[MasterValue],0)
-            OR COALESCE(dest.[MasterValueUnitId],0) <> COALESCE(source.[MasterValueUnitId],0)
-            OR COALESCE(dest.[AdditionalValue],0) <> COALESCE(source.[AdditionalValue],0)
-            OR COALESCE(dest.[AdditionalValueUnitId],0) <> COALESCE(source.[AdditionalValueUnitId],0)
-            OR COALESCE(dest.[StabilityValue],0) <> COALESCE(source.[StabilityValue],0)
-            OR COALESCE(dest.[UncertancyValue],0) <> COALESCE(source.[UncertancyValue],0)
-            OR COALESCE(dest.[MeasuredValue],0) <> COALESCE(source.[MeasuredValue],0)
-            OR COALESCE(dest.[MeasuredValueUnitId],0) <> COALESCE(source.[MeasuredValueUnitId],0)
-            )
-	THEN
-		UPDATE
-		SET  dest.[MeasurmentPointName] = source.[MeasurmentPointName]
-			,dest.[MeasurmentPointCoordX] = source.[MeasurmentPointCoordX]
-			,dest.[MeasurmentPointCoordY] = source.[MeasurmentPointCoordY]
-			,dest.[UpdatedDate] = GETDATE()
-			,dest.[UpdateUserID] = @LoggedInUserId
-            ,dest.[MasterValue] = source.[MasterValue]
-            ,dest.[MasterValueUnitId] = source.[MasterValueUnitId]
-            ,dest.[AdditionalValue] = source.[AdditionalValue]
-            ,dest.[AdditionalValueUnitId] = source.[AdditionalValueUnitId]
-            ,dest.[StabilityValue] = source.[StabilityValue]
-            ,dest.[UncertancyValue] = source.[UncertancyValue]
-            ,dest.[MeasuredValue] = source.[MeasuredValue]
-            ,dest.[MeasuredValueUnitId] = source.[MeasuredValueUnitId]
-WHEN NOT MATCHED BY TARGET
-	THEN
-		INSERT (
-			  [OrderDetailsItemId],
-			  [SensorMeasurementDeviceId],
-			  [MeasurmentPointName],
-			  [MeasurmentPointCoordX],
-			  [MeasurmentPointCoordY],
-			  [ChannelNumber],
-			  [UpdateUserID],
-		      [MasterValue],
-              [MasterValueUnitId],
-              [AdditionalValue],
-              [AdditionalValueUnitId],
-              [StabilityValue],
-              [UncertancyValue],
-              [MeasuredValue],
-              [MeasuredValueUnitId]
-			)
-		VALUES (
-             source.[OrderDetailsItemId]
-			,source.[SensorMeasurementDeviceId]
-			,source.[MeasurmentPointName]
-			,source.[MeasurmentPointCoordX]
-			,source.[MeasurmentPointCoordY]
-			,source.[ChannelNumber]
-			,@LoggedInUserId
-            ,source.[MasterValue]
-            ,source.[MasterValueUnitId]
-            ,source.[AdditionalValue]
-            ,source.[AdditionalValueUnitId]
-            ,source.[StabilityValue]
-            ,source.[UncertancyValue]
-            ,source.[MeasuredValue]
-            ,source.[MeasuredValueUnitId]
-			);
-
-
-/* MBA-902: opt-in only - the caller uses $executeRaw, which cannot take a result set. */
-IF @ReturnSummary = 1
-BEGIN
-    SELECT @Received                                     AS pointsReceived,
-           @Received - (SELECT COUNT(*) FROM #skipped)   AS pointsSaved,
-           (SELECT COUNT(*) FROM #skipped)               AS pointsSkipped,
-           (SELECT COUNT(*) FROM #channelWarnings)       AS pointsWithAnInvalidChannel;
-
-    SELECT OrderDetailsItemId        AS orderDetailsItemId,
-           MeasurmentPointName       AS measurementPointName,
-           SensorMeasurementDeviceId AS sensorMeasurementDeviceId,
-           ChannelNumber             AS channelNumber,
-           Reason                    AS reason
-    FROM #skipped;
-
-    /* saved, but the channel does not belong to the sensor - the calibration will read nothing */
-    SELECT OrderDetailsItemId        AS orderDetailsItemId,
-           MeasurmentPointName       AS measurementPointName,
-           SensorMeasurementDeviceId AS sensorMeasurementDeviceId,
-           ChannelNumber             AS channelNumber,
-           Warning                   AS warning
-    FROM #channelWarnings;
-END
-
-END
-
-GO
-/* ===== dbo.AssignProductIdentificationData ===== */
-GO
--- =============================================
--- Author:		Eduard Kudlaiev
--- Create date: 21/06/2025
--- Description:	Procedure enrich data for calibrated device in orders
--- JiraLink: 
--- =============================================
-CREATE OR ALTER PROCEDURE [dbo].[AssignProductIdentificationData]
-@UserEmail NVARCHAR(50),
-@OrderDetailId INT,
-@OrderDetailsItemId INT = NULL,
-@ActualCalibrationDate DATETIME2(0)= NULL,	
-@NextCalibrationDate DATETIME2(0)= NULL,	
-@SerialNumber NVARCHAR(100)= NULL,
-@ManufacturerNumber	NVARCHAR(100)= NULL,
-@DeviceModel NVARCHAR(100)= NULL,	
-@AdditionalDeviceNumber NVARCHAR(100)= NULL,
-@OrdersMainCategoryId INT= NULL,
-@OrdersSecondaryCategoryId INT= NULL,
-@OrdersDeviceManufacturer NVARCHAR(100) = NULL,
-@OrdersProductTypeId INT= NULL,
-@CalibrationSpecificationId INT= NULL,
-@SpecificationReferenceId INT= NULL,
-@MeasurementUnitId INT= NULL,
-@MeasurementPoints INT= NULL,
-@MeasurementValueList NVARCHAR(MAX) = NULL,
-@OrderLineCnt_new INT = NULL,
-@Accuracy TINYINT = NULL,
-@MbaReportNumber NVARCHAR(100) =NULL,
-@StickerAmount TINYINT = NULL,
-@StickerTypeId INT = NULL,
-@SecondCalibratorId INT = NULL,
-@MainCalibratorId INT = NULL,
-@Volume DECIMAL(16,4) = NULL,
-@VisualCheck NVARCHAR(200) = NULL,
-@ShouldShowGraphV BIT = NULL, 
-@ShouldShowCertificateIcon BIT = NULL,
-@RequiredProbability TINYINT = NULL,
-@ReportLanguage NVARCHAR(50) = NULL,
-@SiteAddress NVARCHAR(100) = NULL,
-@ProductLocation NVARCHAR(50) = NULL,
-@ControllerType NVARCHAR(40) = NULL,
-@DiagramMapLink NVARCHAR(200) = NULL,
-	/* MBA-577: sensor identification. Tolerance and Resolution are scalar.
-	   SpecificationReferenceIds is a CSV because Reference Document became multi-select;
-	   the older singular SpecificationReferenceId is left in place so anything still
-	   sending it keeps working. */
-	@Tolerance DECIMAL(18,6) = NULL,
-	@Resolution DECIMAL(18,6) = NULL,
-	@SpecificationReferenceIds NVARCHAR(MAX) = NULL
-AS
-BEGIN 
-
-	DECLARE @OrderDetailItemIdInserted INT
-	DECLARE @UserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @UserEmail) 
-
-	/*In some cases there are no information in order details and we need to insert it*/
-	IF NOT EXISTS (SELECT 1 FROM [dbo].[OrderDetailsItems] WHERE OrderDetailId = @OrderDetailId AND OrderDetailsItemId =@OrderDetailsItemId )
-		BEGIN
-			INSERT INTO [dbo].[OrderDetailsItems]
-					   ([OrderDetailId]
-					   ,[ActualCalibrationDate]
-					   ,[NextCalibrationDate]
-					   ,[SerialNumber]
-					   ,[ManufacturerNumber]
-					   ,[DeviceModel]
-					   ,[AdditionalDeviceNumber]
-					   ,[CalibrationSpecificationId]
-					   ,[SpecificationReferenceId]
-					   ,[MeasurementUnitId]
-					   ,[MeasurementPoints]
-					   ,[MeasurementValueList]
-					   ,[CreatedDate]
-					   ,[CreatedByUserId]
-					   ,[Accuracy]
-					   ,[IsManuallyAdded]
-					   ,[MbaReportNumber]
-					   ,[StickerAmount]
-					   ,[StickerTypeId]
-					   ,[SecondCalibratorId]
-					   ,[MainCalibratorId]
-					   ,[Volume]
-					   ,[VisualCheck]
-					   ,[ShouldShowGraphV]
-					   ,[ShouldShowCertificateIcon]
-					   ,[RequiredProbability]
-					   ,[ReportLanguage]
-					   ,[SiteAddress]
-					   ,[ProductLocation]
-					   ,[OrdersDeviceManufacturer] 
-					   ,[ControllerType]
-					   ,[DiagramMapLink]
-					   ,[Tolerance]
-					   ,[Resolution]
-					   ,[SpecificationReferenceIds]
-					)
-				 SELECT
-					@OrderDetailId,	
-					@ActualCalibrationDate,	
-					@NextCalibrationDate,	
-					@SerialNumber,
-					@ManufacturerNumber,
-					@DeviceModel,	
-					@AdditionalDeviceNumber,
-					@CalibrationSpecificationId,
-					@SpecificationReferenceId,
-					@MeasurementUnitId,
-					@MeasurementPoints,
-					@MeasurementValueList,
-					GETDATE(),
-					@UserId,
-					@Accuracy,
-					1,
-					@MbaReportNumber,
-					@StickerAmount,
-					@StickerTypeId,
-					@SecondCalibratorId,
-					@MainCalibratorId,
-					@Volume,
-					@VisualCheck,
-					@ShouldShowGraphV,
-					@ShouldShowCertificateIcon,
-					@RequiredProbability,
-					@ReportLanguage,
-					@SiteAddress,
-					@ProductLocation,
-					@OrdersDeviceManufacturer,
-					@ControllerType,
-					@DiagramMapLink,
-					@Tolerance,
-					@Resolution,
-					NULLIF(@SpecificationReferenceIds, '')
-				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
-
-		END
-
-	UPDATE [dbo].[OrderDetails] 
-	SET [OrdersProductTypeId] = IIF(@OrdersProductTypeId IS NULL,[OrdersProductTypeId], @OrdersProductTypeId)
-		,[MainCategoryId] = IIF(@OrdersMainCategoryId IS NULL,[MainCategoryId], @OrdersMainCategoryId)
-		,[SecondaryCategoryId] =IIF(@OrdersSecondaryCategoryId IS NULL,[SecondaryCategoryId],@OrdersSecondaryCategoryId)
-	WHERE OrderDetailId = @OrderDetailId-- AND [OrdersProductTypeId] <> @OrdersProductTypeId
-
-	UPDATE [dbo].[OrderDetails] 
-	SET [OrderLineCnt] = IIF(@OrderLineCnt_new IS NULL,[OrderLineCnt], @OrderLineCnt_new)
-	WHERE OrderDetailId = @OrderDetailId AND [OrderLineCnt] <> COALESCE(@OrderLineCnt_new,[OrderLineCnt])
-
-	UPDATE [dbo].[OrderDetailsItems]
-			SET 
-			 [ActualCalibrationDate] = IIF(@ActualCalibrationDate IS NULL,[ActualCalibrationDate],@ActualCalibrationDate)
-			,[NextCalibrationDate] = IIF(@NextCalibrationDate IS NULL,[NextCalibrationDate],@NextCalibrationDate)
-			,[SerialNumber] = IIF(@SerialNumber IS NULL,[SerialNumber],@SerialNumber)
-			,[ManufacturerNumber] = IIF(@ManufacturerNumber IS NULL,[ManufacturerNumber],@ManufacturerNumber)
-			,[DeviceModel] = IIF(@DeviceModel IS NULL,[DeviceModel],@DeviceModel)
-			,[AdditionalDeviceNumber] = IIF(@AdditionalDeviceNumber IS NULL,[AdditionalDeviceNumber],@AdditionalDeviceNumber)
-			,[CalibrationSpecificationId] = IIF(@CalibrationSpecificationId IS NULL,[CalibrationSpecificationId],@CalibrationSpecificationId)
-			,[SpecificationReferenceId] = IIF(@SpecificationReferenceId IS NULL,[SpecificationReferenceId],@SpecificationReferenceId)
-			,[MeasurementUnitId] = IIF(@MeasurementUnitId IS NULL,[MeasurementUnitId],@MeasurementUnitId)
-			,[MeasurementPoints] = IIF(@MeasurementPoints IS NULL,[MeasurementPoints],@MeasurementPoints)
-			,[MeasurementValueList] = IIF(@MeasurementValueList IS NULL,[MeasurementValueList],@MeasurementValueList)
-			,[UpdatedDate] = GETDATE()
-			,[UpdateUserID] = @UserId
-			,[Accuracy] = IIF(@Accuracy IS NULL,[Accuracy],@Accuracy)
-			,[MbaReportNumber] = IIF(@MbaReportNumber IS NULL,[MbaReportNumber],@MbaReportNumber)
-			,[StickerAmount] = IIF(@StickerAmount IS NULL,[StickerAmount],@StickerAmount)
-			,[StickerTypeId] = IIF(@StickerTypeId IS NULL,[StickerTypeId],@StickerTypeId)
-			,[SecondCalibratorId] = COALESCE(@SecondCalibratorId,[SecondCalibratorId])
-			,[MainCalibratorId] = COALESCE(@MainCalibratorId,[MainCalibratorId])
-			,[Volume] = COALESCE(@Volume,[Volume])
-			,[VisualCheck] = COALESCE(@VisualCheck,[VisualCheck])
-			,[ShouldShowGraphV] = COALESCE(@ShouldShowGraphV,[ShouldShowGraphV])
-			,[ShouldShowCertificateIcon] = COALESCE(@ShouldShowCertificateIcon,[ShouldShowCertificateIcon])
-			,[RequiredProbability] = COALESCE(@RequiredProbability,[RequiredProbability])
-			,[ReportLanguage] = COALESCE(@ReportLanguage,[ReportLanguage])
-			,[SiteAddress] = COALESCE(@SiteAddress,[SiteAddress])
-			,[ProductLocation] = COALESCE(@ProductLocation,[ProductLocation])
-			,[OrdersDeviceManufacturer] = COALESCE(@OrdersDeviceManufacturer,[OrdersDeviceManufacturer])
-			,[ControllerType] = COALESCE(@ControllerType,[ControllerType])
-			,[DiagramMapLink] = IIF(@DiagramMapLink ='',NULL,COALESCE(@DiagramMapLink,[DiagramMapLink]))
-			,[Tolerance] = COALESCE(@Tolerance,[Tolerance])
-			,[Resolution] = COALESCE(@Resolution,[Resolution])
-			/* '' clears the selection, NULL leaves it alone. Deselecting every reference
-			   document has to be storable, and COALESCE on its own would make that
-			   impossible. Same shape as DiagramMapLink above. */
-			,[SpecificationReferenceIds] = IIF(@SpecificationReferenceIds = '',NULL,COALESCE(@SpecificationReferenceIds,[SpecificationReferenceIds]))
-	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
-
-	SELECT COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) as OrderDetailsItemId
-END
-
-GO
-/* ===== dbo.GetAllCalibrationDevices ===== */
-GO
-/*
-    dbo.GetAllCalibrationDevices
-    ---------------------------------------------------------------------------------------------
-    Original author: Eduard Kudlaiev, 28/05/2025 (MABA-43)
-    Backs the logger and sensor pickers in the calibration wizard, and the logger-connection popup.
-
-    2026-08-24 (MBA-902): three fixes, all visible in that popup.
-
-    1. מס' נקודות always showed 0. ChannelsNumber was sourced from md.Channels, which is NULL on
-       every one of the loggers - Channels is populated on 152 rows and all of them are sensors.
-       The logger's channel count lives in md.ConnectionPoints (21-142 = 21, 31-80 = 61,
-       21-702 = 82), which no procedure returned. Now COALESCE(ConnectionPoints, Channels), so
-       loggers report their real count and nothing that relied on Channels loses it.
-
-    2. No ORDER BY at all, so the picker listed devices in whatever order the join produced and the
-       order changed between calls. Sorted on MabaID's two numeric segments rather than as text,
-       so 21-17 precedes 21-131; a plain text sort puts 21-131 first because '1' sorts before '7'.
-
-    3. Classifying the previously unclassified devices took the logger class from 35 rows to 454,
-       and the picker filled up with registry entries the system cannot actually talk to - a
-       calibrator selecting 30-1100 would be selecting a device with no connection at all. A logger
-       is now offered only if its Connection mentions USB, LAN or IP.
-
-       That rule is not new: the WHERE clause already carried it, commented out, as
-       "AND md.Connection IS NOT NULL AND md.Connection <> N'אוגר אלחוטי'". This turns the same
-       intent back on.
-
-       The test is "has a connection at all", not "USB or LAN". Of the 35 loggers that carry a
-       connection value, 26 are USB / LAN / IP and 9 are plain RS-232 - and those 9 are real
-       working loggers, the ones showing 1 and 2 connection points. Filtering on USB/LAN alone
-       would silently drop them. Wireless loggers stay excluded, as the original comment intended.
-
-       Pass @ConnectableLoggersOnly = 0 to get the unfiltered list, including the 396 registry
-       entries that have no connection value at all.
-
-    The filter applies to loggers only. Sensors carry connection values like 2W and 4W, which
-    describe wiring rather than a link to this system, and must not be filtered by it.
-*/
-CREATE OR ALTER PROCEDURE [dbo].[GetAllCalibrationDevices]
-@MeasurementDevicesMainClassId INT = NULL,
-@CalibrationDeviceId INT = NULL,
-@ApplyFilterByDevicesParents BIT = 0,
-@ConnectableLoggersOnly BIT = 1
-AS
-BEGIN
-
-	DECLARE @DataLoggerClassId INT = 7;
-
-	DECLARE @sql NVARCHAR(MAX) =
-	CONCAT(
-	'
-	SELECT md.[ID]
-		  ,md.[MabaID]
-		  ,md.[Model]
-		  ,md.[SerialNumber]
-		  ,md.[CalibrationDate] AS [LastCalibrationDate]
-		  ,md.[NextCalibration]
-		  ,NULL AS [Status]
-		  ,mc.NameHebrew
-		  ,mc.NameEnglish
-		  ,md.UnitId
-		  ,u.ShortNameHe AS UnitName
-		  ,md.WorkRangeUnitId
-		  ,u2.ShortNameHe as WorkRangeUnitName
-		  ,md.WorkRangeMin	as LowerDomainBorder
-		  ,md.WorkRangeMax as UpperDomainBorder 
-		  /* MBA-902: the second range, for sensors that measure temperature and humidity at once */
-		  ,md.WorkRangeMin2 as LowerDomainBorder2
-		  ,md.WorkRangeMax2 as UpperDomainBorder2
-		  ,u3.ShortNameHe as WorkRangeUnitName2
-		  ,m.NameHe as MeasurmentName
-		  ,d.[MainCategoryName] as DepartmentName
-		  ,md.[IP]
-		  ,COALESCE(md.Resolution,60) as Resolution
-		  /* MBA-902: a logger''s channel count is ConnectionPoints; Channels is a sensor column */
-		  ,COALESCE(md.ConnectionPoints, md.Channels) as ChannelsNumber
-		  ,md.ConnectionPoints
-		  ,md.Connection
-		  ,md.MeasurementId	
-		  ,md.MainClassId	
-		  ,md.SubClassId
-		  ,u.MeasurementDeviceUnitGroupId
-	  FROM [dbo].[MeasurementDevices] as md
-	  JOIN [dbo].[MeasurementDevicesMainClasses] as mc ON md.MainClassId = mc.Id
-	  LEFT JOIN [dbo].[MeasurementDeviceUnits] as u ON md.UnitId = u.MeasurementDeviceUnitId
-	  LEFT JOIN [dbo].[MeasurementDeviceUnits] as u2 ON md.WorkRangeUnitId = u2.MeasurementDeviceUnitId
-	  LEFT JOIN [dbo].[MeasurementDeviceUnits] as u3 ON md.WorkRangeUnitId2 = u3.MeasurementDeviceUnitId
-	  LEFT JOIN [dbo].[Measurements] as m ON md.MeasurementId = m.ID
-	  LEFT JOIN [dbo].[MainCategories] as d ON md.MainCategoryId = d.ID
-	  WHERE md.RemoveDate IS NULL AND md.IsDeleted = 0
-	  '
-	  ,CASE WHEN @MeasurementDevicesMainClassId IS NOT NULL THEN' AND md.MainClassId = '+CAST(@MeasurementDevicesMainClassId as NVARCHAR(50))+' ' ELSE ' ' END
-	  ,CASE WHEN @CalibrationDeviceId IS NOT NULL THEN' AND md.[ID] = '+CAST(@CalibrationDeviceId as NVARCHAR(50))+' ' ELSE ' ' END
-	  /* MBA-902: only loggers this system can actually connect to. Never applied to sensors. */
-	  ,CASE WHEN @ConnectableLoggersOnly = 1 AND @CalibrationDeviceId IS NULL
-	         THEN ' AND (md.MainClassId <> '+CAST(@DataLoggerClassId as NVARCHAR(50))+
-	              ' OR (md.Connection IS NOT NULL AND LEN(LTRIM(RTRIM(md.Connection))) > 0'+
-	              '     AND md.Connection <> N''אוגר אלחוטי'')) '
-	         ELSE ' ' END
-	  /* MBA-902: numeric order on MabaID; anything not shaped nn-nnn sorts last */
-	  ,'
-	  ORDER BY IIF(TRY_CAST(LEFT(md.MabaID, CHARINDEX(''-'', md.MabaID + ''-'') - 1) AS INT) IS NULL, 1, 0),
-	           TRY_CAST(LEFT(md.MabaID, CHARINDEX(''-'', md.MabaID + ''-'') - 1) AS INT),
-	           TRY_CAST(LEFT(STUFF(md.MabaID, 1, CHARINDEX(''-'', md.MabaID + ''-''), ''''),
-	                         CHARINDEX(''/'', STUFF(md.MabaID, 1, CHARINDEX(''-'', md.MabaID + ''-''), '''') + ''/'') - 1) AS INT),
-	           md.MabaID
-	  '
-	  )
-
-	EXEC sp_executesql @sql
-
-END
-
-GO
-/* ===== dbo.GetAllEquipment ===== */
-GO
-/*
-    dbo.GetAllEquipment
-    ---------------------------------------------------------------------------------------------
-    Original author: Eduard Kudlaiev, 02/04/2025
-    All calibration equipment available for assignment - this is what fills the equipment and
-    sensor pickers in the calibration wizard.
-
-    2026-08-24 (MBA-902): the proc had no ORDER BY at all, so the picker listed devices in whatever
-    order the join happened to produce - 21-131, 21-682, 21-528/10, 21-604, 21-697, 21-17 - which
-    is unusable for finding a device by its number, and unstable between calls.
-
-    Sorted on MabaID's numeric segments rather than as text, so 21-17 comes before 21-131 (plain
-    text sort puts 21-131 first, because '1' sorts before '7'). Devices whose MabaID does not
-    follow the nn-nnn shape sort last rather than being dropped.
-
-    AassignedChannels came out of STRING_AGG in join order too, so a sensor holding 0,1,2,3,6,7
-    could render as "3,0,7,1,6,2". Now numeric.
-
-    No rows, filters or columns changed.
-*/
-CREATE OR ALTER PROCEDURE [dbo].[GetAllEquipment]
-@MainCategoryId INT = NULL,
-@CheckDate DATE = NULL,
-@MainClassId INT = NULL
-AS
-
-IF @CheckDate IS NULL SET @CheckDate = GETDATE()
-
-SELECT c.[ID]
-      ,CONCAT(COALESCE(c.[Description],'N/A'), ' ',c.MabaID) AS Title
-	  ,c.[MainClassId]
-	  ,c.[SubClassId]
-	  ,c.[MainCategoryId] as [DepartmentId]
-      ,s.[StatusId]
-	  ,s.[StatusDescriptionENG]	
-	  ,s.[StatusDescriptionHEB] 
-	  ,mmc.MainCategoryName AS [MainCategory]
-      -----------------------------
-	  ,op.OrderNumber as OrderNumber
-	  ,coh.OrderWorkPlanId as OrderId
-	  ,c.Manufacturer
-	  ,c.DisplayToCoordinator
-	  ,c.[MabaID]
-	  ,c.[CalibrationDate]
-	  ,c.[Channels]
-	  ,ach.AassignedChannels
-	  ,c.[StabilityTime]
-	  ,c.[StabilitySize]
-	  ,c.[CalibrationDate]
-	  ,c.[NextCalibration]
-	  ,mdmc.[NameHebrew] as DeviceMainClass
-FROM [dbo].[MeasurementDevices] as c
-LEFT JOIN [dbo].[MainCategories] as mmc ON c.[MainCategoryId] = mmc.ID
-LEFT JOIN [dbo].[Statuses] as s ON c.MeasurementDeviceStatusId = s.StatusId
-LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mc ON c.MainClassId = mc.Id
-LEFT JOIN [dbo].[MeasurementDevicesToOrderHeaders] as coh ON c.ID = coh.MeasurementDeviceId AND coh.IsDeleted = 0 AND coh.AssigmentDate = @CheckDate
-LEFT JOIN [dbo].[OrderWorkPlans] as op ON op.OrderWorkPlanId = coh.OrderWorkPlanId AND op.IsCancelled = 0  
-LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mdmc ON c.MainClassId = mdmc.Id
-LEFT JOIN 
-(
-SELECT sr.SensorMeasurementDeviceId, STRING_AGG(sr.ChannelNumber,',') WITHIN GROUP (ORDER BY sr.ChannelNumber) as AassignedChannels
-FROM [dbo].[ChannelsToSensorRelation] as sr
-WHERE sr.IsDeleted = 0
-GROUP BY sr.SensorMeasurementDeviceId
-) as ach ON c.ID = ach.SensorMeasurementDeviceId
-WHERE c.IsDeleted = 0  /*AND COALESCE(s.StatusDescriptionENG,'Available') = 'Available'*/ AND coh.MeasurementDeviceId IS NULL
-AND (@MainCategoryId IS NULL OR c.[MainCategoryId]  = @MainCategoryId)
-AND (@MainClassId IS NULL OR c.MainClassId  = @MainClassId)
--- MBA-902: numeric order on MabaID's two segments; anything not shaped nn-nnn sorts last
-ORDER BY
-	 IIF(TRY_CAST(LEFT(c.MabaID, CHARINDEX('-', c.MabaID + '-') - 1) AS INT) IS NULL, 1, 0),
-	 TRY_CAST(LEFT(c.MabaID, CHARINDEX('-', c.MabaID + '-') - 1) AS INT),
-	 TRY_CAST(LEFT(STUFF(c.MabaID, 1, CHARINDEX('-', c.MabaID + '-'), ''),
-	               CHARINDEX('/', STUFF(c.MabaID, 1, CHARINDEX('-', c.MabaID + '-'), '') + '/') - 1) AS INT),
-	 c.MabaID
-
-GO
-/* ===== dbo.GetAllOrderClients ===== */
-GO
--- =============================================
--- Author:		Eduard Kudlaiev
--- Create date: 08/06/2025
--- Description:	This SP return customers for orders
--- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-276
--- =============================================
-CREATE OR ALTER PROCEDURE [dbo].[GetAllOrderClients]
-AS
-BEGIN
-	SELECT DISTINCT
-	       c.CustomerId	
-	      ,c.CustomerName	
-		  ,c.CustomerPhone	
-		  ,c.CustomerCity	
-		  ,c.CustomerAddress
-		  ,c.SourceId
-		  ,ss.SourceDisplayName AS SourceName
-	  FROM [dbo].[Customers] as c
-	  JOIN [dbo].[Source] as ss ON c.[SourceId] = ss.[SourceId]
-	  JOIN [dbo].[OrderWorkPlans] as od ON od.[CustomerId] = c.[CustomerId]
-	  WHERE c.[IsDeleted] = 0
-END
-
-GO
-/* ===== dbo.GetAllOrderLocations ===== */
-GO
--- =============================================
--- Author:		Eduard Kudlaiev
--- Create date: 08/06/2025
--- Description:	This SP return customer locations
--- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-276
--- =============================================
-CREATE OR ALTER PROCEDURE [dbo].[GetAllOrderLocations]
-AS
-BEGIN
-	SELECT DISTINCT
-		   c.[CustomerCity] as CustomerLocation,
-		   c.[CustomerId],
-		   od.[SourceId],
-		   s.[SourceDisplayName] AS [SourceName]
-	  FROM [dbo].[Customers] as c
-	  JOIN [dbo].[OrderWorkPlans] as od ON od.[CustomerId] = c.[CustomerId]
-	  JOIN [dbo].[Source] as s ON od.SourceId = s.SourceId
-	  WHERE c.[IsDeleted] = 0 AND LEN([CustomerCity]) > 0
-END
-
-GO
-/* ===== dbo.GetAllProductTypes ===== */
-GO
--- =============================================
--- Author:		Eduard Kudlaiev
--- Create date: 08/06/2025
--- Description:	This SP return customers for orders
--- JiraLink: https://calibration-maba.atlassian.net/browse/MABA-276
--- =============================================
-CREATE OR ALTER PROCEDURE [dbo].[GetAllProductTypes]
-AS
-BEGIN
-	SELECT DISTINCT
-	       od.PartName as ProductType,
-		   wp.[SourceId],
-		   s.[SourceDisplayName] AS [SourceName]
-	  FROM [dbo].[OrderWorkPlans] as wp
-	  JOIN [dbo].[OrderDetails] as od ON od.[OrderWorkPlanId] = wp.[OrderWorkPlanId]
-	  LEFT JOIN [dbo].[Source] as s ON wp.SourceId = s.SourceId
-	  WHERE od.[IsDeleted] = 0 and wp.[IsCancelled] = 0
-END
-
-GO
-/* ===== dbo.GetCalibrationCycles ===== */
-GO
-
-CREATE OR ALTER PROCEDURE [dbo].[GetCalibrationCycles]
-@OrderDetailsItemId INT,
-@ShowOnlyLatest BIT = 0 
-/*
-EXEC [dbo].[GetCalibrationCycles]
-@OrderDetailsItemId = 3077,
-@ShowOnlyLatest = 1
-*/
-AS
-BEGIN
-SET NOCOUNT ON;
-
-WITH ds
-AS
-(
-SELECT
-	 cc.[OrderDetailsItemId]
-	,cc.[CalibrationCycleStartDate]
-	,cc.[CalibrationCycleEndDate]
-	,cc.[CalibrationCycleStatusId]
-	,cc.[CreatedUserID]
-	,cc.[CalibrationCycleName]
-	,cc.[UnitId]	
-	,mu.[LongNameHe] as UnitName
-	,cc.[TestedValue]
-	,sr.[SpecificationReferences]
-	,cc.[CalibrationCycleNameStatusId]
-	,ROW_NUMBER() OVER( PARTITION BY cc.[OrderDetailsItemId] ORDER BY [CalibrationCycleStartDate]) as CycleNumber
-	,ROW_NUMBER() OVER( PARTITION BY cc.[OrderDetailsItemId] ORDER BY [CalibrationCycleStartDate] DESC) as LatestCycle
-FROM [dbo].[CalibrationCycles] as cc
-LEFT JOIN [dbo].[MeasurementDeviceUnits] as mu ON cc.[UnitId] = mu.MeasurementDeviceUnitId
-OUTER APPLY
-(
-SELECT STRING_AGG(Name,', ') as SpecificationReferences
-FROM [dbo].[SpecificationReference] WHERE ID IN (SELECT value FROM STRING_SPLIT(cc.SpecificationReferenceIds,','))
-) as sr
-WHERE cc.[OrderDetailsItemId] = @OrderDetailsItemId AND cc.IsDeleted = 0
-)
-SELECT 
-	 ds.[OrderDetailsItemId]
-	,ds.[CalibrationCycleStartDate]
-	,ds.[CalibrationCycleEndDate]
-	,ds.[CalibrationCycleStatusId]
-	,ds.[CreatedUserID]
-	,ds.[CycleNumber]
-	,ds.[CalibrationCycleName]
-	,ds.[UnitId]	
-	,ds.[UnitName]
-	,ds.[TestedValue]
-	,ds.[SpecificationReferences]
-	,ds.[CalibrationCycleNameStatusId]
-FROM ds
-JOIN [dbo].[OrderDetailsItems] as oi ON ds.[OrderDetailsItemId] = oi.[OrderDetailsItemId] 
-WHERE (@ShowOnlyLatest = 0 OR ds.LatestCycle = 1)
-ORDER BY ds.[CycleNumber] ASC  -- Bug #2 fix: ensure cycles are always returned in creation order
-
-END
-
-GO
 /* ===== dbo.GetCalibrationValuesForManyOrderDetailItems ===== */
 GO
 -- =============================================
@@ -1471,11 +169,11 @@ BEGIN
         ,combined.[MasterValue]
         ,combined.[MasterValueUnitId]
         ,mdu.[ShortNameHe] as MasterValueUnitDescription
-        /* CorrectedExact, not Corrected: rounding to the reading's own precision is what was
-           asked for, but it erases the correction. A reading of 23 has deviation -0.001792,
-           and at zero decimals the answer is 23 again. Both columns are available; this stays
-           on the exact one until the display rule is settled. */
-        ,mvc.CorrectedExact as [MasterValueAfterCorrection]
+        /* The display value: the reading's own precision, but never fewer than 3 decimals.
+           Rounding purely to the input erased the correction - 23 came back as 23. Full
+           precision is still available as MasterValueAfterCorrectionExact. */
+        ,mvc.Corrected      as [MasterValueAfterCorrection]
+        ,mvc.CorrectedExact as [MasterValueAfterCorrectionExact]
         /* MBA-475: is the calibrator driving the master outside its own working range?
            This is a DIFFERENT question from mvc.OutOfRange, which asks whether the reading fell
            outside the CERTIFICATE and the deviation had to be clamped. A master can be well
@@ -1494,7 +192,15 @@ BEGIN
                    WHEN combined.[MasterValue] < md.WorkRangeMin THEN md.WorkRangeMin - combined.[MasterValue]
                    ELSE 0 END AS DECIMAL(18,6)) as [BeyondSensorRangeBy]
         /* and whether the compensation itself had to extrapolate */
-        ,mvc.OutOfRange as [BeyondCertificateRange]
+        ,mvc.OutOfRange   as [BeyondCertificateRange]
+        ,mvc.Extrapolated as [DeviationExtrapolated]
+        ,mvc.CertificateTop      as [CertificateTop]
+        ,mvc.LastCalibratedPoint as [LastCalibratedPoint]
+        /* MBA-475: whether this instrument is permitted to go out of range at all, from the
+           kyulan registry. 328 instruments permit neither end; for those, any overshoot may
+           deserve the highlight rather than only one past 10. */
+        ,md.AllowMinOutOfRange as [AllowMinOutOfRange]
+        ,md.AllowMaxOutOfRange as [AllowMaxOutOfRange]
         ,combined.MeasuredValue
         ,combined.MeasuredValueUnitId
         ,mdu3.[ShortNameHe] as MeasuredUUTDescription
@@ -1588,11 +294,11 @@ BEGIN
         ,combined.[MasterValue]
         ,combined.[MasterValueUnitId] 
         ,mdu.[ShortNameHe] as MasterValueUnitDescription
-        /* CorrectedExact, not Corrected: rounding to the reading's own precision is what was
-           asked for, but it erases the correction. A reading of 23 has deviation -0.001792,
-           and at zero decimals the answer is 23 again. Both columns are available; this stays
-           on the exact one until the display rule is settled. */
-        ,mvc.CorrectedExact as [MasterValueAfterCorrection]
+        /* The display value: the reading's own precision, but never fewer than 3 decimals.
+           Rounding purely to the input erased the correction - 23 came back as 23. Full
+           precision is still available as MasterValueAfterCorrectionExact. */
+        ,mvc.Corrected      as [MasterValueAfterCorrection]
+        ,mvc.CorrectedExact as [MasterValueAfterCorrectionExact]
         /* MBA-475: is the calibrator driving the master outside its own working range?
            This is a DIFFERENT question from mvc.OutOfRange, which asks whether the reading fell
            outside the CERTIFICATE and the deviation had to be clamped. A master can be well
@@ -1611,7 +317,15 @@ BEGIN
                    WHEN combined.[MasterValue] < md.WorkRangeMin THEN md.WorkRangeMin - combined.[MasterValue]
                    ELSE 0 END AS DECIMAL(18,6)) as [BeyondSensorRangeBy]
         /* and whether the compensation itself had to extrapolate */
-        ,mvc.OutOfRange as [BeyondCertificateRange]
+        ,mvc.OutOfRange   as [BeyondCertificateRange]
+        ,mvc.Extrapolated as [DeviationExtrapolated]
+        ,mvc.CertificateTop      as [CertificateTop]
+        ,mvc.LastCalibratedPoint as [LastCalibratedPoint]
+        /* MBA-475: whether this instrument is permitted to go out of range at all, from the
+           kyulan registry. 328 instruments permit neither end; for those, any overshoot may
+           deserve the highlight rather than only one past 10. */
+        ,md.AllowMinOutOfRange as [AllowMinOutOfRange]
+        ,md.AllowMaxOutOfRange as [AllowMaxOutOfRange]
         ,combined.MeasuredValue
         ,combined.MeasuredValueUnitId
         ,mdu3.[ShortNameHe] as MeasuredUUTDescription
@@ -1679,31 +393,172 @@ BEGIN
     ORDER BY combined.[MeasurmentPointsToOrderDetailsItemId], combined.NominalValue
 END
 GO
+/* ===== dbo.GetCustomerCalibrationReports ===== */
+GO
+-- =============================================
+-- Proc:        dbo.GetCustomerCalibrationReports
+-- Jira:        MBA-796  "Customer Calibration-reports page (customer/calibration-reports)"
+-- Description: Returns the calibration reports belonging to the logged-in customer
+--              (customer portal "Calibration Reports" grid, route customer/calibration-reports).
+--              Identity input matches dbo.GetCustomerDashboardData / dbo.GetCustomerDeviceList
+--              (@LoggedInUserEmail -> CustomerId via dbo.CustomerContacts) and is scoped to the
+--              calling customer only, consistent with the other GetCustomer* SPs.
+--
+--              A "calibration report" is an OrderDetailsItem that has an MbaReportNumber assigned.
+--              Unlike GetCustomerDeviceList (one row per device, latest order only) this SP returns
+--              ONE ROW PER REPORT (every report the customer has, including historical / update
+--              cycles), newest calibration first. Filtering / sorting / search are CLIENT-SIDE.
+--
+-- Output columns (camelCase, matching the app's Raw* -> mapper convention):
+--   id                 -> OrderDetailsItemId (row key AND part of the AWS report path)
+--   orderNumber        -> OrderWorkPlans.OrderNumber (part of the AWS report path)
+--   reportPath         -> convenience S3 key the FE otherwise builds via getOrderReportPath():
+--                         'orders/{orderNumber}/reports/{id}/report.pdf'  (see
+--                         src/lib/helpers/get-aws-file-paths.ts + pdf-preview-dialog)
+--   mbaReportNumber    -> itm.MbaReportNumber (מספר דוח מבא)
+--   serialNumber       -> itm.SerialNumber
+--   deviceDescription  -> OrdersProductTypes.OrdersProductTypeName
+--   deviceManufacturer -> itm.OrdersDeviceManufacturer
+--   deviceModel        -> itm.DeviceModel
+--   calibrationDate    -> DD.MM.YYYY (CONVERT style 104) from itm.ActualCalibrationDate
+--   reportStatus       -> lower-camel of the ReportStatus StatusDescriptionENG (e.g.
+--                         'createCalibrationReport'); NULL when no report status is set
+--   reportStatusHeb    -> Statuses.StatusDescriptionHEB (Hebrew display text for the status)
+--
+-- OPEN QUESTIONS for review (screen is still a stub in the app, no wired tRPC/Figma yet):
+--   * reportStatus source = itm.CalibrationReportStatusId (ReportStatus category). Confirm this
+--     is the status the grid should show (vs. the calibration status used by GetCustomerDeviceList).
+--   * FE enum for reportStatus is not defined yet, so the code is derived generically from the
+--     English description (same fallback pattern GetCustomerDeviceList uses). Confirm the exact
+--     camelCase codes once the FE filter chips exist, then map explicitly by StatusId.
+--   * Download: FE builds the URL from {orderNumber, id}; reportPath is returned as a convenience.
+-- =============================================
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerCalibrationReports]
+    @LoggedInUserEmail NVARCHAR(50),
+    /* MBA-936: the branch the caller chose, when their address serves several customers.
+       Verified below - an unverified id is ignored rather than trusted, so this cannot be
+       used to read another customer's data. */
+    @SelectedCustomerId INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @CustomerId INT = NULL;
+
+        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
+       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
+       Without a choice, or with one that does not belong to the caller, this falls through to the
+       original deterministic pick - never to the id it was handed. */
+    IF @SelectedCustomerId IS NOT NULL
+       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
+                   WHERE v.CustomerId = @SelectedCustomerId
+                     AND ISNULL(v.IsDeleted, 0) = 0
+                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
+                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
+        SET @CustomerId = @SelectedCustomerId;
+    ELSE
+    SELECT TOP (1) @CustomerId = cc.CustomerId
+        FROM [dbo].[CustomerContacts] AS cc
+        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
+        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
+
+    SELECT
+         itm.OrderDetailsItemId                                              AS id
+        ,wp.OrderNumber                                                      AS orderNumber
+        ,CONCAT(N'orders/', wp.OrderNumber, N'/reports/',
+                itm.OrderDetailsItemId, N'/report.pdf')                      AS reportPath
+        ,itm.MbaReportNumber                                                 AS mbaReportNumber
+        ,itm.SerialNumber                                                    AS serialNumber
+        ,pt.OrdersProductTypeName                                            AS deviceDescription
+        ,itm.OrdersDeviceManufacturer                                        AS deviceManufacturer
+        ,itm.DeviceModel                                                     AS deviceModel
+        ,CONVERT(VARCHAR(10), itm.ActualCalibrationDate, 104)               AS calibrationDate
+        ,CASE
+            WHEN st.StatusDescriptionENG IS NULL OR LEN(st.StatusDescriptionENG) = 0 THEN NULL
+            ELSE LOWER(LEFT(REPLACE(st.StatusDescriptionENG, '''', ''), 1))
+               + SUBSTRING(REPLACE(st.StatusDescriptionENG, '''', ''), 2, 200)
+         END                                                                AS reportStatus
+        ,st.StatusDescriptionHEB                                            AS reportStatusHeb
+    FROM [dbo].[OrderWorkPlans]      AS wp
+    JOIN [dbo].[OrderDetails]        AS od  ON od.OrderWorkPlanId = wp.OrderWorkPlanId
+    JOIN [dbo].[OrderDetailsItems]   AS itm ON itm.OrderDetailId  = od.OrderDetailId
+    LEFT JOIN [dbo].[Statuses]           AS st ON st.StatusId            = itm.CalibrationReportStatusId
+    LEFT JOIN [dbo].[OrdersProductTypes] AS pt ON pt.OrdersProductTypeId = od.OrdersProductTypeId
+    WHERE wp.CustomerId        = @CustomerId
+      AND wp.IsCancelled       = 0
+      AND ISNULL(od.IsDeleted, 0)   = 0
+      AND ISNULL(od.IsCancelled, 0) = 0
+      AND ISNULL(itm.IsDeleted, 0)  = 0
+      AND ISNULL(itm.IsCancelled, 0)= 0
+      AND itm.MbaReportNumber IS NOT NULL
+      AND LEN(itm.MbaReportNumber) > 0
+    ORDER BY itm.ActualCalibrationDate DESC
+    OPTION (RECOMPILE);
+END
+
+GO
 /* ===== dbo.GetCustomerContacts ===== */
 GO
 -- =============================================
--- Author:		Eduard Kudlaiev
+-- Author:      Eduard Kudlaiev
 -- Create date: 04/05/2026
--- Description:	This SP get data about customers contacts based 
---              It get appopriate customer for filtering based on @LoggedInUserEmail
--- JiraLink: 
+-- Description: Contacts of the customer the caller belongs to.
+--              Used by the internal customer-management screen AND by the customer
+--              portal profile screen.
+--
+-- 2026-08-30 ג€” FIX: portal users could not resolve.
+--
+--              The customer was resolved only through dbo.GetSourceFilterByEmail, which
+--              is a table-valued function over dbo.Users ג€” internal staff accounts. A
+--              portal user is a row in dbo.CustomerContacts and has no Users row, so the
+--              function returned NO ROWS, @CustomerId stayed NULL, and the final
+--              predicate `WHERE c.CustomerId = @CustomerId` was always false. The screen
+--              showed nothing, which is why the front end was left on mock data.
+--
+--              Now: resolve from dbo.CustomerContacts first, fall back to the function.
+--              Order matters ג€” the portal case is checked first, and the staff path is
+--              untouched, so the internal screen behaves exactly as before.
+--
+--              Same defect and same fix as GetCustomerSupportData (2026-08-30).
+--              The SELECT list is unchanged; no caller needs to change.
+-- JiraLink:
 -- =============================================
-
-CREATE OR ALTER PROCEDURE [dbo].[GetCustomerContacts] 
-@LoggedInUserEmail NVARCHAR(100)
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerContacts]
+@LoggedInUserEmail NVARCHAR(100),
+    /* MBA-936: the branch the caller chose, when their address serves several customers.
+       Verified below - an unverified id is ignored rather than trusted, so this cannot be
+       used to read another customer's data. */
+    @SelectedCustomerId INT = NULL
 AS
 
 SET NOCOUNT ON;
 
-DECLARE @LoggedInUserId INT 
-DECLARE @SourceId TINYINT
-DECLARE @CustomerId INT
+DECLARE @CustomerId INT = NULL;
 
-SELECT 
- @LoggedInUserId  = d.UserId 
-,@SourceId = d.SourceId
-,@CustomerId = d.CustomerId
-FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
+-- Primary resolution: portal contact login
+    /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
+       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
+       Without a choice, or with one that does not belong to the caller, this falls through to the
+       original deterministic pick - never to the id it was handed. */
+    IF @SelectedCustomerId IS NOT NULL
+       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
+                   WHERE v.CustomerId = @SelectedCustomerId
+                     AND ISNULL(v.IsDeleted, 0) = 0
+                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
+                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
+        SET @CustomerId = @SelectedCustomerId;
+    ELSE
+    SELECT TOP 1 @CustomerId = cc.CustomerId
+    FROM dbo.CustomerContacts AS cc
+    WHERE cc.CustomerContactEmail = @LoggedInUserEmail
+        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
+
+-- Fallback: internal staff account mapped to a customer
+IF @CustomerId IS NULL
+BEGIN
+    SELECT TOP 1 @CustomerId = d.CustomerId
+    FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) AS d;
+END
 
 SELECT c.[CustomerContactId]
       ,c.[CustomerId]
@@ -1715,7 +570,7 @@ SELECT c.[CustomerContactId]
       ,c.[SourceId]
       ,s.[SourceDisplayName] AS [SourceName]
       ,c.[CustomerSiteId]
-	  ,c.[IsDeleted]
+      ,c.[IsDeleted]
   FROM [dbo].[CustomerContacts] as c
   LEFT JOIN [dbo].[Source] as s ON c.[SourceId] = s.[SourceId]
   WHERE /*c.[IsDeleted] = 0 AND*/ c.CustomerId = @CustomerId
@@ -1732,31 +587,41 @@ GO
 
     The output alias stays ActualReturnDate on purpose: the front end already binds to it,
     and renaming would break the screen for no gain.
+
+    2026-08-31 - MBA-939: the caller is a SET of customers, not one.
+    ---------------------------------------------------------------------------------
+    An e-mail address is a contact of several customers in 3,684 cases. The old rule took the
+    lowest CustomerContactId, which for davide@iscar.co.il landed on ישקר בע"מ - a row with zero
+    devices - while his 31 devices sat under three other ישקר entities. The dashboard was empty
+    for 181 such addresses.
+
+    #CustomerOrdersIds is now filled from dbo.GetPortalCustomerIds, so every screen that reads it
+    covers all the caller's companies at once. Everything downstream already filters through that
+    temp table, so this is the only place the scope is decided.
+
+    Two further changes inside the dynamic SQL:
+
+      * IsLatestOrder partitions by CustomerId + SerialNumber, not SerialNumber alone. 10 of 3,819
+        serials exist under more than one customer; over a union, partitioning on the serial alone
+        keeps the newest order and silently drops the other company's device.
+      * CustomerName is carried through to the output, so a manager can tell which company each
+        row belongs to. The front end has to render it (MBA-940).
+
+    @SourceId is removed. It was assigned from the contact row and never read.
 */
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 26/02/2026
 -- Description:	Get customer dashboad data
 -- =============================================
-CREATE OR ALTER PROCEDURE [dbo].[GetCustomerDashboardData] 
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerDashboardData]
 @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
 @RowsOfPage AS INT = 50,                 -- Result page size
 @OrderBy AS NVARCHAR(MAX) = 'CalibratioinDate',      -- OrderBy column
 @OrderByAsc AS BIT = 0,                  -- OrderBy direction (ASC/DESC)
-@LoggedInUserEmail NVARCHAR(50),
+@LoggedInUserEmail NVARCHAR(100),
 @GlobalSearch NVARCHAR(200) = NULL
 AS
-
-DECLARE @CustomerId INT = 0
-DECLARE @SourceId TINYINT
-
-
-
-SELECT 
-	@CustomerId  = d.CustomerId 
-,@SourceId = d.SourceId
-FROM [dbo].[CustomerContacts] as d
-WHERE CustomerContactEmail = @LoggedInUserEmail 
 
 DROP TABLE IF EXISTS #CustomerOrdersIds
 CREATE TABLE #CustomerOrdersIds
@@ -1764,10 +629,11 @@ CREATE TABLE #CustomerOrdersIds
 OrderWorkPlanId INT NOT NULL
 )
 
+/* MBA-939: every company this caller belongs to that holds devices - see dbo.GetPortalCustomerIds. */
 INSERT #CustomerOrdersIds(OrderWorkPlanId)
 SELECT wp.OrderWorkPlanId
 FROM [dbo].[OrderWorkPlans] as wp
-WHERE wp.[CustomerId] = @CustomerId
+JOIN dbo.GetPortalCustomerIds(@LoggedInUserEmail) as mine ON mine.CustomerId = wp.[CustomerId]
 
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
@@ -1775,7 +641,7 @@ CONCAT(
 ;WITH ds
 AS
 (
-SELECT 
+SELECT
 COALESCE(clst.StatusDescriptionHEB,N'''+N'מחכה לכיול'+''') as DeviceStatus
 ,itm.ActualCalibrationDate as CalibratioinDate
 ,itm.NextCalibrationDate
@@ -1789,8 +655,9 @@ COALESCE(clst.StatusDescriptionHEB,N'''+N'מחכה לכיול'+''') as DeviceSta
 ,u.LastName as CalibratorLastName
 ,u.Phone as CalibratorPhoneNumber
 ,ctwp.AssigmentDate as CalibratorAssigmentDate
-,ROW_NUMBER() OVER( PARTITION BY itm.SerialNumber ORDER BY wp.OrderWorkPlanId DESC) as IsLatestOrder
-FROM 
+,c.CustomerName as CustomerName
+,ROW_NUMBER() OVER( PARTITION BY wp.[CustomerId], itm.SerialNumber ORDER BY wp.OrderWorkPlanId DESC) as IsLatestOrder
+FROM
 [dbo].[OrderWorkPlans] as wp
 JOIN #CustomerOrdersIds as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId
 JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
@@ -1803,12 +670,11 @@ LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = wp.[
 LEFT JOIN [dbo].[SecondaryCategories] as scf ON od.SecondaryCategoryId = scf.ID
 LEFT JOIN [dbo].[CustomerSites] as css ON css.CustomerSiteId = od.CustomerSiteId
 LEFT JOIN [dbo].[OrdersProductTypes] as pt ON od.OrdersProductTypeId = pt.OrdersProductTypeId
---WHERE wp.[CustomerId] = 2159
 ),
 devices_cnt
 AS
 (
-SELECT 
+SELECT
 COALESCE(NULLIF(d.DeviceStatus,N''''),N''לא ניתן לקבוע'') as DeviceStatus
 ,d.CalibratioinDate
 ,d.NextCalibrationDate
@@ -1821,6 +687,7 @@ COALESCE(NULLIF(d.DeviceStatus,N''''),N''לא ניתן לקבוע'') as DeviceSt
 ,d.CalibratorLastName
 ,d.CalibratorPhoneNumber
 ,d.CalibratorAssigmentDate
+,d.CustomerName
 ,d.IsLatestOrder
 ,SUM(IIF(d.IsLatestOrder = 1,1,NULL)) OVER( ORDER BY d.DeviceStatus) as OverallDevicesCount
 ,SUM(IIF(d.IsLatestOrder = 1 AND COALESCE(d.CalibratioinDate,''1900-01-01'') < GETDATE(),1,NULL)) OVER( ORDER BY d.DeviceStatus) as ExpiredevicesCount
@@ -1828,7 +695,7 @@ COALESCE(NULLIF(d.DeviceStatus,N''''),N''לא ניתן לקבוע'') as DeviceSt
 ,COALESCE(SUM(IIF(d.IsLatestOrder = 1 AND d.DeviceStatus=N'''+N'מחכה לכיול'+''',1,NULL)) OVER( ORDER BY d.DeviceStatus),0) as DevicesWaitingForCalibrationCount
 FROM ds as d
 )
-SELECT 
+SELECT
  ds.DeviceStatus
 ,ds.CalibratioinDate
 ,ds.NextCalibrationDate
@@ -1841,6 +708,7 @@ SELECT
 ,ds.CalibratorLastName
 ,ds.CalibratorPhoneNumber
 ,ds.CalibratorAssigmentDate
+,ds.CustomerName
 ,ds.OverallDevicesCount
 ,ds.ExpiredevicesCount
 ,ds.CalibratedDevicesCount
@@ -1851,35 +719,889 @@ WHERE ds.IsLatestOrder = 1'
 ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ds.DeviceDescription,ds.SerialNumber,ds.CalibratorFirstName,ds.CalibratorLastName,ds.CalibratorPhoneNumber) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
 ,'ORDER BY ' , @OrderBy , CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
 
-PRINT CAST(@sql as VARCHAR(MAX))
 EXEC (@sql)
+
+GO
+/* ===== dbo.GetCustomerDeviceDetail ===== */
+GO
+-- =============================================
+-- Proc:        dbo.GetCustomerDeviceDetail
+-- Jira:        MBA-798  "Customer Selected-device detail view"
+-- Description: Returns the FULL detail of ONE device for the logged-in customer
+--              (customer portal "selected device" detail view). This is a distinct
+--              contract from:
+--                * dbo.GetCustomerDeviceList     -> one row PER device, 12 list columns,
+--                                                   no single-device key.
+--                * dbo.GetOrderDetailsDevices    -> STAFF detail, keyed by OrderWorkPlanId,
+--                                                   requires a MABA Users/UserRoles row via
+--                                                   GetSourceFilterByEmail and performs NO
+--                                                   customer-ownership check -> unusable and
+--                                                   unsafe for a customer contact.
+--
+--              Identity input matches the other GetCustomer* SPs:
+--                @LoggedInUserEmail -> CustomerId via dbo.CustomerContacts.
+--              The device is looked up by @OrderDetailsItemId and is ALWAYS re-scoped to the
+--              calling customer (WHERE wp.CustomerId = @CustomerId), so a customer can never
+--              read another customer's device by guessing an id. Returns 0 rows if the id
+--              does not belong to the caller.
+--
+-- Params:
+--   @LoggedInUserEmail  NVARCHAR(50)  -- customer contact email (resolves CustomerId)
+--   @OrderDetailsItemId INT           -- the selected device (OrderDetailsItems.OrderDetailsItemId)
+--
+-- Output (single row): superset of the Device-List contract plus detail-only fields.
+--   id, deviceStatus (FE camelCase code), deviceStatusHeb,
+--   lastCalibration (DD.MM.YYYY), nextCalibration (DD.MM.YYYY),
+--   serialNumber, sku, additionalDeviceNumber,
+--   calibrationLocation (מעבדה/לקוח), deviceDescription, deviceManufacturer, deviceModel,
+--   mainCategory, secondaryCategory, accuracy, measurementUnit,
+--   productLocation, siteAddress, shippingMethod,
+--   orderNumber, lastReport,
+--   calibratorFullName, calibratorPhone
+--
+--   * deviceStatus is mapped by StatusId to the exact FE `deviceCalibrationStatuses`
+--     camelCase codes, IDENTICAL to dbo.GetCustomerDeviceList (kept in sync on purpose);
+--     any unmapped status falls back to lower-camel of StatusDescriptionENG.
+--   * Dates -> DD.MM.YYYY (CONVERT style 104), per house convention.
+--
+-- NOTE for review (Ariel): source mappings mirror dbo.GetCustomerDeviceList (MBA-860) --
+--   sku -> ManufacturerNumber, calibrationLocation -> IIF(od.IsInHouse=1,'מעבדה','לקוח'),
+--   lastReport -> itm.MbaReportNumber. Please confirm which extra detail fields the final
+--   Figma frame requires; those listed above are the customer-safe superset available in
+--   Calibrator. No financial/analytics fields are included (not in this DB).
+-- =============================================
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerDeviceDetail]
+    @LoggedInUserEmail  NVARCHAR(50),
+    @OrderDetailsItemId INT,
+    /* MBA-936: the branch the caller chose, when their address serves several customers.
+       Verified below - an unverified id is ignored rather than trusted, so this cannot be
+       used to read another customer's data. */
+    @SelectedCustomerId INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @CustomerId INT = NULL;
+
+        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
+       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
+       Without a choice, or with one that does not belong to the caller, this falls through to the
+       original deterministic pick - never to the id it was handed. */
+    IF @SelectedCustomerId IS NOT NULL
+       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
+                   WHERE v.CustomerId = @SelectedCustomerId
+                     AND ISNULL(v.IsDeleted, 0) = 0
+                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
+                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
+        SET @CustomerId = @SelectedCustomerId;
+    ELSE
+    SELECT TOP (1) @CustomerId = cc.CustomerId
+        FROM [dbo].[CustomerContacts] AS cc
+        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
+        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
+
+    IF @CustomerId IS NULL
+        RETURN;  -- unknown contact -> no data
+
+    SELECT TOP (1)
+         itm.OrderDetailsItemId                                                   AS id
+        ,CASE itm.CalibrationStatusId
+            WHEN 31 THEN 'testedMetTheStandard'
+            WHEN 32 THEN 'testedDidntMeetTheStandards'
+            WHEN 23 THEN 'calibrationSuccess'
+            WHEN 21 THEN 'calibrationFailed'
+            WHEN 26 THEN 'adjusted'
+            WHEN 24 THEN 'delivered'
+            WHEN 22 THEN 'packaged'
+            WHEN 29 THEN 'readyForPacking'
+            WHEN 27 THEN 'readyForDelivery'
+            WHEN 19 THEN 'waitingForCalibration'
+            WHEN 33 THEN 'cannotBeDetermined'
+            ELSE CASE
+                    WHEN st.StatusDescriptionENG IS NULL OR LEN(st.StatusDescriptionENG) = 0 THEN NULL
+                    ELSE LOWER(LEFT(REPLACE(st.StatusDescriptionENG, '''', ''), 1))
+                       + SUBSTRING(REPLACE(st.StatusDescriptionENG, '''', ''), 2, 200)
+                 END
+         END                                                                      AS deviceStatus
+        ,st.StatusDescriptionHEB                                                  AS deviceStatusHeb
+        ,CONVERT(VARCHAR(10), itm.ActualCalibrationDate, 104)                     AS lastCalibration
+        ,CONVERT(VARCHAR(10), itm.NextCalibrationDate,   104)                     AS nextCalibration
+        ,itm.SerialNumber                                                         AS serialNumber
+        ,itm.ManufacturerNumber                                                   AS sku
+        ,itm.AdditionalDeviceNumber                                               AS additionalDeviceNumber
+        ,IIF(od.IsInHouse = 1, N'מעבדה', N'לקוח')                                  AS calibrationLocation
+        ,pt.OrdersProductTypeName                                                 AS deviceDescription
+        ,itm.OrdersDeviceManufacturer                                             AS deviceManufacturer
+        ,itm.DeviceModel                                                          AS deviceModel
+        ,mc.MainCategoryName                                                      AS mainCategory
+        ,sc.SecondaryCategoryName                                                 AS secondaryCategory
+        ,itm.Accuracy                                                             AS accuracy
+        ,mu.ShortNameHe                                                           AS measurementUnit
+        ,itm.ProductLocation                                                      AS productLocation
+        ,COALESCE(itm.SiteAddress, cs.CustomerSiteAddress)                        AS siteAddress
+        ,wp.ShipTypeDesc                                                          AS shippingMethod
+        ,wp.OrderNumber                                                           AS orderNumber
+        ,itm.MbaReportNumber                                                      AS lastReport
+        ,CONCAT(u.FirstName, ' ', u.LastName)                                     AS calibratorFullName
+        ,u.Phone                                                                  AS calibratorPhone
+    FROM [dbo].[OrderWorkPlans]        AS wp
+    JOIN [dbo].[OrderDetails]          AS od  ON od.OrderWorkPlanId = wp.OrderWorkPlanId
+    JOIN [dbo].[OrderDetailsItems]     AS itm ON itm.OrderDetailId  = od.OrderDetailId
+    LEFT JOIN [dbo].[Statuses]             AS st ON st.StatusId              = itm.CalibrationStatusId
+    LEFT JOIN [dbo].[OrdersProductTypes]   AS pt ON pt.OrdersProductTypeId   = od.OrdersProductTypeId
+    LEFT JOIN [dbo].[MainCategories]       AS mc ON mc.ID                    = od.MainCategoryId
+    LEFT JOIN [dbo].[SecondaryCategories]  AS sc ON sc.ID                    = od.SecondaryCategoryId
+    LEFT JOIN [dbo].[MeasurementDeviceUnits] AS mu ON mu.MeasurementDeviceUnitId = itm.MeasurementUnitId
+    LEFT JOIN [dbo].[CustomerSites]        AS cs ON cs.CustomerSiteId        = od.CustomerSiteId
+    LEFT JOIN [dbo].[Users]                AS u  ON u.ID                     = od.CalibratorId
+    WHERE itm.OrderDetailsItemId    = @OrderDetailsItemId
+      AND wp.CustomerId             = @CustomerId          -- ownership guard
+      AND wp.IsCancelled           = 0
+      AND ISNULL(od.IsDeleted, 0)  = 0
+      AND ISNULL(od.IsCancelled, 0) = 0
+      AND ISNULL(itm.IsDeleted, 0) = 0
+      AND ISNULL(itm.IsCancelled, 0) = 0
+    OPTION (RECOMPILE);
+END
+
+GO
+/* ===== dbo.GetCustomerDeviceList ===== */
+GO
+-- =============================================
+-- Proc:        dbo.GetCustomerDeviceList
+-- Jira:        MBA-860 (parent MBA-859 "Wire Customer Device List to live data")
+--              MBA-939 - union across every customer the caller belongs to.
+-- Description: Returns ONE row per device for the logged-in caller (customer portal
+--              Device List grid).
+--
+--              Filtering / sorting / search are done CLIENT-SIDE (per MBA-860), so this SP
+--              returns the full, clean device set with no pagination.
+--
+-- 2026-08-31 - MBA-939: the caller is a SET of customers, not one.
+--
+--              An e-mail address is a contact of one customer far less often than we assumed:
+--              3,684 addresses serve several. davide@iscar.co.il is a contact of 22 ישקר
+--              entities. The old rule took the lowest CustomerContactId, which for him is
+--              ישקר בע"מ - a row holding ZERO devices - while his 24 devices sit under
+--              ישקר-מתק"ש-תפן. He saw an empty portal. 181 addresses were in that state.
+--
+--              Scoping now comes from dbo.GetPortalCustomerIds, which returns every customer
+--              the address belongs to that actually holds devices. See that function for why
+--              the device filter is there and not cosmetic.
+--
+--              @SelectedCustomerId is GONE. It was added in MBA-936 for a branch picker that
+--              we decided not to build; a union needs no choice and therefore no parameter to
+--              verify. Callers passing it will now fail loudly rather than be silently ignored.
+--
+-- NEW COLUMN:  customerName - which company each device belongs to. Without it a manager sees
+--              devices from three Iscar divisions in one list with nothing to tell them apart.
+--              The front end has to render it (MBA-940).
+--
+-- Output (13 columns):
+--   id, deviceStatus, lastCalibration, nextCalibration, serialNumber, calibrationLocation,
+--   deviceDescription, deviceManufacturer, deviceModel, sku, shippingMethod, lastReport,
+--   customerName
+-- =============================================
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerDeviceList]
+    @LoggedInUserEmail NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    ;WITH devices AS
+    (
+        SELECT
+             itm.OrderDetailsItemId                                                   AS id
+            ,itm.CalibrationStatusId                                                  AS CalibrationStatusId
+            ,st.StatusDescriptionENG                                                  AS StatusEng
+            ,itm.ActualCalibrationDate                                                AS ActualCalibrationDate
+            ,itm.NextCalibrationDate                                                  AS NextCalibrationDate
+            ,itm.SerialNumber                                                         AS SerialNumber
+            ,IIF(od.IsInHouse = 1, N'מעבדה', N'לקוח')                                  AS CalibrationLocation
+            ,pt.OrdersProductTypeName                                                 AS DeviceDescription
+            ,itm.OrdersDeviceManufacturer                                             AS DeviceManufacturer
+            ,itm.DeviceModel                                                          AS DeviceModel
+            ,itm.ManufacturerNumber                                                   AS Sku
+            ,wp.ShipTypeDesc                                                          AS ShippingMethod
+            ,itm.MbaReportNumber                                                      AS LastReport
+            ,mine.CustomerName                                                        AS CustomerName
+            /* MBA-939: partition by CUSTOMER + serial, not serial alone.
+               10 of 3,819 serial numbers appear under more than one customer. Partitioning on
+               the serial alone would keep the newest order and silently drop the other
+               company's device from a list that now spans several companies. */
+            ,ROW_NUMBER() OVER (PARTITION BY wp.CustomerId, itm.SerialNumber
+                                ORDER BY wp.OrderWorkPlanId DESC)                     AS IsLatestOrder
+        FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail) AS mine
+        JOIN [dbo].[OrderWorkPlans]      AS wp  ON wp.CustomerId        = mine.CustomerId
+        JOIN [dbo].[OrderDetails]        AS od  ON od.OrderWorkPlanId   = wp.OrderWorkPlanId
+        JOIN [dbo].[OrderDetailsItems]   AS itm ON itm.OrderDetailId    = od.OrderDetailId
+        LEFT JOIN [dbo].[Statuses]           AS st ON st.StatusId            = itm.CalibrationStatusId
+        LEFT JOIN [dbo].[OrdersProductTypes] AS pt ON pt.OrdersProductTypeId = od.OrdersProductTypeId
+        WHERE wp.IsCancelled      = 0
+          AND ISNULL(od.IsDeleted, 0)  = 0
+          AND ISNULL(od.IsCancelled,0) = 0
+          AND ISNULL(itm.IsDeleted, 0) = 0
+          AND ISNULL(itm.IsCancelled,0)= 0
+    )
+    SELECT
+         d.id
+        ,CASE d.CalibrationStatusId
+            WHEN 31 THEN 'testedMetTheStandard'
+            WHEN 32 THEN 'testedDidntMeetTheStandards'
+            WHEN 23 THEN 'calibrationSuccess'
+            WHEN 21 THEN 'calibrationFailed'
+            WHEN 26 THEN 'adjusted'
+            WHEN 24 THEN 'delivered'
+            WHEN 22 THEN 'packaged'
+            WHEN 29 THEN 'readyForPacking'
+            WHEN 27 THEN 'readyForDelivery'
+            WHEN 19 THEN 'waitingForCalibration'
+            WHEN 33 THEN 'cannotBeDetermined'
+            ELSE CASE
+                    WHEN d.StatusEng IS NULL OR LEN(d.StatusEng) = 0 THEN NULL
+                    ELSE LOWER(LEFT(REPLACE(d.StatusEng, '''', ''), 1))
+                       + SUBSTRING(REPLACE(d.StatusEng, '''', ''), 2, 200)
+                 END
+         END                                                             AS deviceStatus
+        ,CONVERT(VARCHAR(10), d.ActualCalibrationDate, 104)              AS lastCalibration
+        ,CONVERT(VARCHAR(10), d.NextCalibrationDate,   104)              AS nextCalibration
+        ,d.SerialNumber                                                  AS serialNumber
+        ,d.CalibrationLocation                                           AS calibrationLocation
+        ,d.DeviceDescription                                            AS deviceDescription
+        ,d.DeviceManufacturer                                           AS deviceManufacturer
+        ,d.DeviceModel                                                   AS deviceModel
+        ,d.Sku                                                           AS sku
+        ,d.ShippingMethod                                               AS shippingMethod
+        ,d.LastReport                                                    AS lastReport
+        ,d.CustomerName                                                  AS customerName
+    FROM devices AS d
+    WHERE d.IsLatestOrder = 1
+    ORDER BY d.ActualCalibrationDate DESC
+    OPTION (RECOMPILE);
+END
+
+GO
+/* ===== dbo.GetCustomerInvoicesFromPriority ===== */
+GO
+CREATE OR ALTER PROCEDURE dbo.GetCustomerInvoicesFromPriority
+    @LoggedInUserEmail NVARCHAR(100),
+    /* MBA-936: the branch the caller chose, when their address serves several customers.
+       Verified below - an unverified id is ignored rather than trusted, so this cannot be
+       used to read another customer's data. */
+    @SelectedCustomerId INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @CustomerId INT, @Cust INT;
+        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
+       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
+       Without a choice, or with one that does not belong to the caller, this falls through to the
+       original deterministic pick - never to the id it was handed. */
+    IF @SelectedCustomerId IS NOT NULL
+       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
+                   WHERE v.CustomerId = @SelectedCustomerId
+                     AND ISNULL(v.IsDeleted, 0) = 0
+                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
+                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
+        SET @CustomerId = @SelectedCustomerId;
+    ELSE
+    SELECT TOP 1 @CustomerId = CustomerId FROM dbo.CustomerContacts
+          WHERE CustomerContactEmail = @LoggedInUserEmail AND ISNULL(IsDeleted,0)=0
+          ORDER BY CustomerContactId ASC   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */;
+    SELECT @Cust = TRY_CONVERT(INT, CustomerIdFromSource) FROM dbo.Customers WHERE CustomerId=@CustomerId;
+    IF @Cust IS NULL RETURN;
+    SELECT iv.IVNUM AS invoiceNumber,
+        CONVERT(varchar(10), DATEADD(MINUTE, iv.IVDATE, '1988-01-01'), 104) AS invoiceDate,
+        iv.TOTPRICE AS totalPrice, iv.IVBALANCE AS balance,
+        CAST(CASE WHEN iv.IVBALANCE = 0 THEN 1 ELSE 0 END AS bit) AS isPaid
+    FROM [31.168.173.93].amaba.dbo.INVOICES AS iv
+    WHERE iv.CUST = @Cust
+    ORDER BY iv.IVDATE DESC;
+END
+GO
+/* ===== dbo.GetCustomerInvoicesQuotes ===== */
+GO
+-- =============================================
+-- Proc:        dbo.GetCustomerInvoicesQuotes
+-- Jira:        MBA-797 (Customer Invoice/Quotes page — customer/invoice)
+-- Description: Customer-portal Invoices/Quotes grid (screen has two tabs: "quotes" and
+--              "invoices"). Identity input matches the other customer-portal SPs
+--              (@LoggedInUserEmail -> CustomerId via dbo.CustomerContacts) and is scoped
+--              to the calling customer only, consistent with dbo.GetCustomerDashboardData
+--              / dbo.GetCustomerDeviceList.
+--
+--              *** PARTIAL / SCAFFOLD — see the "BLOCKED" note below. ***
+--              The Calibrator DB holds calibration ORDERS with per-line pricing
+--              (OrderDetails.PRICE = net, OrderDetails.VPRICE = VAT-inclusive), but it does
+--              NOT hold billing/financial DOCUMENTS. It has no invoice numbers, no quote
+--              numbers, no discount amounts, and no "paid by" party. Those live in the
+--              Priority ERP and are not synced into Calibrator on STAGE:
+--                  - OrderWorkPlans.BK_DOC_N is 100% NULL (0 distinct values on STAGE).
+--                  - There is no Quotes / Invoices / Discount / Payments table.
+--              This SP therefore returns one row per calibration order with the fields that
+--              ARE legitimately available, and returns NULL for every field that must come
+--              from Priority. It does NOT fabricate invoice/quote numbers or discounts.
+--
+--              There is also no data in Calibrator to split rows into "quotes" vs
+--              "invoices"; @DocType is accepted for forward-compatibility but currently only
+--              affects nothing (all rows are order-derived). FE tabs can filter later once
+--              the Priority-sourced document type exists.
+--
+-- Output columns (superset covering both FE tabs; camelCase to match FE Raw* row types):
+--   id, orderNumber, date, invoiceNumber, invoiceDate, quoteNumber,
+--   price, discount, finalPrice, paidBy
+--     * date / invoiceDate -> DD.MM.YYYY (CONVERT style 104) from WorkPlanOpenDate.
+--     * price              -> SUM(OrderDetails.PRICE)  net, per order, 2dp string.
+--     * finalPrice         -> SUM(OrderDetails.VPRICE) VAT-inclusive, per order, 2dp string.
+--                             (NOTE: this is VAT-inclusive total, NOT a post-discount final;
+--                              a true finalPrice needs the Priority discount — see BLOCKED.)
+--     * invoiceNumber / invoiceDate / quoteNumber / discount / paidBy -> NULL (Priority ERP).
+--
+-- REVIEW / OPEN QUESTION (Ariel / Dako): confirm whether the Invoices/Quotes screen should
+--   be sourced from a Priority sync (invoice/quote documents, discounts, paid-by) rather
+--   than from Calibrator orders. If yes, this screen is blocked on that sync; if the intent
+--   is "order pricing" only, drop the invoice/quote/discount/paidBy columns from the design.
+-- =============================================
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerInvoicesQuotes]
+    @LoggedInUserEmail NVARCHAR(50),
+    @DocType           VARCHAR(10) = NULL   -- reserved: 'quotes' | 'invoices' (no source yet)
+    /* MBA-936: the branch the caller chose, when their address serves several customers.
+       Verified below - an unverified id is ignored rather than trusted. */
+   ,@SelectedCustomerId INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @CustomerId INT = NULL;
+
+        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
+       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
+       Without a choice, or with one that does not belong to the caller, this falls through to the
+       original deterministic pick - never to the id it was handed. */
+    IF @SelectedCustomerId IS NOT NULL
+       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
+                   WHERE v.CustomerId = @SelectedCustomerId
+                     AND ISNULL(v.IsDeleted, 0) = 0
+                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
+                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
+        SET @CustomerId = @SelectedCustomerId;
+    ELSE
+    SELECT TOP (1) @CustomerId = cc.CustomerId
+        FROM [dbo].[CustomerContacts] AS cc
+        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
+        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
+
+    ;WITH orderTotals AS
+    (
+        SELECT
+             wp.OrderWorkPlanId
+            ,wp.OrderNumber
+            ,wp.WorkPlanOpenDate
+            ,SUM(ISNULL(od.PRICE, 0))  AS NetTotal
+            ,SUM(ISNULL(od.VPRICE, 0)) AS VatTotal
+        FROM [dbo].[OrderWorkPlans] AS wp
+        JOIN [dbo].[OrderDetails]   AS od ON od.OrderWorkPlanId = wp.OrderWorkPlanId
+        WHERE wp.CustomerId          = @CustomerId
+          AND wp.IsCancelled         = 0
+          AND ISNULL(od.IsDeleted, 0)  = 0
+          AND ISNULL(od.IsCancelled,0) = 0
+        GROUP BY wp.OrderWorkPlanId, wp.OrderNumber, wp.WorkPlanOpenDate
+    )
+    SELECT
+         ot.OrderWorkPlanId                                        AS id
+        ,ot.OrderNumber                                            AS orderNumber
+        ,CONVERT(VARCHAR(10), ot.WorkPlanOpenDate, 104)           AS date
+        ,CAST(NULL AS NVARCHAR(50))                                AS invoiceNumber   -- Priority ERP (not in Calibrator)
+        ,CONVERT(VARCHAR(10), ot.WorkPlanOpenDate, 104)           AS invoiceDate     -- placeholder = order date; real invoice date is Priority
+        ,CAST(NULL AS NVARCHAR(50))                                AS quoteNumber     -- Priority ERP (not in Calibrator)
+        ,CONVERT(VARCHAR(20), CAST(ot.NetTotal AS DECIMAL(18,2)))  AS price           -- net
+        ,CAST(NULL AS NVARCHAR(20))                                AS discount        -- Priority ERP (not in Calibrator)
+        ,CONVERT(VARCHAR(20), CAST(ot.VatTotal AS DECIMAL(18,2)))  AS finalPrice      -- VAT-inclusive total (see header note)
+        ,CAST(NULL AS NVARCHAR(100))                               AS paidBy          -- Priority ERP (not in Calibrator)
+    FROM orderTotals AS ot
+    ORDER BY ot.WorkPlanOpenDate DESC
+    OPTION (RECOMPILE);
+END
+
+GO
+/* ===== dbo.GetCustomerProfile ===== */
+GO
+-- =============================================
+-- Author:      Claude (subagent)
+-- Create date: 04/08/2026
+-- Description: Returns the customer profile / main-site header for the
+--              logged-in customer user (screen: customer/profile, MBA-612).
+--              Customer-scoped: @CustomerId is resolved from dbo.CustomerContacts
+--              by @LoggedInUserEmail (same convention as GetCustomerDashboardData),
+--              with a fallback to dbo.Users so support/portal logins also resolve.
+--              Returns a single header row. The sub-sites list and the MABA
+--              contact cards on the same screen are served by the existing
+--              GetCustomerSites / GetCustomerContacts / GetCustomerSupportData SPs
+--              and are intentionally NOT duplicated here.
+-- JiraLink:    MBA-612
+-- =============================================
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerProfile]
+    @LoggedInUserEmail NVARCHAR(50),
+    /* MBA-936: the branch the caller chose, when their address serves several customers.
+       Verified below - an unverified id is ignored rather than trusted, so this cannot be
+       used to read another customer's data. */
+    @SelectedCustomerId INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @CustomerId INT = NULL;
+
+    -- Primary resolution: portal contact login
+        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
+       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
+       Without a choice, or with one that does not belong to the caller, this falls through to the
+       original deterministic pick - never to the id it was handed. */
+    IF @SelectedCustomerId IS NOT NULL
+       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
+                   WHERE v.CustomerId = @SelectedCustomerId
+                     AND ISNULL(v.IsDeleted, 0) = 0
+                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
+                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
+        SET @CustomerId = @SelectedCustomerId;
+    ELSE
+    SELECT TOP 1 @CustomerId = cc.CustomerId
+        FROM dbo.CustomerContacts AS cc
+        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
+        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
+
+    -- Fallback: user account login (support / staff mapped to a customer)
+    IF @CustomerId IS NULL
+    BEGIN
+        SELECT TOP 1 @CustomerId = u.CustomerId
+        FROM dbo.Users AS u
+        WHERE u.Email = @LoggedInUserEmail;
+    END
+
+    SELECT
+         c.CustomerId
+        ,c.CustomerCode                                              AS SiteNumber
+        ,c.CustomerName                                             AS MainSiteName
+        ,c.CustomerNameENG                                          AS MainSiteNameENG
+        ,c.CustomerName                                             AS AccountName
+        ,c.CustomerNameENG                                          AS AccountNameENG
+        -- No dedicated report-language column exists; report output preference
+        -- is currently a UI toggle. Returned NULL so FE can default to 'he'.
+        ,CAST(NULL AS NVARCHAR(2))                                  AS ReportLanguage
+        ,LTRIM(RTRIM(
+            CONCAT(
+                c.CustomerAddress,
+                CASE WHEN NULLIF(LTRIM(RTRIM(c.CustomerCity)), '') IS NOT NULL
+                     THEN N', ' + c.CustomerCity ELSE N'' END
+            )))                                                    AS SiteAddress
+        ,LTRIM(RTRIM(
+            CONCAT(
+                c.CustomerAddressENG,
+                CASE WHEN NULLIF(LTRIM(RTRIM(c.CustomerCityENG)), '') IS NOT NULL
+                     THEN N', ' + c.CustomerCityENG ELSE N'' END
+            )))                                                    AS SiteAddressENG
+        ,c.CustomerPhone                                           AS SitePhone
+        ,c.ReportRequired                                          AS ReportRequired
+        ,c.ShipTypeDescr                                           AS ShippingMethod
+        ,c.SignatureAmount                                         AS SignatureAmount
+        -- Count of sub-sites so FE can show/toggle "all sites"; the list itself
+        -- comes from GetCustomerSites.
+        ,(SELECT COUNT(*) FROM dbo.CustomerSites AS s
+          WHERE s.CustomerId = c.CustomerId AND s.IsDeleted = 0)   AS SubSitesCount
+    FROM dbo.Customers AS c
+    WHERE c.CustomerId = @CustomerId
+      AND c.IsDeleted = 0;
+END
+
+GO
+/* ===== dbo.GetCustomerQuotesFromPriority ===== */
+GO
+CREATE OR ALTER PROCEDURE dbo.GetCustomerQuotesFromPriority
+    @LoggedInUserEmail NVARCHAR(100),
+    /* MBA-936: the branch the caller chose, when their address serves several customers.
+       Verified below - an unverified id is ignored rather than trusted, so this cannot be
+       used to read another customer's data. */
+    @SelectedCustomerId INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @CustomerId INT, @Cust INT;
+        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
+       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
+       Without a choice, or with one that does not belong to the caller, this falls through to the
+       original deterministic pick - never to the id it was handed. */
+    IF @SelectedCustomerId IS NOT NULL
+       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
+                   WHERE v.CustomerId = @SelectedCustomerId
+                     AND ISNULL(v.IsDeleted, 0) = 0
+                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
+                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
+        SET @CustomerId = @SelectedCustomerId;
+    ELSE
+    SELECT TOP 1 @CustomerId = CustomerId FROM dbo.CustomerContacts
+          WHERE CustomerContactEmail = @LoggedInUserEmail AND ISNULL(IsDeleted,0)=0
+          ORDER BY CustomerContactId ASC   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */;
+    SELECT @Cust = TRY_CONVERT(INT, CustomerIdFromSource) FROM dbo.Customers WHERE CustomerId=@CustomerId;
+    IF @Cust IS NULL RETURN;
+    SELECT cp.CPROFNUM AS quoteNumber,
+        CONVERT(varchar(10), DATEADD(MINUTE, cp.PDATE, '1988-01-01'), 104) AS quoteDate,
+        CONVERT(varchar(10), DATEADD(MINUTE, NULLIF(cp.EXPIRYDATE,0), '1988-01-01'), 104) AS validUntil,
+        cp.TOTPRICE AS totalPrice, cp.DISPRICE AS finalPrice,
+        (cp.TOTPRICE - cp.DISPRICE) AS discount, cp.CPROFSTAT AS statusCode
+    FROM [31.168.173.93].amaba.dbo.CPROF AS cp
+    WHERE cp.CUST = @Cust
+    ORDER BY cp.PDATE DESC;
+END
+GO
+/* ===== dbo.GetCustomerRequests ===== */
+GO
+-- =============================================
+-- Proc:        dbo.GetCustomerRequests
+-- Jira:        MBA-858 (Customer Support — customer-inquiry / requests list + action modals)
+-- Description: Read SP that backs the customer-portal "requests / inquiries" list shown in the
+--              Customer Support area (FE: components/customers/QuotesDialog.tsx, mock MOCK_QUOTES,
+--              row shape TQuoteRow in components/customers/constants/quotes-dialog.ts). Returns one
+--              row per calibration order (OrderWorkPlan) belonging to the logged-in customer — an
+--              order IS the "request/quote" the customer submitted and that the 4 action modals
+--              (cancel calibration / devices deleted / order for shipping / reject request) act on.
+--
+--              Identity + scoping follow the other customer-portal SPs
+--              (@LoggedInUserEmail -> CustomerId via dbo.CustomerContacts), consistent with
+--              dbo.GetCustomerDashboardData / dbo.GetCustomerDeviceList. Filtering / sorting are
+--              done client-side (TanStack table), so the full clean set is returned, no paging.
+--
+-- Output columns (camelCase, exactly matching FE TQuoteRow):
+--   status, quoteNumber, deviceCount, expectedCalibrationDate, calibrationLocation, price, note
+--     * status                 -> FE quoteStatuses code. Sourced from the OrderStatus category
+--                                 (StatusesCategories.StatusCategoryId = 9) via
+--                                 COALESCE(wp.OrderStatusId, wp.OrderOverallStatusId). The 4 codes
+--                                 the FE combobox styles are mapped explicitly; any other status
+--                                 falls back to a lower-camel of StatusDescriptionENG (same pattern
+--                                 as GetCustomerDeviceList).
+--                                   66 Sent                -> 'sent'
+--                                   72 Rejected            -> 'rejected'
+--                                   73 AwaitingConfirmation -> 'waitingForCustomer'
+--                                   76 WaitingForCalibration-> 'waitingForCalibration'
+--     * quoteNumber            -> wp.OrderNumber.
+--     * deviceCount            -> COUNT of non-deleted OrderDetailsItems in the order.
+--     * expectedCalibrationDate-> DD.MM.YYYY (CONVERT 104) — MIN(OrderDetailsItems.NextCalibrationDate).
+--     * calibrationLocation    -> 'lab' if any order line IsInHouse=1, else 'customer' (NULL if no lines).
+--     * price                  -> SUM(OrderDetails.PRICE) net, DECIMAL(18,2) (NULL if none).
+--     * note                   -> wp.Notes (fallback wp.CustomerComment).
+--
+-- NOTE for review (Ariel / Dako) — best-guess mappings, please confirm:
+--   * status: STAGE has wp.OrderStatusId 100% NULL and wp.OrderOverallStatusId = 76 for every
+--     order, so every row currently returns 'waitingForCalibration'. The id->FE-code map above is
+--     the assumed lifecycle; confirm which OrderStatus ids represent sent / rejected / waiting-for-
+--     customer once real status data flows in.
+--   * expectedCalibrationDate: no dedicated column exists — using earliest item NextCalibrationDate.
+--     Alt candidates: wp.WorkPlanOpenDate, OrderDetails.ActualCalibrationDate.
+--   * price: net (PRICE). Alt: VPRICE (VAT-inclusive), as used by dbo.GetCustomerInvoicesQuotes.
+--   Write actions (cancel calibration / devices deleted / order for shipping / reject request) are
+--   OUT OF SCOPE here and tracked as separate follow-ups — see the Jira ticket.
+-- =============================================
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerRequests]
+    @LoggedInUserEmail NVARCHAR(50),
+    /* MBA-936: the branch the caller chose, when their address serves several customers.
+       Verified below - an unverified id is ignored rather than trusted, so this cannot be
+       used to read another customer's data. */
+    @SelectedCustomerId INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @CustomerId INT = NULL;
+
+        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
+       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
+       Without a choice, or with one that does not belong to the caller, this falls through to the
+       original deterministic pick - never to the id it was handed. */
+    IF @SelectedCustomerId IS NOT NULL
+       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
+                   WHERE v.CustomerId = @SelectedCustomerId
+                     AND ISNULL(v.IsDeleted, 0) = 0
+                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
+                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
+        SET @CustomerId = @SelectedCustomerId;
+    ELSE
+    SELECT TOP (1) @CustomerId = cc.CustomerId
+        FROM [dbo].[CustomerContacts] AS cc
+        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
+        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
+
+    ;WITH req AS
+    (
+        SELECT
+             wp.OrderWorkPlanId
+            ,wp.OrderNumber
+            ,COALESCE(wp.OrderStatusId, wp.OrderOverallStatusId)      AS StatusId
+            ,COALESCE(NULLIF(LTRIM(RTRIM(wp.Notes)), N''),
+                      NULLIF(LTRIM(RTRIM(wp.CustomerComment)), N''))   AS Note
+            ,(
+                SELECT COUNT(*)
+                FROM [dbo].[OrderDetails]      AS od2
+                JOIN [dbo].[OrderDetailsItems] AS it2 ON it2.OrderDetailId = od2.OrderDetailId
+                WHERE od2.OrderWorkPlanId       = wp.OrderWorkPlanId
+                  AND ISNULL(od2.IsDeleted, 0)  = 0
+                  AND ISNULL(od2.IsCancelled,0) = 0
+                  AND ISNULL(it2.IsDeleted, 0)  = 0
+                  AND ISNULL(it2.IsCancelled,0) = 0
+             )                                                         AS DeviceCount
+            ,(
+                SELECT MIN(it3.NextCalibrationDate)
+                FROM [dbo].[OrderDetails]      AS od3
+                JOIN [dbo].[OrderDetailsItems] AS it3 ON it3.OrderDetailId = od3.OrderDetailId
+                WHERE od3.OrderWorkPlanId       = wp.OrderWorkPlanId
+                  AND ISNULL(od3.IsDeleted, 0)  = 0
+                  AND ISNULL(it3.IsDeleted, 0)  = 0
+             )                                                         AS ExpectedCalibrationDate
+            ,(
+                SELECT MAX(CAST(ISNULL(od4.IsInHouse, 0) AS INT))
+                FROM [dbo].[OrderDetails] AS od4
+                WHERE od4.OrderWorkPlanId       = wp.OrderWorkPlanId
+                  AND ISNULL(od4.IsDeleted, 0)  = 0
+                  AND ISNULL(od4.IsCancelled,0) = 0
+             )                                                         AS AnyInHouse
+            ,(
+                SELECT SUM(od5.PRICE)
+                FROM [dbo].[OrderDetails] AS od5
+                WHERE od5.OrderWorkPlanId       = wp.OrderWorkPlanId
+                  AND ISNULL(od5.IsDeleted, 0)  = 0
+                  AND ISNULL(od5.IsCancelled,0) = 0
+             )                                                         AS NetPrice
+        FROM [dbo].[OrderWorkPlans] AS wp
+        WHERE wp.CustomerId  = @CustomerId
+          AND wp.IsCancelled = 0
+    )
+    SELECT
+         CASE r.StatusId
+            WHEN 66 THEN 'sent'
+            WHEN 72 THEN 'rejected'
+            WHEN 73 THEN 'waitingForCustomer'
+            WHEN 76 THEN 'waitingForCalibration'
+            ELSE CASE
+                    WHEN st.StatusDescriptionENG IS NULL
+                      OR LEN(st.StatusDescriptionENG) = 0 THEN NULL
+                    ELSE LOWER(LEFT(REPLACE(st.StatusDescriptionENG, '''', ''), 1))
+                       + SUBSTRING(REPLACE(st.StatusDescriptionENG, '''', ''), 2, 200)
+                 END
+         END                                                          AS status
+        ,r.OrderNumber                                                AS quoteNumber
+        ,r.DeviceCount                                                AS deviceCount
+        ,CONVERT(VARCHAR(10), r.ExpectedCalibrationDate, 104)         AS expectedCalibrationDate
+        ,CASE
+            WHEN r.AnyInHouse IS NULL THEN NULL
+            WHEN r.AnyInHouse = 1     THEN 'lab'
+            ELSE 'customer'
+         END                                                          AS calibrationLocation
+        ,CAST(r.NetPrice AS DECIMAL(18,2))                            AS price
+        ,r.Note                                                       AS note
+    FROM req AS r
+    LEFT JOIN [dbo].[Statuses] AS st
+           ON st.StatusId = r.StatusId
+          AND st.StatusCategoryId = 9      -- OrderStatus category
+    ORDER BY r.OrderWorkPlanId DESC
+    OPTION (RECOMPILE);
+END
+
+GO
+/* ===== dbo.GetCustomerShipments ===== */
+GO
+-- =============================================
+-- Proc:        dbo.GetCustomerShipments
+-- Jira:        MBA-795 ("Customer Shipping page (customer/shipping)")
+-- Description: Returns the shipments / deliveries belonging to the logged-in customer
+--              for the customer portal Shipping screen (route: /customer/shipping).
+--              One row per shipped/shippable order item. Identity input matches the
+--              other GetCustomer* SPs (@LoggedInUserEmail -> CustomerId via
+--              dbo.CustomerContacts) and the result is scoped to that customer only.
+--
+--              Filtering / sorting / search are expected client-side (consistent with
+--              MBA-860 GetCustomerDeviceList), so this SP returns the full clean set
+--              with no pagination.
+--
+-- Output columns (order):
+--   id, orderNumber, mbaReportNumber, serialNumber, deviceDescription,
+--   deviceManufacturer, deviceModel, shippingMethod, shippingDoc, shippingAddress,
+--   receivingDate, calibrationDate, expectedReturnDate, deliveryDate, status
+--
+--   * status       -> ORDER-level status (wp.OrderOverallStatusId -> dbo.Statuses),
+--                     returned as a lower-camel code of StatusDescriptionENG
+--                     (e.g. awaitingCollection, delivered, waitingForCalibration).
+--                     Rationale: on STAGE the item-level CalibrationStatusId is entirely
+--                     NULL, and shipping/delivery state is genuinely an order-level concept,
+--                     so this SP keys on the order overall status (unlike GetCustomerDeviceList,
+--                     which keys on the item calibration status). See NOTE below.
+--   * statusLabel  -> Hebrew label of the same status (StatusDescriptionHEB) for the
+--                     Hebrew-first portal, since no FE code->label map exists for this screen yet.
+--   * shippingMethod   -> wp.ShipTypeDesc (order-level shipping method).
+--   * shippingDoc      -> itm.ShippingDoc (delivery note / shipping document number).
+--   * shippingAddress  -> COALESCE(itm.ShippingAddress, c.CustomerAddress).
+--   * All *Date columns -> DD.MM.YYYY string (CONVERT style 104), NULL-safe.
+--       receivingDate     = itm.CustomerReceivingDate (date device received at lab)
+--       calibrationDate   = itm.ActualCalibrationDate
+--       expectedReturnDate= itm.ExpectedReturnDate
+--       deliveryDate      = itm.ActualReturnDate (date shipped back to customer)
+--
+-- NOTE for review (Ariel): source mappings below are best-guess from the Calibrator
+--   schema (no Figma). Please confirm:
+--     * status source   -> wp.OrderOverallStatusId (order-level). Item-level
+--       CalibrationStatusId is 100% NULL on STAGE; confirm the shipping screen wants the
+--       order status (and, if so, whether it should be filtered to the delivery-side
+--       statuses only, e.g. AwaitingCollection / delivered).
+--     * deliveryDate    -> itm.ActualReturnDate (alt: a dedicated shipping-out date if added)
+--     * shippingAddress -> itm.ShippingAddress fallback c.CustomerAddress (alt: itm.SiteAddress)
+-- =============================================
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerShipments]
+    @LoggedInUserEmail NVARCHAR(50),
+    /* MBA-936: the branch the caller chose, when their address serves several customers.
+       Verified below - an unverified id is ignored rather than trusted, so this cannot be
+       used to read another customer's data. */
+    @SelectedCustomerId INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @CustomerId INT = NULL;
+
+        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
+       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
+       Without a choice, or with one that does not belong to the caller, this falls through to the
+       original deterministic pick - never to the id it was handed. */
+    IF @SelectedCustomerId IS NOT NULL
+       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
+                   WHERE v.CustomerId = @SelectedCustomerId
+                     AND ISNULL(v.IsDeleted, 0) = 0
+                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
+                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
+        SET @CustomerId = @SelectedCustomerId;
+    ELSE
+    SELECT TOP (1) @CustomerId = cc.CustomerId
+        FROM [dbo].[CustomerContacts] AS cc
+        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
+        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
+
+    ;WITH shipments AS
+    (
+        SELECT
+             itm.OrderDetailsItemId                                                  AS id
+            ,wp.OrderNumber                                                          AS OrderNumber
+            ,itm.MbaReportNumber                                                     AS MbaReportNumber
+            ,itm.SerialNumber                                                        AS SerialNumber
+            ,pt.OrdersProductTypeName                                                AS DeviceDescription
+            ,itm.OrdersDeviceManufacturer                                            AS DeviceManufacturer
+            ,itm.DeviceModel                                                         AS DeviceModel
+            ,wp.ShipTypeDesc                                                         AS ShippingMethod
+            ,itm.ShippingDoc                                                         AS ShippingDoc
+            ,COALESCE(itm.ShippingAddress, c.CustomerAddress)                        AS ShippingAddress
+            ,itm.CustomerReceivingDate                                               AS ReceivingDate
+            ,itm.ActualCalibrationDate                                               AS CalibrationDate
+            ,itm.ExpectedReturnDate                                                  AS ExpectedReturnDate
+            ,itm.ActualReturnDate                                                    AS DeliveryDate
+            ,st.StatusDescriptionENG                                                 AS StatusEng
+            ,st.StatusDescriptionHEB                                                 AS StatusHeb
+            ,ROW_NUMBER() OVER (PARTITION BY itm.OrderDetailsItemId
+                                ORDER BY wp.OrderWorkPlanId DESC)                    AS Rn
+        FROM [dbo].[OrderWorkPlans]      AS wp
+        JOIN [dbo].[OrderDetails]        AS od  ON od.OrderWorkPlanId = wp.OrderWorkPlanId
+        JOIN [dbo].[OrderDetailsItems]   AS itm ON itm.OrderDetailId  = od.OrderDetailId
+        LEFT JOIN [dbo].[Customers]          AS c  ON c.CustomerId          = wp.CustomerId
+        LEFT JOIN [dbo].[Statuses]           AS st ON st.StatusId           = wp.OrderOverallStatusId
+        LEFT JOIN [dbo].[OrdersProductTypes] AS pt ON pt.OrdersProductTypeId = od.OrdersProductTypeId
+        WHERE wp.CustomerId       = @CustomerId
+          AND wp.IsCancelled      = 0
+          AND ISNULL(od.IsDeleted, 0)  = 0
+          AND ISNULL(od.IsCancelled,0) = 0
+          AND ISNULL(itm.IsDeleted, 0) = 0
+          AND ISNULL(itm.IsCancelled,0)= 0
+    )
+    SELECT
+         s.id
+        ,s.OrderNumber                                                   AS orderNumber
+        ,s.MbaReportNumber                                              AS mbaReportNumber
+        ,s.SerialNumber                                                  AS serialNumber
+        ,s.DeviceDescription                                            AS deviceDescription
+        ,s.DeviceManufacturer                                           AS deviceManufacturer
+        ,s.DeviceModel                                                   AS deviceModel
+        ,s.ShippingMethod                                               AS shippingMethod
+        ,s.ShippingDoc                                                   AS shippingDoc
+        ,s.ShippingAddress                                              AS shippingAddress
+        ,CONVERT(VARCHAR(10), s.ReceivingDate,      104)               AS receivingDate
+        ,CONVERT(VARCHAR(10), s.CalibrationDate,    104)               AS calibrationDate
+        ,CONVERT(VARCHAR(10), s.ExpectedReturnDate, 104)               AS expectedReturnDate
+        ,CONVERT(VARCHAR(10), s.DeliveryDate,       104)               AS deliveryDate
+        ,CASE
+            WHEN s.StatusEng IS NULL OR LEN(s.StatusEng) = 0 THEN NULL
+            ELSE LOWER(LEFT(REPLACE(s.StatusEng, '''', ''), 1))
+               + SUBSTRING(REPLACE(s.StatusEng, '''', ''), 2, 200)
+         END                                                            AS status
+        ,s.StatusHeb                                                    AS statusLabel
+    FROM shipments AS s
+    WHERE s.Rn = 1
+    ORDER BY s.DeliveryDate DESC, s.CalibrationDate DESC
+    OPTION (RECOMPILE);
+END
 
 GO
 /* ===== dbo.GetCustomerSites ===== */
 GO
 -- =============================================
--- Author:		Eduard Kudlaiev
+-- Author:      Eduard Kudlaiev
 -- Create date: 04/05/2026
--- Description:	This SP get data about customers sites. 
---              It get appopriate customer for filtering based on @LoggedInUserEmail
--- JiraLink: 
+-- Description: Sites (sub-sites) of the customer the caller belongs to.
+--              Used by the internal customer-management screen AND by the customer
+--              portal profile screen.
+--
+-- 2026-08-30 ג€” FIX: portal users could not resolve.
+--
+--              Identical defect to GetCustomerContacts: the customer was resolved only
+--              through dbo.GetSourceFilterByEmail, a table-valued function over
+--              dbo.Users. A portal user lives in dbo.CustomerContacts and has no Users
+--              row, so the function returned no rows, @CustomerId stayed NULL, and
+--              `WHERE cs.CustomerId = @CustomerId` was always false.
+--
+--              Now: resolve from dbo.CustomerContacts first, fall back to the function,
+--              so the internal screen is unaffected.
+--
+--              The SELECT list is unchanged; no caller needs to change.
+-- JiraLink:
 -- =============================================
-
-CREATE OR ALTER PROCEDURE [dbo].[GetCustomerSites] 
-@LoggedInUserEmail NVARCHAR(100)
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerSites]
+@LoggedInUserEmail NVARCHAR(100),
+    /* MBA-936: the branch the caller chose, when their address serves several customers.
+       Verified below - an unverified id is ignored rather than trusted, so this cannot be
+       used to read another customer's data. */
+    @SelectedCustomerId INT = NULL
 AS
 
 SET NOCOUNT ON;
 
-DECLARE @LoggedInUserId INT 
-DECLARE @SourceId TINYINT
-DECLARE @CustomerId INT
+DECLARE @CustomerId INT = NULL;
 
-SELECT 
- @LoggedInUserId  = d.UserId 
-,@SourceId = d.SourceId
-,@CustomerId = d.CustomerId
-FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
+-- Primary resolution: portal contact login
+    /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
+       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
+       Without a choice, or with one that does not belong to the caller, this falls through to the
+       original deterministic pick - never to the id it was handed. */
+    IF @SelectedCustomerId IS NOT NULL
+       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
+                   WHERE v.CustomerId = @SelectedCustomerId
+                     AND ISNULL(v.IsDeleted, 0) = 0
+                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
+                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
+        SET @CustomerId = @SelectedCustomerId;
+    ELSE
+    SELECT TOP 1 @CustomerId = cc.CustomerId
+    FROM dbo.CustomerContacts AS cc
+    WHERE cc.CustomerContactEmail = @LoggedInUserEmail
+        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
+
+-- Fallback: internal staff account mapped to a customer
+IF @CustomerId IS NULL
+BEGIN
+    SELECT TOP 1 @CustomerId = d.CustomerId
+    FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) AS d;
+END
 
 SELECT cs.[CustomerId]
       ,cs.[CustomerSiteId]
@@ -1897,1134 +1619,85 @@ SELECT cs.[CustomerId]
       ,cs.[CustomerSiteAddressENG]
       ,cs.[CustomerSiteStateENG]
       ,cs.[CustomerSiteDescriptionENG]
-	  ,cs.[IsDeleted]
+      ,cs.[IsDeleted]
   FROM [dbo].[CustomerSites] as cs
   LEFT JOIN [dbo].[Source] as s ON cs.[SourceId] = s.[SourceId]
   WHERE /*cs.[IsDeleted] = 0 AND */cs.CustomerId = @CustomerId
 
 GO
-/* ===== dbo.GetDevicesGroupsByOrder ===== */
-GO
-CREATE OR ALTER PROCEDURE [dbo].[GetDevicesGroupsByOrder] 
-	@OrderNumber NVARCHAR(20),
-	@MainCategories NVARCHAR(MAX) = NULL,
-	@SecondaryCategories NVARCHAR(MAX) = NULL,
-	@DeviceManufacturer NVARCHAR(MAX) = NULL,
-	@DeviceModels NVARCHAR(MAX) = NULL,
-	@Page NVARCHAR(100) = 'coordinator-orders'
-AS
-BEGIN
-
-SET NOCOUNT ON;
-
-/*
-Filter logic by page
-/coordinator-orders - @page = ‘coordinator-orders’ 
-/external-schedule - @page = ‘external-schedule’
-/internal-orders - @page = ‘internal-orders’
-/calibration-wizard - @page = ‘calibration-wizard’ 
-/external-orders - @page = 'external-orders'
-*/
-/*-------------------------------------------------*/
-DECLARE @ExtIntFilter BIT = NULL
-
-IF @Page IN (N'external-schedule',N'external-orders',N'coordinator-orders') SET @ExtIntFilter = 0 -- IsInHouse = 0 for external orders
-
-IF @Page IN (N'internal-orders') SET @ExtIntFilter = 1 -- IsInHouse = 0 for internal orders
-
-/*-------------------------------------------------*/	
-
-DROP TABLE IF EXISTS #MainCategories
-CREATE TABLE #MainCategories
-(
-MainCategory NVARCHAR(50) 
-)
-INSERT #MainCategories(MainCategory)
-SELECT DISTINCT CAST(v.Value AS NVARCHAR(50)) FROM dbo.ParseCSVToTable(@MainCategories) as v
-
-
-DROP TABLE IF EXISTS #SecondaryCategories
-CREATE TABLE #SecondaryCategories
-(
-SecondaryCategory NVARCHAR(50) 
-)
-INSERT #SecondaryCategories(SecondaryCategory)
-SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@SecondaryCategories) as v
-
-DROP TABLE IF EXISTS #DeviceManufacturer
-CREATE TABLE #DeviceManufacturer
-(
-DeviceManufacturer NVARCHAR(255) 
-)
-INSERT #DeviceManufacturer(DeviceManufacturer)
-SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceManufacturer) as v
-
-DROP TABLE IF EXISTS #DeviceModels
-CREATE TABLE #DeviceModels
-(
-DeviceModel NVARCHAR(30) 
-)
-INSERT #DeviceModels(DeviceModel)
-SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceModels) as v
-
-DECLARE @sql NVARCHAR(MAX) =
-CONCAT(
-'SELECT DISTINCT
-     op.OrderNumber
-	,od.OrderWorkPlanId as OrderId
-	,od.OrderDetailId
-	--,itm.OrderDetailsItemId
-	,opt.OrdersProductTypeName AS DeviceType
-	,mc.ID AS DepartmentId
-	,mc.MainCategoryName as MainCategory
-	,sc.SecondaryCategoryName AS SecondCategory
-	--,itm.OrderDetailsItemId
-	--,itm.SerialNumber
-	--,itm.DeviceModel
-	--,itm.MbaReportNumber
-	--,od.OrderDetailId
-	,odm.OrdersDeviceManufacturerName as DeviceManufacturer
-	,od.OrderLineCnt
-	,od.PartName
-	,odm.[StatusDescriptionHEB] as CalibrationStatus
-	,odm.[StatusDescriptionENG] as CalibrationStatusENG 
-	,ptxt.TextToCatalogNumber
-	,dtxt.TextToDevice 
-	--,itm.[IsChecked]
-FROM [dbo].[OrderDetails] as od
-JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
-LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
-LEFT JOIN [dbo].[MainCategories] as mc ON od.MainCategoryId = mc.ID
-LEFT JOIN [dbo].[SecondaryCategories] sc ON od.SecondaryCategoryId = sc.ID
-LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
-OUTER APPLY
-(
-SELECT TOP 1 itm.OrdersDeviceManufacturer as OrdersDeviceManufacturerName , cals.[StatusDescriptionHEB], [StatusDescriptionENG] 
-FROM 
-[dbo].[OrderDetailsItems] as itm
-LEFT JOIN [dbo].[Statuses] as cals ON cals.[StatusId] = itm.[CalibrationStatusId]
-) as odm
-'
-+ '
-OUTER APPLY
-(
-    SELECT
-        STRING_AGG(x.CleanText, NCHAR(10))
-            WITHIN GROUP (ORDER BY x.TEXTORD, x.TEXTLINE) AS TextToCatalogNumber
-    FROM (
-        SELECT
-            pt.TEXTORD,
-            pt.TEXTLINE,
-            CleanText =
-                LTRIM(RTRIM(
-                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-                        REVERSE(CAST(pt.[TEXT] AS NVARCHAR(MAX))),
-                        N''<style> p,div,li'', N''''),
-                        N''</style>'', N''''),
-                        N''<style>'', N''''),
-                        N''<P dir=rtl align=right>'', N''''),
-                        N''<P dir=rtl>'', N''''),
-                        N''dir=rtl>'', N''''),
-                        N''<FONT size=3 face=David>'', N''''),
-                        N''<FONT face=David size=3>'', N''''),
-                        N''<FONT face=David size=2>'', N''''),
-                        N''<FONT face=David>'', N''''),
-                        N''</FONT>'', N''''),
-                        N''<BR>'', NCHAR(10)),
-                        N''</P>'', NCHAR(10)),
-                        N''&nbsp;'', N'' ''),
-                        N''<B>'', N''''),
-                        N''</B>'', N''''),
-                        N''<STRONG>'', N''''),
-                        N''</STRONG>'', N''''),
-                        N''</strong>'', N'''')
-                ))
-        FROM [31.168.173.93].[amaba].[dbo].[PARTTEXT] AS pt
-        WHERE pt.PART = od.PART
-    ) x
-    WHERE x.CleanText <> N''''
-      AND x.CleanText NOT LIKE N''%font-family%''
-      AND x.CleanText NOT LIKE N''%font-size%''
-      AND x.CleanText NOT LIKE N''%margin%''
-      AND x.CleanText NOT LIKE N''%style%''
-      AND x.CleanText NOT LIKE N''%p,div,li%''
-) as ptxt
-
-OUTER APPLY
-(
-    SELECT
-        STRING_AGG(x.CleanText, NCHAR(10))
-            WITHIN GROUP (ORDER BY x.TEXTORD, x.TEXTLINE) AS TextToDevice
-    FROM (
-        SELECT
-            st.TEXTORD,
-            st.TEXTLINE,
-            CleanText =
-                LTRIM(RTRIM(
-                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-                        REVERSE(CAST(st.[TEXT] AS NVARCHAR(MAX))),
-                        N''<style> p,div,li'', N''''),
-                        N''</style>'', N''''),
-                        N''<style>'', N''''),
-                        N''<P dir=rtl align=right>'', N''''),
-                        N''<P dir=rtl>'', N''''),
-                        N''dir=rtl>'', N''''),
-                        N''<FONT size=3 face=David>'', N''''),
-                        N''<FONT face=David size=3>'', N''''),
-                        N''<FONT face=David size=2>'', N''''),
-                        N''<FONT face=David>'', N''''),
-                        N''</FONT>'', N''''),
-                        N''<BR>'', NCHAR(10)),
-                        N''</P>'', NCHAR(10)),
-                        N''&nbsp;'', N'' ''),
-                        N''<B>'', N''''),
-                        N''</B>'', N''''),
-                        N''<STRONG>'', N''''),
-                        N''</STRONG>'', N''''),
-                        N''</strong>'', N'''')
-                ))
-        FROM [31.168.173.93].[amaba].[dbo].[SERNUMBERSTEXT] AS st
-        WHERE st.SERN = itm.SERN AND od.OrderLineCnt = 1
-    ) x
-    WHERE x.CleanText <> N''''
-      AND x.CleanText NOT LIKE N''%font-family%''
-      AND x.CleanText NOT LIKE N''%font-size%''
-      AND x.CleanText NOT LIKE N''%margin%''
-      AND x.CleanText NOT LIKE N''%style%''
-      AND x.CleanText NOT LIKE N''%p,div,li%''
-) as dtxt
-'
-+'
-'
-,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mcf ON mc.MainCategoryName COLLATE DATABASE_DEFAULT = mcf.MainCategory COLLATE DATABASE_DEFAULT',' ')
-,IIF(@SecondaryCategories IS NOT NULL,' JOIN #SecondaryCategories as scf ON sc.OrdersSecondaryCategoryName COLLATE DATABASE_DEFAULT   = scf.SecondaryCategory COLLATE DATABASE_DEFAULT ',' ')
-,IIF(@DeviceManufacturer IS NOT NULL,' JOIN #DeviceManufacturer as dmf ON odm.OrdersDeviceManufacturerName COLLATE DATABASE_DEFAULT  = dmf.DeviceManufacturer COLLATE DATABASE_DEFAULT ',' ')
-,IIF(@DeviceModels IS NOT NULL,' JOIN #DeviceModels as dm ON itm.DeviceModel COLLATE DATABASE_DEFAULT = dm.DeviceModel COLLATE DATABASE_DEFAULT ',' ')
-,'
-WHERE OrderNumber = TRIM(''',@OrderNumber,''')
-
-'
-,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
-)
-PRINT @sql
-EXEC sp_executesql @sql
-
-END
-
-GO
-/* ===== dbo.GetDevicesUngroupedByOrder ===== */
-GO
-
-
-
-
--- =============================================
-
--- Author:		Eduard Kudlaiev
-
--- Create date: 24/11/2025
-
--- Description:	Get ungrouped devices data to show lowest level data about device for calibration
-
--- =============================================
-
-CREATE OR ALTER PROCEDURE [dbo].[GetDevicesUngroupedByOrder]
-
-	@OrderNumber NVARCHAR(20) = NULL,
-
-	@MainCategories NVARCHAR(MAX) = NULL,
-
-	@SecondaryCategories NVARCHAR(MAX) = NULL,
-
-	@DeviceManufacturer NVARCHAR(50) = NULL,
-
-	@DeviceModels NVARCHAR(MAX) = NULL,
-
-	@GlobalSearch NVARCHAR(MAX) = NULL,
-
-	@Page NVARCHAR(100) = 'coordinator-orders',
-
-    @PageNumber AS INT = 1,                  -- Resulting page for pagination, starting in 1
-
-    @RowsOfPage AS INT = 10,                 -- Result page size
-
-    @OrderBy AS NVARCHAR(MAX) = 'OrderNumber',      -- OrderBy column
-
-    @OrderByAsc AS BIT = 1,                   -- OrderBy direction (ASC/DESC)
-
-	@OrderWorkPlanIds NVARCHAR(MAX) = NULL,
-
-	@OrderWorkDetailsItemsIds NVARCHAR(MAX) = NULL,
-
-	@ExcludeAwaitingCollectionOrders BIT = 0
-
-AS
-
-BEGIN
-
-
-
-SET NOCOUNT ON;
-
-
-
---IF @OrderNumber IS NULL OR @OrderWorkPlanIds IS NULL 
-
---	THROW 51000, 'Parameters @OrderNumber or @OrderWorkPlanIds should be specified.',1
-
-/*
-
-Filter logic by page
-
-/coordinator-orders - @page = ‘coordinator-orders’ 
-
-/external-schedule - @page = ‘external-schedule’
-
-/internal-orders - @page = ‘internal-orders’
-
-/calibration-wizard - @page = ‘calibration-wizard’ 
-
-/external-orders - @page = 'external-orders'
-
-*/
-
-/*-------------------------------------------------*/
-
-
-
-DECLARE @ExtIntFilter BIT = NULL
-
-
-
-IF @Page IN (N'external-schedule',N'external-orders',N'coordinator-orders') SET @ExtIntFilter = 0 -- IsInHouse = 0 for external orders
-
-
-
-IF @Page IN (N'internal-orders') SET @ExtIntFilter = 1 -- IsInHouse = 0 for internal orders
-
-
-
-IF @ExcludeAwaitingCollectionOrders = 1
-
-BEGIN
-
-   
-
-	DROP TABLE IF EXISTS #AwaitingCollectionOrders
-
-	CREATE TABLE #AwaitingCollectionOrders(OrderWorkPlanId INT)
-
-
-
-	INSERT #AwaitingCollectionOrders(OrderWorkPlanId)
-
-	SELECT wp.OrderWorkPlanId
-
-	FROM [dbo].[OrderWorkPlans] as wp
-
-	JOIN Statuses as s ON wp.OrderOverallStatusId = s.StatusId
-
-	WHERE s.StatusDescriptionENG='AwaitingCollection'
-
-/*	SELECT od.OrderWorkPlanId
-
-	FROM [dbo].[OrderDetails] as od
-
-	JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
-
-	LEFT JOIN [dbo].[Statuses] as scs ON itm.CalibrationStatusId = scs.StatusId
-
-	GROUP BY od.OrderWorkPlanId
-
-	HAVING MIN(COALESCE(scs.StatusDescriptionENG,'N/A')) = MAX(COALESCE(scs.StatusDescriptionENG,'N/A'))
-
-	AND MAX(COALESCE(scs.StatusDescriptionENG,'N/A')) IN('AwaitingCollection','ReadyForPacking','AwaitingCollection','ReadyForDelivery')
-
-	*/
-
-	CREATE UNIQUE CLUSTERED INDEX IDX_AwaitingCollectionOrders ON #AwaitingCollectionOrders(OrderWorkPlanId)
-
-
-
-
-
-
-
-END
-
-
-
-/*-------------------------------------------------*/	
-
-
-
-/*IF @OrderBy NOT IN 
-
-(N'OrderNumber',
-
-N'OrderId',N'OrderDetailId',N'OrderDetailsItemId',
-
-N'DeviceType',N'DepartmentId',N'MainCategory',N'SecondCategory',N'SerialNumber',N'AdditionalDeviceNumber',N'DeviceModel',N'MbaReportNumber',N'DeviceManufacturer',
-
-N'CalibrationStatus',N'IsChecked',N'CustomerId',N'ActualCalibrationDate',N'CalibrationDeadline',N'CustomerName',N'Calibrators',N'SpecialTreatment'
-
-)
-
-THROW 51000, 'Incorrect value for parameter @OrderBy. Available values 
-
-|OrderNumber
-
-|OrderId|OrderDetailId|OrderDetailsItemId
-
-|DeviceType|DepartmentId|MainCategory|SecondCategory|SerialNumber|AdditionalDeviceNumber|DeviceModel|MbaReportNumber|DeviceManufacturer
-
-|CalibrationStatus|IsChecked|CustomerId|ActualCalibrationDate|CalibrationDeadline|CustomerName|Calibrators|SpecialTreatment
-
-', 1;*/
-
-
-
-DROP TABLE IF EXISTS #MainCategories
-
-CREATE TABLE #MainCategories
-
-(
-
-MainCategory NVARCHAR(50) 
-
-)
-
-INSERT #MainCategories(MainCategory)
-
-SELECT DISTINCT CAST(v.Value AS NVARCHAR(50)) FROM dbo.ParseCSVToTable(@MainCategories) as v
-
-
-
-
-
-DROP TABLE IF EXISTS #SecondaryCategories
-
-CREATE TABLE #SecondaryCategories
-
-(
-
-SecondaryCategory NVARCHAR(50) 
-
-)
-
-INSERT #SecondaryCategories(SecondaryCategory)
-
-SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@SecondaryCategories) as v
-
-
-
-DROP TABLE IF EXISTS #DeviceModels
-
-CREATE TABLE #DeviceModels
-
-(
-
-DeviceModel NVARCHAR(30) 
-
-)
-
-INSERT #DeviceModels(DeviceModel)
-
-SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceModels) as v
-
-
-
-
-
-DECLARE @StatusesForOrders NVARCHAR(MAX)
-
-
-
-SELECT @StatusesForOrders=STRING_AGG(s.StatusId,',')
-
-FROM [dbo].[Statuses] as s
-
-JOIN [dbo].[StatusesCategories] as sc ON s.StatusCategoryId = sc.StatusCategoryId
-
-WHERE sc.StatusDescriptionENG='OrderStatus' AND s.StatusDescriptionENG <> 'Executed'
-
-
-
-
-
-DECLARE @sql NVARCHAR(MAX) =
-
-CONCAT(
-
-'SELECT
-
-     IIF(',COALESCE(@ExtIntFilter,0),' = 1,itm.MbaReportNumber,op.OrderNumber) as OrderNumber
-
-	,od.OrderWorkPlanId as OrderId
-
-	,od.OrderDetailId
-
-	,itm.OrderDetailsItemId
-
-	,opt.OrdersProductTypeName AS DeviceType
-
-	,mc.ID AS DepartmentId
-
-	,mc.MainCategoryName as MainCategory
-
-	,sc.SecondaryCategoryName AS SecondCategory
-
-	,itm.SerialNumber
-
-    ,itm.AdditionalDeviceNumber
-
-	,itm.DeviceModel
-
-	,itm.MbaReportNumber
-
-	,itm. OrdersDeviceManufacturer as DeviceManufacturer
-
-	,cals.[StatusDescriptionHEB] as CalibrationStatus
-
-	,ordst.[StatusDescriptionHEB] as OrderStatus
-
-	,ordst.[StatusDescriptionENG] as OrderStatusENG
-
-	,itm.[IsChecked]
-
-	,op.[CustomerId]
-
-	,itm.[ActualCalibrationDate]
-
-	,itm.ExpectedReturnDate as CalibrationDeadline
-
-	,c.CustomerName
-
-	,cbl.Calibrators
-
-	,scs.StatusDescriptionHEB as SpecialTreatment
-
-	,itm.CustomerReceivingDate	
-
-	,itm.ShippingDoc	
-
-	,itm.ShippingAddress
-
-	,c.CustomerAddress
-
-	,custeqv.details as AdditionalEquipment
-
-	,op.ShipTypeDesc as ShippingMethod
-
-	,itm.[StickerAmount]
-
-	,stist.[StatusDescriptionHEB] as [StickerType]
-
-	,COUNT(1) OVER() as ItemsCount
-
-FROM [dbo].[OrderDetails] as od
-
-JOIN [dbo].[OrderWorkPlans] as op ON od.OrderWorkPlanId = op.OrderWorkPlanId
-
-LEFT JOIN [dbo].[Statuses] as scs ON od.SpecialCareTypeId = scs.StatusId
-
-LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
-
-LEFT JOIN [dbo].[Customers] as c ON op.[CustomerId] = c.[CustomerId]
-
-LEFT JOIN [dbo].[MainCategories] as mc ON od.MainCategoryId = mc.ID
-
-LEFT JOIN [dbo].[SecondaryCategories] sc ON od.SecondaryCategoryId = sc.ID
-
-LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.OrdersProductTypeId = opt.OrdersProductTypeId
-
-LEFT JOIN [dbo].[Statuses] as cals ON cals.[StatusId] = itm.[CalibrationStatusId]
-
-LEFT JOIN [dbo].[Statuses] as ordst ON ordst.[StatusId] = op.[OrderOverallStatusId]
-
-LEFT JOIN [dbo].[Statuses] as stist ON stist.[StatusId] = itm.[StickerTypeId]
-
-OUTER APPLY
-
-(
-
-SELECT [OrderWorkPlanId]
-
-      ,STRING_AGG(CONCAT(u.FirstName,'' '',u.LastName),'','') as Calibrators
-
-  FROM [dbo].[CalibratorsToWorkPlan] as c
-
-  JOIN [dbo].[Users] as u ON c.[CalibratorId] = u.[ID]
-
-  WHERE op.OrderWorkPlanId = c.[OrderWorkPlanId] 
-
-  GROUP BY [OrderWorkPlanId]
-
-) as cbl 
-
-OUTER APPLY
-
-(
-
-SELECT
-
-    d.OrderDetailsItemId,
-
-    ''['' +
-
-    STRING_AGG(
-
-        CONCAT(''{'',
-
-       ''"ItemsCount":'', d.[ItemsCount],'','',
-
-       ''"AccessoryDescription":'',''"'',d.[AccessoryDescription],''",'',
-
-       ''"AccessoryLocation":'',''"'',d.[AccessoryLocation],''"'',
-
-       ''}''
-
-        ),
-
-        '',''
-
-    )
-
-    + '']'' AS details
-
-FROM [dbo].[ClientAccessoryOrderDetailsItems] AS d
-
-WHERE d.OrderDetailsItemId = itm.OrderDetailsItemId
-
-GROUP BY d.OrderDetailsItemId
-
-) as custeqv
-
-'
-
-,IIF(@OrderWorkPlanIds IS NOT NULL,' JOIN STRING_SPLIT('''+@OrderWorkPlanIds+''','','') as wpf ON op.OrderWorkPlanId = wpf.value',' ')
-
-,IIF(@OrderWorkDetailsItemsIds IS NOT NULL,' JOIN STRING_SPLIT('''+@OrderWorkDetailsItemsIds+''','','') as wpf1 ON itm.OrderDetailsItemId = wpf1.value',' ')
-
-,IIF(@MainCategories IS NOT NULL,' JOIN #MainCategories as mcf ON mc.MainCategoryName COLLATE DATABASE_DEFAULT = mcf.MainCategory COLLATE DATABASE_DEFAULT',' ')
-
-,IIF(@SecondaryCategories IS NOT NULL,' JOIN #SecondaryCategories as scf ON sc.SecondaryCategoryName COLLATE DATABASE_DEFAULT   = scf.SecondaryCategory COLLATE DATABASE_DEFAULT ',' ')
-
-,IIF(@DeviceModels IS NOT NULL,' JOIN #DeviceModels as dm ON itm.DeviceModel COLLATE DATABASE_DEFAULT = dm.DeviceModel COLLATE DATABASE_DEFAULT ',' ')
-
-,'
-
-WHERE op.OrderOverallStatusId IN(',@StatusesForOrders,') 
-
-'
-
-,IIF(@ExcludeAwaitingCollectionOrders = 1,'AND NOT EXISTS (SELECT 1 FROM #AwaitingCollectionOrders as f WHERE f.OrderWorkPlanId = op.OrderWorkPlanId)','')
-
-,IIF(@OrderNumber IS NOT NULL,'AND op.OrderNumber = TRIM('''+@OrderNumber+''')',' ')
-
-,IIF(@DeviceManufacturer IS NOT NULL,'AND itm.OrdersDeviceManufacturer LIKE ''%'+@DeviceManufacturer+'%''',' ')
-
-,CASE WHEN @ExtIntFilter IS NOT NULL THEN ' AND od.IsInHouse='+CAST(@ExtIntFilter as NVARCHAR(MAX))+' 'ELSE ' ' END
-/* The packing team works from the delivery note, so an item without one has nothing
-   to pack against. Scoped to @Page='packing' so no other screen changes. */
-,CASE WHEN @Page = N'packing'
-      THEN ' AND NULLIF(LTRIM(RTRIM(itm.ShippingDoc)),'''') IS NOT NULL '
-      ELSE ' ' END
-
- ,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(op.OrderNumber,opt.OrdersProductTypeName,mc.MainCategoryName,sc.SecondaryCategoryName,itm.SerialNumber,itm.AdditionalDeviceNumber,itm.DeviceModel,itm.MbaReportNumber,itm.OrdersDeviceManufacturer,cals.[StatusDescriptionHEB],c.CustomerName,cbl.Calibrators,scs.StatusDescriptionHEB) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
-
-,  'ORDER BY ' , @OrderBy , CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
-
-
-
-PRINT @sql
-
-EXEC sp_executesql @sql
-
-
-
-END
-
-
-GO
-/* ===== dbo.GetLogersConfiguredByCalibrator ===== */
-GO
-/*
-    dbo.GetLogersConfiguredByCalibrator
-    ---------------------------------------------------------------------------------------------
-    Original author: Eduard Kudlaiev, 02/07/2025
-    The loggers a calibrator has configured, for the logger-connection popup.
-
-    2026-08-24 (MBA-902): the popup showed "0" under מס' נקודות for every logger, and the channel
-    picker had nothing to size itself from. The reason was simply that this proc never returned the
-    number - MeasurementDevices.ConnectionPoints holds it (21-142 = 21, 31-80 = 61) but no
-    procedure exposed it. Channel count is a property of the LOGGER, not of the sensor, so it
-    belongs here.
-
-    Added, all straight off the logger's own row, no filter or row changes:
-        MabaID, Model, Manufacturer   - identity, so the caller need not look it up separately
-        ConnectionPoints              - how many channels this logger has
-    Plus a deterministic ORDER BY: the list came back in whatever order the join produced, which
-    made the dropdown reshuffle between calls.
-
-    MabaID sorts on its two numeric segments rather than as text, so 21-9 comes before 21-86.
-    The DISTINCT is kept in a derived table because ORDER BY cannot reference expressions that are
-    not in a DISTINCT select list, and the sort keys are not worth returning to the caller.
-
-    2026-08-25 (MBA-902): the popup showed every logger anyone had ever configured. This procedure
-    resolved @LoggedInUserId and @SourceId at the top and then never used them, so a calibrator saw
-    other people's work and could not find their own.
-
-    It now returns the loggers THIS caller configured. Relations with no owner recorded are still
-    returned: SensorToLoggerRelation.UpdateUserID was NULL on every row because the insert in
-    dbo.AssignMeasurmentDevicesToCalibrator named only the two device ids and never the user. That
-    is fixed on the write side as of the same date, so the unowned set is historical and shrinks;
-    dropping it instead would have emptied the popup for everyone on the day of the change.
-
-    Pass @OnlyMine = 0 to see every configured logger, which is what this did before.
-*/
-CREATE OR ALTER PROCEDURE [dbo].[GetLogersConfiguredByCalibrator] 
-@LoggedInUserEmail NVARCHAR(100),
-@OnlyMine BIT = 1
-AS
-BEGIN
-SET NOCOUNT ON;
-
-DECLARE @LoggedInUserId INT 
-DECLARE @SourceId TINYINT
-
-SELECT 
- @LoggedInUserId  = d.UserId 
-,@SourceId = d.SourceId
-FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
-
-	SELECT
-	       l.LoggerMeasurementDeviceId,
-	       l.FlowRate,
-	       l.Interval,
-	       l.CommunicationProtocol,
-	       l.CommunicationDetails,
-	       l.MabaID,
-	       l.Model,
-	       l.Manufacturer,
-	       l.ConnectionPoints,
-	       l.CountAssignedLoggers
-	FROM (
-		SELECT DISTINCT
-		       ltc.ID as LoggerMeasurementDeviceId,
-		       ltc.FlowRate,	
-			   ltc.Interval,	
-			   ltc.Connection as CommunicationProtocol,	
-			   ltc.IP AS CommunicationDetails,
-			   -- MBA-902: identity + channel count, which the popup had no way to get
-			   ltc.MabaID,
-			   ltc.Model,
-			   ltc.Manufacturer,
-			   ltc.ConnectionPoints,
-			   SUM(1) OVER( PARTITION BY ltc.ID) as CountAssignedLoggers
-		FROM dbo.MeasurementDevices as ltc
-		JOIN dbo.MeasurementDevicesMainClasses as mc ON ltc.MainClassId = mc.Id
-		JOIN dbo.SensorToLoggerRelation as srl ON ltc.ID = srl.LoggerMeasurementDeviceId AND srl.IsDeleted = 0
-		WHERE mc.NameEnglish = 'Data logger' AND ltc.IsDeleted = 0
-		  -- MBA-902: this caller's own configurations, plus the ones that predate owner tracking
-		  AND (@OnlyMine = 0
-		       OR srl.UpdateUserID = @LoggedInUserId
-		       OR srl.UpdateUserID IS NULL)
-	) AS l
-	ORDER BY
-		 TRY_CAST(LEFT(l.MabaID, CHARINDEX('-', l.MabaID + '-') - 1) AS INT),
-		 TRY_CAST(LEFT(STUFF(l.MabaID, 1, CHARINDEX('-', l.MabaID + '-'), ''),
-		               CHARINDEX('/', STUFF(l.MabaID, 1, CHARINDEX('-', l.MabaID + '-'), '') + '/') - 1) AS INT),
-		 l.MabaID
-
-END
-
-GO
-/* ===== dbo.GetOrderDetailsDevices ===== */
+/* ===== dbo.GetCustomerSupportData ===== */
 GO
 -- =============================================
--- Author:		Kate Zashalovska
--- Create date: 18/06/2026
--- Description:	
--- JiraLink: 
--- =============================================
-
-CREATE OR ALTER PROCEDURE [dbo].[GetOrderDetailsDevices] 
-@OrderWorkPlanId INT,
-@OrderDetailId INT = NULL,
-@LoggedInUserEmail NVARCHAR(50) = NULL,
-@OrderDetailsItems INT =NULL
-AS
-
-DECLARE @LoggedInUserId INT = 0
-DECLARE @SourceId TINYINT
-DECLARE @IsUserCalibrator BIT 
-
-SELECT 
-	@LoggedInUserId  = d.UserId 
-   ,@SourceId = d.SourceId
-   ,@IsUserCalibrator = IIF(ur.UserRoleName = N'Calibrator',1,0)
-FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
-JOIN dbo.Users as u ON d.UserId  = u.ID
-JOIN dbo.UserRoles as ur ON u.UserRoleId = ur.UserRoleId
-
-
-;WITH numbers
-as
-(
-SELECT 1 as cnt, od.OrderLineCnt, od.OrderDetailId, od.OrdersProductTypeId, od.OrderWorkPlanId
-FROM [dbo].[OrderDetails] as od 
-WHERE od.OrderWorkPlanId = @OrderWorkPlanId
-UNION ALL
-SELECT n.cnt +1, od.OrderLineCnt, od.OrderDetailId, od.OrdersProductTypeId, od.OrderWorkPlanId
-FROM numbers as n
-JOIN [dbo].[OrderDetails] as od ON od.OrderDetailId = n.OrderDetailId AND od.OrderLineCnt = n.OrderLineCnt
-WHERE od.OrderWorkPlanId = @OrderWorkPlanId
-AND cnt < od.OrderLineCnt
-)
-,
-result as
-(
-SELECT 
-wp.[OrderWorkPlanId],
-wp.[OrderNumber],
-wp.[CustomerId],
-cust.[CustomerName],
-cust.[CustomerNameENG],
-cust.[CustomerAddress] as [CustAddress],
-cust.[CustomerCity] as [CustCity],
-cust.[CustomerAddressENG] as [CustAddressENG],
-cust.[CustomerCityENG] as [CustCityENG],
-od.[OrderDetailId],
-od.[OrderLineCnt],
-od.[OrdersProductTypeId],
-opt.[OrdersProductTypeName] as [OrdersProductType],
-odi.[OrderDetailsItemId],
-GETDATE() AS [ActualCalibrationDate],	
-odi.[NextCalibrationDate],	
-odi.[SerialNumber],
-odi.[ManufacturerNumber],
-odi.[DeviceModel],
-odi.[AdditionalDeviceNumber],	
-odi.[MbaReportNumber],
-od.[MainCategoryId],	
-omc.[MainCategoryName] as [OrdersMainCategory],
-od.SecondaryCategoryId as [OrdersSecondaryCategoryId],
-oc.[SecondaryCategoryName] as [OrdersSecondaryCategory],
-odi.[CalibrationSpecificationId],
-mc.Name as [CalibrationSpecification],
-odi.[SpecificationReferenceId],	
-sr.[Name] as [SpecificationReference],
-odi.[MeasurementUnitId],
-mu.ShortNameHe as [MeasurementUnit],
-odi.[MeasurementPoints],	
-odi.[MeasurementValueList],	
-odi.[ProductLocation],
---e.[EquipmentNames], will be deprecated
-scs.[StatusDescriptionENG] as [CalibrationStatus],
-scs.[StatusDescriptionHEB] as [CalibrationStatusHEB],
-odi.Accuracy,
-odi.IsManuallyAdded,
-odi.IsChecked,
-odi.StickerAmount,
-odi.StickerTypeId,
-stit.StatusDescriptionHEB as StickerType,
-ROW_NUMBER() OVER( PARTITION BY odi.OrderDetailId ORDER BY odi.OrderDetailId) as rn
- FROM [dbo].[OrderWorkPlans] as wp 
-JOIN  [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId
-LEFT JOIN [dbo].[Customers] as cust ON wp.CustomerId = cust.CustomerId
-LEFT JOIN [dbo].[OrderDetailsItems] as odi ON od.OrderDetailId = odi.OrderDetailId
-LEFT JOIN [dbo].[OrdersProductTypes] as opt ON od.[OrdersProductTypeId] = opt.[OrdersProductTypeId]
-LEFT JOIN [dbo].[MainCategories] as omc ON od.[MainCategoryId] = omc.ID
-LEFT JOIN [dbo].[SecondaryCategories] as oc ON od.[SecondaryCategoryId] = oc.ID
-LEFT JOIN [dbo].[MeasurementsSpecifications] mc ON odi.[CalibrationSpecificationId] = mc.ID
-LEFT JOIN [dbo].[SpecificationReference] as sr ON odi.[SpecificationReferenceId] = sr.ID
-LEFT JOIN [dbo].[MeasurementDeviceUnits] as mu ON odi.[MeasurementUnitId] = mu.MeasurementDeviceUnitId
-LEFT JOIN [dbo].[Statuses] as scs ON odi.[CalibrationStatusId] = scs.StatusId
-LEFT JOIN [dbo].[Statuses] as stit ON odi.StickerTypeId = stit.StatusId
-LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = wp.[OrderWorkPlanId] AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
-WHERE wp.[OrderWorkPlanId] = @OrderWorkPlanId 
-)
-SELECT
-FIRST_VALUE(r.[OrderWorkPlanId]) OVER(ORDER BY r.[OrderWorkPlanId] DESC) as [OrderWorkPlanId],
-FIRST_VALUE(r.[OrderNumber]) OVER(ORDER BY r.[OrderWorkPlanId] DESC) as [OrderNumber],
-FIRST_VALUE(r.[CustomerId]) OVER(ORDER BY r.[OrderWorkPlanId] DESC) as [CustomerId],
-FIRST_VALUE(r.[CustomerName]) OVER(ORDER BY r.[OrderWorkPlanId] DESC) as [CustomerName],
-FIRST_VALUE(r.[CustomerNameENG]) OVER(ORDER BY r.[OrderWorkPlanId] DESC) as [CustomerNameENG],
-FIRST_VALUE(COALESCE(r.[OrderDetailId],n.[OrderDetailId])) OVER(PARTITION BY r.[OrderDetailId] ORDER BY r.[OrderDetailId]) as [OrderDetailId],
-FIRST_VALUE(COALESCE(r.[OrderLineCnt],n.[OrderLineCnt])) OVER(PARTITION BY r.[OrderDetailId] ORDER BY r.[OrderDetailId]) as [OrderLineCnt],
-FIRST_VALUE(COALESCE(r.[OrdersProductTypeId],n.[OrdersProductTypeId])) OVER(PARTITION BY r.[OrderDetailId] ORDER BY r.[OrderDetailId]) as [OrdersProductTypeId],
-COALESCE(opt1.[OrdersProductTypeName],opt2.[OrdersProductTypeName]) AS [OrdersProductType],
-COALESCE(opt1.[OrdersProductTypeNameENG],opt2.[OrdersProductTypeNameENG]) AS [OrdersProductTypeENG],
-r.[OrderDetailsItemId],
-r.[ActualCalibrationDate],	
-r.[NextCalibrationDate],	
-r.[SerialNumber],
-r.[ManufacturerNumber],
-r.[DeviceModel],
-r.[AdditionalDeviceNumber],	
-CASE 
-	WHEN @IsUserCalibrator = 1 THEN IIF(CHARINDEX(ctwp.OrderDetailsMbaReportNumber,r.[MbaReportNumber] ) <> 0,r.[MbaReportNumber],CONCAT(ctwp.OrderDetailsMbaReportNumber,'',ROW_NUMBER() OVER (PARTITION BY COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) ORDER BY r.[OrderWorkPlanId])  ))
-ELSE r.[MbaReportNumber]
-END as [MbaReportNumber],
-r.[MainCategoryId] as [OrdersMainCategoryId],	
-r.[OrdersMainCategory],
-r.[OrdersSecondaryCategoryId],	
-r.[OrdersSecondaryCategory],
-r.[CalibrationSpecificationId],	
-r.[CalibrationSpecification],
-r.[SpecificationReferenceId],	
-r.[SpecificationReference],
-r.[MeasurementUnitId],
-r.[MeasurementUnit],
-r.[MeasurementPoints],	
-r.[MeasurementValueList],	
-r.[ProductLocation],
---r.[EquipmentNames],
-r.[CalibrationStatus],
-r.[CalibrationStatusHEB],
-r.[Accuracy],
-r.[IsManuallyAdded],
-r.IsChecked,
-r.StickerAmount,
-r.StickerTypeId,
-r.StickerType,
-odi.Tolerance,
-odi.Resolution,
-odi.SpecificationReferenceIds,
-ds.EnvironmentalConditions,
-odi.SecondCalibratorId,
-odi.MainCalibratorId,
-odi.Volume,
-odi.VisualCheck,
-odi.ShouldShowGraphV, 
-odi.ShouldShowCertificateIcon,
-odi.RequiredProbability,
-odi.ReportLanguage,
-CONCAT(u.FirstName,' ',u.LastName) as CalibratorFullName,
-COALESCE(odi.SiteAddress,cs.CustomerSiteAddress, CONCAT(r.[CustAddress], ', ', r.[CustCity])) as SiteAddress,
-COALESCE(cs.CustomerSiteAddressENG, IIF(r.[CustAddressENG] IS NOT NULL AND r.[CustCityENG] IS NOT NULL, CONCAT(r.[CustAddressENG], ', ', r.[CustCityENG]), r.[CustAddressENG])) as SiteAddressENG,
-odi.ProductLocation,
-odi.[OrdersDeviceManufacturer],
-odi.[ControllerType],
-odi.[DiagramMapLink],
--- MBA-666: Calibration Item / device description sourced from Priority (amaba.dbo.PART +
--- FAMILY) and the CRM free-text blocks, all served from the local cache refreshed by
--- dbo.RefreshCrmTextCache - no per-request linked-server round-trip.
-cpi.[PartDescription]   as [PartDescription],    -- PART.PARTDES  (numbers appear in visual order)
-cpi.[FamilyId]          as [DeviceFamilyId],     -- PART.FAMILY
-cpi.[FamilyDescription] as [DeviceFamily],       -- FAMILY.FAMILYDES, e.g. מאזניים / מד לחץ / תנור
-cct.[CatalogText]       as [TextToCatalogNumber],-- טקסט למק"ט   (PARTTEXT)
-cdt.[DeviceText]        as [TextToDevice]        -- טקסט למכשיר  (SERNUMBERSTEXT)
-FROM  numbers as n
-LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt 
-LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[OrdersProductTypeId]
-LEFT JOIN [dbo].[OrdersProductTypes] as opt2 ON r.[OrdersProductTypeId] = opt2.[OrdersProductTypeId]
-LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
-LEFT JOIN [dbo].[OrderDetailsItems] as odi ON n.OrderDetailId = odi.OrderDetailId AND odi.[OrderDetailsItemId] = r.[OrderDetailsItemId]
-LEFT JOIN [dbo].[Users] as u ON odi.MainCalibratorId = u.ID
-LEFT JOIN [dbo].[OrderDetails] as od ON od.OrderDetailId = odi.OrderDetailId
-LEFT JOIN [dbo].[CustomerSites] as cs ON od.CustomerSiteId = cs.CustomerSiteId
--- od is reached through odi here, so rows with no item would lose the part data;
--- join OrderDetails straight off the numbers CTE instead.
-LEFT JOIN [dbo].[OrderDetails]   as odp ON odp.OrderDetailId = n.OrderDetailId
--- resolve by CATALOG NUMBER: OrderDetails.PART is wrong on 169 lines (it points at a different
--- Priority product), while PartName is authoritative and PART.PARTNAME is unique.
-LEFT JOIN [dbo].[CrmPartInfo]    as cpi ON cpi.PartName = odp.PartName
-LEFT JOIN [dbo].[CrmCatalogText] as cct ON cct.PART     = cpi.PART
-LEFT JOIN [dbo].[CrmDeviceText]  as cdt ON cdt.SERN = odi.SERN
-OUTER APPLY
-(
-SELECT 
-	ShortNameEn as MeasurementDeviceUnitEn,
-	ShortNameHe as MeasurementDeviceUnitHeb,
-	ic.NominalValue,
-	ic.Tolerance,
-	ic.MinToleranceBorder,
-	ic.MaxToleranceBorder
-FROM [dbo].[CalibrationEnvironmentalConditions] as ic
-JOIN [dbo].[MeasurementDeviceUnits] as mu ON ic.MeasurementDeviceUnitId = mu.MeasurementDeviceUnitId
-WHERE ic.OrderDetailsItemId = r.[OrderDetailsItemId] and ic.IsDeleted = 0
-FOR JSON PATH
-) as ds(EnvironmentalConditions)
-WHERE (@OrderDetailsItems IS NULL OR r.OrderDetailsItemId = @OrderDetailsItems)
-ORDER BY [OrderDetailId]
-option (maxrecursion 0)
-    
-GO
-/* ===== dbo.GetSensorsConfiguredByCalibrator ===== */
-GO
--- =============================================
--- Proc:        dbo.GetSensorsConfiguredByCalibrator   (original author: Eduard Kudlaiev, 02/07/2025)
--- Jira:        MBA-476 "Connecting multiple sensors" / MBA-475 "Disconnect Detection"
+-- Author:      Eduard Kudlaiev
+-- Create date: 10/03/2026
+-- Description: The MABA account manager shown on the customer portal dashboard
+--              ("׳©׳¨׳•׳× ׳׳§׳•׳—׳•׳× ׳׳‘\"׳" card). One employee per customer.
 --
--- 2026-08-13 change (STAGE only): the proc identified a sensor only by its internal
--- SensorMeasurementDeviceId and returned WorkRangeUnitId without the range itself, so the sensor
--- table could not show "ID, type, range" per connected sensor (MBA-476) and had no bounds to
--- compare a reading against (MBA-475). Added, all straight off the sensor's MeasurementDevices row:
---     MabaID, Model, SerialNumber, Manufacturer   - identity for the table
---     DeviceRange                                  - the range AS TEXT, which is how it is stored
---     WorkRangeMin, WorkRangeMax                   - the numeric bounds, when they exist
--- No rows/filters changed; this is additive.
+-- 2026-08-30 ג€” FIX: the customer was resolved from dbo.Users only.
 --
--- 2026-08-24 (MBA-902): dual ranges, plus two ordering fixes - all three visible in the popup.
---     ChannelList came out of STRING_AGG in whatever order the join produced, so a sensor holding
---     channels 0,1,2,3,6,7 could render as "3,0,7,1,6,2". Now sorted numerically.
---     The result set itself had no ORDER BY, so the sensor list reshuffled between calls. Now
---     sorted by MabaID on its numeric segments, so 21-9 comes before 21-86.
+--              Portal users are CUSTOMER CONTACTS, not staff accounts, so that lookup
+--              could not work: of the 2,070 rows in dbo.CustomerContacts exactly one
+--              appears in dbo.Users, and none of them carry a CustomerId there. The
+--              variable therefore came back NULL and the final predicate
+--              `WHERE c.CustomerId = @CustomerId` was always false ג€” the card was empty
+--              for every portal user since the day it was written.
 --
--- On the work range: as of 2026-08-24, 85 of 152 sensors on STAGE have numeric WorkRangeMin/Max
--- (imported from kyulan.dbo.tblInstr by dbo.ImportInstrumentWorkRangeFromKyulan - it was 0 before).
--- The remaining 67 cannot be filled from kyulan: it holds no numeric range for any of them, and
--- only a lone minimum for 31-83. 37 of the 67 carry a free-text DeviceRange instead, and that text
--- is not machine-readable: '0-150', '-80c%1100c', '196-', '0-100%RH;-40-60C', '(-120)-100C',
--- '0-1300'. Some rows carry TWO ranges (temperature plus humidity), some are typos. Auto-parsing
--- would silently produce wrong limits on a feature whose whole job is to flag out-of-range
--- readings, so it is deliberately NOT done here. Those 37 need a human pass - a data task.
+--              Now resolved from dbo.CustomerContacts first, falling back to dbo.Users,
+--              which is the same convention GetCustomerProfile, GetCustomerDashboardData
+--              and GetCustomerDeviceList already use. This SP was the only one in the
+--              portal set that did not.
+--
+--              Output columns are unchanged, so the front end needs no change.
 -- =============================================
-CREATE OR ALTER PROCEDURE [dbo].[GetSensorsConfiguredByCalibrator]
-    @LoggedInUserEmail NVARCHAR(100),
-    @LoggerMeasurementDeviceId INT = NULL,
-    @SensorMeasurementDeviceId INT = NULL
-AS
-BEGIN
-
-SET NOCOUNT ON;
-
-DECLARE @LoggedInUserId INT
-DECLARE @SourceId TINYINT
-
-SELECT
- @LoggedInUserId  = d.UserId
-,@SourceId = d.SourceId
-FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
-
-    SELECT srl.LoggerMeasurementDeviceId as  LoggerMeasurementDeviceId,
-           ltc.IP AS CommunicationDetails,
-           ltc.Connection as CommunicationProtocol,
-           srl.SensorMeasurementDeviceId as SensorMeasurementDeviceId,
-           ltc.UnitId,
-           ltc.WorkRangeUnitId,
-           -- MBA-476: identify each connected sensor in its own row
-           ltc.MabaID,
-           ltc.Model,
-           ltc.SerialNumber,
-           ltc.Manufacturer,
-           -- MBA-475: the range. DeviceRange is the original text, kept so a calibrator can
-           -- always see what the numbers were read from.
-           ltc.DeviceRange,
-           ltc.WorkRangeMin,
-           ltc.WorkRangeMax,
-           u1.ShortNameEn AS WorkRangeUnit,
-           -- MBA-902: a sensor that measures two things at once carries both. Slot 1 is the
-           -- temperature range where there is one; slot 2 is the humidity range.
-           ltc.WorkRangeMin2,
-           ltc.WorkRangeMax2,
-           ltc.WorkRangeUnitId2,
-           u2.ShortNameEn AS WorkRangeUnit2,
-           -- The outer bounds across both ranges, for a caller with only one pair of fields to
-           -- fill. Do NOT compare a reading against these when the two ranges are in different
-           -- units - use the matching pair above.
-           CASE WHEN ltc.WorkRangeMin2 IS NULL THEN ltc.WorkRangeMin
-                ELSE IIF(ltc.WorkRangeMin2 < ltc.WorkRangeMin, ltc.WorkRangeMin2, ltc.WorkRangeMin)
-           END AS WorkRangeMinOverall,
-           CASE WHEN ltc.WorkRangeMax2 IS NULL THEN ltc.WorkRangeMax
-                ELSE IIF(ltc.WorkRangeMax2 > ltc.WorkRangeMax, ltc.WorkRangeMax2, ltc.WorkRangeMax)
-           END AS WorkRangeMaxOverall,
-           IIF(ltc.WorkRangeMin2 IS NOT NULL, CAST(1 AS BIT), CAST(0 AS BIT)) AS HasSecondRange,
-           -- MBA-902: numeric order, not join order
-           STRING_AGG(csr.ChannelNumber,',') WITHIN GROUP (ORDER BY csr.ChannelNumber) as ChannelList
-    FROM dbo.MeasurementDevices as ltc
-    JOIN dbo.MeasurementDevicesMainClasses as mc ON ltc.MainClassId = mc.Id
-    JOIN dbo.SensorToLoggerRelation as srl ON ltc.ID = srl.SensorMeasurementDeviceId AND srl.IsDeleted = 0
-    JOIN dbo.ChannelsToSensorRelation as csr ON csr.SensorMeasurementDeviceId = srl.SensorMeasurementDeviceId AND csr.LoggerMeasurementDeviceId = srl.LoggerMeasurementDeviceId AND csr.IsDeleted = 0
-    LEFT JOIN dbo.MeasurementDeviceUnits as u1 ON u1.MeasurementDeviceUnitId = ltc.WorkRangeUnitId
-    LEFT JOIN dbo.MeasurementDeviceUnits as u2 ON u2.MeasurementDeviceUnitId = ltc.WorkRangeUnitId2
-    WHERE  mc.NameEnglish = 'Sensor' AND ltc.IsDeleted =0
-    AND (@SensorMeasurementDeviceId IS NULL OR srl.SensorMeasurementDeviceId = @SensorMeasurementDeviceId)
-    AND (@LoggerMeasurementDeviceId IS NULL OR srl.LoggerMeasurementDeviceId = @LoggerMeasurementDeviceId)
-    GROUP BY
-    srl.LoggerMeasurementDeviceId,
-    ltc.IP,
-    ltc.Connection,
-    srl.SensorMeasurementDeviceId,
-    ltc.UnitId,
-    ltc.WorkRangeUnitId,
-    ltc.MabaID,
-    ltc.Model,
-    ltc.SerialNumber,
-    ltc.Manufacturer,
-    ltc.DeviceRange,
-    ltc.WorkRangeMin,
-    ltc.WorkRangeMax,
-    u1.ShortNameEn,
-    ltc.WorkRangeMin2,
-    ltc.WorkRangeMax2,
-    ltc.WorkRangeUnitId2,
-    u2.ShortNameEn
-    -- MBA-902: stable order, so the list does not reshuffle between calls
-    ORDER BY
-        TRY_CAST(LEFT(ltc.MabaID, CHARINDEX('-', ltc.MabaID + '-') - 1) AS INT),
-        TRY_CAST(LEFT(STUFF(ltc.MabaID, 1, CHARINDEX('-', ltc.MabaID + '-'), ''),
-                      CHARINDEX('/', STUFF(ltc.MabaID, 1, CHARINDEX('-', ltc.MabaID + '-'), '') + '/') - 1) AS INT),
-        ltc.MabaID
-
-END
-
-GO
-/* ===== dbo.GetUserNames ===== */
-GO
-/*
-    dbo.GetUserNames
-    ---------------------------------------------------------------------------------------------
-    The e-mail list behind the username dropdown on the sign-in screen.
-
-    Why this changed
-    ----------------
-    It used to return every active address in the table. On PROD that is 2,136 rows, of which
-    2,099 are CUSTOMERS - so the sign-in page of cal.qcc.co.il was publishing MABA's entire
-    customer contact list to anyone who opened it, without logging in.
-
-    Now it returns staff only: 37 rows.
-
-    Why the filter is on the ROLE and not on the e-mail domain
-    ----------------------------------------------------------
-    "Only @mba.co.il" was the obvious rule and it is wrong - three active members of staff do not
-    have an MABA address, and a domain filter would lock them out of the system:
-
-        0523862631                  אלון אזולאי       Calibrator   (a phone number in the e-mail column)
-        erel@larit.co.il            קבלן משנה-לרית    Calibrator   (subcontractor)
-        lilach_ch@sepharma.co.il    לילך שאוט         OperationManager
-
-    Excluding the Customer role keeps all three and still removes all 2,099 customers, which is
-    what the request was actually about. It also stays correct when a new member of staff arrives
-    on some other domain.
-
-    Safe to deploy: not one of the 2,099 customers has ever signed in - LastLoginDate is NULL for
-    every one of them. Customers authenticate through the separate e-mail one-time-code flow
-    (MBA-892 / MBA-893), which does not use this list.
-
-    Worth saying plainly
-    --------------------
-    A dropdown that lists valid usernames is an account-enumeration aid whatever it is filtered
-    to. This change removes the customer leak; it does not make the pattern a good one. Replacing
-    the dropdown with a plain text field is the real fix and belongs to the front end.
-*/
-CREATE OR ALTER PROCEDURE [dbo].[GetUserNames]
+CREATE OR ALTER PROCEDURE [dbo].[GetCustomerSupportData]
+    @LoggedInUserEmail NVARCHAR(50),
+    /* MBA-936: the branch the caller chose, when their address serves several customers.
+       Verified below - an unverified id is ignored rather than trusted, so this cannot be
+       used to read another customer's data. */
+    @SelectedCustomerId INT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT u.Email
-    FROM dbo.Users AS u
-    LEFT JOIN dbo.UserRoles AS r ON r.UserRoleId = u.UserRoleId
-    WHERE LEN(TRIM(u.Email)) > 0
-      AND u.IsActive = 1
-      AND u.ID > 0                                   -- excludes the ETL service account
-      AND ISNULL(r.UserRoleName, N'') <> N'Customer' -- staff only; see header
-    ORDER BY u.Email;
+    DECLARE @CustomerId INT = NULL;
+
+    -- Primary resolution: portal contact login
+        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
+       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
+       Without a choice, or with one that does not belong to the caller, this falls through to the
+       original deterministic pick - never to the id it was handed. */
+    IF @SelectedCustomerId IS NOT NULL
+       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
+                   WHERE v.CustomerId = @SelectedCustomerId
+                     AND ISNULL(v.IsDeleted, 0) = 0
+                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
+                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
+        SET @CustomerId = @SelectedCustomerId;
+    ELSE
+    SELECT TOP 1 @CustomerId = cc.CustomerId
+        FROM dbo.CustomerContacts AS cc
+        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
+        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
+
+    -- Fallback: user account login (support / staff mapped to a customer)
+    IF @CustomerId IS NULL
+    BEGIN
+        SELECT TOP 1 @CustomerId = u.CustomerId
+        FROM dbo.Users AS u
+        WHERE u.Email = @LoggedInUserEmail;
+    END
+
+    IF @CustomerId IS NULL
+        RETURN;
+
+    SELECT
+         u.FirstName
+        ,u.LastName
+        ,u.Email
+        ,u.Phone
+    FROM dbo.Customers AS c
+    JOIN dbo.Users     AS u ON u.ID = c.CustomerSupportContactId
+    WHERE c.CustomerId = @CustomerId;
 END
 
 GO
@@ -3794,6 +2467,112 @@ BEGIN
 END
 
 GO
+/* ===== dbo.fnMasterValueAfterCorrection ===== */
+GO
+
+CREATE OR ALTER FUNCTION dbo.fnMasterValueAfterCorrection
+(
+    @MeasurementDevicesId INT,
+    @Reading              DECIMAL(18,6),
+    @MeasurementId        INT = NULL
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    WITH Ranked AS
+    (
+        SELECT c.MeasurementId, c.Value1, c.Value2, c.Deviation,
+               Rnk = RANK() OVER (ORDER BY c.CorVersion DESC)
+        FROM dbo.MeasurementDevicesCorrections AS c
+        WHERE c.MeasurementDevicesId = @MeasurementDevicesId
+          AND ISNULL(c.IsDeleted, 0) = 0
+          AND c.Deviation IS NOT NULL
+          AND @Reading IS NOT NULL
+    ),
+    Newest AS (SELECT MeasurementId, Value1, Value2, Deviation FROM Ranked WHERE Rnk = 1),
+    Chosen AS
+    (
+        SELECT TOP (1) MeasurementId FROM Newest
+        WHERE @MeasurementId IS NULL OR MeasurementId = @MeasurementId
+        GROUP BY MeasurementId ORDER BY COUNT(*) DESC, MeasurementId
+    ),
+    Pts    AS (SELECT n.Value1, n.Value2, n.Deviation FROM Newest AS n JOIN Chosen AS c ON c.MeasurementId = n.MeasurementId),
+    /* Two different upper edges, and confusing them is what made 31-77 look truncated.
+       LastPoint is the highest calibrated point - interpolation cannot go past it, so that is
+       where the deviation starts being clamped, exactly as the C# does.
+       CertTop is the end of the last RANGE, which is how far the certificate actually covers.
+       31-77: last point 349.98, certificate top 399.923. A reading of 380 is inside the
+       certificate and must not be reported as beyond it. */
+    Bounds AS (SELECT LoEdge  = MIN(Value1),
+                      HiEdge  = MAX(Value1),
+                      CertTop = MAX(COALESCE(Value2, Value1)) FROM Pts),
+    Below  AS (SELECT TOP (1) Value1, Deviation FROM Pts WHERE Value1 <= @Reading ORDER BY Value1 DESC),
+    Above  AS (SELECT TOP (1) Value1, Deviation FROM Pts WHERE Value1 >  @Reading ORDER BY Value1 ASC),
+    Edge   AS (SELECT LoDev = (SELECT TOP (1) Deviation FROM Pts ORDER BY Value1 ASC),
+                      HiDev = (SELECT TOP (1) Deviation FROM Pts ORDER BY Value1 DESC)),
+    /* how many decimals the reading itself carries, once trailing zeros are dropped */
+    Scale AS
+    (
+        SELECT Decimals = CASE WHEN CHARINDEX('.', t.txt) = 0 THEN 0
+                               ELSE LEN(t.txt) - CHARINDEX('.', t.txt) END
+        FROM (SELECT s1 = CAST(@Reading AS NVARCHAR(40))) AS a
+        CROSS APPLY (SELECT txt = CASE WHEN CHARINDEX('.', a.s1) = 0 THEN a.s1
+                                       ELSE LEFT(a.s1, LEN(REPLACE(RTRIM(REPLACE(a.s1,'0',' ')),' ','0'))) END) AS b
+        CROSS APPLY (SELECT txt = CASE WHEN RIGHT(b.txt,1) = '.' THEN LEFT(b.txt, LEN(b.txt)-1) ELSE b.txt END) AS t
+    ),
+    Dev AS
+    (
+        SELECT Deviation =
+            CASE
+                WHEN b.LoEdge IS NULL     THEN NULL
+                WHEN @Reading <  b.LoEdge THEN e.LoDev
+                WHEN @Reading >= b.HiEdge THEN e.HiDev
+                WHEN a.Value1  IS NULL    THEN lo.Deviation
+                WHEN lo.Value1 = @Reading THEN lo.Deviation
+                ELSE lo.Deviation
+                     + ((a.Deviation - lo.Deviation) / NULLIF(a.Value1 - lo.Value1, 0))
+                       * (@Reading - lo.Value1)
+            END,
+            UsedMeasurementId = (SELECT MeasurementId FROM Chosen),
+            OutOfRange = CASE WHEN b.LoEdge IS NULL     THEN NULL
+                              WHEN @Reading < b.LoEdge  THEN CAST(1 AS BIT)
+                              WHEN @Reading > b.CertTop THEN CAST(1 AS BIT)
+                              ELSE CAST(0 AS BIT) END,
+            /* the deviation stopped following the curve and is being held flat */
+            Extrapolated = CASE WHEN b.LoEdge IS NULL    THEN NULL
+                                WHEN @Reading < b.LoEdge THEN CAST(1 AS BIT)
+                                WHEN @Reading > b.HiEdge THEN CAST(1 AS BIT)
+                                ELSE CAST(0 AS BIT) END,
+            CertificateTop = b.CertTop,
+            LastCalibratedPoint = b.HiEdge
+        FROM Bounds AS b
+        CROSS JOIN Edge AS e
+        LEFT JOIN Below AS lo ON 1 = 1
+        LEFT JOIN Above AS a  ON 1 = 1
+    )
+    SELECT Deviation = CAST(d.Deviation AS DECIMAL(18,6)),
+           /* full precision - use this for anything that is stored or calculated on */
+           CorrectedExact = CAST(@Reading - d.Deviation AS DECIMAL(18,6)),
+           /* for the screen: as many decimals as the reading itself carries */
+           /* At least 3 decimals, however few the reading carried. Rounding purely to the
+              reading's own precision erased the correction: a reading of 23 has deviation
+              -0.001792 and came back as 23, so the calibrator saw nothing happen. Three is
+              enough to show every deviation in the data - they run from about 0.001 to 2 -
+              without printing six digits the measurement cannot justify. */
+           Corrected      = CAST(ROUND(@Reading - d.Deviation,
+                                       CASE WHEN s.Decimals < 3 THEN 3 ELSE s.Decimals END)
+                                 AS DECIMAL(18,6)),
+           ReadingDecimals = s.Decimals,
+           d.OutOfRange,
+           d.Extrapolated,
+           d.CertificateTop,
+           d.LastCalibratedPoint,
+           d.UsedMeasurementId
+    FROM Dev AS d CROSS JOIN Scale AS s
+);
+
+GO
 /* ===== dbo.fnStripHtml ===== */
 GO
 -- =============================================
@@ -3885,6 +2664,109 @@ BEGIN
 END
 
 GO
+/* ===== dbo.fnUnreverseVisualText ===== */
+GO
+/*
+    dbo.fnUnreverseVisualText
+    ---------------------------------------------------------------------------------------------
+    Priority stores text in VISUAL order. The Hebrew reads correctly, but every run of digits or
+    Latin inside it is reversed: a 150 mm caliper is stored "׳–׳—׳•׳ ׳׳׳§׳˜׳¨׳•׳ ׳™ ׳¢׳“ 051", and a 100 kg
+    scale as "׳׳׳–׳ ׳™׳™׳ ׳¢׳“ 001 ׳§'׳’".
+
+    This walks the string and reverses each non-Hebrew run in place, leaving the Hebrew alone.
+    Brackets come out right on their own - ")3-1M(" reverses to "(M1-3)" - so they are NOT mirrored
+    separately; doing both would flip them back.
+
+    TRAILING SENTENCE PUNCTUATION IS NOT PART OF THE RUN                        (fixed 31/08/2026)
+    ------------------------------------------------------------------------------------------
+    Priority reverses only the strong LTR characters and leaves a neutral like ':' where it is.
+    Verified by code point, not by looking at a terminal - a terminal re-orders bidi text and will
+    lie to you about what is stored. The subject "RE: ׳”׳¦׳¢׳× ׳׳—׳™׳¨ A26004904" is stored as:
+
+        E(69) R(82) :(58) space  ׳” ׳¦ ׳¢ ׳×  space  ׳ ׳— ׳™ ׳¨  space  4 0 9 4 0 0 6 2 A
+
+    so the letters are reversed, "RE" -> "ER", while the colon stays at the end. Reversing the
+    whole run produced ":RE". The run is now split: a tail of :;!? is peeled off, the core is
+    reversed, and the tail is put back unchanged.
+
+    THREE characters are deliberately NOT in that set, each for its own reason:
+
+      '.' and ','  are numeric separators here far more often than sentence punctuation. 24 device
+                   descriptions store a leading decimal fraction such as ".0005" as "'5000." -
+                   the period has to travel with the reversal to land back in front. Peeling it
+                   produced "0005'." Measured on STAGE before shipping; this is why the set is
+                   narrow.
+
+      brackets     a mirrored pair has to travel with the reversal. Reversing ")3-1M(" is what
+                   turns it back into "(M1-3)"; peeling would break what already worked.
+
+    A ':' inside a run - a time like "10:30" - is untouched, because only a TRAILING run of these
+    characters is peeled.
+
+    AMBIGUOUS RUNS ARE LEFT ALONE. Priority does not place the neutral consistently: "RE:" is
+    stored "ER:" with the colon last, but "FW:" is stored ":WF" with it first, because the bidi
+    algorithm resolves a neutral from whatever surrounds it. When a run carries one of these
+    characters at BOTH ends - ":dwF:" from a forwarded chain - there is no way to tell which end
+    is the sentence punctuation, so nothing is peeled and the previous whole-run reversal stands.
+    Better an unchanged oddity than a confidently wrong repair.
+
+    What it cannot recover, and callers must not assume it does:
+      - the case of Latin letters. "MN 622-0" becomes "NM 0-226"; the instrument is 0-226 Nm.
+      - the order of several runs separated by Hebrew or spaces.
+    dbo.CrmDeviceDescription.NeedsReview marks both cases.
+*/
+CREATE OR ALTER FUNCTION dbo.fnUnreverseVisualText(@s NVARCHAR(400))
+RETURNS NVARCHAR(400)
+AS
+BEGIN
+    IF @s IS NULL RETURN NULL;
+
+    DECLARE @out  NVARCHAR(400) = N'',
+            @run  NVARCHAR(400) = N'',
+            @tail NVARCHAR(400) = N'',
+            @i    INT = 1,
+            @n    INT = LEN(@s),
+            @c    NCHAR(1);
+
+    /* Neutrals that trail an LTR run in logical order and are left in place by Priority.
+       Deliberately excludes '.' ',' and brackets - see the header. */
+    DECLARE @trailing NVARCHAR(10) = N':;!?';
+
+    WHILE @i <= @n
+    BEGIN
+        SET @c = SUBSTRING(@s, @i, 1);
+        IF (UNICODE(@c) BETWEEN 1424 AND 1535) OR @c = N' '   -- 0x0590..0x05FF is Hebrew
+        BEGIN
+            SET @tail = N'';
+            /* Only peel when the run does not ALSO start with one of these - see the header. */
+            IF LEN(@run) > 0 AND CHARINDEX(LEFT(@run, 1), @trailing) = 0
+                WHILE LEN(@run) > 0 AND CHARINDEX(RIGHT(@run, 1), @trailing) > 0
+                BEGIN
+                    SET @tail = RIGHT(@run, 1) + @tail;
+                    SET @run  = LEFT(@run, LEN(@run) - 1);
+                END
+
+            SET @out = @out + REVERSE(@run) + @tail + @c;
+            SET @run = N'';
+        END
+        ELSE
+            SET @run = @run + @c;
+        SET @i += 1;
+    END
+
+    /* Same peel for a run that ends the string. */
+    SET @tail = N'';
+    IF LEN(@run) > 0 AND CHARINDEX(LEFT(@run, 1), @trailing) = 0
+        WHILE LEN(@run) > 0 AND CHARINDEX(RIGHT(@run, 1), @trailing) > 0
+        BEGIN
+            SET @tail = RIGHT(@run, 1) + @tail;
+            SET @run  = LEFT(@run, LEN(@run) - 1);
+        END
+
+    RETURN @out + REVERSE(@run) + @tail;
+END
+
+GO
 /* ===== stg.MergeCustomersContactsData ===== */
 GO
 CREATE OR ALTER PROCEDURE [stg].[MergeCustomersContactsData]
@@ -3911,19 +2793,25 @@ BEGIN
 			,cc.[CustomerContactIdFromSource]
 			,ss.SourceId as [SourceId]
 			,0 [UpdateUserID]
+			,ISNULL(cc.[IsPrimary],0) as [IsPrimary]
+			,ISNULL(cc.[DoNotMail],0) as [DoNotMail]
 		FROM stg.stg_CustomerContacts as cc
 		JOIN dbo.Source as ss ON cc.SourceSystem = ss.SourceName
 		JOIN [dbo].[Customers] as c ON cc.[CustomerId] = c.[CustomerIdFromSource] AND c.[SourceId] = ss.SourceId 
 		) AS source
 		ON dest.CustomerContactIdFromSource = source.CustomerContactIdFromSource
 			AND dest.[SourceId] = source.[SourceId]
+	/* This used to AND every comparison together, so a row only updated when EVERY field had
+	   changed at once - which never happens, and one of the lines even tested for equality.
+	   OR is what was meant: update when anything differs. */
 	WHEN MATCHED
-		AND dest.[CustomerContactName] <> source.[CustomerContactName]
-		AND dest.[CustomerContactPersonRole] <> source.[CustomerContactPersonRole]
-		AND dest.[CustomerContactPhone] <> source.[CustomerContactPhone]
-		AND dest.[CustomerContactAdditionalPhoneNumber] = source.[CustomerContactAdditionalPhoneNumber]
-		AND dest.[CustomerContactEmail] <> source.[CustomerContactEmail]
-		AND dest.[CustomerContactIdFromSource] <> source.[CustomerContactIdFromSource]
+		AND (   ISNULL(dest.[CustomerContactName],N'')                  <> ISNULL(source.[CustomerContactName],N'')
+			 OR ISNULL(dest.[CustomerContactPersonRole],N'')            <> ISNULL(source.[CustomerContactPersonRole],N'')
+			 OR ISNULL(dest.[CustomerContactPhone],N'')                 <> ISNULL(source.[CustomerContactPhone],N'')
+			 OR ISNULL(dest.[CustomerContactAdditionalPhoneNumber],N'') <> ISNULL(source.[CustomerContactAdditionalPhoneNumber],N'')
+			 OR ISNULL(dest.[CustomerContactEmail],N'')                 <> ISNULL(source.[CustomerContactEmail],N'')
+			 OR ISNULL(dest.[IsPrimary],0)                              <> source.[IsPrimary]
+			 OR ISNULL(dest.[DoNotMail],0)                              <> source.[DoNotMail])
 		THEN
 			UPDATE
 			SET  dest.[CustomerId] = source.[CustomerId]
@@ -3933,6 +2821,8 @@ BEGIN
 				,dest.[CustomerContactAdditionalPhoneNumber] = source.[CustomerContactAdditionalPhoneNumber]
 				,dest.[CustomerContactEmail] = source.[CustomerContactEmail]
 				,dest.[CustomerContactIdFromSource] = source.[CustomerContactIdFromSource]
+				,dest.[IsPrimary] = source.[IsPrimary]
+				,dest.[DoNotMail] = source.[DoNotMail]
 				,dest.[UpdatedDate] = GETDATE()
 				,dest.[UpdateUserID] = 0
 	WHEN NOT MATCHED
@@ -3947,6 +2837,8 @@ BEGIN
 				,[CustomerContactIdFromSource]
 				,[SourceId]
 				,[UpdateUserID]
+				,[IsPrimary]
+				,[DoNotMail]
 				)
 			VALUES (
 				 source.[CustomerId]
@@ -3958,6 +2850,8 @@ BEGIN
 				,source.[CustomerContactIdFromSource]
 				,source.[SourceId]
 				,source.[UpdateUserID]
+				,source.[IsPrimary]
+				,source.[DoNotMail]
 				);
 /*
 --Add customer contact as a user

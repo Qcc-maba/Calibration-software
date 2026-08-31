@@ -5,6 +5,10 @@
     rewritten, and every statement is guarded so the file can be re-run.
 
     Generated from the live STAGE schema, so what lands on PROD is what is running on STAGE.
+
+    Regenerated 31/08 after the first deployment: STAGE moved while that round was being run, so
+    this carries six more columns and one more table. Every statement is still guarded, so
+    re-running the whole file is harmless - the parts already applied are skipped.
 */
 SET NOCOUNT ON;
 GO
@@ -154,6 +158,22 @@ CREATE TABLE dbo.UserSensorTablePreferences
 );
 GO
 
+IF OBJECT_ID('dbo.CrmOrderAttachments') IS NULL
+CREATE TABLE dbo.CrmOrderAttachments
+(
+    [ORD] int NOT NULL,
+    [EXTFILENUM] int NOT NULL,
+    [LINE] int NULL,
+    [FilePath] nvarchar(200) NULL,
+    [FileExtension] nvarchar(20) NULL,
+    [Description] nvarchar(200) NULL,
+    [DescriptionRaw] nvarchar(200) NULL,
+    [IsPathTruncated] bit NOT NULL,
+    [FetchedAt] datetime2(3) NOT NULL,
+    PRIMARY KEY CLUSTERED ([ORD], [EXTFILENUM])
+);
+GO
+
 
 /* ---- seven columns on existing tables ---- */
 IF COL_LENGTH('dbo.MeasurementDevices','WorkRangeMin2') IS NULL
@@ -186,23 +206,24 @@ UPDATE dbo.Source SET SourceDisplayName = SourceName  WHERE SourceDisplayName IS
 GO
 
 /* ---- the one type change, and the reason it matters most in this file ----
-   MasterValue is DECIMAL(10,8) on PROD. Precision 10 with scale 8 leaves TWO digits before the
-   decimal point, so the column cannot hold 100. A calibrator entering any reading of 100 or more
-   gets "arithmetic overflow", the save is rejected, and NOTHING on screen says so - the typed
-   value stays in the box and the row's UpdatedDate still moves. 31-77's certificate runs to 349.98
-   and other masters reach 1104, so this covers most of the working range.
-
-   Widening is safe: no index, default or check constraint is bound to the column, and by
-   definition every value already in it is under 100. */
+   MasterValue was DECIMAL(10,8) on PROD. Precision 10 with scale 8 leaves TWO digits before the
+   decimal point, so the column could not hold 100. A calibrator entering any reading of 100 or
+   more got "arithmetic overflow", the save was rejected, and NOTHING on screen said so. 31-77's
+   certificate runs to 349.98 and other masters reach 1104. */
 IF EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON t.user_type_id=c.user_type_id
            WHERE c.object_id=OBJECT_ID('dbo.MeasurmentPointsToOrderDetailsItems')
              AND c.name='MasterValue' AND (c.precision<>18 OR c.scale<>6))
     ALTER TABLE dbo.MeasurmentPointsToOrderDetailsItems ALTER COLUMN MasterValue DECIMAL(18,6) NULL;
 GO
+IF EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON t.user_type_id=c.user_type_id
+           WHERE c.object_id=OBJECT_ID('dbo.MeasurmentPointsToCalibrationCycles')
+             AND c.name='MasterValue' AND (c.precision<>18 OR c.scale<>6))
+    ALTER TABLE dbo.MeasurmentPointsToCalibrationCycles ALTER COLUMN MasterValue DECIMAL(18,6) NULL;
+GO
 
 /* ---- the index the compensation call needs ----
-   Without it GetCalibrationValuesForManyOrderDetailItems takes 2.1 s per request instead of 0.27 s,
-   because every correction lookup scans the whole table. */
+   Without it GetCalibrationValuesForManyOrderDetailItems takes 2.1 s per request instead of
+   0.27 s, because every correction lookup scans the whole table. */
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_MDC_Device_Version_Value')
 CREATE NONCLUSTERED INDEX IX_MDC_Device_Version_Value
     ON dbo.MeasurementDevicesCorrections (MeasurementDevicesId, CorVersion DESC, Value1)
