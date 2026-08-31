@@ -8,7 +8,7 @@
         @IncrementalOnly = 0 : full rebuild (default).
         @IncrementalOnly = 1 : only orders that have no cached row yet.
 
-    ONE linked-server round-trip either way. The whole TYPE='O' set is 15,251 rows, small enough
+    ONE linked-server round-trip either way. The whole TYPE='O' set is ~15,300 rows, small enough
     to pull in a single OPENQUERY and filter locally — no batching needed, unlike the ORDERSTEXT
     pull in RefreshCrmTextCache which reaches into a 1.7M-row table.
 
@@ -41,20 +41,28 @@ BEGIN
 
        TYPE = 'O' is the order entity; IV is then ORDERS.ORD, which is what we carry as
        OrderWorkPlans.OrderSourceId. Counts by TYPE on PROD 30/08/2026: D 1,637,222 |
-       I 240,375 | O 15,251 | C 3,101 — so filtering on the remote side matters.
+       I 240,375 | O 15,326 | C 3,101 — so filtering on the remote side matters.
+
+       Keyed on (IV, EXTFILENUM). LINE is NOT a file index: it has 3 distinct values in the whole
+       table and repeats inside an order, so keying on it loses files and fails the PK. See the
+       header of dbo.CrmOrderAttachments.table.sql.
        ------------------------------------------------------------------------------------ */
     CREATE TABLE #Ext
     (
         ORD          INT           NOT NULL,
-        LINE         INT           NOT NULL,
-        EXTFILENUM   INT           NULL,
-        FilePath     NVARCHAR(200) NULL,
-        DescriptionRaw NVARCHAR(200) NULL,
-        FileSize     INT           NULL
+        EXTFILENUM   INT           NOT NULL,
+        LINE         INT           NULL,
+        FilePath       NVARCHAR(200) COLLATE DATABASE_DEFAULT NULL,
+        DescriptionRaw NVARCHAR(200) COLLATE DATABASE_DEFAULT NULL,
+        FileSize       INT           NULL
     );
+    /* COLLATE DATABASE_DEFAULT is not decoration. The values arrive from OPENQUERY carrying
+       Latin1_General_100_CI_AI_SC while dbo.CrmOrderAttachments is Hebrew_CI_AS, and the
+       change-detection comparisons in the MERGE below fail with a collation conflict without
+       it. Pinning both temp tables to the database default settles it in one place. */
 
-    INSERT INTO #Ext (ORD, LINE, EXTFILENUM, FilePath, DescriptionRaw, FileSize)
-    SELECT q.IV, q.LINE, q.EXTFILENUM, q.EXTFILENAME, q.EXTFILEDES, q.FILESIZE
+    INSERT INTO #Ext (ORD, EXTFILENUM, LINE, FilePath, DescriptionRaw, FileSize)
+    SELECT q.IV, q.EXTFILENUM, q.LINE, q.EXTFILENAME, q.EXTFILEDES, q.FILESIZE
     FROM OPENQUERY([31.168.173.93],
         'SELECT IV, LINE, EXTFILENUM, EXTFILENAME, EXTFILEDES, FILESIZE
            FROM amaba.dbo.EXTFILES
@@ -76,9 +84,9 @@ BEGIN
        Shape the rows.
 
        IsPathTruncated: the source column is varchar(80) and Priority cuts anything longer.
-       35 of 15,251 rows sit exactly at 80 characters; their names end mid-extension (.ms, .m,
-       .pd) and the file cannot be located. Length distribution on PROD is 74 for 15,213 rows,
-       so >= 80 is a clean signal, not a guess.
+       35 rows sit exactly at 80 characters; their names end mid-extension (.ms, .m, .pd) and
+       the file cannot be located. The normal length is 74, so >= 80 is a clean signal rather
+       than a guess. That count has stayed at 35 while the total grew.
 
        FileExtension is taken only when the path is NOT truncated — a cut name's tail is not an
        extension, and treating it as one would send the converter after a file type that does
@@ -87,23 +95,23 @@ BEGIN
     CREATE TABLE #Shaped
     (
         ORD             INT           NOT NULL,
-        LINE            INT           NOT NULL,
-        EXTFILENUM      INT           NULL,
-        FilePath        NVARCHAR(200) NULL,
-        FileExtension   NVARCHAR(20)  NULL,
-        Description     NVARCHAR(200) NULL,
-        DescriptionRaw  NVARCHAR(200) NULL,
+        EXTFILENUM      INT           NOT NULL,
+        LINE            INT           NULL,
+        FilePath        NVARCHAR(200) COLLATE DATABASE_DEFAULT NULL,
+        FileExtension   NVARCHAR(20)  COLLATE DATABASE_DEFAULT NULL,
+        Description     NVARCHAR(200) COLLATE DATABASE_DEFAULT NULL,
+        DescriptionRaw  NVARCHAR(200) COLLATE DATABASE_DEFAULT NULL,
         FileSize        INT           NULL,
         IsPathTruncated BIT           NOT NULL,
-        PRIMARY KEY (ORD, LINE)
+        PRIMARY KEY (ORD, EXTFILENUM)
     );
 
-    INSERT INTO #Shaped (ORD, LINE, EXTFILENUM, FilePath, FileExtension,
+    INSERT INTO #Shaped (ORD, EXTFILENUM, LINE, FilePath, FileExtension,
                          Description, DescriptionRaw, FileSize, IsPathTruncated)
     SELECT
         e.ORD,
-        e.LINE,
         e.EXTFILENUM,
+        e.LINE,
         RTRIM(e.FilePath),
         CASE
             WHEN LEN(RTRIM(e.FilePath)) >= 80 THEN NULL          /* truncated: tail is not an extension */
@@ -129,7 +137,7 @@ BEGIN
            description Priority has since edited. */
         MERGE dbo.CrmOrderAttachments AS dest
         USING #Shaped AS src
-           ON dest.ORD = src.ORD AND dest.LINE = src.LINE
+           ON dest.ORD = src.ORD AND dest.EXTFILENUM = src.EXTFILENUM
         WHEN MATCHED AND (
                    ISNULL(dest.FilePath, N'')       <> ISNULL(src.FilePath, N'')
                 OR ISNULL(dest.FileExtension, N'')  <> ISNULL(src.FileExtension, N'')
@@ -137,10 +145,10 @@ BEGIN
                 OR ISNULL(dest.DescriptionRaw, N'') <> ISNULL(src.DescriptionRaw, N'')
                 OR ISNULL(dest.FileSize, -1)        <> ISNULL(src.FileSize, -1)
                 OR dest.IsPathTruncated             <> src.IsPathTruncated
-                OR ISNULL(dest.EXTFILENUM, -1)      <> ISNULL(src.EXTFILENUM, -1)
+                OR ISNULL(dest.LINE, -1)            <> ISNULL(src.LINE, -1)
              )
         THEN UPDATE SET
-                 dest.EXTFILENUM      = src.EXTFILENUM,
+                 dest.LINE            = src.LINE,
                  dest.FilePath        = src.FilePath,
                  dest.FileExtension   = src.FileExtension,
                  dest.Description     = src.Description,
@@ -149,9 +157,9 @@ BEGIN
                  dest.IsPathTruncated = src.IsPathTruncated,
                  dest.FetchedAt       = SYSUTCDATETIME()
         WHEN NOT MATCHED BY TARGET
-        THEN INSERT (ORD, LINE, EXTFILENUM, FilePath, FileExtension,
+        THEN INSERT (ORD, EXTFILENUM, LINE, FilePath, FileExtension,
                      Description, DescriptionRaw, FileSize, IsPathTruncated, FetchedAt)
-             VALUES (src.ORD, src.LINE, src.EXTFILENUM, src.FilePath, src.FileExtension,
+             VALUES (src.ORD, src.EXTFILENUM, src.LINE, src.FilePath, src.FileExtension,
                      src.Description, src.DescriptionRaw, src.FileSize, src.IsPathTruncated,
                      SYSUTCDATETIME())
         /* Only on a full rebuild: an order whose files Priority has removed must lose them
@@ -182,12 +190,13 @@ GO
         EXEC dbo.RefreshOrderAttachmentsCache;          -- full rebuild
 
     Expected on PROD as of 30/08/2026, before filtering to the orders we hold:
-        13,175 orders · 15,251 files · 35 truncated paths.
+        13,237 orders · 15,326 files · 35 truncated paths. Priority is live, so the first two
+        drift upward; 35 has been stable.
     After filtering to OrderWorkPlans the counts will be lower — that is correct, the cache
     only covers orders the system actually knows about.
 
-        SELECT TOP 20 ORD, LINE, FileExtension, IsPathTruncated, Description
-        FROM dbo.CrmOrderAttachments ORDER BY ORD DESC, LINE;
+        SELECT TOP 20 ORD, EXTFILENUM, FileExtension, IsPathTruncated, Description
+        FROM dbo.CrmOrderAttachments ORDER BY ORD DESC, EXTFILENUM;
 
         SELECT FileExtension, COUNT(*) AS Files
         FROM dbo.CrmOrderAttachments GROUP BY FileExtension ORDER BY Files DESC;

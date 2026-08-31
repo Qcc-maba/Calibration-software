@@ -11,12 +11,12 @@
 --
 --              An order with no attachments is NOT returned. The caller treats "absent" as
 --              zero and greys the button — that keeps the payload to the orders that actually
---              have something, which on PROD is 13,175 of them.
+--              have something, which on PROD is 13,237 of them.
 --
 --              TruncatedFiles is surfaced here so the grid can distinguish "has files" from
 --              "has files, some of which cannot be opened" without a second round-trip.
---              Priority's EXTFILENAME is varchar(80) and it cuts longer names; 35 of the
---              15,251 rows are unreachable for that reason.
+--              Priority's EXTFILENAME is varchar(80) and it cuts longer names; 35 rows are
+--              unreachable for that reason.
 --
 -- Param:       @OrderWorkPlanIds NVARCHAR(MAX) = NULL   -- CSV of OrderWorkPlanId, NULL = all
 -- Returns:     OrderWorkPlanId, OrderNumber, FileCount, ServableFiles, TruncatedFiles

@@ -5,14 +5,19 @@
 --              "אישור הזמנה" — for one order, served from dbo.CrmOrderAttachments so the
 --              request never crosses the linked server.
 --
---              Returns ONE ROW PER FILE. Priority allows up to 4 (LINE 0-3); 13,175 orders
---              carry at least one and many carry none, so an empty result is normal and is
---              what greys out the file button on the work assignment screen.
+--              Returns ONE ROW PER FILE, ordered by EXTFILENUM, the file's sequence within
+--              the order. Most orders carry one, but 215 carry 3, 39 carry 4, 8 carry 5 and one
+--              carries 12 — do NOT assume a small fixed maximum. 13,237 orders carry at least
+--              one and many carry none, so an empty result is normal and is what greys out the
+--              file button on the work assignment screen.
+--
+--              LINE is returned for reference only. It is NOT a file index: it takes 3 distinct
+--              values across the source table and repeats within an order.
 --
 --              CanBeServed is the column the UI acts on:
 --                1 -> the file is locatable and can be sent to the converter.
 --                0 -> IsPathTruncated: Priority's EXTFILENAME is varchar(80) and it cut the
---                     name, so the file cannot be found. 35 of 15,251 rows are in this state.
+--                     name, so the file cannot be found. 35 rows are in this state.
 --                     These MUST still be listed, as an error row. Hiding them leaves the
 --                     calibrator with no way to know a document exists.
 --
@@ -22,8 +27,9 @@
 --              files in the whole system are already PDF.
 --
 -- Param:       @OrderWorkPlanId INT           -- required
--- Returns:     OrderWorkPlanId, OrderNumber, Line, FileName, FilePath, FileExtension,
---              SourceKind, Description, DescriptionRaw, FileSize, CanBeServed, IsPathTruncated
+-- Returns:     OrderWorkPlanId, OrderNumber, FileNumber, Line, FileName, FilePath,
+--              FileExtension, SourceKind, Description, DescriptionRaw, FileSize,
+--              CanBeServed, IsPathTruncated
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetOrderAttachmentsByOrder]
     @OrderWorkPlanId INT
@@ -34,6 +40,7 @@ BEGIN
     SELECT
          wp.OrderWorkPlanId
         ,wp.OrderNumber
+        ,a.EXTFILENUM                               AS FileNumber
         ,a.LINE                                     AS Line
         /* Trailing segment of the UNC path. NULL when truncated — a cut path has no filename. */
         ,FileName = CASE
@@ -62,6 +69,6 @@ BEGIN
     JOIN dbo.CrmOrderAttachments AS a ON a.ORD = wp.OrderSourceId
     WHERE wp.OrderWorkPlanId = @OrderWorkPlanId
       AND ISNULL(wp.IsCancelled, 0) = 0
-    ORDER BY a.LINE;
+    ORDER BY a.EXTFILENUM;
 END
 GO
