@@ -48,6 +48,8 @@ TRANCHES = [
      "MBA-811 - compensation reads the range EQUATION instead of interpolating between points"),
     ("U", "06-hotfix-MBA-666-unreverse.sql",
      "MBA-666 - a space between two LTR runs is inside the span, not a separator"),
+    ("S", "07-hotfix-MBA-944-packing-status.sql",
+     "MBA-944 - the packing status comes from the delivery note, not a status nothing advances"),
     # The only tranche that loads DATA rather than code, so it is last and it is not in --all.
     # Run it deliberately: python deploy_prod.py --tranche D
     ("D", "05-tranche-D-data.sql",
@@ -175,6 +177,28 @@ CHECKS = {
         ("punctuation between two Hebrew words is not reversed", """
             SELECT CASE WHEN dbo.fnUnreverseVisualText(N'בקר טמפ''+רגש')
                              = N'בקר טמפ''+רגש' THEN 1 ELSE 0 END""", 1),
+    ],
+    "S": [
+        ("the packing status reads the delivery note", """
+            SELECT CASE WHEN OBJECT_DEFINITION(OBJECT_ID('dbo.GetDevicesUngroupedByOrder'))
+                             LIKE '%MBA-944%' THEN 1 ELSE 0 END""", 1),
+        # The derivation looks the wording up in dbo.Statuses instead of hardcoding it. If that row
+        # is missing or worded differently, the badge silently goes back to a dash - so check that
+        # the value the procedure will find is exactly what the front end maps (Figma 5429-395).
+        ("AwaitingConfirmation is present and worded as the badge expects", """
+            SELECT COUNT(*) FROM dbo.Statuses s
+            JOIN dbo.StatusesCategories sc ON sc.StatusCategoryId = s.StatusCategoryId
+            WHERE sc.StatusDescriptionENG = 'OrderStatus'
+              AND s.StatusDescriptionENG = 'AwaitingConfirmation'
+              AND s.StatusDescriptionHEB = N'ממתין לאישור'""", 1),
+        # And that the screen has something to derive from at all: packing lists only rows holding
+        # a delivery note, so if none does, the fix is correct and invisible.
+        ("packing rows carry a delivery note to read", """
+            SELECT CASE WHEN EXISTS (
+                SELECT 1 FROM dbo.OrderDetailsItems
+                WHERE ISNULL(IsDeleted,0) = 0
+                  AND NULLIF(LTRIM(RTRIM(ShippingDoc)), '') IS NOT NULL)
+            THEN 1 ELSE 0 END""", 1),
     ],
     "D": [
         ("the kyulan instruments arrived", """
@@ -318,7 +342,7 @@ def run(cur, code, filename, note, dry):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tranche", choices=["A", "B", "C", "H", "U", "D"])
+    ap.add_argument("--tranche", choices=["A", "B", "C", "H", "U", "S", "D"])
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--check", action="store_true",
                     help="run the verification queries only, write nothing")
@@ -339,7 +363,7 @@ def main():
 
     todo = CODE_TRANCHES if args.all else [t for t in TRANCHES if t[0] == args.tranche]
     if not todo:
-        sys.exit("choose --tranche A|B|C|H|U|D, or --all, or --check")
+        sys.exit("choose --tranche A|B|C|H|U|S|D, or --all, or --check")
 
     for code, filename, note in todo:
         if not run(cur, code, filename, note, dry=False):
