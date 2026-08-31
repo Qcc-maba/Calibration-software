@@ -203,6 +203,73 @@ tranche A did not fully apply — go back to its verification queries.
 
 ---
 
+# Step 4 — `04-hotfix-MBA-811-equation.sql`
+
+Added **31/08**, after A, C and B were already on PROD. One object, and it corrects a number the
+sensor wizard is showing wrong right now.
+
+`dbo.fnMasterValueAfterCorrection` arrived in tranche C and `GetCalibrationValuesForOrderDetailItem`,
+which calls it, arrived in tranche B — so this is live on PROD today.
+
+**What was wrong.** The certificate is a piecewise-linear *fit*: each row of
+`MeasurementDevicesCorrections` is a range `[Value1, Value2]` with its own equation. The function
+never read `Equation`. It treated `(Value1, Deviation)` as points and interpolated between them,
+then held the deviation flat past the last row. `Deviation` is not independent — it is the row's own
+equation evaluated at `Value1` — so holding it flat freezes the correction at a range's *left edge*.
+
+Nofar found it on master 31-98 (MBA-811, 31/08). Two faults produced her number:
+
+* ranges were matched `Value1 <= x < Value2`, so the certificate's own top point, 249.96, matched
+  no range and was treated as an excursion;
+* past the last range the deviation stopped following the fit.
+
+| reading | before | after | |
+|---|---|---|---|
+| 249.96 | 250.540 | **250.430** | inside the certificate. The old answer was simply wrong |
+| 250.00 | 250.580 | **250.470** | 0.04 above the top — the value Nofar measured |
+| 251.00 | 251.580 | 251.469 | the old error grew with distance; this one does not |
+
+`OutOfRange` still flags a real excursion. What changed is that the number reported alongside the
+warning is the fit continued rather than abandoned.
+
+```powershell
+python deploy_prod.py --tranche H
+```
+
+**Applied to PROD 31/08.** All four checks green.
+
+Four checks run afterwards. Two of them are the ones that matter:
+
+* it calls the function at every certificate row's `Value1` across the whole database and compares
+  the answer with the stored `Deviation`, a column the function does not read. **STAGE 0 of 6,738
+  rows disagree, PROD 0 of 1,358.** Anything above 0 is a certificate format the parser does not
+  handle — do not accept it. A companion check asserts it looked at more than a hundred rows, because
+  a count of 0 is also what an empty database returns;
+* it evaluates every certificate at its own highest point and asserts none comes back flagged as an
+  excursion. That is the half-open-interval fault stated so any server can answer it. **PROD: 196
+  certificates, 0 flagged** — before this hotfix every one of them was.
+
+Nofar's 31-98 numbers are *not* checked here: PROD does not carry that master. They are pinned in
+`database/tests/Test-fnMasterValueAfterCorrection.sql`, which runs against STAGE.
+
+Safe to re-run. It is a single `CREATE OR ALTER FUNCTION` and touches no data.
+
+## What this hotfix exposed, and did not fix
+
+PROD carries far less certificate data than STAGE:
+
+| | PROD | STAGE |
+|---|---|---|
+| masters | 2,070 | 3,418 |
+| masters with a certificate | **200** | **1,434** |
+
+The compensation is now correct on PROD for the 200 masters that have a certificate. The other 1,870
+still show a dash, and 31-98 is not on PROD at all. That is the kyulan sync in
+`database/sync/Load-MeasurementDevicesCorrections-FromKyulan.sql` — run on STAGE, never on PROD.
+It is listed under "What this deployment does not do" above and still needs its own decision.
+
+---
+
 # The SQL Agent job
 
 Separate task, separate permission. `app_prod` cannot do this; you need an account with

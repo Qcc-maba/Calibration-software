@@ -3,12 +3,13 @@ Runs the STAGE -> PROD deployment in this folder, in the order RUNBOOK.md specif
 
     python deploy_prod.py --check            what is missing, writes nothing
     python deploy_prod.py --tranche A        one tranche
-    python deploy_prod.py --all              A, then C, then B, verifying between
+    python deploy_prod.py --tranche H        the MBA-811 compensation hotfix on its own
+    python deploy_prod.py --all              A, then C, then B, then H, verifying between
 
 Why a script rather than pasting the files into SSMS: it stops at the first failed batch instead
 of ploughing on, it runs the RUNBOOK's verification queries between tranches, and it prints one
-line per object so a partial run is obvious. Everything it does is in the three .sql files - this
-only sequences them.
+line per object so a partial run is obvious. Everything it does is in the .sql files alongside it -
+this only sequences them.
 
 Order is A -> C -> B and that is deliberate. B is the only tranche that can break something that
 works today, so it goes last, after A's schema is in and C has proved the new objects compile
@@ -18,8 +19,8 @@ The connection comes from app/.env (REMOTE_DATABASE_URL_PROD). No credential is 
 
 Nothing is wrapped in a transaction across objects, on purpose: a half-applied tranche is
 recoverable by re-running the file, whereas a long transaction on a live database is not worth
-the lock. Every statement in tranche A is guarded, and B and C are CREATE OR ALTER, so all three
-files are safe to re-run from the top.
+the lock. Every statement in tranche A is guarded, and B, C and H are CREATE OR ALTER, so every
+file is safe to re-run from the top.
 """
 import argparse
 import os
@@ -39,6 +40,11 @@ TRANCHES = [
     ("A", "01-tranche-A-schema.sql", "schema - tables, columns, one widening, one index"),
     ("C", "03-tranche-C-new.sql", "objects PROD does not have yet - nothing calls them"),
     ("B", "02-tranche-B-changed.sql", "objects PROD already has - the only risky tranche"),
+    # Added 31/08 after the three tranches were already on PROD. Standalone on purpose: it is one
+    # object, it corrects a number the wizard is showing wrong right now, and it must be runnable
+    # without re-running anything else.
+    ("H", "04-hotfix-MBA-811-equation.sql",
+     "MBA-811 - compensation reads the range EQUATION instead of interpolating between points"),
 ]
 
 CHECKS = {
@@ -82,6 +88,64 @@ CHECKS = {
             WHERE type IN ('P','FN','IF','TF','V') AND OBJECT_DEFINITION(object_id) IS NULL""", 0),
         ("the mocked literal is gone", """
             SELECT COUNT(*) FROM sys.sql_modules WHERE definition LIKE '%mocked_val%'""", 0),
+    ],
+    "H": [
+        ("compensation evaluates the range equation", """
+            SELECT CASE WHEN OBJECT_DEFINITION(OBJECT_ID('dbo.fnMasterValueAfterCorrection'))
+                             LIKE '%TRY_CAST(t.CoefTxt AS FLOAT)%' THEN 1 ELSE 0 END""", 1),
+        # The real check, and it takes about half a minute. Deviation is each row's own Equation
+        # evaluated at Value1, and the function does not read that column - so calling it at Value1
+        # must reproduce it. Any row it cannot parse, or matches to the neighbouring range, shows
+        # up here. On STAGE this is 0 of 6,738 rows.
+        ("no certificate row disagrees with its stored Deviation", """
+            WITH Ranked AS (
+                SELECT c.MeasurementDevicesId, c.MeasurementId, c.Value1, c.Deviation,
+                       Rnk = RANK() OVER (PARTITION BY c.MeasurementDevicesId ORDER BY c.CorVersion DESC)
+                FROM dbo.MeasurementDevicesCorrections AS c
+                WHERE ISNULL(c.IsDeleted,0)=0 AND c.Equation IS NOT NULL AND c.Deviation IS NOT NULL),
+            Newest AS (SELECT * FROM Ranked WHERE Rnk = 1),
+            Single AS (SELECT MeasurementDevicesId FROM Newest
+                       GROUP BY MeasurementDevicesId HAVING COUNT(DISTINCT MeasurementId) = 1)
+            SELECT COUNT(*)
+            FROM Newest AS n
+            JOIN Single AS s ON s.MeasurementDevicesId = n.MeasurementDevicesId
+            CROSS APPLY dbo.fnMasterValueAfterCorrection(n.MeasurementDevicesId, n.Value1, n.MeasurementId) AS f
+            WHERE f.Deviation IS NULL OR ABS(f.Deviation - n.Deviation) > 0.0001""", 0),
+        # A count of 0 is also what an empty database returns. STAGE checks 6,738 rows and PROD
+        # 1,358, so anything under a hundred means the check above passed by looking at nothing.
+        ("...and it looked at more than a hundred of them", """
+            WITH Ranked AS (
+                SELECT c.MeasurementDevicesId, c.MeasurementId,
+                       Rnk = RANK() OVER (PARTITION BY c.MeasurementDevicesId ORDER BY c.CorVersion DESC)
+                FROM dbo.MeasurementDevicesCorrections AS c
+                WHERE ISNULL(c.IsDeleted,0)=0 AND c.Equation IS NOT NULL AND c.Deviation IS NOT NULL),
+            Newest AS (SELECT * FROM Ranked WHERE Rnk = 1),
+            Single AS (SELECT MeasurementDevicesId FROM Newest
+                       GROUP BY MeasurementDevicesId HAVING COUNT(DISTINCT MeasurementId) = 1)
+            SELECT CASE WHEN (SELECT COUNT(*) FROM Newest AS n
+                              JOIN Single AS s ON s.MeasurementDevicesId = n.MeasurementDevicesId)
+                             > 100 THEN 1 ELSE 0 END""", 1),
+        # The fault itself, stated so that any server can answer it. Ranges used to be matched
+        # Value1 <= x < Value2, so every certificate's own highest point fell outside every range
+        # and was reported as an excursion. Nofar's 31-98 is not the right check to ship here - PROD
+        # does not carry that master, and a check that cannot run is a check nobody reads. Her three
+        # numbers are pinned in database/tests/Test-fnMasterValueAfterCorrection.sql instead.
+        ("no certificate's own top point reads as an excursion", """
+            WITH Ranked AS (
+                SELECT c.MeasurementDevicesId, c.MeasurementId, c.Value2,
+                       Rnk = RANK() OVER (PARTITION BY c.MeasurementDevicesId ORDER BY c.CorVersion DESC)
+                FROM dbo.MeasurementDevicesCorrections AS c
+                WHERE ISNULL(c.IsDeleted,0)=0 AND c.Equation IS NOT NULL AND c.Value2 IS NOT NULL),
+            Newest AS (SELECT * FROM Ranked WHERE Rnk = 1),
+            Single AS (SELECT MeasurementDevicesId FROM Newest
+                       GROUP BY MeasurementDevicesId HAVING COUNT(DISTINCT MeasurementId) = 1),
+            Tops AS (SELECT n.MeasurementDevicesId, n.MeasurementId, n.Value2,
+                            rn = ROW_NUMBER() OVER (PARTITION BY n.MeasurementDevicesId ORDER BY n.Value2 DESC)
+                     FROM Newest AS n JOIN Single AS s ON s.MeasurementDevicesId = n.MeasurementDevicesId)
+            SELECT COUNT(*) FROM Tops AS t
+            CROSS APPLY dbo.fnMasterValueAfterCorrection(t.MeasurementDevicesId,
+                            CAST(t.Value2 AS DECIMAL(18,6)), t.MeasurementId) AS f
+            WHERE t.rn = 1 AND (f.Extrapolated = 1 OR f.OutOfRange = 1)""", 0),
     ],
 }
 
@@ -192,7 +256,7 @@ def run(cur, code, filename, note, dry):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tranche", choices=["A", "B", "C"])
+    ap.add_argument("--tranche", choices=["A", "B", "C", "H"])
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--check", action="store_true",
                     help="run the verification queries only, write nothing")
@@ -213,7 +277,7 @@ def main():
 
     todo = TRANCHES if args.all else [t for t in TRANCHES if t[0] == args.tranche]
     if not todo:
-        sys.exit("choose --tranche A|B|C, or --all, or --check")
+        sys.exit("choose --tranche A|B|C|H, or --all, or --check")
 
     for code, filename, note in todo:
         if not run(cur, code, filename, note, dry=False):
