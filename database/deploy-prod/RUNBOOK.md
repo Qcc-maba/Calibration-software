@@ -264,9 +264,33 @@ PROD carries far less certificate data than STAGE:
 | masters with a certificate | **200** | **1,434** |
 
 The compensation is now correct on PROD for the 200 masters that have a certificate. The other 1,870
-still show a dash, and 31-98 is not on PROD at all. That is the kyulan sync in
-`database/sync/Load-MeasurementDevicesCorrections-FromKyulan.sql` — run on STAGE, never on PROD.
-It is listed under "What this deployment does not do" above and still needs its own decision.
+still show a dash, and 31-98 — the master Nofar tested with — is not on PROD at all.
+
+**Running the certificate sync on PROD would not fix this, and the order matters.** PROD carries
+19,000 orphaned correction rows, 63% of its table, the same fault the sync repaired on STAGE. But
+reattaching them recovers only **7 devices**: 18,865 of those rows belong to 1,217 MabaIDs that PROD
+does not hold. Its device registry is a strict subset of STAGE's — 1,994 shared, **0 that PROD has
+and STAGE does not**, 1,424 that exist on STAGE alone.
+
+Those 1,424 are MBA-902. `dbo.ImportMissingDevicesFromKyulan` was run on STAGE and never on PROD.
+Both it and the certificate sync are already deployed to PROD (tranche C); neither has been executed
+there. The dry run against PROD reports the same figures as STAGE did:
+
+```
+WouldCreate  StillInCalibrationDate  Sensors  DataLoggers  WithWorkRange  UnitCouldNotBeMapped
+       1421                     848     1216          102           1344                     0
+```
+
+So the order is **devices first, certificates second** — the reverse recovers almost nothing:
+
+```sql
+EXEC dbo.ImportMissingDevicesFromKyulan @Apply = 0;   -- reports, writes nothing
+EXEC dbo.ImportMissingDevicesFromKyulan @Apply = 1;
+```
+then `database/sync/Load-MeasurementDevicesCorrections-FromKyulan.sql`.
+
+Both are insert-only and safe to re-run, but this creates 1,421 rows visible to calibrators in
+production. It is a decision, not a deployment step, and it has not been taken.
 
 ---
 
