@@ -43,8 +43,9 @@ Login     app_prod
 
 The password is in `app/.env` under `REMOTE_DATABASE_URL_PROD`. It is deliberately not written here.
 
-`app_prod` can create and alter objects. It **cannot** create SQL Agent jobs — that needs
-`sysadmin`, and it is a separate task at the end of this document.
+`app_prod` can create and alter objects, and it loaded the data in tranche D. It **cannot** create
+SQL Agent jobs: it reaches `msdb` through guest but cannot read `sysjobs`. That needs a one-time
+grant from a sysadmin — the last section of this document.
 
 ---
 
@@ -182,14 +183,14 @@ Then open PROD and confirm by eye:
 
 ## What this deployment does not do
 
-* **No SQL Agent job.** See the section below — it needs `sysadmin` and is separate.
+* **No SQL Agent job.** See the last section — it needs a one-time grant and is separate.
 * **No data migration.** The seven new tables arrive empty, which is correct.
 * **No refresh is run.** `RefreshPackingDataFromPriority`, `RefreshDeviceDescriptions` and
-  `RefreshCrmTextCache` all land but none is executed. Each reads Priority over the linked server
+  `RefreshCrmTextCache` all land but none is executed. `CrmDeviceDescription` is therefore still
+  empty on PROD, which is what the second Agent job is for. Each reads Priority over the linked server
   and writes locally; deciding when to run them on PROD is a separate call.
-* **Master certificates are not synced.** `database/sync/Load-MeasurementDevicesCorrections-FromKyulan.sql`
-  took STAGE from 189 to 1,433 masters carrying a certificate. It has not been run against PROD and
-  should be reviewed there on its own.
+* ~~Master certificates are not synced.~~ **Done 31/08 in tranche D** — PROD went from 200 to 1,428
+  masters carrying a certificate, and from 19,000 orphaned correction rows to none.
 
 ## If something fails mid-file
 
@@ -254,112 +255,160 @@ Nofar's 31-98 numbers are *not* checked here: PROD does not carry that master. T
 
 Safe to re-run. It is a single `CREATE OR ALTER FUNCTION` and touches no data.
 
-## What this hotfix exposed, and did not fix
+## What this hotfix exposed
 
-PROD carries far less certificate data than STAGE:
-
-| | PROD | STAGE |
-|---|---|---|
-| masters | 2,070 | 3,418 |
-| masters with a certificate | **200** | **1,434** |
-
-The compensation is now correct on PROD for the 200 masters that have a certificate. The other 1,870
-still show a dash, and 31-98 — the master Nofar tested with — is not on PROD at all.
-
-**Running the certificate sync on PROD would not fix this, and the order matters.** PROD carries
-19,000 orphaned correction rows, 63% of its table, the same fault the sync repaired on STAGE. But
-reattaching them recovers only **7 devices**: 18,865 of those rows belong to 1,217 MabaIDs that PROD
-does not hold. Its device registry is a strict subset of STAGE's — 1,994 shared, **0 that PROD has
-and STAGE does not**, 1,424 that exist on STAGE alone.
-
-Those 1,424 are MBA-902. `dbo.ImportMissingDevicesFromKyulan` was run on STAGE and never on PROD.
-Both it and the certificate sync are already deployed to PROD (tranche C); neither has been executed
-there. The dry run against PROD reports the same figures as STAGE did:
-
-```
-WouldCreate  StillInCalibrationDate  Sensors  DataLoggers  WithWorkRange  UnitCouldNotBeMapped
-       1421                     848     1216          102           1344                     0
-```
-
-So the order is **devices first, certificates second** — the reverse recovers almost nothing:
-
-```sql
-EXEC dbo.ImportMissingDevicesFromKyulan @Apply = 0;   -- reports, writes nothing
-EXEC dbo.ImportMissingDevicesFromKyulan @Apply = 1;
-```
-then `database/sync/Load-MeasurementDevicesCorrections-FromKyulan.sql`.
-
-Both are insert-only and safe to re-run, but this creates 1,421 rows visible to calibrators in
-production. It is a decision, not a deployment step, and it has not been taken.
+PROD carried far less data than STAGE, and the compensation being correct did not help the masters
+that had no certificate to compensate against. **Fixed by tranche D below**, 31/08.
 
 ---
 
-# The SQL Agent job
+# Step 5 - `05-tranche-D-data.sql` - the only tranche that loads DATA
 
-Separate task, separate permission. `app_prod` cannot do this; you need an account with
-`SQLAgentUserRole` in `msdb`, or `sysadmin`.
+**Applied to PROD 31/08. All five checks green.**
 
-The script is `../jobs/Job.RefreshPackingDataFromPriority.sql`.
+```powershell
+python deploy_prod.py --tranche D
+```
 
-## What the job does
+Deliberately excluded from `--all`: A, C, B and H deploy code, this one puts rows in front of
+calibrators. Four steps, and the order is not arbitrary.
 
-Runs `dbo.RefreshPackingDataFromPriority` nightly at 02:00. That procedure follows
-`OrderDetailsItems.DOC_N` to the Priority goods-receipt document (`TYPE = 'N'`) and brings back two
-fields the sync never carried: whether the device arrived in the customer's own packaging
-(`MBA_CUSTPACK`) and the date we booked it in. Without a schedule both fields freeze at whatever the
-last manual run produced.
+| | | before | after |
+|---|---|---|---|
+| 1 | `stg.LoadCustomerContactsFromPriority` - phonebook into staging | 2,506 | 60,370 |
+| 2 | `stg.MergeCustomersContactsData` - staging into the live table | 2,571 | **60,375** |
+| 3 | `dbo.ImportMissingDevicesFromKyulan` (MBA-902) | 2,070 | **3,491** |
+| 4 | the kyulan certificate load (MBA-811) - masters with a certificate | 200 | **1,428** |
+| | orphaned correction rows | 19,000 | **0** |
 
-It only reads from Priority. Nothing is written back to the ERP.
+**Step 4 must follow step 3.** PROD held 19,000 orphaned correction rows - 63% of the table, the
+same fault the sync repaired on STAGE - but reattaching them without step 3 recovers *seven*
+devices: 18,865 of those rows belong to 1,217 MabaIDs PROD did not hold. The certificates had
+nowhere to attach until the devices existed.
 
-## How to run it
+Master 31-98, the one Nofar tested on, now exists on PROD and reads 250.430 at 249.96 and **250.470
+at 250** - the same as STAGE.
 
-1. Open SSMS and connect to `51.17.121.203` with an account that has `SQLAgentUserRole` in `msdb`,
-   or `sysadmin`.
-2. **Check SQL Server Agent is running** — Object Explorer, bottom node. If it shows a red stop
-   icon, right-click and Start. A job on a stopped Agent never fires and says nothing.
-3. Open the script. **Change `@Database` from `Calibrator` to `CalibratorProd`** — it is declared at
-   the top and defaults to STAGE.
-4. Execute. It targets `msdb`; do not switch the database dropdown.
-5. Test it: SQL Server Agent → Jobs → *MABA - Refresh packing data from Priority* → right-click →
-   Start Job at Step. It should finish in under a minute and report success.
+## Two things this run found the hard way
 
-The script drops the job first if it already exists, so it is safe to re-run.
+**A collation conflict that STAGE cannot reproduce.** `#K` is built by `SELECT INTO` from
+`OPENQUERY`, so it carries the *Priority server's* collation (`Hebrew_CI_AS`), not ours
+(`Latin1_General_100_CI_AI_SC`). Comparing it to a local `MabaID` fails outright on PROD. Both
+databases have the same default collation, so this is a property of the linked-server path, not of
+the database - which is why it appeared only in production. Fixed with `COLLATE DATABASE_DEFAULT`
+on both sides, which is correct on either server.
 
-**Do not create this job on PROD until `RefreshPackingDataFromPriority` has been deployed there** —
-it arrives in tranche C. A job pointing at a procedure that does not exist fails every night.
+**Step 1 does not merge.** `LoadCustomerContactsFromPriority` fills a staging table and stops. The
+first run of this tranche omitted step 2, so 60,370 contacts sat in staging, the live table stayed
+at 2,571, and the run reported success having changed nothing visible. If contacts look untouched
+after this, check `stg.stg_CustomerContacts` before concluding the load failed.
 
-## Checking it afterwards
+## A difference between the two servers, worth knowing before writing any query
+
+`dbo.Measurements` ids are **not the same on STAGE and PROD**:
+
+| id | PROD | STAGE |
+|---|---|---|
+| 4 | %RH | degC |
+| 5 | degC | degRe |
+| 6 | degRe | degF |
+| 7 | degF | mV |
+
+So any code, test or ticket that hardcodes a `MeasurementId` is wrong on one of the two servers.
+The wizard passes `NULL` and lets `fnMasterValueAfterCorrection` choose, so it is unaffected - but
+a deployment check that hardcoded `4` gave a false failure on PROD before this was understood.
+
+---
+
+# The SQL Agent jobs
+
+Separate permission, separate files, and the only part of this deployment `app_prod` cannot do.
+
+```
+database/jobs/Grant-SqlAgentJobRights.sql   a sysadmin runs this once
+database/jobs/Setup-SqlAgentJobs.sql        creates both jobs; refuses cleanly if it cannot
+```
+
+## Why a grant is needed at all
+
+Measured on `CalibratorProd`, 31/08:
+
+```
+app_prod    sysadmin 0    serveradmin 0    securityadmin 0    db_owner 1
+            SELECT on msdb.dbo.sysjobs: denied
+```
+
+`app_prod` reaches `msdb` through guest but cannot read `sysjobs`, cannot create a job, and cannot
+see whether the Agent is running. `Grant-SqlAgentJobRights.sql` gives it a user in `msdb` and adds
+it to **`SQLAgentUserRole`** - the smallest role that can own and run jobs. A member manages only
+the jobs it owns; it cannot see anyone else's, cannot change Agent configuration, cannot create
+proxies, and is nowhere near sysadmin. The steps then run as `app_prod` against `CalibratorProd`,
+where it is already `db_owner`, so no new rights are needed on the data side.
+
+If policy says application logins own no jobs, skip the grant entirely: connect as a sysadmin and
+run `Setup-SqlAgentJobs.sql` with `@OwnerLogin = N'sa'`. Both arrangements work.
+
+## The two jobs
+
+| job | at | runs |
+|---|---|---|
+| MABA - Refresh packing data from Priority | 02:00 | `dbo.RefreshPackingDataFromPriority` |
+| MABA - Refresh device descriptions | 02:30 | `dbo.RefreshDeviceDescriptions` |
+
+The second matters more than it looks: `dbo.CrmDeviceDescription` is **empty on PROD**, and
+`dbo.GetCalibrationItems` (MBA-666) returns nothing until it has run at least once.
+
+Both only read from Priority. Nothing is written back to the ERP.
+
+Set `@Database` at the top - it defaults to `CalibratorProd`; use `Calibrator` for STAGE. Safe to
+re-run: each job is dropped first.
+
+## It refuses rather than half-succeeding
+
+Run as a login that cannot create jobs, the script reports the reason and writes nothing:
+
+```
+Refusing_to_run
+This login cannot read msdb.dbo.sysjobs, so it cannot create, see or start a job.
+Run database/jobs/Grant-SqlAgentJobRights.sql as a sysadmin, or reconnect as one.
+
+Connected_as | IsSysadmin | CanReadJobs | AgentService                                      | TargetDatabase
+app_prod     | False      | False       | unknown - this login cannot read the service list  | CalibratorProd
+```
+
+Verified on both servers. Getting that check right took three attempts and each wrong version is
+worth knowing, because all three are the obvious thing to write:
+
+* `IS_ROLEMEMBER('SQLAgentUserRole')` answers for the **current** database, not `msdb`;
+* `HAS_DBACCESS('msdb')` returns **1** for `app_prod` - guest gets it in - while `SELECT` on
+  `sysjobs` is still denied, so the preflight passed and the script died on its first real statement;
+* guarding `sys.dm_server_services` on `VIEW SERVER STATE` is the wrong permission. SQL Server 2022
+  wants **VIEW SERVER PERFORMANCE STATE**, and `app_prod` holds the first but not the second, so the
+  DMV raised anyway.
+
+It now probes the one thing it cannot work without - reading `sysjobs` - and wraps the Agent-state
+lookup in `TRY/CATCH` so no permission variant can break the preflight itself.
+
+## Afterwards
+
+Test without waiting for 02:00: SQL Server Agent > Jobs > right-click > **Start Job at Step**.
 
 ```sql
+-- that they did something
+SELECT COUNT(*) FROM dbo.CrmDeviceDescription;   -- expect ~3,000
+SELECT COUNT(*) FROM dbo.OrderDetailsItems
+WHERE ISNULL(IsDeleted,0)=0 AND CustomerReceivingDate IS NOT NULL;
+
+-- that the Agent ran them
 SELECT j.name, h.run_date, h.run_time, h.run_duration,
-       outcome = CASE h.run_status WHEN 0 THEN 'failed'
-                                   WHEN 1 THEN 'succeeded'
+       outcome = CASE h.run_status WHEN 0 THEN 'failed' WHEN 1 THEN 'succeeded'
                                    WHEN 3 THEN 'cancelled' ELSE 'other' END,
        h.message
 FROM msdb.dbo.sysjobs AS j
 JOIN msdb.dbo.sysjobhistory AS h ON h.job_id = j.job_id
-WHERE j.name = N'MABA - Refresh packing data from Priority' AND h.step_id = 0
+WHERE j.name LIKE N'MABA - %' AND h.step_id = 0
 ORDER BY h.run_date DESC, h.run_time DESC;
 ```
 
-And that the data actually moved:
-
-```sql
-SELECT COUNT(*) AS ItemsWithReceivingDate
-FROM dbo.OrderDetailsItems
-WHERE ISNULL(IsDeleted,0) = 0 AND CustomerReceivingDate IS NOT NULL;
-
-SELECT CustomerPackingExists, COUNT(*) AS Details
-FROM dbo.OrderDetails WHERE ISNULL(IsDeleted,0) = 0
-GROUP BY CustomerPackingExists;
-```
-
-On STAGE the first run read 4,414 receipts, dated 3,604 items and flagged 82 order lines as
-customer-packed. Expect different numbers on PROD; expect them to be non-zero.
-
-## A second job worth scheduling, once someone owns it
-
-`dbo.RefreshDeviceDescriptions` rebuilds the calibration-item list from Priority
-(`MBA_DOCLOAD.SERNDES` — 3,000 device descriptions). It is pure T-SQL with no external dependency,
-so it can be scheduled the same way. It is not in the job script; add a second job for it when the
-list is confirmed in use.
+On STAGE the packing job's first run read 4,414 receipts, dated 3,604 items and flagged 82 order
+lines as customer-packed. Expect different numbers on PROD; expect them to be non-zero.

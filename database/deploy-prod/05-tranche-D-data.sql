@@ -1,59 +1,56 @@
 /*
-    Loading master calibration certificates from kyulan                                  MBA-811
-    ---------------------------------------------------------------------------------------------
-    Deviation compensation showed a dash for almost every master, and it looked like a data-entry
-    backlog: 189 of 3,453 devices carried a certificate. That was wrong. The certificates are in
-    the legacy system - kyulan.dbo.tblInstrCorrections, 44,503 rows over 2,238 instruments - and
-    kyulan is reachable from here over the existing Priority linked server (31.168.173.93).
+    Tranche D - PROD data loads                                          MBA-902, MBA-811, MBA-922
+    =============================================================================================
+    The only tranche that loads DATA. A, C, B and H deployed code; this one puts rows in front of
+    calibrators, so it is deliberately separate and deliberately last.
 
-    Two faults kept them out of reach.
+    Four steps, in this order:
 
-    1. stg.stg_MeasurementDevicesCorrections was EMPTY, so stg.MergeMeasurementDevicesCorrection
-       had nothing to merge. Whatever normally fills that staging table had not run.
+      1  stg.LoadCustomerContactsFromPriority   MBA-922  the Priority phonebook into staging
+      2  stg.MergeCustomersContactsData                  staging into dbo.CustomerContacts
+      3  dbo.ImportMissingDevicesFromKyulan     MBA-902  1,421 instruments that exist only in kyulan
+      4  the kyulan certificate load            MBA-811  their calibration certificates
 
-    2. Worse: 18,994 of the 29,553 rows already in MeasurementDevicesCorrections carried a NULL
-       MeasurementDevicesId - 64% of the table, orphaned and unreadable, the oldest from 2007.
+    STEP 4 AFTER STEP 3 IS NOT OPTIONAL. PROD holds 19,000 orphaned correction rows, but
+    reattaching them without step 3 recovers SEVEN devices: 18,865 of those rows belong to 1,217
+    MabaIDs PROD does not hold. The certificates have nowhere to attach until the devices exist.
 
-       The merge causes this. Its INSERT does
+    Step 1 loads a staging table and nothing else - it does NOT touch dbo.CustomerContacts. The
+    first run of this tranche omitted step 2, so 60,370 contacts sat in staging while the live
+    table stayed at 2,571 and the run looked like it had done nothing.
 
-           LEFT JOIN dbo.MeasurementDevices md ON md.MabaID = stg.MabaID
+    PROD baselines, 31/08:
 
-       so a staging row whose MabaID does not match still inserts, with a NULL device id. The
-       UPDATE that closes the procedure cannot repair them either, because it joins on the very
-       column it is trying to set:
+        before step 3    devices  2,070      after  3,491
+        before step 4    masters with a certificate  200,  orphaned correction rows  19,000
+        before step 2    customer contacts  2,571
 
-           JOIN dbo.MeasurementDevices md ON md.ID = mdc.MeasurementDevicesId
+    All four are safe to re-run. None writes anything back to Priority or kyulan. Nothing is
+    dropped and no existing row is rewritten, except that step 4 repairs orphaned correction rows
+    by filling in the device id they should always have had.
 
-       And re-running the merge never helped: it skips any row whose
-       MeasurementDevicesCorrectionsSourceId already exists, and the orphans had taken those ids.
-       The data was present the whole time, attached to nothing.
-
-    Result: devices with a certificate 189 -> 1,421 of 3,453; MeasurementId populated on 1,437;
-    orphans 18,994 -> 0. 31-90 now carries its 12 temperature ranges and reads identically to
-    kyulan and the legacy screen.
-
-    THE UNIT MAPPING is not taken from kyulan's own lookups - tblMeasurementUnits.Unit points at
-    tblUnitGroups, which holds physical quantities (Area, Torque), not unit symbols. It is LEARNED
-    from the rows that had already synced correctly: kyulan UnitID against our Measurements.NameEn
-    over 29,553 live rows. 31-90 carries UnitID 14 -> degrees C.
-
-    DEVIATION is not stored in kyulan. It is the range equation evaluated at RangeStart, verified
-    against 21-260 version 33: -79.810 * -0.021542 + 0.070767 = 1.790034, exactly what is stored.
-
-    DROPPED rather than forced:
-      13,914  MabaID we do not hold - forcing these recreates the orphans this script exists to fix
-         210  no DateAdded, against a NOT NULL CreatedDate
-         634  equations that are not "x * (a) +/- b" - bare constants, and some carrying an int
-              overflow sentinel. These still load; only the computed Deviation is NULL, and the
-              Equation text is preserved verbatim.
-
-    Safe to re-run: the load is keyed on source id, the merge skips what it holds, and the repair
-    only touches rows whose device id is NULL.
-
-    THIS IS A STOPGAP. The merge should stop inserting NULL device ids at all, and whatever owns
-    the staging load needs to run on a schedule.
+    Expect a few minutes: every step reads across the linked server to Priority (31.168.173.93).
 */
 
+SET NOCOUNT ON;
+
+/* ---- 1. MBA-922 - the Priority phonebook into staging --------------------------------------- */
+EXEC stg.LoadCustomerContactsFromPriority @ReportOnly = 0;
+GO
+
+/* ---- 2. staging into the live table ---------------------------------------------------------- */
+EXEC stg.MergeCustomersContactsData;
+GO
+
+/* ---- 3. MBA-902 - the instruments that exist only in kyulan ---------------------------------- */
+/*  @Apply = 0 reports and writes nothing; the dry run against PROD on 31/08 said 1,421 would be
+    created, 848 of them still within calibration date, 1,216 sensors, 102 data loggers, and 0
+    whose work-range unit could not be mapped. Applied 31/08: 2,070 -> 3,491 devices, exactly
+    +1,421. Re-running inserts nothing.  */
+EXEC dbo.ImportMissingDevicesFromKyulan @Apply = 1;
+GO
+
+/* ---- 4. MBA-811 - their certificates --------------------------------------------------------- */
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 

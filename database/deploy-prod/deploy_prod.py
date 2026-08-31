@@ -4,6 +4,7 @@ Runs the STAGE -> PROD deployment in this folder, in the order RUNBOOK.md specif
     python deploy_prod.py --check            what is missing, writes nothing
     python deploy_prod.py --tranche A        one tranche
     python deploy_prod.py --tranche H        the MBA-811 compensation hotfix on its own
+    python deploy_prod.py --tranche D        the DATA loads - never part of --all
     python deploy_prod.py --all              A, then C, then B, then H, verifying between
 
 Why a script rather than pasting the files into SSMS: it stops at the first failed batch instead
@@ -45,7 +46,14 @@ TRANCHES = [
     # without re-running anything else.
     ("H", "04-hotfix-MBA-811-equation.sql",
      "MBA-811 - compensation reads the range EQUATION instead of interpolating between points"),
+    # The only tranche that loads DATA rather than code, so it is last and it is not in --all.
+    # Run it deliberately: python deploy_prod.py --tranche D
+    ("D", "05-tranche-D-data.sql",
+     "MBA-922/902/811 - the Priority phonebook, the kyulan instruments, their certificates"),
 ]
+
+# --all deploys code. D puts rows in front of calibrators and is a decision, not a step.
+CODE_TRANCHES = [t for t in TRANCHES if t[0] != "D"]
 
 CHECKS = {
     "A": [
@@ -146,6 +154,41 @@ CHECKS = {
             CROSS APPLY dbo.fnMasterValueAfterCorrection(t.MeasurementDevicesId,
                             CAST(t.Value2 AS DECIMAL(18,6)), t.MeasurementId) AS f
             WHERE t.rn = 1 AND (f.Extrapolated = 1 OR f.OutOfRange = 1)""", 0),
+    ],
+    # Baselines these are measured against, PROD 31/08 before tranche D:
+    #   devices 2,070   masters with a certificate 200   contacts 2,571   orphaned rows 19,000
+    "D": [
+        ("the kyulan instruments arrived", """
+            SELECT CASE WHEN (SELECT COUNT(*) FROM dbo.MeasurementDevices
+                              WHERE ISNULL(IsDeleted,0)=0) > 3400 THEN 1 ELSE 0 END""", 1),
+        # The point of doing devices before certificates. Before tranche D this was 19,000; a
+        # reattach without the devices would have left 18,865 of them.
+        ("no correction row is left orphaned", """
+            SELECT COUNT(*) FROM dbo.MeasurementDevicesCorrections
+            WHERE ISNULL(IsDeleted,0)=0 AND MeasurementDevicesId IS NULL""", 0),
+        ("masters carrying a certificate, was 200", """
+            SELECT CASE WHEN (SELECT COUNT(DISTINCT MeasurementDevicesId)
+                              FROM dbo.MeasurementDevicesCorrections
+                              WHERE ISNULL(IsDeleted,0)=0) > 1000 THEN 1 ELSE 0 END""", 1),
+        ("the phonebook grew past its 2,571 baseline", """
+            SELECT CASE WHEN (SELECT COUNT(*) FROM dbo.CustomerContacts
+                              WHERE ISNULL(IsDeleted,0)=0) > 2571 THEN 1 ELSE 0 END""", 1),
+        # The compensation must still answer correctly on the certificates that just landed - the
+        # same whole-database property tranche H asserts, re-run over a much larger population.
+        ("every new certificate row still reproduces its Deviation", """
+            WITH Ranked AS (
+                SELECT c.MeasurementDevicesId, c.MeasurementId, c.Value1, c.Deviation,
+                       Rnk = RANK() OVER (PARTITION BY c.MeasurementDevicesId ORDER BY c.CorVersion DESC)
+                FROM dbo.MeasurementDevicesCorrections AS c
+                WHERE ISNULL(c.IsDeleted,0)=0 AND c.Equation IS NOT NULL AND c.Deviation IS NOT NULL),
+            Newest AS (SELECT * FROM Ranked WHERE Rnk = 1),
+            Single AS (SELECT MeasurementDevicesId FROM Newest
+                       GROUP BY MeasurementDevicesId HAVING COUNT(DISTINCT MeasurementId) = 1)
+            SELECT COUNT(*)
+            FROM Newest AS n
+            JOIN Single AS s ON s.MeasurementDevicesId = n.MeasurementDevicesId
+            CROSS APPLY dbo.fnMasterValueAfterCorrection(n.MeasurementDevicesId, n.Value1, n.MeasurementId) AS f
+            WHERE f.Deviation IS NULL OR ABS(f.Deviation - n.Deviation) > 0.0001""", 0),
     ],
 }
 
@@ -256,7 +299,7 @@ def run(cur, code, filename, note, dry):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tranche", choices=["A", "B", "C", "H"])
+    ap.add_argument("--tranche", choices=["A", "B", "C", "H", "D"])
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--check", action="store_true",
                     help="run the verification queries only, write nothing")
@@ -275,9 +318,9 @@ def main():
             verify(cur, code)
         return
 
-    todo = TRANCHES if args.all else [t for t in TRANCHES if t[0] == args.tranche]
+    todo = CODE_TRANCHES if args.all else [t for t in TRANCHES if t[0] == args.tranche]
     if not todo:
-        sys.exit("choose --tranche A|B|C|H, or --all, or --check")
+        sys.exit("choose --tranche A|B|C|H|D, or --all, or --check")
 
     for code, filename, note in todo:
         if not run(cur, code, filename, note, dry=False):
