@@ -46,6 +46,8 @@ TRANCHES = [
     # without re-running anything else.
     ("H", "04-hotfix-MBA-811-equation.sql",
      "MBA-811 - compensation reads the range EQUATION instead of interpolating between points"),
+    ("U", "06-hotfix-MBA-666-unreverse.sql",
+     "MBA-666 - a space between two LTR runs is inside the span, not a separator"),
     # The only tranche that loads DATA rather than code, so it is last and it is not in --all.
     # Run it deliberately: python deploy_prod.py --tranche D
     ("D", "05-tranche-D-data.sql",
@@ -157,6 +159,23 @@ CHECKS = {
     ],
     # Baselines these are measured against, PROD 31/08 before tranche D:
     #   devices 2,070   masters with a certificate 200   contacts 2,571   orphaned rows 19,000
+    "U": [
+        ("the space fix is deployed", """
+            SELECT CASE WHEN OBJECT_DEFINITION(OBJECT_ID('dbo.fnUnreverseVisualText'))
+                             LIKE '%A SPACE BETWEEN TWO LTR RUNS%' THEN 1 ELSE 0 END""", 1),
+        # An English device name whose words were in reverse order, and a Hebrew-context dash that
+        # must NOT be pulled into the number beside it. One of each, because the two rules push in
+        # opposite directions and a version that satisfies only one looks right on half the data.
+        ("an English phrase keeps its word order", """
+            SELECT CASE WHEN dbo.fnUnreverseVisualText(N'ALUMIS EGRAHCSID CITATSORTCELE')
+                             = N'ELECTROSTATIC DISCHARGE SIMULA' THEN 1 ELSE 0 END""", 1),
+        ("a dash between Hebrew and a number stays put", """
+            SELECT CASE WHEN dbo.fnUnreverseVisualText(N'רכש פריטים נלווים - 528691')
+                             = N'רכש פריטים נלווים - 196825' THEN 1 ELSE 0 END""", 1),
+        ("punctuation between two Hebrew words is not reversed", """
+            SELECT CASE WHEN dbo.fnUnreverseVisualText(N'בקר טמפ''+רגש')
+                             = N'בקר טמפ''+רגש' THEN 1 ELSE 0 END""", 1),
+    ],
     "D": [
         ("the kyulan instruments arrived", """
             SELECT CASE WHEN (SELECT COUNT(*) FROM dbo.MeasurementDevices
@@ -299,7 +318,7 @@ def run(cur, code, filename, note, dry):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tranche", choices=["A", "B", "C", "H", "D"])
+    ap.add_argument("--tranche", choices=["A", "B", "C", "H", "U", "D"])
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--check", action="store_true",
                     help="run the verification queries only, write nothing")
@@ -320,7 +339,7 @@ def main():
 
     todo = CODE_TRANCHES if args.all else [t for t in TRANCHES if t[0] == args.tranche]
     if not todo:
-        sys.exit("choose --tranche A|B|C|H|D, or --all, or --check")
+        sys.exit("choose --tranche A|B|C|H|U|D, or --all, or --check")
 
     for code, filename, note in todo:
         if not run(cur, code, filename, note, dry=False):
