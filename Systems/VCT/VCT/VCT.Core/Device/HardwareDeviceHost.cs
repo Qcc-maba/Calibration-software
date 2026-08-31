@@ -378,14 +378,26 @@ namespace Maba.VCT.Core.Device
 
         #region Fire Events
 
+        /// <summary>UTC of the last measurement this device broadcast; null until scanning produces data.
+        /// Drives the ServerCore data-timeout watchdog (MBA-485 AC5/AC6 — comm-loss / DataTimeout / DataRestored).</summary>
+        public DateTime? LastMeasurementUtc { get; private set; }
+
+        /// <summary>Edge-detection flag for the data-timeout watchdog so DataTimeout/DataRestored alerts fire once per transition.</summary>
+        public bool DataTimedOut { get; set; }
+
+        /// <summary>Guards against a double disconnect alert when both the self-disconnect and comm-loss paths fire (MBA-485 AC5).</summary>
+        public bool DisconnectAlerted { get; set; }
+
         public void BroadcastMeasurement(int channel, double value)
         {
+            LastMeasurementUtc = DateTime.UtcNow;
             var packet = new HardwarePacket(string.Format(System.Globalization.CultureInfo.InvariantCulture, "E,{0},{1},{2}", SN, channel, value), false);
             IncomingEvents(packet);
         }
 
         public void BroadcastAllMeasurements(System.Collections.Generic.List<int> channels, System.Collections.Generic.List<double> values)
         {
+            LastMeasurementUtc = DateTime.UtcNow;
             // Build multi-channel packet: E,SN,ch1,val1,ch2,val2,...
             var sb = new System.Text.StringBuilder();
             sb.Append("E,");
@@ -433,11 +445,26 @@ namespace Maba.VCT.Core.Device
             {
                 bl.OnConnection(false);
             }
+
+            // Comm-loss path: surface the disconnect so ServerCore can notify WS clients (MBA-485 AC5).
+            // (The self-disconnect path in Disconnect() already fires this.)
+            MainEventsBus?.Fire_DeviceConnection(this, new Events.DeviceConnectionEventArgs(this));
         }
 
         private void OnConnection()
         {
             Libs.Trace.Tracer.Info(true, $"#{SN} Connected");
+
+            // MBA-485 AC5: arm the disconnect alert again. ServerCore reuses this instance when a
+            // known SN reconnects (see AddPendingDevices - it calls InitSessions on the existing
+            // host rather than creating one), so without this reset the flag stays true for the
+            // life of the process and only the FIRST disconnect of a device is ever reported.
+            DisconnectAlerted = false;
+
+            // A device that reconnects has not produced data yet. Clearing this stops the watchdog
+            // from firing DataTimeout off a stale pre-disconnect timestamp the moment it comes back.
+            LastMeasurementUtc = null;
+            DataTimedOut = false;
 
             var bl = this.BL;
             if (bl != null)

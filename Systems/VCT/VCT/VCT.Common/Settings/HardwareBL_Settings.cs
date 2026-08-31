@@ -1,7 +1,9 @@
 ﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 
 namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
 {
@@ -178,6 +180,108 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             };
 
             return defaultSettings;
+        }
+
+        #endregion
+
+        #region WebSocket-driven config (MBA-485)
+
+        /// <summary>All per-family buckets paired with a display name, for routing WS config.</summary>
+        private IEnumerable<KeyValuePair<string, HardwareBL_DeviceType>> Families()
+        {
+            yield return new KeyValuePair<string, HardwareBL_DeviceType>("Hydra2", Hydra2type);
+            yield return new KeyValuePair<string, HardwareBL_DeviceType>("Hydra3", Hydra3type);
+            yield return new KeyValuePair<string, HardwareBL_DeviceType>("Agilent", Agilent);
+            yield return new KeyValuePair<string, HardwareBL_DeviceType>("Additel", Additel);
+            yield return new KeyValuePair<string, HardwareBL_DeviceType>("Optidew", Optidew);
+            yield return new KeyValuePair<string, HardwareBL_DeviceType>("TTI22", TTI22);
+            yield return new KeyValuePair<string, HardwareBL_DeviceType>("Instek", Instek);
+        }
+
+        /// <summary>Maps the app's Rate free-text ('איטי'/'מהיר', 'slow'/'fast') to the BL rate enum.</summary>
+        private static HardwareBL_DeviceType.MeasurementRates? ParseRate(string rate)
+        {
+            if (string.IsNullOrWhiteSpace(rate)) return null;
+            var r = rate.Trim();
+            if (r.IndexOf("מהיר", StringComparison.Ordinal) >= 0 || r.IndexOf("fast", StringComparison.OrdinalIgnoreCase) >= 0)
+                return HardwareBL_DeviceType.MeasurementRates.FAST;
+            if (r.IndexOf("איטי", StringComparison.Ordinal) >= 0 || r.IndexOf("slow", StringComparison.OrdinalIgnoreCase) >= 0)
+                return HardwareBL_DeviceType.MeasurementRates.SLOW;
+            return null;
+        }
+
+        /// <summary>
+        /// Parses a channel list into a distinct, ordered set. Accepts the web app's format
+        /// (space-separated with ranges, e.g. "0-10 11 20-23" or "1-5") as well as comma-separated
+        /// (e.g. the DB ChannelList "0,1,2"). Ranges "a-b" are expanded inclusively.
+        /// </summary>
+        private static List<int> ParseChannels(string spec)
+        {
+            var set = new SortedSet<int>();
+            if (!string.IsNullOrWhiteSpace(spec))
+            {
+                var tokens = spec.Replace(',', ' ').Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var raw in tokens)
+                {
+                    var token = raw.Trim();
+                    var dash = token.IndexOf('-');
+                    if (dash > 0 && dash < token.Length - 1)
+                    {
+                        if (int.TryParse(token.Substring(0, dash).Trim(), out var lo)
+                            && int.TryParse(token.Substring(dash + 1).Trim(), out var hi)
+                            && hi >= lo && hi - lo < 10000)
+                        {
+                            for (var ch = lo; ch <= hi; ch++) set.Add(ch);
+                        }
+                    }
+                    else if (int.TryParse(token, out var single))
+                    {
+                        set.Add(single);
+                    }
+                }
+            }
+            return set.ToList();
+        }
+
+        /// <summary>
+        /// MBA-485: applies a logger configuration pushed by the web app over WebSocket
+        /// (CMD:"LoggerConfiguration") to the in-memory per-family settings, so the BL drives the
+        /// device by what the logged-in operator configured — no DB and no restart. Routes to the
+        /// family whose <see cref="HardwareBL_DeviceType.Masters"/> includes <paramref name="loggerId"/>.
+        /// Returns a short summary of what changed, or null if no family matched / nothing applied.
+        /// Mutates in place (the BL holds the same instance), so it takes effect on the next scan setup.
+        /// </summary>
+        public string ApplyWebSocketConfig(string loggerId, string rate, string interval, string channelsCsv)
+        {
+            if (string.IsNullOrWhiteSpace(loggerId)) return null;
+            var id = loggerId.Trim();
+
+            HardwareBL_DeviceType target = null;
+            string targetName = null;
+            foreach (var fam in Families())
+            {
+                if (fam.Value?.Masters != null &&
+                    fam.Value.Masters.Any(m => string.Equals((m ?? "").Trim(), id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    target = fam.Value;
+                    targetName = fam.Key;
+                    break;
+                }
+            }
+            if (target == null) return null;
+
+            var applied = new List<string>();
+
+            var r = ParseRate(rate);
+            if (r.HasValue) { target.MeasurementRate = r.Value; applied.Add("rate=" + r.Value); }
+
+            if (int.TryParse((interval ?? "").Trim(), out var iv) && iv > 0) { target.Interval = iv; applied.Add("interval=" + iv); }
+
+            var chans = ParseChannels(channelsCsv);
+            if (chans.Count > 0) { target.Channels = chans; applied.Add("channels=[" + string.Join(",", chans) + "]"); }
+
+            if (applied.Count == 0) return null;
+            return string.Format("{0} (master {1}): {2}", targetName, id, string.Join(", ", applied));
         }
 
         #endregion

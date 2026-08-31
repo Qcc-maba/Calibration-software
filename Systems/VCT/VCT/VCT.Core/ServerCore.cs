@@ -8,6 +8,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -85,7 +86,24 @@ namespace Maba.VCT.Core
         {
             this.MainEventsBus = new Events.EventsBus();
             this.MainEventsBus.DeviceOnIncomingEvent += MainEventsBus_DeviceOnIncomingEvent;
+            this.MainEventsBus.DeviceConnnection += MainEventsBus_DeviceConnectionForAlerts;
             CurrentServerSettings = new Settings.VCTSettings();
+        }
+
+        /// <summary>
+        /// MBA-485 AC5: when a hardware logger drops (self-disconnect or comm-loss), push a
+        /// <c>CMD:"Alert"</c> (AlertType ChannelDisconnected) to every WS client so the UI can notify
+        /// the calibrator. Connects are ignored here (handled by the BL-claim path).
+        /// </summary>
+        private void MainEventsBus_DeviceConnectionForAlerts(object o, Events.DeviceConnectionEventArgs e)
+        {
+            if (e?.Device is Device.HardwareDeviceHost hw && !hw.IsConnected && !string.IsNullOrEmpty(hw.SN)
+                && !hw.DisconnectAlerted)
+            {
+                hw.DisconnectAlerted = true; // both the self-disconnect and comm-loss paths fire; alert once
+                BroadcastAlertToWebSockets(hw, "ChannelDisconnected",
+                    string.Format("Logger {0} disconnected - no data received", hw.SN));
+            }
         }
 
         private void MainEventsBus_DeviceOnIncomingEvent(object o, Events.DeviceEventArgs e)
@@ -212,6 +230,156 @@ namespace Maba.VCT.Core
                     }
                 }
             });
+        }
+
+        /// <summary>How long a scanning logger may go silent before a DataTimeout alert (MBA-485 AC5/AC6).</summary>
+        private static readonly TimeSpan DataTimeout_TimeSpan = TimeSpan.FromSeconds(60);
+
+        /// <summary>
+        /// The app drops an alert entirely unless EVERY field matches its regex and is non-empty
+        /// (parse-alert-message.ts returns null on the first blank). A device-wide alert has no
+        /// single channel and no reading, so these two carry placeholders rather than being omitted.
+        /// </summary>
+        private const string AlertChannelAll = "ALL";
+        private const string AlertValueNone = "0";
+
+        /// <summary>
+        /// MBA-485 AC5/AC6: builds the alert line in the exact shape the web app parses.
+        ///
+        /// Split out from the socket write and left testable on purpose: the format is the part that
+        /// breaks silently. The app matches each field with its own regex and discards the whole
+        /// alert if one fails, so a stray character costs the alert with nothing logged anywhere.
+        /// </summary>
+        /// <param name="deviceId">Serial of the device the alert is ABOUT - see the caller.</param>
+        /// <param name="loggerId">Same serial; the app carries both fields through to the UI.</param>
+        /// <param name="batchId">The receiving client's run, or LIVE.</param>
+        /// <param name="localTime">Local time: the app parses with date-fns into the browser's zone.</param>
+        internal static string BuildAlertMessage(string deviceId, string loggerId, string batchId,
+                                                string alertType, string message, DateTime localTime)
+        {
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "CMD:\"Alert\", DeviceID:\"{0}\", LoggerID:\"{1}\", BatchID:\"{2}\", Channel:\"{3}\", Value:\"{4}\", AlertType:\"{5}\", Message:\"{6}\", Time:\"{7}\"",
+                deviceId, loggerId, batchId, AlertChannelAll, AlertValueNone, alertType, message,
+                // InvariantCulture matters: the app parses 'MM/dd/yyyy HH:mm:ss', and the '/' in a
+                // custom format string is the CULTURE's date separator, not a literal. A server whose
+                // locale uses '.' would emit a timestamp the app cannot parse, and the alert would be
+                // dropped whole.
+                localTime.ToString("MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>
+        /// MBA-485 AC5/AC6: sends a <c>CMD:"Alert"</c> about <paramref name="device"/> to every WS client.
+        ///
+        /// DeviceID and LoggerID name the device that actually failed, NOT the receiving client's
+        /// sensor association. Those are different namespaces - an association's LoggerId is matched
+        /// against HardwareBL_Settings.Masters, never against a serial - so using the association
+        /// labelled every client's alert with that client's own logger, whichever device had really
+        /// dropped. Invisible with one logger; with several it names the wrong one every time.
+        ///
+        /// Broadcasting to all clients is deliberate and safe: the app does not filter alerts by
+        /// DeviceID (BackgroundDataProcessor adds every parsed alert, and group-alerts groups by
+        /// channel and type), so the id is a label, and a truthful serial beats a wrong association.
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private void BroadcastAlertToWebSockets(Device.HardwareDeviceHost device, string alertType, string message)
+        {
+            if (device == null) return;
+
+            WSDeviceHost_Slim.MyReadLock(list =>
+            {
+                foreach (var wsHost in list.Values)
+                {
+                    try
+                    {
+                        var com = wsHost.InternalComLayer;
+                        if (com == null || !com.IsConnected) continue;
+
+                        // The batch IS the receiving client's, unlike the ids above: it identifies the
+                        // run the operator is looking at, which is what the alert has to appear inside.
+                        var batchId = !string.IsNullOrEmpty(wsHost.AssociatedBatchId) ? wsHost.AssociatedBatchId : "LIVE";
+
+                        var wsMessage = BuildAlertMessage(device.SN, device.SN, batchId, alertType, message, DateTime.Now);
+
+                        com.SendString(wsMessage);
+                        Libs.Trace.Tracer.Info("[WS TX ALERT] {0}", wsMessage);
+                    }
+                    catch (Exception ex)
+                    {
+                        Libs.Trace.Tracer.Info("[WS TX ALERT] Failed to broadcast alert: {0}", ex.Message);
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// MBA-485 AC5/AC6: per-device watchdog run on the server timer. Once a logger has started producing
+        /// data, if it goes silent past <see cref="DataTimeout_TimeSpan"/> a DataTimeout alert is sent (once);
+        /// when data resumes a DataRestored alert is sent. Keyed per device SN so multiple loggers are tracked
+        /// independently and their alerts are not mixed.
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private void CheckDataTimeouts(DateTime nowUtc)
+        {
+            DeviceHost_Slim.MyReadLock(list =>
+            {
+                foreach (var device in list.Values)
+                {
+                    if (device == null) continue;
+
+                    switch (EvaluateDataWatchdog(device.IsConnected, device.LastMeasurementUtc,
+                                                 device.DataTimedOut, nowUtc, DataTimeout_TimeSpan))
+                    {
+                        case DataWatchdogAction.Timeout:
+                            device.DataTimedOut = true;
+                            BroadcastAlertToWebSockets(device, "DataTimeout",
+                                string.Format(CultureInfo.InvariantCulture,
+                                              "No data received for {0} seconds",
+                                              (int)DataTimeout_TimeSpan.TotalSeconds));
+                            break;
+
+                        case DataWatchdogAction.Restored:
+                            device.DataTimedOut = false;
+                            BroadcastAlertToWebSockets(device, "DataRestored", "Data transmission resumed");
+                            break;
+                    }
+                }
+            });
+        }
+
+        /// <summary>What the data watchdog decided for one device on one tick.</summary>
+        internal enum DataWatchdogAction
+        {
+            None,
+            Timeout,
+            Restored,
+        }
+
+        /// <summary>
+        /// MBA-485 AC5/AC6 — the watchdog decision for a single device, split out from the loop that
+        /// holds the device lock and writes to sockets. The decision is where the edges live, and the
+        /// edges are what break: alerting twice for one silence, or never announcing the recovery.
+        /// Keeping it pure means those can be tested without a device, a socket or a clock.
+        /// </summary>
+        /// <param name="isConnected">A dropped link is the ChannelDisconnected alert's business.</param>
+        /// <param name="lastMeasurementUtc">Null until the device has produced a reading.</param>
+        /// <param name="alreadyTimedOut">The device's current watchdog state, for edge detection.</param>
+        internal static DataWatchdogAction EvaluateDataWatchdog(bool isConnected, DateTime? lastMeasurementUtc,
+                                                               bool alreadyTimedOut, DateTime nowUtc, TimeSpan limit)
+        {
+            // A disconnected device already produces ChannelDisconnected. Reporting silence as well
+            // would put two alerts in the UI for one event.
+            if (!isConnected) return DataWatchdogAction.None;
+
+            // Never measured: the device is idle, not silent. Watching from here would fire a timeout
+            // against a device that has simply not been asked to scan yet.
+            if (lastMeasurementUtc == null) return DataWatchdogAction.None;
+
+            var silent = nowUtc - lastMeasurementUtc.Value > limit;
+
+            if (silent) return alreadyTimedOut ? DataWatchdogAction.None : DataWatchdogAction.Timeout;
+
+            return alreadyTimedOut ? DataWatchdogAction.Restored : DataWatchdogAction.None;
         }
 
         #endregion
@@ -958,6 +1126,9 @@ namespace Maba.VCT.Core
                         item.Value.Timer();
                     });
                 });
+
+                // MBA-485 AC5/AC6: per-device data-timeout / restore watchdog.
+                CheckDataTimeouts(NowTime);
                 #endregion
             }
             catch

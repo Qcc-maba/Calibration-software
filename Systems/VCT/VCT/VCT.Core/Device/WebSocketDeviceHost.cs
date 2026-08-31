@@ -3,6 +3,7 @@ using Maba.VCT.ComLayer.Com_Layer;
 using Maba.VCT.Common;
 using Maba.VCT.Common.Protocol_Parser;
 using Maba.VCT.Common.Protocol_Parser.WebSocketMessage;
+using Maba.VCT.CommServer.BL.HydraDevices.Settings;
 using Maba.VCT.Core.Events;
 using System;
 using System.Collections;
@@ -79,6 +80,30 @@ namespace Maba.VCT.Core.Device
                 AssociatedResolution = !string.IsNullOrEmpty(association.Resolution) ? association.Resolution : "2";
                 Libs.Trace.Tracer.Info("[WS] SensorsAssociation: DeviceID={0}, LoggerID={1}, BatchID={2}, Units={3}, Resolution={4}",
                     AssociatedDeviceId, AssociatedLoggerId, AssociatedBatchId, AssociatedUnits, AssociatedResolution);
+
+                // MBA-485: the sensor association also carries the channel list — apply it live.
+                if (!string.IsNullOrEmpty(association.BatchChannels))
+                {
+                    var summary = HardwareBL_Settings.Read().ApplyWebSocketConfig(association.LoggerId, null, null, association.BatchChannels);
+                    if (summary != null)
+                        Libs.Trace.Tracer.Info("[WS->HW] Applied channels from SensorsAssociation: {0}", summary);
+                }
+            }
+
+            // MBA-485: the web app pushes the operator's logger configuration (rate / interval / channels)
+            // over WebSocket. Apply it to the in-memory BL settings so the device is driven by what the
+            // logged-in user configured — no DB and no restart. Takes effect on the next scan setup.
+            if (e.P is LoggerConfigurationMessage loggerConfig && loggerConfig.Loggers != null)
+            {
+                var settings = HardwareBL_Settings.Read();
+                foreach (var cfg in loggerConfig.Loggers)
+                {
+                    var summary = settings.ApplyWebSocketConfig(cfg.LoggerId, cfg.Rate, cfg.Interval, cfg.BatchChannels);
+                    if (summary != null)
+                        Libs.Trace.Tracer.Info("[WS->HW] Applied logger configuration from web app: {0}", summary);
+                    else
+                        Libs.Trace.Tracer.Info("[WS->HW] LoggerConfiguration for '{0}': no matching family (local Masters) or nothing to apply; kept current settings.", cfg.LoggerId);
+                }
             }
 
             var p = new Events.DeviceEventArgs(this, e.P);
