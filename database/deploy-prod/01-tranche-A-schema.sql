@@ -229,3 +229,28 @@ CREATE NONCLUSTERED INDEX IX_MDC_Device_Version_Value
     ON dbo.MeasurementDevicesCorrections (MeasurementDevicesId, CorVersion DESC, Value1)
     INCLUDE (Deviation, MeasurementId, IsDeleted, Value2);
 GO
+
+/* ---- built after the first round, and the reason it needed a second ---- */
+
+/* MBA-922 - the whole Priority phonebook, with a designated contact and the do-not-mail flag */
+IF COL_LENGTH('dbo.CustomerContacts','IsPrimary') IS NULL
+    ALTER TABLE dbo.CustomerContacts ADD IsPrimary BIT NOT NULL
+        CONSTRAINT DF_CustomerContacts_IsPrimary DEFAULT(0);
+GO
+IF COL_LENGTH('dbo.CustomerContacts','DoNotMail') IS NULL
+    ALTER TABLE dbo.CustomerContacts ADD DoNotMail BIT NOT NULL
+        CONSTRAINT DF_CustomerContacts_DoNotMail DEFAULT(0);
+GO
+IF COL_LENGTH('stg.stg_CustomerContacts','IsPrimary') IS NULL
+    ALTER TABLE stg.stg_CustomerContacts ADD IsPrimary BIT NULL;
+GO
+IF COL_LENGTH('stg.stg_CustomerContacts','DoNotMail') IS NULL
+    ALTER TABLE stg.stg_CustomerContacts ADD DoNotMail BIT NULL;
+GO
+/* MBA-475 - may this instrument leave its range at all. Permissions, not thresholds. */
+IF COL_LENGTH('dbo.MeasurementDevices','AllowMinOutOfRange') IS NULL
+    ALTER TABLE dbo.MeasurementDevices ADD AllowMinOutOfRange BIT NULL;
+GO
+IF COL_LENGTH('dbo.MeasurementDevices','AllowMaxOutOfRange') IS NULL
+    ALTER TABLE dbo.MeasurementDevices ADD AllowMaxOutOfRange BIT NULL;
+GO

@@ -698,69 +698,49 @@ GO
 -- =============================================
 -- Proc:        dbo.GetCustomerCalibrationReports
 -- Jira:        MBA-796  "Customer Calibration-reports page (customer/calibration-reports)"
--- Description: Returns the calibration reports belonging to the logged-in customer
+--              MBA-939  union across every customer the caller belongs to
+-- Description: Returns the calibration reports belonging to the logged-in caller
 --              (customer portal "Calibration Reports" grid, route customer/calibration-reports).
---              Identity input matches dbo.GetCustomerDashboardData / dbo.GetCustomerDeviceList
---              (@LoggedInUserEmail -> CustomerId via dbo.CustomerContacts) and is scoped to the
---              calling customer only, consistent with the other GetCustomer* SPs.
 --
 --              A "calibration report" is an OrderDetailsItem that has an MbaReportNumber assigned.
 --              Unlike GetCustomerDeviceList (one row per device, latest order only) this SP returns
---              ONE ROW PER REPORT (every report the customer has, including historical / update
+--              ONE ROW PER REPORT (every report the caller has, including historical / update
 --              cycles), newest calibration first. Filtering / sorting / search are CLIENT-SIDE.
+--
+-- 2026-08-31 - MBA-939: the caller is a SET of customers, not one.
+--
+--              Scoping now comes from dbo.GetPortalCustomerIds - every customer the address
+--              belongs to that holds devices. The old lowest-CustomerContactId rule showed
+--              davide@iscar.co.il the reports of ישקר בע"מ, which has none, while his three other
+--              ישקר divisions held all of them.
+--
+--              This SP is also what getCustomerReportUrl re-runs to authorise a report download,
+--              so widening it here widens the download check in exactly the same way - a report
+--              is downloadable if and only if it appears in this list.
+--
+--              @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided not
+--              to build.
 --
 -- Output columns (camelCase, matching the app's Raw* -> mapper convention):
 --   id                 -> OrderDetailsItemId (row key AND part of the AWS report path)
 --   orderNumber        -> OrderWorkPlans.OrderNumber (part of the AWS report path)
 --   reportPath         -> convenience S3 key the FE otherwise builds via getOrderReportPath():
---                         'orders/{orderNumber}/reports/{id}/report.pdf'  (see
---                         src/lib/helpers/get-aws-file-paths.ts + pdf-preview-dialog)
+--                         'orders/{orderNumber}/reports/{id}/report.pdf'
 --   mbaReportNumber    -> itm.MbaReportNumber (מספר דוח מבא)
 --   serialNumber       -> itm.SerialNumber
 --   deviceDescription  -> OrdersProductTypes.OrdersProductTypeName
 --   deviceManufacturer -> itm.OrdersDeviceManufacturer
 --   deviceModel        -> itm.DeviceModel
 --   calibrationDate    -> DD.MM.YYYY (CONVERT style 104) from itm.ActualCalibrationDate
---   reportStatus       -> lower-camel of the ReportStatus StatusDescriptionENG (e.g.
---                         'createCalibrationReport'); NULL when no report status is set
---   reportStatusHeb    -> Statuses.StatusDescriptionHEB (Hebrew display text for the status)
---
--- OPEN QUESTIONS for review (screen is still a stub in the app, no wired tRPC/Figma yet):
---   * reportStatus source = itm.CalibrationReportStatusId (ReportStatus category). Confirm this
---     is the status the grid should show (vs. the calibration status used by GetCustomerDeviceList).
---   * FE enum for reportStatus is not defined yet, so the code is derived generically from the
---     English description (same fallback pattern GetCustomerDeviceList uses). Confirm the exact
---     camelCase codes once the FE filter chips exist, then map explicitly by StatusId.
---   * Download: FE builds the URL from {orderNumber, id}; reportPath is returned as a convenience.
+--   reportStatus       -> lower-camel of the ReportStatus StatusDescriptionENG
+--   reportStatusHeb    -> Statuses.StatusDescriptionHEB
+--   customerName       -> NEW (MBA-939): which company the report belongs to. Front end: MBA-940.
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerCalibrationReports]
-    @LoggedInUserEmail NVARCHAR(50),
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
-
-    DECLARE @CustomerId INT = NULL;
-
-        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP (1) @CustomerId = cc.CustomerId
-        FROM [dbo].[CustomerContacts] AS cc
-        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
-        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
 
     SELECT
          itm.OrderDetailsItemId                                              AS id
@@ -779,13 +759,14 @@ BEGIN
                + SUBSTRING(REPLACE(st.StatusDescriptionENG, '''', ''), 2, 200)
          END                                                                AS reportStatus
         ,st.StatusDescriptionHEB                                            AS reportStatusHeb
-    FROM [dbo].[OrderWorkPlans]      AS wp
-    JOIN [dbo].[OrderDetails]        AS od  ON od.OrderWorkPlanId = wp.OrderWorkPlanId
-    JOIN [dbo].[OrderDetailsItems]   AS itm ON itm.OrderDetailId  = od.OrderDetailId
+        ,mine.CustomerName                                                  AS customerName
+    FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail) AS mine
+    JOIN [dbo].[OrderWorkPlans]      AS wp  ON wp.CustomerId       = mine.CustomerId
+    JOIN [dbo].[OrderDetails]        AS od  ON od.OrderWorkPlanId  = wp.OrderWorkPlanId
+    JOIN [dbo].[OrderDetailsItems]   AS itm ON itm.OrderDetailId   = od.OrderDetailId
     LEFT JOIN [dbo].[Statuses]           AS st ON st.StatusId            = itm.CalibrationReportStatusId
     LEFT JOIN [dbo].[OrdersProductTypes] AS pt ON pt.OrdersProductTypeId = od.OrdersProductTypeId
-    WHERE wp.CustomerId        = @CustomerId
-      AND wp.IsCancelled       = 0
+    WHERE wp.IsCancelled       = 0
       AND ISNULL(od.IsDeleted, 0)   = 0
       AND ISNULL(od.IsCancelled, 0) = 0
       AND ISNULL(itm.IsDeleted, 0)  = 0
@@ -802,66 +783,56 @@ GO
 -- =============================================
 -- Author:      Eduard Kudlaiev
 -- Create date: 04/05/2026
--- Description: Contacts of the customer the caller belongs to.
+-- Description: Contacts of the customer(s) the caller belongs to.
 --              Used by the internal customer-management screen AND by the customer
 --              portal profile screen.
 --
--- 2026-08-30 ג€” FIX: portal users could not resolve.
+-- 2026-08-30 - FIX: portal users could not resolve.
 --
 --              The customer was resolved only through dbo.GetSourceFilterByEmail, which
---              is a table-valued function over dbo.Users ג€” internal staff accounts. A
+--              is a table-valued function over dbo.Users - internal staff accounts. A
 --              portal user is a row in dbo.CustomerContacts and has no Users row, so the
 --              function returned NO ROWS, @CustomerId stayed NULL, and the final
 --              predicate `WHERE c.CustomerId = @CustomerId` was always false. The screen
 --              showed nothing, which is why the front end was left on mock data.
 --
---              Now: resolve from dbo.CustomerContacts first, fall back to the function.
---              Order matters ג€” the portal case is checked first, and the staff path is
---              untouched, so the internal screen behaves exactly as before.
+-- 2026-08-31 - MBA-939: a portal caller is a SET of customers, not one.
 --
---              Same defect and same fix as GetCustomerSupportData (2026-08-30).
---              The SELECT list is unchanged; no caller needs to change.
--- JiraLink:
+--              3,684 addresses are a contact of more than one customer. A manager over
+--              three ישקר divisions has contacts in all three; showing only the division
+--              with the lowest CustomerContactId hid the rest for no reason.
+--
+--              The portal path is now a union over dbo.GetPortalCustomerIds. THE STAFF PATH
+--              IS UNCHANGED: an internal user is still resolved to exactly one customer
+--              through dbo.GetSourceFilterByEmail, and that lookup only runs when the caller
+--              is not a portal contact at all. The internal screen therefore behaves exactly
+--              as before.
+--
+--              @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided
+--              not to build.
+--
+-- NEW COLUMN:  CustomerName - which company each contact belongs to. Without it, a union of
+--              three divisions' contacts is an unlabelled list. Front end: MBA-940.
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerContacts]
-@LoggedInUserEmail NVARCHAR(100),
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail NVARCHAR(100)
 AS
 
 SET NOCOUNT ON;
 
-DECLARE @CustomerId INT = NULL;
+/* Staff fallback: only consulted when the caller is not a portal contact, so a portal caller
+   can never pick up a staff mapping and vice versa. */
+DECLARE @StaffCustomerId INT = NULL;
 
--- Primary resolution: portal contact login
-    /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP 1 @CustomerId = cc.CustomerId
-    FROM dbo.CustomerContacts AS cc
-    WHERE cc.CustomerContactEmail = @LoggedInUserEmail
-        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
-
--- Fallback: internal staff account mapped to a customer
-IF @CustomerId IS NULL
+IF NOT EXISTS (SELECT 1 FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail))
 BEGIN
-    SELECT TOP 1 @CustomerId = d.CustomerId
+    SELECT TOP 1 @StaffCustomerId = d.CustomerId
     FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) AS d;
 END
 
 SELECT c.[CustomerContactId]
       ,c.[CustomerId]
+      ,cust.[CustomerName]
       ,c.[CustomerContactName]
       ,c.[CustomerContactPersonRole]
       ,c.[CustomerContactPhone]
@@ -873,7 +844,11 @@ SELECT c.[CustomerContactId]
       ,c.[IsDeleted]
   FROM [dbo].[CustomerContacts] as c
   LEFT JOIN [dbo].[Source] as s ON c.[SourceId] = s.[SourceId]
-  WHERE /*c.[IsDeleted] = 0 AND*/ c.CustomerId = @CustomerId
+  LEFT JOIN [dbo].[Customers] as cust ON cust.[CustomerId] = c.[CustomerId]
+  WHERE /*c.[IsDeleted] = 0 AND*/
+        (c.CustomerId IN (SELECT CustomerId FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail))
+         OR c.CustomerId = @StaffCustomerId)
+  ORDER BY cust.[CustomerName], c.[CustomerContactName];
 
 GO
 /* ===== dbo.GetCustomerDashboardData ===== */
@@ -1027,10 +1002,11 @@ GO
 -- =============================================
 -- Proc:        dbo.GetCustomerDeviceDetail
 -- Jira:        MBA-798  "Customer Selected-device detail view"
--- Description: Returns the FULL detail of ONE device for the logged-in customer
+--              MBA-939  the caller owns a set of customers, not one
+-- Description: Returns the FULL detail of ONE device for the logged-in caller
 --              (customer portal "selected device" detail view). This is a distinct
 --              contract from:
---                * dbo.GetCustomerDeviceList     -> one row PER device, 12 list columns,
+--                * dbo.GetCustomerDeviceList     -> one row PER device, list columns,
 --                                                   no single-device key.
 --                * dbo.GetOrderDetailsDevices    -> STAFF detail, keyed by OrderWorkPlanId,
 --                                                   requires a MABA Users/UserRoles row via
@@ -1038,15 +1014,22 @@ GO
 --                                                   customer-ownership check -> unusable and
 --                                                   unsafe for a customer contact.
 --
---              Identity input matches the other GetCustomer* SPs:
---                @LoggedInUserEmail -> CustomerId via dbo.CustomerContacts.
---              The device is looked up by @OrderDetailsItemId and is ALWAYS re-scoped to the
---              calling customer (WHERE wp.CustomerId = @CustomerId), so a customer can never
---              read another customer's device by guessing an id. Returns 0 rows if the id
---              does not belong to the caller.
+-- 2026-08-31 - MBA-939: the ownership guard now spans every company the caller belongs to.
+--
+--              THE GUARD IS NOT WEAKENED, IT IS WIDENED TO THE RIGHT SET. The device is still
+--              re-scoped on every call: it must sit under a customer returned by
+--              dbo.GetPortalCustomerIds for this e-mail, which is derived from the caller's own
+--              CustomerContacts rows and takes no input from the request. A guessed
+--              @OrderDetailsItemId belonging to anyone else still returns 0 rows. What changes is
+--              that a manager can now open a device in his own second division - before, clicking
+--              a row that the list itself had returned could come back empty, because the list and
+--              the detail resolved to different single customers.
+--
+--              @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided not
+--              to build.
 --
 -- Params:
---   @LoggedInUserEmail  NVARCHAR(50)  -- customer contact email (resolves CustomerId)
+--   @LoggedInUserEmail  NVARCHAR(100) -- customer contact e-mail (resolves the customer set)
 --   @OrderDetailsItemId INT           -- the selected device (OrderDetailsItems.OrderDetailsItemId)
 --
 -- Output (single row): superset of the Device-List contract plus detail-only fields.
@@ -1057,51 +1040,15 @@ GO
 --   mainCategory, secondaryCategory, accuracy, measurementUnit,
 --   productLocation, siteAddress, shippingMethod,
 --   orderNumber, lastReport,
---   calibratorFullName, calibratorPhone
---
---   * deviceStatus is mapped by StatusId to the exact FE `deviceCalibrationStatuses`
---     camelCase codes, IDENTICAL to dbo.GetCustomerDeviceList (kept in sync on purpose);
---     any unmapped status falls back to lower-camel of StatusDescriptionENG.
---   * Dates -> DD.MM.YYYY (CONVERT style 104), per house convention.
---
--- NOTE for review (Ariel): source mappings mirror dbo.GetCustomerDeviceList (MBA-860) --
---   sku -> ManufacturerNumber, calibrationLocation -> IIF(od.IsInHouse=1,'מעבדה','לקוח'),
---   lastReport -> itm.MbaReportNumber. Please confirm which extra detail fields the final
---   Figma frame requires; those listed above are the customer-safe superset available in
---   Calibrator. No financial/analytics fields are included (not in this DB).
+--   calibratorFullName, calibratorPhone,
+--   customerName  -- NEW (MBA-939): which company owns this device. Front end: MBA-940.
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerDeviceDetail]
-    @LoggedInUserEmail  NVARCHAR(50),
-    @OrderDetailsItemId INT,
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail  NVARCHAR(100),
+    @OrderDetailsItemId INT
 AS
 BEGIN
     SET NOCOUNT ON;
-
-    DECLARE @CustomerId INT = NULL;
-
-        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP (1) @CustomerId = cc.CustomerId
-        FROM [dbo].[CustomerContacts] AS cc
-        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
-        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
-
-    IF @CustomerId IS NULL
-        RETURN;  -- unknown contact -> no data
 
     SELECT TOP (1)
          itm.OrderDetailsItemId                                                   AS id
@@ -1144,7 +1091,10 @@ BEGIN
         ,itm.MbaReportNumber                                                      AS lastReport
         ,CONCAT(u.FirstName, ' ', u.LastName)                                     AS calibratorFullName
         ,u.Phone                                                                  AS calibratorPhone
-    FROM [dbo].[OrderWorkPlans]        AS wp
+        ,mine.CustomerName                                                        AS customerName
+    /* Ownership guard: the device must belong to one of the caller's own customers. */
+    FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail) AS mine
+    JOIN [dbo].[OrderWorkPlans]        AS wp  ON wp.CustomerId      = mine.CustomerId
     JOIN [dbo].[OrderDetails]          AS od  ON od.OrderWorkPlanId = wp.OrderWorkPlanId
     JOIN [dbo].[OrderDetailsItems]     AS itm ON itm.OrderDetailId  = od.OrderDetailId
     LEFT JOIN [dbo].[Statuses]             AS st ON st.StatusId              = itm.CalibrationStatusId
@@ -1155,7 +1105,6 @@ BEGIN
     LEFT JOIN [dbo].[CustomerSites]        AS cs ON cs.CustomerSiteId        = od.CustomerSiteId
     LEFT JOIN [dbo].[Users]                AS u  ON u.ID                     = od.CalibratorId
     WHERE itm.OrderDetailsItemId    = @OrderDetailsItemId
-      AND wp.CustomerId             = @CustomerId          -- ownership guard
       AND wp.IsCancelled           = 0
       AND ISNULL(od.IsDeleted, 0)  = 0
       AND ISNULL(od.IsCancelled, 0) = 0
@@ -1283,33 +1232,41 @@ END
 GO
 /* ===== dbo.GetCustomerInvoicesFromPriority ===== */
 GO
+/*
+    dbo.GetCustomerInvoicesFromPriority                                             MBA-894
+    ---------------------------------------------------------------------------------------------
+    Invoices straight from Priority over the linked server, keyed by CustomerIdFromSource = CUST.
+    Priority stores dates as minutes since 1988-01-01.
+
+    2026-08-31 - MBA-939: which customer, when the address serves several.
+
+    DELIBERATELY NOT A UNION. The device and report screens now show every company the caller
+    belongs to, because a plant manager owning devices in three ישקר divisions should see all of
+    them. Invoices are different: they are financial, and joining three subsidiaries' balances into
+    one list is a disclosure decision, not a display decision. Until that is decided by the
+    business, this stays scoped to ONE customer.
+
+    What did change is WHICH one. The old rule took the lowest CustomerContactId, which for
+    davide@iscar.co.il is ישקר בע"מ - a row with no devices and, in all likelihood, no invoices
+    he cares about. It now takes the primary customer: the one holding the most devices.
+
+    @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided not to build.
+*/
 CREATE OR ALTER PROCEDURE dbo.GetCustomerInvoicesFromPriority
-    @LoggedInUserEmail NVARCHAR(100),
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @CustomerId INT, @Cust INT;
-        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP 1 @CustomerId = CustomerId FROM dbo.CustomerContacts
-          WHERE CustomerContactEmail = @LoggedInUserEmail AND ISNULL(IsDeleted,0)=0
-          ORDER BY CustomerContactId ASC   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */;
-    SELECT @Cust = TRY_CONVERT(INT, CustomerIdFromSource) FROM dbo.Customers WHERE CustomerId=@CustomerId;
+
+    /* MBA-939: primary = most devices, lowest contact id to break a tie. */
+    SELECT @CustomerId = CustomerId
+    FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail)
+    WHERE IsPrimary = 1;
+
+    SELECT @Cust = TRY_CONVERT(INT, CustomerIdFromSource) FROM dbo.Customers WHERE CustomerId = @CustomerId;
     IF @Cust IS NULL RETURN;
+
     SELECT iv.IVNUM AS invoiceNumber,
         CONVERT(varchar(10), DATEADD(MINUTE, iv.IVDATE, '1988-01-01'), 104) AS invoiceDate,
         iv.TOTPRICE AS totalPrice, iv.IVBALANCE AS balance,
@@ -1318,6 +1275,7 @@ BEGIN
     WHERE iv.CUST = @Cust
     ORDER BY iv.IVDATE DESC;
 END
+
 GO
 /* ===== dbo.GetCustomerInvoicesQuotes ===== */
 GO
@@ -1516,33 +1474,37 @@ END
 GO
 /* ===== dbo.GetCustomerQuotesFromPriority ===== */
 GO
+/*
+    dbo.GetCustomerQuotesFromPriority                                               MBA-894
+    ---------------------------------------------------------------------------------------------
+    Quotes straight from Priority over the linked server, keyed by CustomerIdFromSource = CUST.
+    Priority stores dates as minutes since 1988-01-01; EXPIRYDATE 0 means "no expiry", hence the
+    NULLIF before the conversion.
+
+    2026-08-31 - MBA-939: which customer, when the address serves several.
+
+    Scoped to ONE customer for the same reason as GetCustomerInvoicesFromPriority: pricing is
+    commercial information, and merging three subsidiaries' quotes into one list is a business
+    decision rather than a display one. The customer picked is now the PRIMARY one - the one
+    holding the most devices - instead of whichever had the lowest CustomerContactId.
+
+    @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided not to build.
+*/
 CREATE OR ALTER PROCEDURE dbo.GetCustomerQuotesFromPriority
-    @LoggedInUserEmail NVARCHAR(100),
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @CustomerId INT, @Cust INT;
-        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP 1 @CustomerId = CustomerId FROM dbo.CustomerContacts
-          WHERE CustomerContactEmail = @LoggedInUserEmail AND ISNULL(IsDeleted,0)=0
-          ORDER BY CustomerContactId ASC   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */;
-    SELECT @Cust = TRY_CONVERT(INT, CustomerIdFromSource) FROM dbo.Customers WHERE CustomerId=@CustomerId;
+
+    /* MBA-939: primary = most devices, lowest contact id to break a tie. */
+    SELECT @CustomerId = CustomerId
+    FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail)
+    WHERE IsPrimary = 1;
+
+    SELECT @Cust = TRY_CONVERT(INT, CustomerIdFromSource) FROM dbo.Customers WHERE CustomerId = @CustomerId;
     IF @Cust IS NULL RETURN;
+
     SELECT cp.CPROFNUM AS quoteNumber,
         CONVERT(varchar(10), DATEADD(MINUTE, cp.PDATE, '1988-01-01'), 104) AS quoteDate,
         CONVERT(varchar(10), DATEADD(MINUTE, NULLIF(cp.EXPIRYDATE,0), '1988-01-01'), 104) AS validUntil,
@@ -1552,6 +1514,7 @@ BEGIN
     WHERE cp.CUST = @Cust
     ORDER BY cp.PDATE DESC;
 END
+
 GO
 /* ===== dbo.GetCustomerRequests ===== */
 GO
@@ -1848,11 +1811,11 @@ GO
 -- =============================================
 -- Author:      Eduard Kudlaiev
 -- Create date: 04/05/2026
--- Description: Sites (sub-sites) of the customer the caller belongs to.
+-- Description: Sites (sub-sites) of the customer(s) the caller belongs to.
 --              Used by the internal customer-management screen AND by the customer
 --              portal profile screen.
 --
--- 2026-08-30 ג€” FIX: portal users could not resolve.
+-- 2026-08-30 - FIX: portal users could not resolve.
 --
 --              Identical defect to GetCustomerContacts: the customer was resolved only
 --              through dbo.GetSourceFilterByEmail, a table-valued function over
@@ -1860,50 +1823,38 @@ GO
 --              row, so the function returned no rows, @CustomerId stayed NULL, and
 --              `WHERE cs.CustomerId = @CustomerId` was always false.
 --
---              Now: resolve from dbo.CustomerContacts first, fall back to the function,
---              so the internal screen is unaffected.
+-- 2026-08-31 - MBA-939: a portal caller is a SET of customers, not one.
 --
---              The SELECT list is unchanged; no caller needs to change.
--- JiraLink:
+--              Worth knowing while reading this: what the business calls a "site" is usually
+--              NOT a row in this table. dbo.CustomerSites is empty for every ישקר division -
+--              Priority models each division as its own Customers row. So a manager's several
+--              locations arrive through the union below, not through this table.
+--
+--              The portal path is now a union over dbo.GetPortalCustomerIds. THE STAFF PATH IS
+--              UNCHANGED: dbo.GetSourceFilterByEmail is consulted only when the caller is not a
+--              portal contact, so the internal screen behaves exactly as before.
+--
+--              @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided not
+--              to build.
+--
+-- NEW COLUMN:  CustomerName - which company each site belongs to. Front end: MBA-940.
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerSites]
-@LoggedInUserEmail NVARCHAR(100),
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail NVARCHAR(100)
 AS
 
 SET NOCOUNT ON;
 
-DECLARE @CustomerId INT = NULL;
+DECLARE @StaffCustomerId INT = NULL;
 
--- Primary resolution: portal contact login
-    /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP 1 @CustomerId = cc.CustomerId
-    FROM dbo.CustomerContacts AS cc
-    WHERE cc.CustomerContactEmail = @LoggedInUserEmail
-        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
-
--- Fallback: internal staff account mapped to a customer
-IF @CustomerId IS NULL
+IF NOT EXISTS (SELECT 1 FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail))
 BEGIN
-    SELECT TOP 1 @CustomerId = d.CustomerId
+    SELECT TOP 1 @StaffCustomerId = d.CustomerId
     FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) AS d;
 END
 
 SELECT cs.[CustomerId]
+      ,cust.[CustomerName]
       ,cs.[CustomerSiteId]
       ,cs.[CustomerSiteAddress]
       ,cs.[CustomerSiteState]
@@ -1922,7 +1873,11 @@ SELECT cs.[CustomerId]
       ,cs.[IsDeleted]
   FROM [dbo].[CustomerSites] as cs
   LEFT JOIN [dbo].[Source] as s ON cs.[SourceId] = s.[SourceId]
-  WHERE /*cs.[IsDeleted] = 0 AND */cs.CustomerId = @CustomerId
+  LEFT JOIN [dbo].[Customers] as cust ON cust.[CustomerId] = cs.[CustomerId]
+  WHERE /*cs.[IsDeleted] = 0 AND */
+        (cs.CustomerId IN (SELECT CustomerId FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail))
+         OR cs.CustomerId = @StaffCustomerId)
+  ORDER BY cust.[CustomerName], cs.[CustomerSiteDescription];
 
 GO
 /* ===== dbo.GetCustomerSupportData ===== */
@@ -1931,53 +1886,44 @@ GO
 -- Author:      Eduard Kudlaiev
 -- Create date: 10/03/2026
 -- Description: The MABA account manager shown on the customer portal dashboard
---              ("׳©׳¨׳•׳× ׳׳§׳•׳—׳•׳× ׳׳‘\"׳" card). One employee per customer.
+--              ("שרות לקוחות מב"א" card). One employee per customer.
 --
--- 2026-08-30 ג€” FIX: the customer was resolved from dbo.Users only.
+-- 2026-08-30 - FIX: the customer was resolved from dbo.Users only.
 --
 --              Portal users are CUSTOMER CONTACTS, not staff accounts, so that lookup
 --              could not work: of the 2,070 rows in dbo.CustomerContacts exactly one
 --              appears in dbo.Users, and none of them carry a CustomerId there. The
 --              variable therefore came back NULL and the final predicate
---              `WHERE c.CustomerId = @CustomerId` was always false ג€” the card was empty
+--              `WHERE c.CustomerId = @CustomerId` was always false - the card was empty
 --              for every portal user since the day it was written.
 --
---              Now resolved from dbo.CustomerContacts first, falling back to dbo.Users,
---              which is the same convention GetCustomerProfile, GetCustomerDashboardData
---              and GetCustomerDeviceList already use. This SP was the only one in the
---              portal set that did not.
+--              Now resolved from the portal contact first, falling back to dbo.Users.
+--
+-- 2026-08-31 - MBA-939: which customer, when the address serves several.
+--
+--              This card names ONE account manager, so it cannot be a union. It now takes
+--              the caller's PRIMARY customer - the one holding the most devices - instead
+--              of the one with the lowest CustomerContactId. For davide@iscar.co.il the old
+--              rule pointed at ישקר בע"מ, a row with no devices; his work is under
+--              ישקר-מתק"ש-תפן, and so is the account manager who actually handles it.
+--
+--              @SelectedCustomerId is gone: MBA-936 added it for a branch picker we decided
+--              not to build.
 --
 --              Output columns are unchanged, so the front end needs no change.
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerSupportData]
-    @LoggedInUserEmail NVARCHAR(50),
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
 
     DECLARE @CustomerId INT = NULL;
 
-    -- Primary resolution: portal contact login
-        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP 1 @CustomerId = cc.CustomerId
-        FROM dbo.CustomerContacts AS cc
-        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
-        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
+    /* MBA-939: primary = most devices, lowest contact id to break a tie. */
+    SELECT @CustomerId = CustomerId
+    FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail)
+    WHERE IsPrimary = 1;
 
     -- Fallback: user account login (support / staff mapped to a customer)
     IF @CustomerId IS NULL
