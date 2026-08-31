@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 /*
     dbo.CreateCustomerPortalOtp
     ---------------------------
@@ -56,6 +60,17 @@ BEGIN
             @IdentitySource    NVARCHAR(10);
 
     /* ---------- 1. local mirror ---------- */
+    /* MBA-943: this row becomes the SESSION - CustomerId and CustomerName are signed into the
+       cookie and shown in the portal header. Taking the lowest CustomerContactId greeted
+       davide@iscar.co.il as "ישקר בע"מ", a company record holding none of his devices, while
+       every screen below listed devices from three other ישקר divisions. Prefer the primary
+       customer (most devices); NULL falls through to the original rule, so the Priority
+       fallback path and brand-new customers behave exactly as before. */
+    DECLARE @PrimaryCustomerId INT;
+    SELECT @PrimaryCustomerId = CustomerId
+    FROM dbo.GetPortalCustomerIds(@NormalizedEmail)
+    WHERE IsPrimary = 1;
+
     SELECT TOP (1)
         @CustomerContactId = cc.CustomerContactId,
         @CustomerId        = cc.CustomerId,
@@ -63,6 +78,7 @@ BEGIN
     FROM dbo.CustomerContacts AS cc
     WHERE cc.IsDeleted = 0
       AND LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))) = @NormalizedEmail
+      AND (@PrimaryCustomerId IS NULL OR cc.CustomerId = @PrimaryCustomerId)
     ORDER BY cc.CustomerContactId ASC;
 
     IF @CustomerContactId IS NOT NULL
@@ -212,4 +228,5 @@ BEGIN
         @MatchCount          AS MatchCount,
         @IdentitySource      AS IdentitySource;
 END
+
 GO

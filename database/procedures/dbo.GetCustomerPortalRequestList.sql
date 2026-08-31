@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 /*
     dbo.GetCustomerPortalRequestList                                                    MBA-903
     ---------------------------------------------------------------------------------------------
@@ -14,9 +18,16 @@
     in the client so that the portal and any MBA-side view cannot drift into calling the same
     status two different things.
 
-    Scoped to the caller's own customer, so it cannot return another customer's requests even if a
-    request id is guessed. @Status and @RequestType are optional filters; the list is otherwise
-    returned whole, since filtering and sorting are done client-side.
+    @Status and @RequestType are optional filters; the list is otherwise returned whole, since
+    filtering and sorting are done client-side.
+
+    2026-08-31 - MBA-943: scoped to the caller's customer SET rather than a single customer.
+
+    A request is filed against one company, but a manager who files against two of his divisions
+    has to see both - otherwise half his own requests disappear from the screen that exists to
+    prove they were received. Still impossible to see another customer's requests: the set comes
+    from dbo.GetPortalCustomerIds, which is derived from the caller's own contact rows and takes
+    nothing from the request.
 */
 CREATE OR ALTER PROCEDURE dbo.GetCustomerPortalRequestList
     @LoggedInUserEmail NVARCHAR(100),
@@ -25,14 +36,6 @@ CREATE OR ALTER PROCEDURE dbo.GetCustomerPortalRequestList
 AS
 BEGIN
     SET NOCOUNT ON;
-
-    DECLARE @CustomerId INT;
-
-    SELECT TOP (1) @CustomerId = cc.CustomerId
-    FROM dbo.CustomerContacts AS cc
-    WHERE cc.IsDeleted = 0
-      AND LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))) = LOWER(LTRIM(RTRIM(@LoggedInUserEmail)))
-    ORDER BY cc.CustomerContactId ASC;
 
     SELECT
          r.CustomerPortalRequestId                         AS id
@@ -73,7 +76,9 @@ BEGIN
         ,CONVERT(VARCHAR(10), r.CreatedDate, 104)          AS createdDate
         ,CONVERT(VARCHAR(10), r.ResolvedDate, 104)         AS resolvedDate
         ,r.ResolutionNotes                                 AS resolutionNotes
-    FROM dbo.CustomerPortalRequest AS r
+        ,mine.CustomerName                                 AS customerName
+    FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail) AS mine
+    JOIN dbo.CustomerPortalRequest AS r ON r.CustomerId = mine.CustomerId
     LEFT JOIN dbo.OrderWorkPlans AS wp ON wp.OrderWorkPlanId = r.OrderWorkPlanId
     OUTER APPLY
     (
@@ -82,9 +87,9 @@ BEGIN
         FROM dbo.CustomerPortalRequestItem AS i
         WHERE i.CustomerPortalRequestId = r.CustomerPortalRequestId
     ) AS itm
-    WHERE r.CustomerId = @CustomerId
-      AND r.IsDeleted = 0
+    WHERE r.IsDeleted = 0
       AND (@Status      IS NULL OR r.Status      = @Status)
       AND (@RequestType IS NULL OR r.RequestType = @RequestType)
     ORDER BY r.CreatedDate DESC;
 END
+GO

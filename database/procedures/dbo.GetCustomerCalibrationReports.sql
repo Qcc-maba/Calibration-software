@@ -1,85 +1,53 @@
-/*
-    dbo.GetCustomerCalibrationReports                                        MBA-936
-    ---------------------------------------------------------------------------------------------
-    Takes an optional @SelectedCustomerId: the branch the caller chose, for a contact whose e-mail
-    address serves more than one customer. 3,684 addresses do - davide@iscar.co.il covers 22 ישקר
-    sites, sharbaf_o@mac.org.il covers 25 מכבי branches.
-
-    Without it, the customer is resolved as before: the lowest CustomerContactId for that address.
-    That is stable but arbitrary, and it can land on a branch holding nothing while another of the
-    caller's own branches holds their devices.
-
-    THE ID IS VERIFIED, NOT TRUSTED. It is used only when the caller really is a contact of that
-    customer; anything else falls through to the original pick. Passing a customer the caller does
-    not serve returns their own data, never the other customer's - checked against a customer with
-    71 order lines, which returned nothing.
-*/
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 -- =============================================
 -- Proc:        dbo.GetCustomerCalibrationReports
 -- Jira:        MBA-796  "Customer Calibration-reports page (customer/calibration-reports)"
--- Description: Returns the calibration reports belonging to the logged-in customer
+--              MBA-943  union across every customer the caller belongs to
+-- Description: Returns the calibration reports belonging to the logged-in caller
 --              (customer portal "Calibration Reports" grid, route customer/calibration-reports).
---              Identity input matches dbo.GetCustomerDashboardData / dbo.GetCustomerDeviceList
---              (@LoggedInUserEmail -> CustomerId via dbo.CustomerContacts) and is scoped to the
---              calling customer only, consistent with the other GetCustomer* SPs.
 --
 --              A "calibration report" is an OrderDetailsItem that has an MbaReportNumber assigned.
 --              Unlike GetCustomerDeviceList (one row per device, latest order only) this SP returns
---              ONE ROW PER REPORT (every report the customer has, including historical / update
+--              ONE ROW PER REPORT (every report the caller has, including historical / update
 --              cycles), newest calibration first. Filtering / sorting / search are CLIENT-SIDE.
+--
+-- 2026-08-31 - MBA-943: the caller is a SET of customers, not one.
+--
+--              Scoping now comes from dbo.GetPortalCustomerIds - every customer the address
+--              belongs to that holds devices. The old lowest-CustomerContactId rule showed
+--              davide@iscar.co.il the reports of ישקר בע"מ, which has none, while his three other
+--              ישקר divisions held all of them.
+--
+--              This SP is also what getCustomerReportUrl re-runs to authorise a report download,
+--              so widening it here widens the download check in exactly the same way - a report
+--              is downloadable if and only if it appears in this list.
+--
+--              @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided not
+--              to build.
 --
 -- Output columns (camelCase, matching the app's Raw* -> mapper convention):
 --   id                 -> OrderDetailsItemId (row key AND part of the AWS report path)
 --   orderNumber        -> OrderWorkPlans.OrderNumber (part of the AWS report path)
 --   reportPath         -> convenience S3 key the FE otherwise builds via getOrderReportPath():
---                         'orders/{orderNumber}/reports/{id}/report.pdf'  (see
---                         src/lib/helpers/get-aws-file-paths.ts + pdf-preview-dialog)
+--                         'orders/{orderNumber}/reports/{id}/report.pdf'
 --   mbaReportNumber    -> itm.MbaReportNumber (מספר דוח מבא)
 --   serialNumber       -> itm.SerialNumber
 --   deviceDescription  -> OrdersProductTypes.OrdersProductTypeName
 --   deviceManufacturer -> itm.OrdersDeviceManufacturer
 --   deviceModel        -> itm.DeviceModel
 --   calibrationDate    -> DD.MM.YYYY (CONVERT style 104) from itm.ActualCalibrationDate
---   reportStatus       -> lower-camel of the ReportStatus StatusDescriptionENG (e.g.
---                         'createCalibrationReport'); NULL when no report status is set
---   reportStatusHeb    -> Statuses.StatusDescriptionHEB (Hebrew display text for the status)
---
--- OPEN QUESTIONS for review (screen is still a stub in the app, no wired tRPC/Figma yet):
---   * reportStatus source = itm.CalibrationReportStatusId (ReportStatus category). Confirm this
---     is the status the grid should show (vs. the calibration status used by GetCustomerDeviceList).
---   * FE enum for reportStatus is not defined yet, so the code is derived generically from the
---     English description (same fallback pattern GetCustomerDeviceList uses). Confirm the exact
---     camelCase codes once the FE filter chips exist, then map explicitly by StatusId.
---   * Download: FE builds the URL from {orderNumber, id}; reportPath is returned as a convenience.
+--   reportStatus       -> lower-camel of the ReportStatus StatusDescriptionENG
+--   reportStatusHeb    -> Statuses.StatusDescriptionHEB
+--   customerName       -> NEW (MBA-943): which company the report belongs to. Front end: MBA-942.
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerCalibrationReports]
-    @LoggedInUserEmail NVARCHAR(50),
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
-
-    DECLARE @CustomerId INT = NULL;
-
-        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP (1) @CustomerId = cc.CustomerId
-        FROM [dbo].[CustomerContacts] AS cc
-        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
-        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
 
     SELECT
          itm.OrderDetailsItemId                                              AS id
@@ -98,13 +66,14 @@ BEGIN
                + SUBSTRING(REPLACE(st.StatusDescriptionENG, '''', ''), 2, 200)
          END                                                                AS reportStatus
         ,st.StatusDescriptionHEB                                            AS reportStatusHeb
-    FROM [dbo].[OrderWorkPlans]      AS wp
-    JOIN [dbo].[OrderDetails]        AS od  ON od.OrderWorkPlanId = wp.OrderWorkPlanId
-    JOIN [dbo].[OrderDetailsItems]   AS itm ON itm.OrderDetailId  = od.OrderDetailId
+        ,mine.CustomerName                                                  AS customerName
+    FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail) AS mine
+    JOIN [dbo].[OrderWorkPlans]      AS wp  ON wp.CustomerId       = mine.CustomerId
+    JOIN [dbo].[OrderDetails]        AS od  ON od.OrderWorkPlanId  = wp.OrderWorkPlanId
+    JOIN [dbo].[OrderDetailsItems]   AS itm ON itm.OrderDetailId   = od.OrderDetailId
     LEFT JOIN [dbo].[Statuses]           AS st ON st.StatusId            = itm.CalibrationReportStatusId
     LEFT JOIN [dbo].[OrdersProductTypes] AS pt ON pt.OrdersProductTypeId = od.OrdersProductTypeId
-    WHERE wp.CustomerId        = @CustomerId
-      AND wp.IsCancelled       = 0
+    WHERE wp.IsCancelled       = 0
       AND ISNULL(od.IsDeleted, 0)   = 0
       AND ISNULL(od.IsCancelled, 0) = 0
       AND ISNULL(itm.IsDeleted, 0)  = 0
@@ -114,3 +83,4 @@ BEGIN
     ORDER BY itm.ActualCalibrationDate DESC
     OPTION (RECOMPILE);
 END
+GO

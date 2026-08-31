@@ -1,27 +1,15 @@
-/*
-    dbo.GetCustomerSites                                        MBA-936
-    ---------------------------------------------------------------------------------------------
-    Takes an optional @SelectedCustomerId: the branch the caller chose, for a contact whose e-mail
-    address serves more than one customer. 3,684 addresses do - davide@iscar.co.il covers 22 ישקר
-    sites, sharbaf_o@mac.org.il covers 25 מכבי branches.
-
-    Without it, the customer is resolved as before: the lowest CustomerContactId for that address.
-    That is stable but arbitrary, and it can land on a branch holding nothing while another of the
-    caller's own branches holds their devices.
-
-    THE ID IS VERIFIED, NOT TRUSTED. It is used only when the caller really is a contact of that
-    customer; anything else falls through to the original pick. Passing a customer the caller does
-    not serve returns their own data, never the other customer's - checked against a customer with
-    71 order lines, which returned nothing.
-*/
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 -- =============================================
 -- Author:      Eduard Kudlaiev
 -- Create date: 04/05/2026
--- Description: Sites (sub-sites) of the customer the caller belongs to.
+-- Description: Sites (sub-sites) of the customer(s) the caller belongs to.
 --              Used by the internal customer-management screen AND by the customer
 --              portal profile screen.
 --
--- 2026-08-30 ג€” FIX: portal users could not resolve.
+-- 2026-08-30 - FIX: portal users could not resolve.
 --
 --              Identical defect to GetCustomerContacts: the customer was resolved only
 --              through dbo.GetSourceFilterByEmail, a table-valued function over
@@ -29,50 +17,38 @@
 --              row, so the function returned no rows, @CustomerId stayed NULL, and
 --              `WHERE cs.CustomerId = @CustomerId` was always false.
 --
---              Now: resolve from dbo.CustomerContacts first, fall back to the function,
---              so the internal screen is unaffected.
+-- 2026-08-31 - MBA-943: a portal caller is a SET of customers, not one.
 --
---              The SELECT list is unchanged; no caller needs to change.
--- JiraLink:
+--              Worth knowing while reading this: what the business calls a "site" is usually
+--              NOT a row in this table. dbo.CustomerSites is empty for every ישקר division -
+--              Priority models each division as its own Customers row. So a manager's several
+--              locations arrive through the union below, not through this table.
+--
+--              The portal path is now a union over dbo.GetPortalCustomerIds. THE STAFF PATH IS
+--              UNCHANGED: dbo.GetSourceFilterByEmail is consulted only when the caller is not a
+--              portal contact, so the internal screen behaves exactly as before.
+--
+--              @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided not
+--              to build.
+--
+-- NEW COLUMN:  CustomerName - which company each site belongs to. Front end: MBA-942.
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerSites]
-@LoggedInUserEmail NVARCHAR(100),
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail NVARCHAR(100)
 AS
 
 SET NOCOUNT ON;
 
-DECLARE @CustomerId INT = NULL;
+DECLARE @StaffCustomerId INT = NULL;
 
--- Primary resolution: portal contact login
-    /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP 1 @CustomerId = cc.CustomerId
-    FROM dbo.CustomerContacts AS cc
-    WHERE cc.CustomerContactEmail = @LoggedInUserEmail
-        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
-
--- Fallback: internal staff account mapped to a customer
-IF @CustomerId IS NULL
+IF NOT EXISTS (SELECT 1 FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail))
 BEGIN
-    SELECT TOP 1 @CustomerId = d.CustomerId
+    SELECT TOP 1 @StaffCustomerId = d.CustomerId
     FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) AS d;
 END
 
 SELECT cs.[CustomerId]
+      ,cust.[CustomerName]
       ,cs.[CustomerSiteId]
       ,cs.[CustomerSiteAddress]
       ,cs.[CustomerSiteState]
@@ -91,4 +67,9 @@ SELECT cs.[CustomerId]
       ,cs.[IsDeleted]
   FROM [dbo].[CustomerSites] as cs
   LEFT JOIN [dbo].[Source] as s ON cs.[SourceId] = s.[SourceId]
-  WHERE /*cs.[IsDeleted] = 0 AND */cs.CustomerId = @CustomerId
+  LEFT JOIN [dbo].[Customers] as cust ON cust.[CustomerId] = cs.[CustomerId]
+  WHERE /*cs.[IsDeleted] = 0 AND */
+        (cs.CustomerId IN (SELECT CustomerId FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail))
+         OR cs.CustomerId = @StaffCustomerId)
+  ORDER BY cust.[CustomerName], cs.[CustomerSiteDescription];
+GO

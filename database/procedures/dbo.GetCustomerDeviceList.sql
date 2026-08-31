@@ -1,74 +1,47 @@
-/*
-    dbo.GetCustomerDeviceList                                        MBA-936
-    ---------------------------------------------------------------------------------------------
-    Takes an optional @SelectedCustomerId: the branch the caller chose, for a contact whose e-mail
-    address serves more than one customer. 3,684 addresses do - davide@iscar.co.il covers 22 ישקר
-    sites, sharbaf_o@mac.org.il covers 25 מכבי branches.
-
-    Without it, the customer is resolved as before: the lowest CustomerContactId for that address.
-    That is stable but arbitrary, and it can land on a branch holding nothing while another of the
-    caller's own branches holds their devices.
-
-    THE ID IS VERIFIED, NOT TRUSTED. It is used only when the caller really is a contact of that
-    customer; anything else falls through to the original pick. Passing a customer the caller does
-    not serve returns their own data, never the other customer's - checked against a customer with
-    71 order lines, which returned nothing.
-*/
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 -- =============================================
 -- Proc:        dbo.GetCustomerDeviceList
 -- Jira:        MBA-860 (parent MBA-859 "Wire Customer Device List to live data")
--- Description: Returns ONE row per device for the logged-in customer (customer portal
---              Device List grid). Identity input matches dbo.GetCustomerDashboardData
---              (@LoggedInUserEmail -> CustomerId via dbo.CustomerContacts). Scoped to the
---              calling customer only, consistent with the other GetCustomer* SPs.
+--              MBA-943 - union across every customer the caller belongs to.
+-- Description: Returns ONE row per device for the logged-in caller (customer portal
+--              Device List grid).
 --
 --              Filtering / sorting / search are done CLIENT-SIDE (per MBA-860), so this SP
---              returns the full, clean device set for the customer with no pagination.
+--              returns the full, clean device set with no pagination.
 --
--- Output (exactly the 12 columns MBA-860 requires, in order):
+-- 2026-08-31 - MBA-943: the caller is a SET of customers, not one.
+--
+--              An e-mail address is a contact of one customer far less often than we assumed:
+--              3,684 addresses serve several. davide@iscar.co.il is a contact of 22 ישקר
+--              entities. The old rule took the lowest CustomerContactId, which for him is
+--              ישקר בע"מ - a row holding ZERO devices - while his 24 devices sit under
+--              ישקר-מתק"ש-תפן. He saw an empty portal. 181 addresses were in that state.
+--
+--              Scoping now comes from dbo.GetPortalCustomerIds, which returns every customer
+--              the address belongs to that actually holds devices. See that function for why
+--              the device filter is there and not cosmetic.
+--
+--              @SelectedCustomerId is GONE. It was added in MBA-936 for a branch picker that
+--              we decided not to build; a union needs no choice and therefore no parameter to
+--              verify. Callers passing it will now fail loudly rather than be silently ignored.
+--
+-- NEW COLUMN:  customerName - which company each device belongs to. Without it a manager sees
+--              devices from three Iscar divisions in one list with nothing to tell them apart.
+--              The front end has to render it (MBA-942).
+--
+-- Output (13 columns):
 --   id, deviceStatus, lastCalibration, nextCalibration, serialNumber, calibrationLocation,
---   deviceDescription, deviceManufacturer, deviceModel, sku, shippingMethod, lastReport
---
---   * deviceStatus     -> FE `deviceCalibrationStatuses` code (camelCase). The 11 codes the
---                         filter chips depend on are mapped explicitly by StatusId; any other
---                         status falls back to a lower-camel of StatusDescriptionENG.
---   * lastCalibration  -> DD.MM.YYYY string (CONVERT style 104) from ActualCalibrationDate.
---   * nextCalibration  -> DD.MM.YYYY string (CONVERT style 104) from NextCalibrationDate.
---
--- NOTE for review (Ariel): three source mappings are best-guess — please confirm:
---   * sku                 -> itm.ManufacturerNumber   (מק"ט יצרן; alt: AdditionalDeviceNumber)
---   * calibrationLocation -> IIF(od.IsInHouse=1, מעבדה, לקוח)  (same as GetCustomerDashboardData;
---                            alt: itm.ProductLocation / itm.SiteAddress)
---   * lastReport          -> itm.MbaReportNumber       (alt: CalibratorsToWorkPlan.OrderDetailsMbaReportNumber)
+--   deviceDescription, deviceManufacturer, deviceModel, sku, shippingMethod, lastReport,
+--   customerName
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerDeviceList]
-    @LoggedInUserEmail NVARCHAR(50),
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
-
-    DECLARE @CustomerId INT = NULL;
-
-        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP (1) @CustomerId = cc.CustomerId
-        FROM [dbo].[CustomerContacts] AS cc
-        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
-        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
 
     ;WITH devices AS
     (
@@ -86,15 +59,20 @@ BEGIN
             ,itm.ManufacturerNumber                                                   AS Sku
             ,wp.ShipTypeDesc                                                          AS ShippingMethod
             ,itm.MbaReportNumber                                                      AS LastReport
-            ,ROW_NUMBER() OVER (PARTITION BY itm.SerialNumber
+            ,mine.CustomerName                                                        AS CustomerName
+            /* MBA-943: partition by CUSTOMER + serial, not serial alone.
+               10 of 3,819 serial numbers appear under more than one customer. Partitioning on
+               the serial alone would keep the newest order and silently drop the other
+               company's device from a list that now spans several companies. */
+            ,ROW_NUMBER() OVER (PARTITION BY wp.CustomerId, itm.SerialNumber
                                 ORDER BY wp.OrderWorkPlanId DESC)                     AS IsLatestOrder
-        FROM [dbo].[OrderWorkPlans]      AS wp
-        JOIN [dbo].[OrderDetails]        AS od  ON od.OrderWorkPlanId = wp.OrderWorkPlanId
-        JOIN [dbo].[OrderDetailsItems]   AS itm ON itm.OrderDetailId  = od.OrderDetailId
+        FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail) AS mine
+        JOIN [dbo].[OrderWorkPlans]      AS wp  ON wp.CustomerId        = mine.CustomerId
+        JOIN [dbo].[OrderDetails]        AS od  ON od.OrderWorkPlanId   = wp.OrderWorkPlanId
+        JOIN [dbo].[OrderDetailsItems]   AS itm ON itm.OrderDetailId    = od.OrderDetailId
         LEFT JOIN [dbo].[Statuses]           AS st ON st.StatusId            = itm.CalibrationStatusId
         LEFT JOIN [dbo].[OrdersProductTypes] AS pt ON pt.OrdersProductTypeId = od.OrdersProductTypeId
-        WHERE wp.CustomerId       = @CustomerId
-          AND wp.IsCancelled      = 0
+        WHERE wp.IsCancelled      = 0
           AND ISNULL(od.IsDeleted, 0)  = 0
           AND ISNULL(od.IsCancelled,0) = 0
           AND ISNULL(itm.IsDeleted, 0) = 0
@@ -130,8 +108,10 @@ BEGIN
         ,d.Sku                                                           AS sku
         ,d.ShippingMethod                                               AS shippingMethod
         ,d.LastReport                                                    AS lastReport
+        ,d.CustomerName                                                  AS customerName
     FROM devices AS d
     WHERE d.IsLatestOrder = 1
     ORDER BY d.ActualCalibrationDate DESC
     OPTION (RECOMPILE);
 END
+GO

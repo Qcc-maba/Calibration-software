@@ -1,26 +1,15 @@
-/*
-    dbo.GetCustomerDeviceDetail                                        MBA-936
-    ---------------------------------------------------------------------------------------------
-    Takes an optional @SelectedCustomerId: the branch the caller chose, for a contact whose e-mail
-    address serves more than one customer. 3,684 addresses do - davide@iscar.co.il covers 22 ישקר
-    sites, sharbaf_o@mac.org.il covers 25 מכבי branches.
-
-    Without it, the customer is resolved as before: the lowest CustomerContactId for that address.
-    That is stable but arbitrary, and it can land on a branch holding nothing while another of the
-    caller's own branches holds their devices.
-
-    THE ID IS VERIFIED, NOT TRUSTED. It is used only when the caller really is a contact of that
-    customer; anything else falls through to the original pick. Passing a customer the caller does
-    not serve returns their own data, never the other customer's - checked against a customer with
-    71 order lines, which returned nothing.
-*/
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 -- =============================================
 -- Proc:        dbo.GetCustomerDeviceDetail
 -- Jira:        MBA-798  "Customer Selected-device detail view"
--- Description: Returns the FULL detail of ONE device for the logged-in customer
+--              MBA-943  the caller owns a set of customers, not one
+-- Description: Returns the FULL detail of ONE device for the logged-in caller
 --              (customer portal "selected device" detail view). This is a distinct
 --              contract from:
---                * dbo.GetCustomerDeviceList     -> one row PER device, 12 list columns,
+--                * dbo.GetCustomerDeviceList     -> one row PER device, list columns,
 --                                                   no single-device key.
 --                * dbo.GetOrderDetailsDevices    -> STAFF detail, keyed by OrderWorkPlanId,
 --                                                   requires a MABA Users/UserRoles row via
@@ -28,15 +17,22 @@
 --                                                   customer-ownership check -> unusable and
 --                                                   unsafe for a customer contact.
 --
---              Identity input matches the other GetCustomer* SPs:
---                @LoggedInUserEmail -> CustomerId via dbo.CustomerContacts.
---              The device is looked up by @OrderDetailsItemId and is ALWAYS re-scoped to the
---              calling customer (WHERE wp.CustomerId = @CustomerId), so a customer can never
---              read another customer's device by guessing an id. Returns 0 rows if the id
---              does not belong to the caller.
+-- 2026-08-31 - MBA-943: the ownership guard now spans every company the caller belongs to.
+--
+--              THE GUARD IS NOT WEAKENED, IT IS WIDENED TO THE RIGHT SET. The device is still
+--              re-scoped on every call: it must sit under a customer returned by
+--              dbo.GetPortalCustomerIds for this e-mail, which is derived from the caller's own
+--              CustomerContacts rows and takes no input from the request. A guessed
+--              @OrderDetailsItemId belonging to anyone else still returns 0 rows. What changes is
+--              that a manager can now open a device in his own second division - before, clicking
+--              a row that the list itself had returned could come back empty, because the list and
+--              the detail resolved to different single customers.
+--
+--              @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided not
+--              to build.
 --
 -- Params:
---   @LoggedInUserEmail  NVARCHAR(50)  -- customer contact email (resolves CustomerId)
+--   @LoggedInUserEmail  NVARCHAR(100) -- customer contact e-mail (resolves the customer set)
 --   @OrderDetailsItemId INT           -- the selected device (OrderDetailsItems.OrderDetailsItemId)
 --
 -- Output (single row): superset of the Device-List contract plus detail-only fields.
@@ -47,51 +43,15 @@
 --   mainCategory, secondaryCategory, accuracy, measurementUnit,
 --   productLocation, siteAddress, shippingMethod,
 --   orderNumber, lastReport,
---   calibratorFullName, calibratorPhone
---
---   * deviceStatus is mapped by StatusId to the exact FE `deviceCalibrationStatuses`
---     camelCase codes, IDENTICAL to dbo.GetCustomerDeviceList (kept in sync on purpose);
---     any unmapped status falls back to lower-camel of StatusDescriptionENG.
---   * Dates -> DD.MM.YYYY (CONVERT style 104), per house convention.
---
--- NOTE for review (Ariel): source mappings mirror dbo.GetCustomerDeviceList (MBA-860) --
---   sku -> ManufacturerNumber, calibrationLocation -> IIF(od.IsInHouse=1,'מעבדה','לקוח'),
---   lastReport -> itm.MbaReportNumber. Please confirm which extra detail fields the final
---   Figma frame requires; those listed above are the customer-safe superset available in
---   Calibrator. No financial/analytics fields are included (not in this DB).
+--   calibratorFullName, calibratorPhone,
+--   customerName  -- NEW (MBA-943): which company owns this device. Front end: MBA-942.
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerDeviceDetail]
-    @LoggedInUserEmail  NVARCHAR(50),
-    @OrderDetailsItemId INT,
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail  NVARCHAR(100),
+    @OrderDetailsItemId INT
 AS
 BEGIN
     SET NOCOUNT ON;
-
-    DECLARE @CustomerId INT = NULL;
-
-        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP (1) @CustomerId = cc.CustomerId
-        FROM [dbo].[CustomerContacts] AS cc
-        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
-        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
-
-    IF @CustomerId IS NULL
-        RETURN;  -- unknown contact -> no data
 
     SELECT TOP (1)
          itm.OrderDetailsItemId                                                   AS id
@@ -134,7 +94,10 @@ BEGIN
         ,itm.MbaReportNumber                                                      AS lastReport
         ,CONCAT(u.FirstName, ' ', u.LastName)                                     AS calibratorFullName
         ,u.Phone                                                                  AS calibratorPhone
-    FROM [dbo].[OrderWorkPlans]        AS wp
+        ,mine.CustomerName                                                        AS customerName
+    /* Ownership guard: the device must belong to one of the caller's own customers. */
+    FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail) AS mine
+    JOIN [dbo].[OrderWorkPlans]        AS wp  ON wp.CustomerId      = mine.CustomerId
     JOIN [dbo].[OrderDetails]          AS od  ON od.OrderWorkPlanId = wp.OrderWorkPlanId
     JOIN [dbo].[OrderDetailsItems]     AS itm ON itm.OrderDetailId  = od.OrderDetailId
     LEFT JOIN [dbo].[Statuses]             AS st ON st.StatusId              = itm.CalibrationStatusId
@@ -145,7 +108,6 @@ BEGIN
     LEFT JOIN [dbo].[CustomerSites]        AS cs ON cs.CustomerSiteId        = od.CustomerSiteId
     LEFT JOIN [dbo].[Users]                AS u  ON u.ID                     = od.CalibratorId
     WHERE itm.OrderDetailsItemId    = @OrderDetailsItemId
-      AND wp.CustomerId             = @CustomerId          -- ownership guard
       AND wp.IsCancelled           = 0
       AND ISNULL(od.IsDeleted, 0)  = 0
       AND ISNULL(od.IsCancelled, 0) = 0
@@ -153,3 +115,4 @@ BEGIN
       AND ISNULL(itm.IsCancelled, 0) = 0
     OPTION (RECOMPILE);
 END
+GO

@@ -1,62 +1,47 @@
-/*
-    dbo.GetCustomerProfile                                        MBA-936
-    ---------------------------------------------------------------------------------------------
-    Takes an optional @SelectedCustomerId: the branch the caller chose, for a contact whose e-mail
-    address serves more than one customer. 3,684 addresses do - davide@iscar.co.il covers 22 ישקר
-    sites, sharbaf_o@mac.org.il covers 25 מכבי branches.
-
-    Without it, the customer is resolved as before: the lowest CustomerContactId for that address.
-    That is stable but arbitrary, and it can land on a branch holding nothing while another of the
-    caller's own branches holds their devices.
-
-    THE ID IS VERIFIED, NOT TRUSTED. It is used only when the caller really is a contact of that
-    customer; anything else falls through to the original pick. Passing a customer the caller does
-    not serve returns their own data, never the other customer's - checked against a customer with
-    71 order lines, which returned nothing.
-*/
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 -- =============================================
 -- Author:      Claude (subagent)
 -- Create date: 04/08/2026
 -- Description: Returns the customer profile / main-site header for the
 --              logged-in customer user (screen: customer/profile, MBA-612).
---              Customer-scoped: @CustomerId is resolved from dbo.CustomerContacts
---              by @LoggedInUserEmail (same convention as GetCustomerDashboardData),
---              with a fallback to dbo.Users so support/portal logins also resolve.
---              Returns a single header row. The sub-sites list and the MABA
+--              Returns a SINGLE header row. The sub-sites list and the MABA
 --              contact cards on the same screen are served by the existing
 --              GetCustomerSites / GetCustomerContacts / GetCustomerSupportData SPs
 --              and are intentionally NOT duplicated here.
+--
+-- 2026-08-31 - MBA-943: which customer, when the address serves several.
+--
+--              This screen describes ONE company - name, address, phone, shipping - so it
+--              cannot be a union without breaking its contract with the front end, which maps
+--              a single row. It now returns the caller's PRIMARY customer (the one holding the
+--              most devices) instead of the one with the lowest CustomerContactId. For
+--              davide@iscar.co.il that moves the profile from ישקר בע"מ, which holds none of
+--              his work, to ישקר-מתק"ש-תפן, which holds most of it.
+--
+--              Note the asymmetry, and that it is deliberate: the profile header names one
+--              company while GetCustomerSites and GetCustomerContacts beneath it now list all
+--              of them. If that reads as confusing on screen, the fix belongs in the front end
+--              (label the header, or let the user switch) rather than here - see MBA-942.
+--
+--              @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided
+--              not to build.
 -- JiraLink:    MBA-612
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerProfile]
-    @LoggedInUserEmail NVARCHAR(50),
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
 
     DECLARE @CustomerId INT = NULL;
 
-    -- Primary resolution: portal contact login
-        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP 1 @CustomerId = cc.CustomerId
-        FROM dbo.CustomerContacts AS cc
-        WHERE cc.CustomerContactEmail = @LoggedInUserEmail
-        ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */
+    /* MBA-943: primary = most devices, lowest contact id to break a tie. */
+    SELECT @CustomerId = CustomerId
+    FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail)
+    WHERE IsPrimary = 1;
 
     -- Fallback: user account login (support / staff mapped to a customer)
     IF @CustomerId IS NULL
@@ -96,7 +81,12 @@ BEGIN
         -- comes from GetCustomerSites.
         ,(SELECT COUNT(*) FROM dbo.CustomerSites AS s
           WHERE s.CustomerId = c.CustomerId AND s.IsDeleted = 0)   AS SubSitesCount
+        -- MBA-943: how many company records this caller covers in total. 1 for almost everyone;
+        -- above 1 tells the front end the header names only one of several.
+        ,(SELECT COUNT(*) FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail))
+                                                                   AS RelatedCompaniesCount
     FROM dbo.Customers AS c
     WHERE c.CustomerId = @CustomerId
       AND c.IsDeleted = 0;
 END
+GO

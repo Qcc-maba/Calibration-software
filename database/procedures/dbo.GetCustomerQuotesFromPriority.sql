@@ -1,46 +1,38 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 /*
-    dbo.GetCustomerQuotesFromPriority                                        MBA-936
+    dbo.GetCustomerQuotesFromPriority                                               MBA-894
     ---------------------------------------------------------------------------------------------
-    Takes an optional @SelectedCustomerId: the branch the caller chose, for a contact whose e-mail
-    address serves more than one customer. 3,684 addresses do - davide@iscar.co.il covers 22 ישקר
-    sites, sharbaf_o@mac.org.il covers 25 מכבי branches.
+    Quotes straight from Priority over the linked server, keyed by CustomerIdFromSource = CUST.
+    Priority stores dates as minutes since 1988-01-01; EXPIRYDATE 0 means "no expiry", hence the
+    NULLIF before the conversion.
 
-    Without it, the customer is resolved as before: the lowest CustomerContactId for that address.
-    That is stable but arbitrary, and it can land on a branch holding nothing while another of the
-    caller's own branches holds their devices.
+    2026-08-31 - MBA-943: which customer, when the address serves several.
 
-    THE ID IS VERIFIED, NOT TRUSTED. It is used only when the caller really is a contact of that
-    customer; anything else falls through to the original pick. Passing a customer the caller does
-    not serve returns their own data, never the other customer's - checked against a customer with
-    71 order lines, which returned nothing.
+    Scoped to ONE customer for the same reason as GetCustomerInvoicesFromPriority: pricing is
+    commercial information, and merging three subsidiaries' quotes into one list is a business
+    decision rather than a display one. The customer picked is now the PRIMARY one - the one
+    holding the most devices - instead of whichever had the lowest CustomerContactId.
+
+    @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided not to build.
 */
 CREATE OR ALTER PROCEDURE dbo.GetCustomerQuotesFromPriority
-    @LoggedInUserEmail NVARCHAR(100),
-    /* MBA-936: the branch the caller chose, when their address serves several customers.
-       Verified below - an unverified id is ignored rather than trusted, so this cannot be
-       used to read another customer's data. */
-    @SelectedCustomerId INT = NULL
+    @LoggedInUserEmail NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @CustomerId INT, @Cust INT;
-        /* MBA-936: honour the chosen branch, but only if this caller really is a contact of it.
-       3,684 addresses serve more than one customer; sharbaf_o@mac.org.il covers 25 מכבי branches.
-       Without a choice, or with one that does not belong to the caller, this falls through to the
-       original deterministic pick - never to the id it was handed. */
-    IF @SelectedCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS v
-                   WHERE v.CustomerId = @SelectedCustomerId
-                     AND ISNULL(v.IsDeleted, 0) = 0
-                     AND LOWER(LTRIM(RTRIM(v.CustomerContactEmail)))
-                       = LOWER(LTRIM(RTRIM(@LoggedInUserEmail))))
-        SET @CustomerId = @SelectedCustomerId;
-    ELSE
-    SELECT TOP 1 @CustomerId = CustomerId FROM dbo.CustomerContacts
-          WHERE CustomerContactEmail = @LoggedInUserEmail AND ISNULL(IsDeleted,0)=0
-          ORDER BY CustomerContactId ASC   /* deterministic pick when the e-mail is duplicated - same rule as GetCustomerPortalContactByEmail */;
-    SELECT @Cust = TRY_CONVERT(INT, CustomerIdFromSource) FROM dbo.Customers WHERE CustomerId=@CustomerId;
+
+    /* MBA-943: primary = most devices, lowest contact id to break a tie. */
+    SELECT @CustomerId = CustomerId
+    FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail)
+    WHERE IsPrimary = 1;
+
+    SELECT @Cust = TRY_CONVERT(INT, CustomerIdFromSource) FROM dbo.Customers WHERE CustomerId = @CustomerId;
     IF @Cust IS NULL RETURN;
+
     SELECT cp.CPROFNUM AS quoteNumber,
         CONVERT(varchar(10), DATEADD(MINUTE, cp.PDATE, '1988-01-01'), 104) AS quoteDate,
         CONVERT(varchar(10), DATEADD(MINUTE, NULLIF(cp.EXPIRYDATE,0), '1988-01-01'), 104) AS validUntil,
@@ -50,3 +42,4 @@ BEGIN
     WHERE cp.CUST = @Cust
     ORDER BY cp.PDATE DESC;
 END
+GO

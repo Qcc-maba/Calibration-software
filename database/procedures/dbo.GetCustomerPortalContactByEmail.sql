@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 /*
     dbo.GetCustomerPortalContactByEmail
     -----------------------------------
@@ -12,10 +16,24 @@
     The Priority lookup is wrapped in TRY/CATCH: if the linked server is unreachable the procedure
     degrades to the mirror instead of failing the login outright.
 
-    Returns exactly 0 or 1 rows. `Source` says where the match came from. `MatchCount` is the number
-    of distinct customers the e-mail resolves to; the portal treats an e-mail as a unique identifier,
-    so anything above 1 is a data-quality problem worth logging (one contact is still returned, so
-    login is never blocked).
+    Returns exactly 0 or 1 rows. `Source` says where the match came from.
+
+    2026-08-31 - MBA-943: which customer the SESSION is stamped with.
+    ---------------------------------------------------------------------------------------------
+    The row returned here becomes the session: CustomerId and CustomerName are signed into the
+    cookie and shown in the portal header. It used to take the lowest CustomerContactId, so
+    davide@iscar.co.il was greeted as "ישקר בע"מ" - a company record holding none of his devices -
+    while every screen below showed devices from three other ישקר divisions. The header disagreed
+    with the page.
+
+    It now takes the PRIMARY customer from dbo.GetPortalCustomerIds: the one holding the most
+    devices. When that function returns nothing (an address that is a contact of no customer with
+    a devices record) the original lowest-id behaviour applies unchanged, so the Priority fallback
+    path and brand-new customers are unaffected.
+
+    MatchCount was documented as "a data-quality problem worth logging" when above 1. That is no
+    longer the right reading: 3,684 addresses legitimately serve several customers, and the portal
+    now shows all of them. It is kept as an informational count, not a warning.
 */
 CREATE OR ALTER PROCEDURE dbo.GetCustomerPortalContactByEmail
     @Email NVARCHAR(100)
@@ -34,7 +52,13 @@ BEGIN
             @ContactPhone      NVARCHAR(100),
             @PriorityPhone     INT,
             @MatchCount        INT = 0,
-            @Source            NVARCHAR(10);
+            @Source            NVARCHAR(10),
+            @PrimaryCustomerId INT;
+
+    /* MBA-943: the customer this caller actually works with. NULL falls through to the old rule. */
+    SELECT @PrimaryCustomerId = CustomerId
+    FROM dbo.GetPortalCustomerIds(@NormalizedEmail)
+    WHERE IsPrimary = 1;
 
     /* ---------- 1. local mirror ---------- */
     SELECT TOP (1)
@@ -45,7 +69,8 @@ BEGIN
     FROM dbo.CustomerContacts AS cc
     WHERE cc.IsDeleted = 0
       AND LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))) = @NormalizedEmail
-    ORDER BY cc.CustomerContactId ASC;   /* deterministic pick when the e-mail is duplicated */
+      AND (@PrimaryCustomerId IS NULL OR cc.CustomerId = @PrimaryCustomerId)
+    ORDER BY cc.CustomerContactId ASC;   /* deterministic pick within the chosen customer */
 
     IF @CustomerContactId IS NOT NULL
     BEGIN
