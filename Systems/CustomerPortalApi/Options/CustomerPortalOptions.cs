@@ -17,6 +17,17 @@ public sealed class CustomerPortalOptions
     /// </summary>
     public string OtpPepper { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Fixed one-time code for local development, so working on the portal does not mean waiting
+    /// for an e-mail on every reload. Empty (the default) means the normal random code.
+    ///
+    /// Ignored unless the host environment is Development AND every listen address is loopback -
+    /// see <see cref="Auth.DevLoginCode"/>. A predictable login code on a reachable service would
+    /// be an account takeover for every customer, so the check is not a matter of trusting the
+    /// environment name alone.
+    /// </summary>
+    public string DevLoginCode { get; set; } = string.Empty;
+
     /// <summary>Signs the session cookie. Must match the front end, which verifies the same cookie.</summary>
     public string SessionSecret { get; set; } = string.Empty;
 
@@ -84,7 +95,17 @@ public sealed class SmtpOptions
     /// <summary>Envelope sender. Microsoft 365 requires it to be the authenticated mailbox.</summary>
     public string From { get; set; } = string.Empty;
 
-    /// <summary>Sender name shown in the recipient's inbox. Keep it identical to the signature in
-    /// <see cref="Mail.OtpEmailBuilder"/> and to the logo, so one message never carries two names.</summary>
-    public string FromDisplayName { get; set; } = "מ.ב.א הזורע טכנולוגיות כיול";
+    /// <summary>
+    /// Sender name shown in the recipient's inbox. Deliberately the portal's name rather than the
+    /// full registered company name that signs the body: in a crowded inbox the recipient is
+    /// looking for the thing that sent them a login code, not for the legal entity. The logo and
+    /// the signature inside <see cref="Mail.OtpEmailBuilder"/> still carry the registered name.
+    ///
+    /// Note this only governs what leaves the tenant. Outlook resolves an INTERNAL sender against
+    /// the GAL and shows the mailbox's directory display name instead, ignoring this entirely —
+    /// verified against a received message, whose From header carried this value intact while
+    /// Outlook still displayed the mailbox name. To change what colleagues see, rename the mailbox
+    /// in Microsoft 365; external recipients see the value below.
+    /// </summary>
+    public string FromDisplayName { get; set; } = "פורטל מ.ב.א. הזורע";
 }

@@ -85,6 +85,27 @@ app.UseRateLimiter();
 
 var options = app.Services.GetRequiredService<IOptions<CustomerPortalOptions>>().Value;
 
+/* An empty ProxyApiKey disables the caller check, which is fine on loopback and unacceptable once
+   the service answers on a public name. Fail at startup rather than serve openly. */
+var exposure = ExposureGuard.Check(
+    builder.Configuration["Urls"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS"),
+    options.ProxyApiKey);
+
+if (exposure is not null)
+{
+    app.Logger.LogCritical("{Reason}", exposure);
+    throw new InvalidOperationException(exposure);
+}
+
+/* A predictable login code must never be quiet about itself. */
+if (DevLoginCode.Resolve(options.DevLoginCode, app.Environment.IsDevelopment(),
+        builder.Configuration["Urls"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS")) is { } devCode)
+{
+    app.Logger.LogWarning(
+        "DEVELOPMENT LOGIN CODE IS ACTIVE: every portal one-time code is {Code}. "
+        + "Loopback-only Development host; this cannot happen on a reachable service.", devCode);
+}
+
 /* Rejects callers that do not hold the shared secret. Applied to the login endpoints only:
    /health has to stay reachable for monitoring. */
 async ValueTask<object?> RequireApiKey(EndpointFilterInvocationContext context, EndpointFilterDelegate next)

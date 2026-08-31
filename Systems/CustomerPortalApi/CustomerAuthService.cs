@@ -17,12 +17,23 @@ public sealed class CustomerAuthService(
     CustomerPortalRepository repository,
     IMailSender mailSender,
     IOptions<CustomerPortalOptions> options,
+    IHostEnvironment environment,
+    IConfiguration configuration,
     ILogger<CustomerAuthService> logger)
 {
     private const int MaxEmailLength = 100;   /* matches the nvarchar(100) e-mail columns */
     private const int SecondsPerMinute = 60;
 
     private readonly CustomerPortalOptions _options = options.Value;
+
+    /* Non-null only for a Development host bound to loopback with a code configured; null in every
+       other case, including a mis-set environment name on a reachable service. */
+    private readonly string? _devLoginCode = DevLoginCode.Resolve(
+        options.Value.DevLoginCode,
+        environment.IsDevelopment(),
+        /* Same expression the exposure guard uses in Program.cs: the listen address can come from
+           either place, and reading only one of them would let the two guards disagree. */
+        configuration["Urls"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS"));
 
     public static bool TryNormalizeEmail(string? value, out string email)
     {
@@ -50,7 +61,11 @@ public sealed class CustomerAuthService(
         string? requestIp,
         CancellationToken cancellationToken)
     {
-        var code = OtpCode.Generate();
+        /* A configured development code replaces the random one here, at generation. Verification
+           is deliberately left untouched: the digest, the expiry and the attempt counter all still
+           apply - the code is merely predictable. Resolve() returns null unless the service is in
+           Development AND bound to loopback only. */
+        var code = _devLoginCode ?? OtpCode.Generate();
         var codeHash = OtpCode.Hash(_options.OtpPepper, email, code);
 
         var result = await repository.CreateOtpAsync(email, codeHash, requestIp, cancellationToken);
