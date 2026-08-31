@@ -28,8 +28,11 @@
 --
 -- Param:       @OrderWorkPlanId INT           -- required
 -- Returns:     OrderWorkPlanId, OrderNumber, FileNumber, Line, FileName, FilePath,
---              FileExtension, SourceKind, Description, DescriptionRaw, FileSize,
+--              FileExtension, SourceKind, Description, DescriptionRaw,
 --              CanBeServed, IsPathTruncated
+--
+--              No file size is returned. Priority's EXTFILES.FILESIZE holds the length of the
+--              path string, not the file — the conversion layer stats the file on disk.
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetOrderAttachmentsByOrder]
     @OrderWorkPlanId INT
@@ -62,7 +65,6 @@ BEGIN
                       END
         ,a.Description          /* un-reversed, safe to display */
         ,a.DescriptionRaw       /* Priority's own text, kept for diagnosis */
-        ,a.FileSize
         ,CanBeServed     = CAST(CASE WHEN a.IsPathTruncated = 1 THEN 0 ELSE 1 END AS BIT)
         ,a.IsPathTruncated
     FROM dbo.OrderWorkPlans      AS wp

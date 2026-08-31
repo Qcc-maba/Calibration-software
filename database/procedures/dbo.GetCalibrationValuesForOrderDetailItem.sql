@@ -41,11 +41,11 @@ BEGIN
         ,combined.[MasterValue]
         ,combined.[MasterValueUnitId] 
         ,mdu.[ShortNameHe] as MasterValueUnitDescription
-        /* CorrectedExact, not Corrected: rounding to the reading's own precision is what was
-           asked for, but it erases the correction. A reading of 23 has deviation -0.001792,
-           and at zero decimals the answer is 23 again. Both columns are available; this stays
-           on the exact one until the display rule is settled. */
-        ,mvc.CorrectedExact as [MasterValueAfterCorrection]
+        /* The display value: the reading's own precision, but never fewer than 3 decimals.
+           Rounding purely to the input erased the correction - 23 came back as 23. Full
+           precision is still available as MasterValueAfterCorrectionExact. */
+        ,mvc.Corrected      as [MasterValueAfterCorrection]
+        ,mvc.CorrectedExact as [MasterValueAfterCorrectionExact]
         /* MBA-475: is the calibrator driving the master outside its own working range?
            This is a DIFFERENT question from mvc.OutOfRange, which asks whether the reading fell
            outside the CERTIFICATE and the deviation had to be clamped. A master can be well

@@ -53,18 +53,19 @@ BEGIN
         EXTFILENUM   INT           NOT NULL,
         LINE         INT           NULL,
         FilePath       NVARCHAR(200) COLLATE DATABASE_DEFAULT NULL,
-        DescriptionRaw NVARCHAR(200) COLLATE DATABASE_DEFAULT NULL,
-        FileSize       INT           NULL
+        DescriptionRaw NVARCHAR(200) COLLATE DATABASE_DEFAULT NULL
     );
     /* COLLATE DATABASE_DEFAULT is not decoration. The values arrive from OPENQUERY carrying
        Latin1_General_100_CI_AI_SC while dbo.CrmOrderAttachments is Hebrew_CI_AS, and the
        change-detection comparisons in the MERGE below fail with a collation conflict without
        it. Pinning both temp tables to the database default settles it in one place. */
 
-    INSERT INTO #Ext (ORD, EXTFILENUM, LINE, FilePath, DescriptionRaw, FileSize)
-    SELECT q.IV, q.EXTFILENUM, q.LINE, q.EXTFILENAME, q.EXTFILEDES, q.FILESIZE
+    /* FILESIZE is not selected: it holds the length of EXTFILENAME, not the file size.
+       See the header of dbo.CrmOrderAttachments.table.sql. */
+    INSERT INTO #Ext (ORD, EXTFILENUM, LINE, FilePath, DescriptionRaw)
+    SELECT q.IV, q.EXTFILENUM, q.LINE, q.EXTFILENAME, q.EXTFILEDES
     FROM OPENQUERY([31.168.173.93],
-        'SELECT IV, LINE, EXTFILENUM, EXTFILENAME, EXTFILEDES, FILESIZE
+        'SELECT IV, LINE, EXTFILENUM, EXTFILENAME, EXTFILEDES
            FROM amaba.dbo.EXTFILES
           WHERE TYPE = ''O''') AS q;
 
@@ -101,13 +102,12 @@ BEGIN
         FileExtension   NVARCHAR(20)  COLLATE DATABASE_DEFAULT NULL,
         Description     NVARCHAR(200) COLLATE DATABASE_DEFAULT NULL,
         DescriptionRaw  NVARCHAR(200) COLLATE DATABASE_DEFAULT NULL,
-        FileSize        INT           NULL,
         IsPathTruncated BIT           NOT NULL,
         PRIMARY KEY (ORD, EXTFILENUM)
     );
 
     INSERT INTO #Shaped (ORD, EXTFILENUM, LINE, FilePath, FileExtension,
-                         Description, DescriptionRaw, FileSize, IsPathTruncated)
+                         Description, DescriptionRaw, IsPathTruncated)
     SELECT
         e.ORD,
         e.EXTFILENUM,
@@ -121,7 +121,6 @@ BEGIN
         END,
         dbo.fnUnreverseVisualText(RTRIM(e.DescriptionRaw)),
         RTRIM(e.DescriptionRaw),
-        e.FileSize,
         CASE WHEN LEN(RTRIM(e.FilePath)) >= 80 THEN 1 ELSE 0 END
     FROM #Ext AS e
     JOIN #Wanted AS w ON w.ORD = e.ORD;
@@ -143,7 +142,6 @@ BEGIN
                 OR ISNULL(dest.FileExtension, N'')  <> ISNULL(src.FileExtension, N'')
                 OR ISNULL(dest.Description, N'')    <> ISNULL(src.Description, N'')
                 OR ISNULL(dest.DescriptionRaw, N'') <> ISNULL(src.DescriptionRaw, N'')
-                OR ISNULL(dest.FileSize, -1)        <> ISNULL(src.FileSize, -1)
                 OR dest.IsPathTruncated             <> src.IsPathTruncated
                 OR ISNULL(dest.LINE, -1)            <> ISNULL(src.LINE, -1)
              )
@@ -153,14 +151,13 @@ BEGIN
                  dest.FileExtension   = src.FileExtension,
                  dest.Description     = src.Description,
                  dest.DescriptionRaw  = src.DescriptionRaw,
-                 dest.FileSize        = src.FileSize,
                  dest.IsPathTruncated = src.IsPathTruncated,
                  dest.FetchedAt       = SYSUTCDATETIME()
         WHEN NOT MATCHED BY TARGET
         THEN INSERT (ORD, EXTFILENUM, LINE, FilePath, FileExtension,
-                     Description, DescriptionRaw, FileSize, IsPathTruncated, FetchedAt)
+                     Description, DescriptionRaw, IsPathTruncated, FetchedAt)
              VALUES (src.ORD, src.EXTFILENUM, src.LINE, src.FilePath, src.FileExtension,
-                     src.Description, src.DescriptionRaw, src.FileSize, src.IsPathTruncated,
+                     src.Description, src.DescriptionRaw, src.IsPathTruncated,
                      SYSUTCDATETIME())
         /* Only on a full rebuild: an order whose files Priority has removed must lose them
            here too. In incremental mode #Shaped holds just the new orders, so deleting on

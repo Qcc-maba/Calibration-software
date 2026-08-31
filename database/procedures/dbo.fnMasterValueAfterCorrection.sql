@@ -125,7 +125,14 @@ RETURN
            /* full precision - use this for anything that is stored or calculated on */
            CorrectedExact = CAST(@Reading - d.Deviation AS DECIMAL(18,6)),
            /* for the screen: as many decimals as the reading itself carries */
-           Corrected      = CAST(ROUND(@Reading - d.Deviation, s.Decimals) AS DECIMAL(18,6)),
+           /* At least 3 decimals, however few the reading carried. Rounding purely to the
+              reading's own precision erased the correction: a reading of 23 has deviation
+              -0.001792 and came back as 23, so the calibrator saw nothing happen. Three is
+              enough to show every deviation in the data - they run from about 0.001 to 2 -
+              without printing six digits the measurement cannot justify. */
+           Corrected      = CAST(ROUND(@Reading - d.Deviation,
+                                       CASE WHEN s.Decimals < 3 THEN 3 ELSE s.Decimals END)
+                                 AS DECIMAL(18,6)),
            ReadingDecimals = s.Decimals,
            d.OutOfRange,
            d.Extrapolated,

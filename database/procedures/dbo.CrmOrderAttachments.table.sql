@@ -41,6 +41,15 @@
       ("...redrOesahc"). DescriptionRaw keeps Priority's text verbatim so nothing is lost.
       Same defect and same repair as dbo.CrmDeviceDescription.
 
+
+    EXTFILES.FILESIZE IS NOT A FILE SIZE — deliberately not cached
+    --------------------------------------------------------------
+    15,225 of the 15,326 rows report 74, which is the character length of EXTFILENAME, not the
+    file. 29 report 81, 20 report 0, and only ~46 carry a plausible byte count. Measured against
+    disk: a row reporting 74 is a 522,752-byte .msg. The column is meaningless, so it is not
+    stored — a wrong size rendered in the UI is worse than no size. The conversion layer stats
+    the file itself, where the truth is.
+
     99.3% of the files are .msg (Outlook messages) and only 62 are already PDF, which is why
     FileExtension is stored — the conversion layer keys off it.
 */
@@ -55,7 +64,6 @@ BEGIN
         FileExtension    NVARCHAR(20)   NULL,      /* lower case, no dot                        */
         Description      NVARCHAR(200)  NULL,      /* un-reversed, for display                  */
         DescriptionRaw   NVARCHAR(200)  NULL,      /* Priority's text, verbatim                 */
-        FileSize         INT            NULL,
         IsPathTruncated  BIT            NOT NULL
             CONSTRAINT DF_CrmOrderAttachments_IsPathTruncated DEFAULT (0),
         FetchedAt        DATETIME2(3)   NOT NULL
