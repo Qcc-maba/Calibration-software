@@ -80,24 +80,25 @@ BEGIN
     )
     SELECT
          d.id
-        ,CASE d.CalibrationStatusId
-            WHEN 31 THEN 'testedMetTheStandard'
-            WHEN 32 THEN 'testedDidntMeetTheStandards'
-            WHEN 23 THEN 'calibrationSuccess'
-            WHEN 21 THEN 'calibrationFailed'
-            WHEN 26 THEN 'adjusted'
-            WHEN 24 THEN 'delivered'
-            WHEN 22 THEN 'packaged'
-            WHEN 29 THEN 'readyForPacking'
-            WHEN 27 THEN 'readyForDelivery'
-            WHEN 19 THEN 'waitingForCalibration'
-            WHEN 33 THEN 'cannotBeDetermined'
-            ELSE CASE
+        ,/*  MBA-948: eleven hardcoded WHENs used to map StatusId to a camelCase key here. They
+                were written against PROD's ids, and dbo.Statuses is NOT numbered the same on the
+                two servers - 31/32/33 are shifted by one:
+
+                    id   STAGE            PROD
+                    31   תקין             נבדק עומד
+                    32   נבדק עומד        נבדק - לא עומד
+                    33   נבדק - לא עומד   לא ניתן לקבוע
+
+                so on STAGE a device that PASSED was reported to the customer as failed. Checked
+                all eleven ids on both servers: deriving the key from the status text gives exactly
+                the same answer as the hardcoded list on PROD, and the CORRECT one on STAGE. The
+                list was redundant where it was right and wrong where it was not. */
+            CASE
                     WHEN d.StatusEng IS NULL OR LEN(d.StatusEng) = 0 THEN NULL
                     ELSE LOWER(LEFT(REPLACE(d.StatusEng, '''', ''), 1))
                        + SUBSTRING(REPLACE(d.StatusEng, '''', ''), 2, 200)
                  END
-         END                                                             AS deviceStatus
+         AS deviceStatus
         ,CONVERT(VARCHAR(10), d.ActualCalibrationDate, 104)              AS lastCalibration
         ,CONVERT(VARCHAR(10), d.NextCalibrationDate,   104)              AS nextCalibration
         ,d.SerialNumber                                                  AS serialNumber
