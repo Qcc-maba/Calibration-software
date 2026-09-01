@@ -138,6 +138,15 @@ SET @Name = N'MABA - Refresh packing data from Priority';
 IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @Name)
     EXEC msdb.dbo.sp_delete_job @job_name = @Name, @delete_unused_schedule = 1;
 
+/*  @JobId MUST be NULL going in. sp_add_job validates that, and the failure is not obvious:
+    the second job's sp_add_job is rejected, @JobId keeps pointing at the FIRST job, and its
+    sp_add_jobstep / sp_add_jobschedule then attach to that job instead. Because the first job
+    has already been posted to a target server by then, the error that surfaces is
+    "Cannot add, update, or delete a job that originated from an MSX server" - which sends you
+    looking at server names and MSX enlistment, neither of which is the problem. Seen on
+    CalibratorProd, 01/09: one job left holding two steps and two schedules, the other absent. */
+SET @JobId = NULL;
+
 EXEC msdb.dbo.sp_add_job
      @job_name         = @Name,
      @enabled          = 1,
@@ -170,6 +179,8 @@ PRINT 'created: ' + @Name;
 SET @Name = N'MABA - Refresh device descriptions';
 IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @Name)
     EXEC msdb.dbo.sp_delete_job @job_name = @Name, @delete_unused_schedule = 1;
+
+SET @JobId = NULL;   /* see the note on the first job */
 
 EXEC msdb.dbo.sp_add_job
      @job_name         = @Name,
