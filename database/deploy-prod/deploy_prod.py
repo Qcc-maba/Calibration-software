@@ -49,7 +49,7 @@ TRANCHES = [
     ("U", "06-hotfix-MBA-666-unreverse.sql",
      "MBA-666 - a space between two LTR runs is inside the span, not a separator"),
     ("S", "07-hotfix-MBA-944-packing-status.sql",
-     "MBA-944 - the packing status comes from the delivery note, not a status nothing advances"),
+     "MBA-944 - the packing status comes from the report, not a status nothing advances"),
     # The only tranche that loads DATA rather than code, so it is last and it is not in --all.
     # Run it deliberately: python deploy_prod.py --tranche D
     ("D", "05-tranche-D-data.sql",
@@ -179,7 +179,7 @@ CHECKS = {
                              = N'בקר טמפ''+רגש' THEN 1 ELSE 0 END""", 1),
     ],
     "S": [
-        ("the packing status reads the delivery note", """
+        ("the packing status is derived from the report", """
             SELECT CASE WHEN OBJECT_DEFINITION(OBJECT_ID('dbo.GetDevicesUngroupedByOrder'))
                              LIKE '%MBA-944%' THEN 1 ELSE 0 END""", 1),
         # The derivation looks the wording up in dbo.Statuses instead of hardcoding it. If that row
@@ -279,6 +279,62 @@ def verify(cur, tranche):
     return good
 
 
+# ---------------------------------------------------------------------------------------------
+# Cache health. Not tied to a tranche - these run on every --check and after every deploy.
+#
+# Three times on 31/08 a cache table was deployed to PROD and left EMPTY: CrmOrderAttachments and
+# CrmDeviceDescription both sat at 0 rows while STAGE held thousands. Every existing check passed,
+# because they assert that an OBJECT EXISTS. A screen served from an empty cache shows nothing and
+# reports no error, so the failure surfaces as a user saying "the list is blank" days later.
+#
+# The floors are set below both environments' real counts, not at them: these tables grow as
+# Priority does, and a check that has to be edited every week is a check somebody deletes. The
+# floor only has to be high enough to catch empty and half-loaded.
+#
+#   table                  STAGE    PROD   floor    filled by
+#   CrmCatalogText           546     708     400    RefreshCrmTextCache
+#   CrmDeviceText          3,868   7,895   3,000    RefreshCrmTextCache
+#   CrmDeviceDescription   3,000   3,000   2,000    RefreshDeviceDescriptions
+#   CrmOrderInstructions   1,240   2,814   1,000    RefreshCrmTextCache
+#   CrmPartInfo              567     755     400    RefreshCrmTextCache
+#   CrmOrderAttachments    1,050   2,328     800    RefreshOrderAttachmentsCache
+# ---------------------------------------------------------------------------------------------
+CACHE_FLOORS = [
+    ("CrmCatalogText", 400, "dbo.RefreshCrmTextCache"),
+    ("CrmDeviceText", 3000, "dbo.RefreshCrmTextCache"),
+    ("CrmDeviceDescription", 2000, "dbo.RefreshDeviceDescriptions"),
+    ("CrmOrderInstructions", 1000, "dbo.RefreshCrmTextCache"),
+    ("CrmPartInfo", 400, "dbo.RefreshCrmTextCache"),
+    ("CrmOrderAttachments", 800, "dbo.RefreshOrderAttachmentsCache"),
+]
+
+
+def verify_caches(cur):
+    """A deployed cache table that nobody filled is invisible to every other check here."""
+    print("  -- verifying cache tables are populated")
+    good = True
+    for table, floor, filler in CACHE_FLOORS:
+        # Two statements, not one CASE. SQL Server compiles the whole batch before running any of
+        # it, so a COUNT(*) against a missing table fails to compile even when it sits in a branch
+        # that would never execute - the OBJECT_ID guard never gets the chance to fire. Caught by
+        # deliberately pointing this at a table that does not exist.
+        cur.execute(f"SELECT OBJECT_ID('dbo.{table}','U')")
+        if cur.fetchone()[0] is None:
+            print(f"     FAIL {table}: table does not exist")
+            good = False
+            continue
+
+        cur.execute(f"SELECT COUNT(*) FROM dbo.{table}")
+        got = cur.fetchone()[0]
+        if got < floor:
+            print(f"     FAIL {table}: {got} rows, expected at least {floor}"
+                  f"  ->  EXEC {filler};")
+            good = False
+        else:
+            print(f"     ok   {table}: {got} rows")
+    return good
+
+
 PLAIN_CREATE = re.compile(
     r"^[ \t]*CREATE[ \t]+(?!OR[ \t]+ALTER)(PROCEDURE|PROC|FUNCTION|VIEW)\b",
     re.IGNORECASE | re.MULTILINE,
@@ -359,6 +415,7 @@ def main():
     if args.check:
         for code, _, _ in TRANCHES:
             verify(cur, code)
+        verify_caches(cur)
         return
 
     todo = CODE_TRANCHES if args.all else [t for t in TRANCHES if t[0] == args.tranche]

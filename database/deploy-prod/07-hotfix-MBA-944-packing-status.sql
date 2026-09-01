@@ -244,9 +244,17 @@ WHERE sc.StatusDescriptionENG='OrderStatus' AND s.StatusDescriptionENG <> 'Execu
     (Figma 5429-395), so the front end mapped it to undefined and the column rendered a dash on
     219 of 220 orders.
 
-    The rule is that a delivery note IS the awaiting-confirmation state. The packing screen already
-    shows only rows that have one, so this reads the note rather than a stored status that nothing
-    maintains, and it stays right for every note that arrives later.
+    The rule, from Eliran (01/09): an order that HAS A REPORT is awaiting confirmation, and moves
+    on from there according to what the validation station decides.
+
+    So the trigger is the report, not the delivery note. The first version of this fix read the
+    delivery note - the packing screen lists only rows that have one, so on that screen the two
+    almost coincide: of 2,580 packing rows, 2,574 carry both and 6 carry a note with no report.
+    At order level that is 219 of 220 orders holding a report. Reading the report is what the rule
+    actually says, and it does not drift from it on the 6.
+
+    This is a derivation, not a stored value, because nothing maintains the stored one - so it
+    stays correct for every report written after today without anyone re-running anything.
 
     Read from dbo.Statuses rather than written as a literal, so the wording lives in one place.  */
 DECLARE @AwaitConfHeb NVARCHAR(200), @AwaitConfEng NVARCHAR(200);
@@ -295,12 +303,20 @@ CONCAT(
     screen changes. An order that HAS reached a real packing status keeps it - only the orders
     still parked on WaitingForCalibration are read from the note. */
 ,CASE WHEN @Page = N'packing' THEN CONCAT(
-    'CASE WHEN NULLIF(LTRIM(RTRIM(itm.ShippingDoc)),'''') IS NOT NULL
-               AND ordst.[StatusDescriptionENG] = ''WaitingForCalibration''
+    'CASE WHEN ordst.[StatusDescriptionENG] = ''WaitingForCalibration''
+               AND EXISTS (SELECT 1 FROM [dbo].[OrderDetailsItems] r
+                           JOIN [dbo].[OrderDetails] rd ON rd.OrderDetailId = r.OrderDetailId
+                           WHERE rd.OrderWorkPlanId = op.OrderWorkPlanId
+                             AND ISNULL(r.IsDeleted,0) = 0
+                             AND NULLIF(LTRIM(RTRIM(r.MbaReportNumber)),'''') IS NOT NULL)
           THEN N''', @AwaitConfHeb, '''
           ELSE ordst.[StatusDescriptionHEB] END as OrderStatus
-    ,CASE WHEN NULLIF(LTRIM(RTRIM(itm.ShippingDoc)),'''') IS NOT NULL
-               AND ordst.[StatusDescriptionENG] = ''WaitingForCalibration''
+    ,CASE WHEN ordst.[StatusDescriptionENG] = ''WaitingForCalibration''
+               AND EXISTS (SELECT 1 FROM [dbo].[OrderDetailsItems] r
+                           JOIN [dbo].[OrderDetails] rd ON rd.OrderDetailId = r.OrderDetailId
+                           WHERE rd.OrderWorkPlanId = op.OrderWorkPlanId
+                             AND ISNULL(r.IsDeleted,0) = 0
+                             AND NULLIF(LTRIM(RTRIM(r.MbaReportNumber)),'''') IS NOT NULL)
           THEN N''', @AwaitConfEng, '''
           ELSE ordst.[StatusDescriptionENG] END as OrderStatusENG')
      ELSE 'ordst.[StatusDescriptionHEB] as OrderStatus
