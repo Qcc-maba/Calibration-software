@@ -67,6 +67,16 @@ BEGIN
         ,mvc.OutOfRange   as [BeyondCertificateRange]
         ,mvc.Extrapolated as [DeviationExtrapolated]
         ,mvc.CertificateTop      as [CertificateTop]
+        /*  MBA-950: a master with no certificate has not been calibrated itself and must not be
+            used silently. 5 of the 19 masters in use on STAGE are in that state, covering 206
+            measurement points, and all of them are temperature-and-humidity instruments.
+            NULL means no master is assigned to the row at all - a different thing from an
+            uncalibrated one, and the screen should say so differently. */
+        ,CAST(CASE WHEN combined.[SensorMeasurementDeviceId] IS NULL THEN NULL
+                   WHEN EXISTS (SELECT 1 FROM dbo.MeasurementDevicesCorrections AS mc
+                                WHERE mc.MeasurementDevicesId = md.ID
+                                  AND ISNULL(mc.IsDeleted, 0) = 0) THEN 1
+                   ELSE 0 END AS BIT) as [MasterHasCertificate]
         ,mvc.LastCalibratedPoint as [LastCalibratedPoint]
         /* MBA-475: whether this instrument is permitted to go out of range at all, from the
            kyulan registry. 328 instruments permit neither end; for those, any overshoot may
@@ -131,7 +141,29 @@ BEGIN
        master with no certificate, and for a temperature+humidity master - that one needs the
        2D interpolation in dbo.fnHumidityAfterCorrection, which our range-shaped correction
        data cannot feed yet. NULL is honest; the screen shows a dash. */
-    OUTER APPLY dbo.fnMasterValueAfterCorrection(md.ID, combined.[MasterValue], NULL) AS mvc
+    /*  MBA-950: ask for THIS ROW'S quantity, not "whichever the master has most of".
+        A probe measuring temperature and humidity produces two rows against one master. Passing
+        NULL let the function pick the better-covered curve, so both rows got the temperature
+        answer - and the humidity row displayed the temperature's compensated value labelled '%'.
+        Seen on master 21-554: a TC-K field probe with four temperature certificates and no
+        humidity certificate at all, showing 149.14 as a humidity reading.
+
+        The quantity is resolved from the row's own unit BY NAME rather than by id, because
+        dbo.Measurements is not numbered the same on the two servers - %RH is 3 on STAGE and 4 on
+        PROD, °C is 4 and 5. Matching '°C' to '°C' is correct on both.
+
+        Where the master holds no certificate for that quantity the function now returns nothing,
+        which is the honest answer: MasterValueAfterCorrection is NULL and the screen shows a dash
+        instead of the other quantity's number.  */
+    OUTER APPLY dbo.fnMasterValueAfterCorrection(
+        md.ID,
+        combined.[MasterValue],
+        (SELECT TOP (1) m.ID
+         FROM dbo.Measurements AS m
+         JOIN dbo.MeasurementDeviceUnits AS u
+           ON LTRIM(RTRIM(u.ShortNameEn)) = LTRIM(RTRIM(m.NameEn))
+          AND ISNULL(u.IsDeleted, 0) = 0
+         WHERE u.MeasurementDeviceUnitId = combined.[MasterValueUnitId])) AS mvc
     /* the third argument is passed explicitly: an inline table-valued function does not
        apply parameter defaults the way a stored procedure does, and omitting it fails the
        whole call with "an insufficient number of arguments". */
