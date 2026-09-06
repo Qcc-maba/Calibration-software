@@ -1,9 +1,30 @@
 ﻿#define AppName "Calibration Software"
-#define AppVersion "1.5.1"
+#define AppVersion "1.3.0"
 #define AppPublisher "MBA"
 #define AppURL "http://localhost:3000"
 #define ServiceName "MabaCalibrationServer"
 #define ServiceDisplayName "Maba Calibration Server"
+
+; Where the built web app comes from. Defaults assume a `BUILD_STANDALONE=true next build` inside
+; ..\app. The app cannot actually be built there today (Next's resolver fails on the pnpm symlinks
+; under OneDrive, and `next build` needs symlink rights the standalone copy step does not have), so
+; it is built in a plain local folder and pointed at here. Also note the layout differs: a build
+; whose tracing root is the repo nests the server under standalone\app, a standalone project root
+; puts it directly in standalone\.
+;
+;   ISCC.exe setup.iss ^
+;     /DWebAppStandalone="C:\tmp\maba-app\.next\standalone" ^
+;     /DWebAppStatic="C:\tmp\maba-app\.next\static" ^
+;     /DWebAppPublic="C:\tmp\maba-app\public"
+#ifndef WebAppStandalone
+  #define WebAppStandalone "..\app\.next\standalone\app"
+#endif
+#ifndef WebAppStatic
+  #define WebAppStatic "..\app\.next\static"
+#endif
+#ifndef WebAppPublic
+  #define WebAppPublic "..\app\public"
+#endif
 
 [Setup]
 AppId={{8F3A2C1D-4B5E-4F6A-9D2E-1C3B5A7F8E9D}
@@ -48,6 +69,7 @@ Name: "consolehost";  Description: "VCT Console Host (.NET)";      Types: full c
 Name: "{app}\webapp";
 Name: "{app}\webapp\.next\static";
 Name: "{app}\consolehost";
+Name: "{app}\consolehost\Settings";
 Name: "{app}\assets";
 Name: "{app}\logs";
 
@@ -71,18 +93,35 @@ Type: files; Name: "{app}\consolehost\*.log"
 
 [Files]
 ; --- Web App (Next.js standalone) ---
-Source: "..\app\.next\standalone\app\*";    DestDir: "{app}\webapp";           Components: webapp; Flags: recursesubdirs createallsubdirs ignoreversion
-Source: "..\app\.next\static\*";            DestDir: "{app}\webapp\.next\static"; Components: webapp; Flags: recursesubdirs createallsubdirs ignoreversion
-Source: "..\app\public\*";                  DestDir: "{app}\webapp\public";    Components: webapp; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#WebAppStandalone}\*";            DestDir: "{app}\webapp";           Components: webapp; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#WebAppStatic}\*";                DestDir: "{app}\webapp\.next\static"; Components: webapp; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#WebAppPublic}\*";                DestDir: "{app}\webapp\public";    Components: webapp; Flags: recursesubdirs createallsubdirs ignoreversion
 
 ; --- Console Host ---
-Source: "..\Systems\VCT\ComServer\ComServer.Hosts.ConsoleHost\bin\Release\*"; DestDir: "{app}\consolehost"; Components: consolehost; Excludes: "*.log,*.pdb"; Flags: recursesubdirs createallsubdirs ignoreversion
+; Settings\ is excluded here and shipped explicitly below: this recursive copy is ignoreversion,
+; which would overwrite a station's tuned VCT.json / ComServerSettings.json on every upgrade.
+Source: "..\Systems\VCT\ComServer\ComServer.Hosts.ConsoleHost\bin\Release\*"; DestDir: "{app}\consolehost"; Components: consolehost; Excludes: "*.log,*.pdb,Settings\*"; Flags: recursesubdirs createallsubdirs ignoreversion
+
+; --- Console Host baseline settings ---
+; Without these the host starts but does nothing useful: ComServerSettings.CreateDefaultSettings()
+; leaves Modules empty, so neither Hydra2BLCore nor Datron9100BLCore is loaded, and
+; VCTSettings.CreateDefaultSettings() has no Datron9100-GPIB tunnel. A fresh install therefore
+; had no logger and no GPIB master until someone hand-wrote the JSON.
+;
+; onlyifdoesntexist: the live files belong to the station once it has been configured. The
+; .default.json copies are rewritten by the app itself on every Read(), so they are not shipped.
+Source: "assets\Settings\VCT.json";                DestDir: "{app}\consolehost\Settings"; Components: consolehost; Flags: onlyifdoesntexist uninsneveruninstall
+Source: "assets\Settings\ComServerSettings.json";  DestDir: "{app}\consolehost\Settings"; Components: consolehost; Flags: onlyifdoesntexist uninsneveruninstall
+Source: "assets\Settings\HydraBL_Settings.json";   DestDir: "{app}\consolehost\Settings"; Components: consolehost; Flags: onlyifdoesntexist uninsneveruninstall
 
 ; --- Desktop / Start-menu launcher (runs start-all.bat hidden: service + WS + webapp) ---
 Source: "CalibrationLauncher\bin\Release\CalibrationLauncher.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 ; --- Launcher scripts ---
 Source: "assets\start-webapp.bat";          DestDir: "{app}\assets";           Flags: ignoreversion
+; Resolves REMOTE_DATABASE_URL for the station before launching node - env.js requires it
+; and the shipped .env carries only the _PROD / _STAGE variants.
+Source: "assets\start-webapp.ps1";          DestDir: "{app}\assets";           Flags: ignoreversion
 Source: "assets\start-consolehost.bat";     DestDir: "{app}\assets";           Flags: ignoreversion
 Source: "assets\start-all.bat";             DestDir: "{app}\assets";           Flags: ignoreversion
 Source: "assets\start-silent.vbs";          DestDir: "{app}\assets";           Flags: ignoreversion
@@ -195,6 +234,18 @@ begin
   if not Result then
     if RegQueryDWordValue(HKLM, 'SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full', 'Release', ReleaseVal) then
       Result := (ReleaseVal >= 528040);
+end;
+
+{ NI-488.2 (GPIB). The driver itself is not bundled - see Installer\DRIVERS.md. Without it the
+  GPIB-USB-HS+ adapter is dead (Device Manager code 28) and the Datron 9100 master never answers:
+  the server logs "[GPIB] write error addr 18: iberr=14 (EBUS)" every two seconds and no measurement
+  ever reaches the graph. Detect it so that failure is called out at install time instead. }
+function GpibDriverInstalled: Boolean;
+begin
+  Result := FileExists(ExpandConstant('{sys}\gpib-32.dll')) or
+            FileExists(ExpandConstant('{win}\SysWOW64\gpib-32.dll')) or
+            RegKeyExists(HKLM, 'SOFTWARE\National Instruments\NI-488.2') or
+            RegKeyExists(HKLM64, 'SOFTWARE\National Instruments\NI-488.2');
 end;
 
 function ServiceExists: Boolean;
@@ -440,6 +491,20 @@ begin
       WriteLog('User skipped Node.js installation');
   end;
 
+  { GPIB is optional: a station with only serial instruments does not need it. Warn rather than
+    block, but do say so plainly - the symptom otherwise is a silent one (no data in the graph). }
+  if GpibDriverInstalled then
+    WriteLog('Prerequisite check: NI-488.2 (GPIB) - OK')
+  else
+  begin
+    WriteLog('Prerequisite check: NI-488.2 (GPIB) - NOT FOUND');
+    MsgBox('The NI-488.2 GPIB driver was not detected.' + #13#10#13#10 +
+           'Serial instruments will work. GPIB masters (e.g. the Datron 9100) will NOT: the ' +
+           'adapter stays dead and no measurement reaches the graph.' + #13#10#13#10 +
+           'Install NI-488.2 from National Instruments after Setup finishes if this station uses GPIB.',
+           mbInformation, MB_OK);
+  end;
+
   WriteLogSection('PREREQUISITES COMPLETE');
 end;
 
@@ -490,6 +555,12 @@ begin
     RunAndLog('Set webapp permissions',
       'icacls.exe',
       '"' + ExpandConstant('{app}\webapp') + '" /grant Everyone:(OI)(CI)M /T');
+    { VCTSettings.Read() calls Save() on every read, so the Settings folder is written at runtime.
+      Under Program Files that fails for a non-elevated run (launcher / console) and the failure is
+      only traced, never surfaced. The service runs as LocalSystem and would not have noticed. }
+    RunAndLog('Set consolehost Settings permissions',
+      'icacls.exe',
+      '"' + ExpandConstant('{app}\consolehost\Settings') + '" /grant Everyone:(OI)(CI)M /T');
 
     // Step 1: Verify critical files exist
     WriteLogSection('STEP 1 - Verify Files');
