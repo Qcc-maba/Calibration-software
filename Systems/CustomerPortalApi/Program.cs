@@ -12,6 +12,11 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
+/* Run under the Windows SCM when installed as a service (sc.exe create). Without this the
+   process starts as a console app and never signals the SCM, so the service times out with
+   error 1053. Mirrors Maba.VCT.InstructionAssistant. */
+builder.Host.UseWindowsService(o => o.ServiceName = "MabaCustomerPortalApi");
+
 builder.Services
     .AddOptions<CustomerPortalOptions>()
     .Bind(builder.Configuration.GetSection(CustomerPortalOptions.SectionName));
