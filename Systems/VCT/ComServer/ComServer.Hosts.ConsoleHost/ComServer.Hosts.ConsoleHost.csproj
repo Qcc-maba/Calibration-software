@@ -35,6 +35,14 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <!--
+      Must match Debug: gpib-32.dll (NI-488.2, used by the Datron 9100 BL) exists only as a 32-bit
+      __cdecl library in SysWOW64. An AnyCPU build without this flag starts as a 64-bit process on
+      Windows x64 and fails to load it. The installer ships THIS configuration, so leaving it off
+      shipped a host that could not talk to the GPIB master.
+    -->
+    <Prefer32Bit>true</Prefer32Bit>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>

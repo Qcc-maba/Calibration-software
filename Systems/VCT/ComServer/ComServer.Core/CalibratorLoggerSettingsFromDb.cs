@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
@@ -23,6 +23,16 @@ namespace Maba.VCT.CommServer.Core
 
         private static string GetCalibratorEmail()
         {
+            /*  The signed-in user wins. It arrives from the web app over the WebSocket (see
+                CalibratorSession) and is the only source that is correct when two technicians
+                share a station. The settings below are the fallback for runs with no UI at all:
+                a Windows service, or --dump-calibrator-loggers from the command line. */
+            var fromSession = Maba.VCT.Common.CalibratorSession.Email;
+            if (!string.IsNullOrWhiteSpace(fromSession))
+            {
+                return fromSession;
+            }
+
             var fromConfig = ConfigurationManager.AppSettings["CalibratorUserEmail"];
             if (!string.IsNullOrWhiteSpace(fromConfig))
             {
@@ -90,21 +100,21 @@ namespace Maba.VCT.CommServer.Core
 
             if (IsExplicitlyDisabled())
             {
-                VCT.Libs.Trace.Tracer.Info("[DB→HW] SkipCalibratorLoggerFromDatabase is set; using VCT.json serial settings only.");
+                VCT.Libs.Trace.Tracer.Info("[DB->HW] SkipCalibratorLoggerFromDatabase is set; using VCT.json serial settings only.");
                 return;
             }
 
             var email = GetCalibratorEmail();
             if (string.IsNullOrEmpty(email))
             {
-                VCT.Libs.Trace.Tracer.Info("[DB→HW] No CalibratorUserEmail (appSettings or CALIBRATOR_USER_EMAIL); serial from VCT.json only.");
+                VCT.Libs.Trace.Tracer.Info("[DB->HW] No CalibratorUserEmail (appSettings or CALIBRATOR_USER_EMAIL); serial from VCT.json only.");
                 return;
             }
 
             var cs = GetConnectionString();
             if (string.IsNullOrEmpty(cs))
             {
-                VCT.Libs.Trace.Tracer.Info("[DB→HW] No SQL connection string; cannot load calibrator loggers.");
+                VCT.Libs.Trace.Tracer.Info("[DB->HW] No SQL connection string; cannot load calibrator loggers.");
                 return;
             }
 
@@ -152,7 +162,7 @@ namespace Maba.VCT.CommServer.Core
                     if (loggerDeviceId == null || comPort == null)
                     {
                         VCT.Libs.Trace.Tracer.Info(
-                            "[DB→HW] No COM logger in GetLogersConfiguredByCalibrator for {0}; serial from VCT.json.",
+                            "[DB->HW] No COM logger in GetLogersConfiguredByCalibrator for {0}; serial from VCT.json.",
                             email);
                         return;
                     }
@@ -177,7 +187,7 @@ namespace Maba.VCT.CommServer.Core
                     var tunnel = Array.Find(settings.Tunnels, t => !string.IsNullOrEmpty(t.SerialPortName));
                     if (tunnel == null)
                     {
-                        VCT.Libs.Trace.Tracer.Info("[DB→HW] No serial tunnel in VCT.json; cannot apply DB COM settings.");
+                        VCT.Libs.Trace.Tracer.Info("[DB->HW] No serial tunnel in VCT.json; cannot apply DB COM settings.");
                         return;
                     }
 
@@ -185,7 +195,7 @@ namespace Maba.VCT.CommServer.Core
                     tunnel.SerialBaudRate = baud;
 
                     VCT.Libs.Trace.Tracer.Info(
-                        "[DB→HW] Applied logger from DB for {0}: protocol={1}, port={2}, baud={3} (GetLogersConfiguredByCalibrator + GetAllCalibrationDevices).",
+                        "[DB->HW] Applied logger from DB for {0}: protocol={1}, port={2}, baud={3} (GetLogersConfiguredByCalibrator + GetAllCalibrationDevices).",
                         email,
                         protocol,
                         comPort,
@@ -194,7 +204,7 @@ namespace Maba.VCT.CommServer.Core
             }
             catch (Exception ex)
             {
-                VCT.Libs.Trace.Tracer.Info("[DB→HW] Failed to load/apply calibrator logger settings: {0}", ex.Message);
+                VCT.Libs.Trace.Tracer.Info("[DB->HW] Failed to load/apply calibrator logger settings: {0}", ex.Message);
             }
         }
     }

@@ -62,9 +62,11 @@
     <Compile Include="Com Layer\GpibCom.cs" />
     <Compile Include="Com Layer\SerialCom.cs" />
     <Compile Include="Com Layer\SocketCom.cs" />
+    <Compile Include="Com Layer\VisaCom.cs" />
     <Compile Include="Com Layer\WebSocketCom.cs" />
     <Compile Include="IComLayer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TransportDiscovery.cs" />
     <Compile Include="Tunnel.cs" />
   </ItemGroup>
   <ItemGroup>

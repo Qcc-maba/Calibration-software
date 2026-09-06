@@ -76,7 +76,10 @@ namespace Maba.VCT.Core.Device
                 AssociatedDeviceId = association.DeviceId;
                 AssociatedLoggerId = association.LoggerId;
                 AssociatedBatchId = association.BatchId;
-                AssociatedUnits = !string.IsNullOrEmpty(association.Units) ? association.Units : "Celsius";
+                // Left empty when the app sends no Units: this host serves one WebSocket client and
+                // has no hardware device in scope, so it cannot know whether the default should be
+                // Celsius or Volt. ServerCore resolves it per broadcasting device instead.
+                AssociatedUnits = association.Units;
                 AssociatedResolution = !string.IsNullOrEmpty(association.Resolution) ? association.Resolution : "2";
                 Libs.Trace.Tracer.Info("[WS] SensorsAssociation: DeviceID={0}, LoggerID={1}, BatchID={2}, Units={3}, Resolution={4}",
                     AssociatedDeviceId, AssociatedLoggerId, AssociatedBatchId, AssociatedUnits, AssociatedResolution);

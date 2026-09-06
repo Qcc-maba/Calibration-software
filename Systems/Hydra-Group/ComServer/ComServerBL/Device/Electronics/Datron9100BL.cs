@@ -1,4 +1,4 @@
-using Maba.VCT.Common;
+﻿using Maba.VCT.Common;
 using Maba.VCT.Common.API.RemoteProtocolService;
 using Maba.VCT.CommServer.BL.HydraDevices.BLCore;
 using Maba.VCT.Core.Events;
@@ -13,7 +13,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
     /// <para>
     /// The 9100 is a full SCPI-1994 instrument. Command strings live in the single
     /// <see cref="Datron9100Commands"/> table below and were verified live (2026-08-02) against a
-    /// Wavetek 9100 (fw 5.12) at GPIB PAD 18 — see docs/devices/Datron-9100/.
+    /// Wavetek 9100 (fw 5.12) at GPIB PAD 18 — see docs/devices/electronics/Datron-9100/.
     /// </para>
     /// <para>
     /// ⚠️ SAFETY / MODE: SCPI subsystem commands are only honoured in the 9100's MANUAL mode

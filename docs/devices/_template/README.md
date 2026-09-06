@@ -9,7 +9,7 @@
 - **BLCore:** `Systems/Hydra-Group/ComServer/ComServerBL/BLCore/<Xxx>BLCore.cs`
 
 ## חיבור פיזי
-- **תעבורה:** Serial / TCP / Modbus
+- **תעבורה:** Serial / TCP / Modbus / GPIB / VISA-USBTMC
 - **COM / Baud:** <COM3, 9600> — או —
 - **IP / Port:** <10.3.3.x : xxxxx>
 - **מס' ערוצים:** <n>

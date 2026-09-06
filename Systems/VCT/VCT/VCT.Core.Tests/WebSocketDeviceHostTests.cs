@@ -434,12 +434,17 @@ namespace Maba.VCT.Core.Tests
         }
 
         [TestMethod]
-        public void DataReceived_SensorsAssociation_EmptyUnits_DefaultsToCelsius()
+        public void DataReceived_SensorsAssociation_EmptyUnits_LeavesUnitsUnresolved()
         {
             string msg = "CMD:SensorsAssociation,LoggerID:L1,DeviceID:D1,BatchID:B1";
             _comLayer.SimulateStringDataReceived(msg);
 
-            Assert.AreEqual("Celsius", _host.AssociatedUnits);
+            // This host serves one WebSocket client and has no hardware device in scope, so it cannot
+            // know whether the default should be Celsius or Volt. It used to force "Celsius", which
+            // made a scope report volts as a temperature. ServerCore now resolves the fallback per
+            // broadcasting device (HardwareBL_Settings.DefaultUnitsForDeviceSN), so an unset value
+            // must stay unset here. Resolution has no such per-device meaning and keeps its default.
+            Assert.IsNull(_host.AssociatedUnits);
             Assert.AreEqual("2", _host.AssociatedResolution);
         }
 

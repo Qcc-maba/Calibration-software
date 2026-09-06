@@ -32,6 +32,22 @@ namespace Maba.VCT.Core.Settings
 
         public ComLayer.Tunnel[] Tunnels { get; set; }
 
+        /// <summary>
+        /// Find attached instruments at startup instead of requiring a tunnel per instrument.
+        /// <para>
+        /// Discovery enumerates the USB and GPIB instruments that actually answer, and probes serial
+        /// ports for their baud rate. Anything listed in <see cref="Tunnels"/> still opens exactly as
+        /// configured and its serial port is never probed, so a static entry remains available as an
+        /// override for an instrument that does not answer *IDN?.
+        /// </para>
+        /// <para>
+        /// This is what keeps the configuration free of per-instrument detail. It also removes two
+        /// failure modes that static tunnels caused: two instruments configured on one COM port, and a
+        /// tunnel for an instrument that had been unplugged wedging the device tick on its bus error.
+        /// </para>
+        /// </summary>
+        public bool AutoDiscoverTransports { get; set; } = true;
+
         public DeviceSettings[] DeviceSettings { get; set; }
 
         /// <summary>
@@ -105,7 +121,10 @@ namespace Maba.VCT.Core.Settings
                     Formatting = Formatting.Indented
                 };
 
-                using (var st = new FileStream(fullPath, FileMode.OpenOrCreate, FileAccess.Write))
+                // FileMode.Create, not OpenOrCreate: OpenOrCreate does not truncate, so saving a settings
+                // file shorter than the one on disk left the tail of the old content behind and
+                // produced a file that is valid JSON followed by garbage.
+                using (var st = new FileStream(fullPath, FileMode.Create, FileAccess.Write))
                 {
                     using (var txtWriter = new StreamWriter(st))
                     {

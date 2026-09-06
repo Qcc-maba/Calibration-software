@@ -2,7 +2,10 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-// General Information about an assembly is controlled through the following 
+// Same convention as VCT.Common and VCT.Core: let the test project reach internal helpers.
+[assembly: InternalsVisibleTo("Maba.VCT.Core.Tests")]
+
+// General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("ComLayer")]

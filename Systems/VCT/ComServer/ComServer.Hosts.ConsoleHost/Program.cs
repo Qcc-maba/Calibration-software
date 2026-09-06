@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.ServiceProcess;
@@ -83,8 +83,66 @@ namespace Maba.VCT.CommServer.Hosts.ConsoleHost
         }
 
         [MTAThread]
+        /// <summary>
+        /// Writes one line per fatal event to crash.log next to the executable.
+        ///
+        /// The server has died silently several times: the console output simply stops mid-line,
+        /// stderr is empty, and the process is gone. That is what an exception escaping a
+        /// thread-pool thread looks like - nothing in the .NET Framework prints it for you, and
+        /// the WebSocket paths all run on pool threads. These handlers do not stop the crash;
+        /// they make it leave evidence, which is the difference between fixing it and guessing.
+        /// </summary>
+        private static void LogFatal(string kind, Exception ex, bool isTerminating)
+        {
+            try
+            {
+                var path = System.IO.Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory ?? ".", "crash.log");
+                var text = string.Format(
+                    "{0:yyyy-MM-dd HH:mm:ss.fff}  {1}  terminating={2}{3}{4}{5}{6}",
+                    DateTime.Now, kind, isTerminating, Environment.NewLine,
+                    ex == null ? "(no exception object)" : ex.ToString(),
+                    Environment.NewLine, new string('-', 78) + Environment.NewLine);
+
+                System.IO.File.AppendAllText(path, text);
+                Console.WriteLine("[FATAL] {0}: {1}", kind, ex == null ? "(none)" : ex.Message);
+                Console.Out.Flush();
+            }
+            catch
+            {
+                // a failure while recording a crash must not replace the crash
+            }
+        }
+
+        private static void InstallCrashHandlers()
+        {
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+                LogFatal("UnhandledException", e.ExceptionObject as Exception, e.IsTerminating);
+
+            // an async void that throws, or a faulted Task nobody awaited, lands here
+            System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (s, e) =>
+            {
+                LogFatal("UnobservedTaskException", e.Exception, false);
+                e.SetObserved();   // keep it from escalating to a process kill
+            };
+
+            AppDomain.CurrentDomain.ProcessExit += (s, e) =>
+            {
+                try
+                {
+                    System.IO.File.AppendAllText(
+                        System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory ?? ".", "crash.log"),
+                        string.Format("{0:yyyy-MM-dd HH:mm:ss.fff}  ProcessExit (clean shutdown){1}",
+                            DateTime.Now, Environment.NewLine));
+                }
+                catch { }
+            };
+        }
+
         static void Main(string[] args)
         {
+            InstallCrashHandlers();
+
             if (args.Length > 0 && args[0].Equals("--test-db", StringComparison.OrdinalIgnoreCase))
             {
                 TestDatabaseConnection();
@@ -129,7 +187,11 @@ namespace Maba.VCT.CommServer.Hosts.ConsoleHost
 
                 #region Com server settings
 
-                var settings = CommServer.Core.Settings.ComServerSettings.CreateDefaultSettings();
+                // Read what is on disk first: CreateDefaultSettings() never carries any Modules, so
+                // building from it and saving unconditionally overwrote Settings\ComServerSettings.json
+                // on every startup and silently erased any module an operator had added. Defaults are
+                // seeded only when the file genuinely lists none.
+                var settings = CommServer.Core.Settings.ComServerSettings.Read();
 
                 #region Modules
 
@@ -146,6 +208,11 @@ namespace Maba.VCT.CommServer.Hosts.ConsoleHost
                         {
                             AssemblyName = System.IO.Path.GetFileNameWithoutExtension(typeof(BL.HydraDevices.BLCore.Datron9100BLCore).Assembly.ManifestModule.Name),
                             TypeName = typeof(BL.HydraDevices.BLCore.Datron9100BLCore).FullName
+                        },
+                        new Core.Module()
+                        {
+                            AssemblyName = System.IO.Path.GetFileNameWithoutExtension(typeof(BL.HydraDevices.BLCore.KeysightEdux1002aBLCore).Assembly.ManifestModule.Name),
+                            TypeName = typeof(BL.HydraDevices.BLCore.KeysightEdux1002aBLCore).FullName
                         }
                     };
 

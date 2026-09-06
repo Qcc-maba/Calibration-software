@@ -30,7 +30,10 @@ namespace Maba.VCT.CommServer.Core.Settings
                     Formatting = Formatting.Indented
                 };
 
-                using (var st = new FileStream(fullPath, FileMode.OpenOrCreate, FileAccess.Write))
+                // FileMode.Create, not OpenOrCreate: OpenOrCreate does not truncate, so saving a settings
+                // file shorter than the one on disk left the tail of the old content behind and
+                // produced a file that is valid JSON followed by garbage.
+                using (var st = new FileStream(fullPath, FileMode.Create, FileAccess.Write))
                 {
                     using (var txtWriter = new StreamWriter(st))
                     {

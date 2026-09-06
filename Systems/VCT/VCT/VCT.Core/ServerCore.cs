@@ -1,7 +1,8 @@
-using Maba.DAL.BaseDAL;
+﻿using Maba.DAL.BaseDAL;
 using Maba.VCT.Accessories;
 using Maba.VCT.ComLayer.Com_Layer;
 using Maba.VCT.Common;
+using Maba.VCT.CommServer.BL.HydraDevices.Settings;
 using Maba.VCT.Core.Device;
 using Maba.VCT.Core.Events;
 using System;
@@ -114,8 +115,23 @@ namespace Maba.VCT.Core
                 Libs.Trace.Tracer.Info("[ServerCore] DeviceOnIncomingEvent from SN={0}, packet={1}", hardwareDevice.SN, e.Packet?.ToString()?.Trim());
                 BroadcastToWebSockets(hardwareDevice, e.Packet);
             }
+            /*  Any message from the web app may announce who is signed in. The ComServer starts
+                before anyone signs in and cannot read the browser's session, so this is the only
+                way it learns whose loggers and channels to load. Recorded before the message is
+                acted on, so a Status:"Start" that carries the address is already attributed. */
+            if (e.Device is Device.WebSocketDeviceHost
+                && e.Packet is Common.Protocol_Parser.WebSocketMessage.BaseMessage announced
+                && !string.IsNullOrWhiteSpace(announced.Email))
+            {
+                if (Common.CalibratorSession.SetEmail(announced.Email))
+                {
+                    Libs.Trace.Tracer.Info("[ServerCore] Signed-in calibrator announced by the web app: {0}",
+                        Common.CalibratorSession.Email);
+                }
+            }
+
             // If the event came from a WebSocket client with a Status:Stop command, disconnect all hardware devices
-            else if (e.Device is Device.WebSocketDeviceHost && e.Packet is Common.Protocol_Parser.WebSocketMessage.StatusMessage statusMsg)
+            if (e.Device is Device.WebSocketDeviceHost && e.Packet is Common.Protocol_Parser.WebSocketMessage.StatusMessage statusMsg)
             {
                 if (string.Equals(statusMsg.Value, "Stop", StringComparison.OrdinalIgnoreCase))
                 {
@@ -208,7 +224,11 @@ namespace Maba.VCT.Core
                         var wsLoggerId = !string.IsNullOrEmpty(wsHost.AssociatedLoggerId) ? wsHost.AssociatedLoggerId : device.SN;
                         var wsBatchId = !string.IsNullOrEmpty(wsHost.AssociatedBatchId) ? wsHost.AssociatedBatchId : "LIVE";
 
-                        var wsUnits = !string.IsNullOrEmpty(wsHost.AssociatedUnits) ? wsHost.AssociatedUnits : "Celsius";
+                        // An association from the app wins; otherwise fall back to what this
+                        // instrument actually measures rather than assuming temperature.
+                        var wsUnits = !string.IsNullOrEmpty(wsHost.AssociatedUnits)
+                            ? wsHost.AssociatedUnits
+                            : HardwareBL_Settings.Read().DefaultUnitsForDeviceSN(device.SN);
                         var wsResolution = !string.IsNullOrEmpty(wsHost.AssociatedResolution) ? wsHost.AssociatedResolution : "2";
 
                         var sb = new System.Text.StringBuilder();
@@ -438,12 +458,35 @@ namespace Maba.VCT.Core
 
             Libs.Trace.Tracer.Info($"[STARTUP] Configured tunnels: {CurrentServerSettings.Tunnels.Length}");
 
+            var tunnelsToOpen = new List<ComLayer.Tunnel>(CurrentServerSettings.Tunnels);
+
+            if (CurrentServerSettings.AutoDiscoverTransports)
+            {
+                tunnelsToOpen.AddRange(DiscoverTransportTunnels(CurrentServerSettings.Tunnels));
+            }
+
             int serialCount = 0;
             int tcpCount = 0;
 
-            foreach (var t in CurrentServerSettings.Tunnels)
+            foreach (var t in tunnelsToOpen)
             {
-                if (t.GpibPrimaryAddress >= 0)
+                if (!string.IsNullOrWhiteSpace(t.VisaResource))
+                {
+                    // VISA tunnel: open a VisaCom on the configured resource (needs a VISA runtime).
+                    Libs.Trace.Tracer.Info($"[STARTUP] Opening VISA resource {t.VisaResource}...");
+                    try
+                    {
+                        var visa = new ComLayer.VisaCom(t.VisaResource, t) { TimeoutMs = t.VisaTimeoutMs };
+                        AddDevice_Pending_ComLayer(visa);
+                        visa.Open();
+                        Libs.Trace.Tracer.Info($"[STARTUP] VISA resource {visa.ResolvedResourceName} opened OK");
+                    }
+                    catch (Exception ex)
+                    {
+                        Libs.Trace.Tracer.Info($"[STARTUP] FAILED to open VISA resource {t.VisaResource}: {ex.Message}");
+                    }
+                }
+                else if (t.GpibPrimaryAddress >= 0)
                 {
                     // GPIB tunnel: open a GpibCom on the configured primary address (needs NI-488.2).
                     Libs.Trace.Tracer.Info($"[STARTUP] Opening GPIB board {t.GpibBoardIndex} address {t.GpibPrimaryAddress}...");
@@ -466,7 +509,18 @@ namespace Maba.VCT.Core
                     string actualPort;
                     if (string.Equals(t.SerialPortName, "AUTO", StringComparison.OrdinalIgnoreCase))
                     {
-                        var detectedPort = DetectUsbToSerialPort();
+                        // Exclude ports another tunnel claims by name: DetectUsbToSerialPort matches
+                        // on "Prolific"/"FTDI"/"CH340"/..., so without this an AUTO tunnel would grab
+                        // the adapter a named tunnel already owns and open it at the wrong baud rate
+                        // (the PRODIGIT 3111 is a Prolific adapter that needs 115200, not the 9600 the
+                        // AUTO tunnel is configured for).
+                        var claimedPorts = CurrentServerSettings.Tunnels
+                            .Where(other => !string.IsNullOrWhiteSpace(other.SerialPortName)
+                                         && !string.Equals(other.SerialPortName, "AUTO", StringComparison.OrdinalIgnoreCase))
+                            .Select(other => other.SerialPortName.Trim())
+                            .ToList();
+
+                        var detectedPort = DetectUsbToSerialPort(claimedPorts);
                         actualPort = detectedPort ?? t.SerialPortName;
 
                         if (detectedPort != null)
@@ -802,20 +856,177 @@ namespace Maba.VCT.Core
         #region Private methods
 
         /// <summary>
-        /// Auto-detect USB-to-Serial COM port using WMI.
-        /// Prioritizes USB-to-Serial adapters (Prolific, FTDI, CH340, CP210x) over Bluetooth serial ports.
-        /// Returns the detected port name, or null if none found.
+        /// Turns everything <see cref="ComLayer.TransportDiscovery"/> can find into tunnels, skipping
+        /// anything the static configuration already covers.
+        /// <para>
+        /// A configured tunnel always wins: its VISA resource, GPIB address or serial port is left to
+        /// it, so discovery can never open a second link to the same instrument.
+        /// </para>
         /// </summary>
-        /// <summary>Host/OS-specific (WMI). Not unit-tested; covered manually on hardware.</summary>
         [ExcludeFromCodeCoverage]
-        private string DetectUsbToSerialPort()
+        private List<ComLayer.Tunnel> DiscoverTransportTunnels(ComLayer.Tunnel[] configured)
+        {
+            var discovered = new List<ComLayer.Tunnel>();
+
+            try
+            {
+                var anyVisaConfigured = configured.Any(t => !string.IsNullOrWhiteSpace(t.VisaResource));
+                var claimedGpib = new HashSet<int>(
+                    configured.Where(t => t.GpibPrimaryAddress >= 0).Select(t => t.GpibPrimaryAddress));
+                var claimedSerial = configured
+                    .Where(t => !string.IsNullOrWhiteSpace(t.SerialPortName)
+                             && !string.Equals(t.SerialPortName, "AUTO", StringComparison.OrdinalIgnoreCase))
+                    .Select(t => t.SerialPortName.Trim())
+                    .ToList();
+
+                Libs.Trace.Tracer.Info("[STARTUP] Discovering attached instruments...");
+
+                // A configured VISA entry may be a find expression rather than a literal resource, so
+                // matching names is not reliable. If any USB tunnel is configured at all, that
+                // configuration stands and USB discovery stays out of the way.
+                if (!anyVisaConfigured)
+                {
+                    foreach (var usb in ComLayer.TransportDiscovery.DiscoverUsb())
+                        discovered.Add(new ComLayer.Tunnel { Name = usb.Name, VisaResource = usb.VisaResource });
+                }
+
+                foreach (var gpib in ComLayer.TransportDiscovery.DiscoverGpib())
+                {
+                    if (claimedGpib.Contains(gpib.GpibPrimaryAddress)) continue;
+                    discovered.Add(new ComLayer.Tunnel { Name = gpib.Name, GpibPrimaryAddress = gpib.GpibPrimaryAddress });
+                }
+
+                foreach (var serial in ComLayer.TransportDiscovery.DiscoverSerial(claimedSerial, ListProbeableSerialPorts()))
+                {
+                    discovered.Add(new ComLayer.Tunnel
+                    {
+                        Name = serial.Name,
+                        SerialPortName = serial.SerialPortName,
+                        SerialBaudRate = serial.SerialBaudRate,
+                        SerialTimeout = 100
+                    });
+                }
+
+                Libs.Trace.Tracer.Info("[STARTUP] Discovery added {0} tunnel(s).", discovered.Count);
+            }
+            catch (Exception ex)
+            {
+                // Discovery is an optimisation, never a prerequisite: a failure here must not stop the
+                // configured tunnels from opening.
+                Libs.Trace.Tracer.Info("[STARTUP] Transport discovery failed (continuing with configured tunnels): {0}", ex.Message);
+            }
+
+            return discovered;
+        }
+
+        /// <summary>
+        /// The COM ports worth probing for an instrument: everything the OS reports except Bluetooth
+        /// serial links, which are never instruments and can block for many seconds on open - probing
+        /// the two on this bench stretched startup from a few seconds to 46.
+        /// Returns null when the ports cannot be classified, which leaves discovery to probe them all.
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private List<string> ListProbeableSerialPorts()
         {
             try
             {
-                var usbKeywords = new[] { "USB-to-Serial", "USB Serial", "FTDI", "CH340", "CP210", "Prolific" };
+                var probeable = new List<string>();
                 using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_PnPEntity WHERE Name LIKE '%(COM%'"))
                 {
-                    var ports = new List<Tuple<string, string>>(); // <portName, deviceName>
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        var name = obj["Name"]?.ToString();
+                        if (string.IsNullOrEmpty(name)) continue;
+
+                        var match = System.Text.RegularExpressions.Regex.Match(name, @"\(COM(\d+)\)");
+                        if (!match.Success) continue;
+
+                        if (name.IndexOf("Bluetooth", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            Libs.Trace.Tracer.Info("[Discovery] COM{0} is a Bluetooth link - not probed.", match.Groups[1].Value);
+                            continue;
+                        }
+
+                        probeable.Add("COM" + match.Groups[1].Value);
+                    }
+                }
+                return probeable;
+            }
+            catch (Exception ex)
+            {
+                Libs.Trace.Tracer.Info("[Discovery] Could not classify serial ports ({0}); probing all of them.", ex.Message);
+                return null;
+            }
+        }
+
+        /// <summary>Device-name fragments that mark a COM port as a USB-to-serial adapter.</summary>
+        internal static readonly string[] UsbToSerialKeywords =
+            { "USB-to-Serial", "USB Serial", "FTDI", "CH340", "CP210", "Prolific" };
+
+        /// <summary>
+        /// Chooses the port an AUTO serial tunnel should open, given every COM port the OS reported.
+        /// <para>
+        /// Pure decision logic, deliberately separated from the WMI query in
+        /// <see cref="DetectUsbToSerialPort"/> so it can be tested without hardware. The order is:
+        /// drop anything another tunnel claims by name, prefer a USB-to-serial adapter, then fall back
+        /// to the first non-Bluetooth port.
+        /// </para>
+        /// <para>
+        /// The exclusion is what keeps AUTO off a port that already belongs to someone: the keyword
+        /// list matches "Prolific", so without it the AUTO tunnel would take the PRODIGIT 3111's
+        /// adapter and open it at its own 9600 instead of the load's 115200.
+        /// </para>
+        /// </summary>
+        /// <param name="ports">Reported ports as portName -> device name, in the order the OS listed them.</param>
+        /// <param name="excludePorts">Ports another tunnel claims by name; never returned.</param>
+        /// <returns>The port to open, or null when nothing is suitable.</returns>
+        internal static string SelectAutoSerialPort(
+            IEnumerable<KeyValuePair<string, string>> ports,
+            IEnumerable<string> excludePorts)
+        {
+            if (ports == null)
+                return null;
+
+            var excluded = excludePorts != null
+                ? new HashSet<string>(excludePorts.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim()),
+                                      StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var candidates = ports
+                .Where(p => !string.IsNullOrWhiteSpace(p.Key) && !excluded.Contains(p.Key.Trim()))
+                .ToList();
+
+            foreach (var port in candidates)
+            {
+                var name = port.Value ?? "";
+                if (UsbToSerialKeywords.Any(k => name.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0))
+                    return port.Key;
+            }
+
+            foreach (var port in candidates)
+            {
+                var name = port.Value ?? "";
+                if (name.IndexOf("Bluetooth", StringComparison.OrdinalIgnoreCase) < 0)
+                    return port.Key;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Auto-detects the COM port for an AUTO serial tunnel: asks WMI which ports exist, then
+        /// applies <see cref="SelectAutoSerialPort"/>. Only the WMI query lives here — the choice
+        /// itself is pure and unit-tested.
+        /// </summary>
+        /// <param name="excludePorts">Ports another tunnel already claims by name; never returned.</param>
+        [ExcludeFromCodeCoverage]
+        private string DetectUsbToSerialPort(List<string> excludePorts = null)
+        {
+            try
+            {
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_PnPEntity WHERE Name LIKE '%(COM%'"))
+                {
+                    var ports = new List<KeyValuePair<string, string>>(); // portName -> device name
                     foreach (ManagementObject obj in searcher.Get())
                     {
                         var name = obj["Name"]?.ToString();
@@ -826,32 +1037,23 @@ namespace Maba.VCT.Core
                         if (!match.Success) continue;
 
                         var portName = "COM" + match.Groups[1].Value;
-                        ports.Add(Tuple.Create(portName, name));
+                        ports.Add(new KeyValuePair<string, string>(portName, name));
                         Libs.Trace.Tracer.Info("[AutoDetect] Found: {0} = {1}", portName, name);
                     }
 
-                    // Prioritize USB-to-Serial adapters
-                    foreach (var port in ports)
+                    if (excludePorts != null && excludePorts.Count > 0)
                     {
-                        foreach (var keyword in usbKeywords)
-                        {
-                            if (port.Item2.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
-                            {
-                                Libs.Trace.Tracer.Info("[AutoDetect] Selected USB-to-Serial: {0} ({1})", port.Item1, port.Item2);
-                                return port.Item1;
-                            }
-                        }
+                        Libs.Trace.Tracer.Info("[AutoDetect] Excluded (claimed by a named tunnel): {0}",
+                            string.Join(", ", excludePorts));
                     }
 
-                    // No USB-to-Serial found, return first non-Bluetooth port if any
-                    foreach (var port in ports)
+                    var selected = SelectAutoSerialPort(ports, excludePorts);
+                    if (selected != null)
                     {
-                        if (port.Item2.IndexOf("Bluetooth", StringComparison.OrdinalIgnoreCase) < 0)
-                        {
-                            Libs.Trace.Tracer.Info("[AutoDetect] Selected non-BT port: {0} ({1})", port.Item1, port.Item2);
-                            return port.Item1;
-                        }
+                        var deviceName = ports.First(p => p.Key == selected).Value;
+                        Libs.Trace.Tracer.Info("[AutoDetect] Selected: {0} ({1})", selected, deviceName);
                     }
+                    return selected;
                 }
             }
             catch (Exception ex)
@@ -926,6 +1128,8 @@ namespace Maba.VCT.Core
 
         List<Device.DeviceHostPending> _TempDeviceHost = new List<Device.DeviceHostPending>();
 
+        /// <summary>0 when no device tick is running, 1 while one is. See TimerManager_Device_Elapsed.</summary>
+        private int _deviceTickRunning;
 
         /// <summary>Long-running timer orchestration; validated in integration/manual runs.</summary>
         [ExcludeFromCodeCoverage]
@@ -934,6 +1138,33 @@ namespace Maba.VCT.Core
             if (TimerManager_DeviceHost == null)
                 return;
 
+            // One tick at a time. System.Timers.Timer fires again on a new thread whether or not the
+            // previous callback has finished, and _TempDeviceHost is a shared field that each tick
+            // Clear()s at the start and reads at the end. Overlapping ticks therefore raced: one tick
+            // queued an identified device for promotion, a second cleared the list before the first
+            // got to it, and the device was re-queued forever and never promoted - silently, since
+            // nothing threw. A tick gets slow enough for this whenever a tunnel is answering slowly,
+            // e.g. a GPIB address with no listener burning its timeout on every pass.
+            if (System.Threading.Interlocked.CompareExchange(ref _deviceTickRunning, 1, 0) != 0)
+            {
+                Libs.Trace.Tracer.Info("[PENDING] Previous device tick still running - skipping this one.");
+                return;
+            }
+
+            try
+            {
+                DeviceTick();
+            }
+            finally
+            {
+                System.Threading.Interlocked.Exchange(ref _deviceTickRunning, 0);
+            }
+        }
+
+        /// <summary>The device timer's actual work. Only ever entered by one thread at a time.</summary>
+        [ExcludeFromCodeCoverage]
+        private void DeviceTick()
+        {
             DateTime NowTime = DateTime.UtcNow;
 
             #region Pending
@@ -951,6 +1182,10 @@ namespace Maba.VCT.Core
                         dev = list[i];
                         if (!dev.D.IsConnected)
                         {
+                            Libs.Trace.Tracer.Info(
+                                "[PENDING] Dropping pending device (tunnel={0}, SN={1}): its link reports disconnected.",
+                                dev.D.InternalComLayer?.ParentTunnel?.Name ?? "?",
+                                dev.D.SN ?? "unset");
                             dev.D.Disconnect();
                             dev.Remove = true;
                         }
@@ -1101,6 +1336,15 @@ namespace Maba.VCT.Core
 
                     if (!_connectionEventArgs.Handled)
                     {
+                        // No BL core claimed it. Say so: otherwise an SN that matches no
+                        // DeviceIdToken - or a module missing from ComServerSettings.Modules - looks
+                        // exactly like a device that answered *IDN? and then silently went away.
+                        Libs.Trace.Tracer.Info(
+                            "[PENDING] No BL module claimed SN='{0}' (tunnel={1}) - disconnecting it. " +
+                            "Check the BLCore DeviceIdToken against this SN, and that the module is listed " +
+                            "in Settings/ComServerSettings.json.",
+                            _DeviceHost.SN,
+                            _DeviceHost.InternalComLayer?.ParentTunnel?.Name ?? "?");
                         _connectionEventArgs.Device.Disconnect();
                     }
                     else
@@ -1131,8 +1375,12 @@ namespace Maba.VCT.Core
                 CheckDataTimeouts(NowTime);
                 #endregion
             }
-            catch
+            catch (Exception ex)
             {
+                // Was a bare catch: a device could answer *IDN?, fail to promote, and vanish without
+                // a single line of explanation. Whatever goes wrong here, say what it was.
+                Libs.Trace.Tracer.Info("[PENDING] Device promotion pass failed: {0}: {1}",
+                    ex.GetType().Name, ex.Message);
             }
 
             #endregion

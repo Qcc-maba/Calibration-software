@@ -1,4 +1,4 @@
-using Maba.VCT.Common.Protocol_Parser;
+﻿using Maba.VCT.Common.Protocol_Parser;
 using Maba.VCT.Common.Protocol_Parser.WebSocketMessage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
@@ -25,6 +25,61 @@ namespace Maba.VCT.Core.Tests
                 _packetCount++;
             };
         }
+
+        #region Signed-in calibrator (Email) Tests
+
+        /*  The web app announces who is signed in by adding "Email" to a message it already sends;
+            the ComServer cannot read the browser session and has no other way to know. These pin
+            down that it is picked up whatever the message type, and that its absence is harmless. */
+
+        [TestMethod]
+        public void ParseStatus_WithEmail_ShouldCaptureSignedInCalibrator()
+        {
+            _parser.OnData("CMD:Status,Value:Start,DeviceID:D1,Email:eliran_ha@mba.co.il");
+
+            Assert.IsNotNull(_parsedPacket);
+            Assert.IsInstanceOfType(_parsedPacket, typeof(StatusMessage));
+            Assert.AreEqual("eliran_ha@mba.co.il", _parsedPacket.Email);
+            Assert.AreEqual("Start", ((StatusMessage)_parsedPacket).Value);
+        }
+
+        [TestMethod]
+        public void ParseLoggerConfiguration_WithEmail_ShouldCaptureSignedInCalibrator()
+        {
+            _parser.OnData("CMD:LoggerConfiguration,Email:tech@mba.co.il,LoggerID:L1,IP:10.3.3.43,"
+                           + "Rate:100,Interval:1000,BatchID:B1,BatchChannels:C1");
+
+            Assert.IsInstanceOfType(_parsedPacket, typeof(LoggerConfigurationMessage));
+            Assert.AreEqual("tech@mba.co.il", _parsedPacket.Email);
+        }
+
+        [TestMethod]
+        public void ParseStatus_WithoutEmail_ShouldLeaveItNull()
+        {
+            _parser.OnData("CMD:Status,Value:Stop,DeviceID:D1");
+
+            Assert.IsNotNull(_parsedPacket);
+            Assert.IsNull(_parsedPacket.Email, "a message with no Email must not invent one");
+        }
+
+        [TestMethod]
+        public void ParseStatus_WithQuotedJsonEmail_ShouldStripPunctuation()
+        {
+            // the shape the web app actually sends
+            _parser.OnData("{\"CMD\":\"Status\",\"Value\":\"Start\",\"Email\":\"eliran_ha@mba.co.il\"}");
+
+            Assert.AreEqual("eliran_ha@mba.co.il", _parsedPacket.Email);
+        }
+
+        [TestMethod]
+        public void ParseStatus_WithBlankEmail_ShouldLeaveItNull()
+        {
+            _parser.OnData("CMD:Status,Value:Start,Email: ");
+
+            Assert.IsNull(_parsedPacket.Email, "a blank field must not overwrite a known identity");
+        }
+
+        #endregion
 
         #region LoggerConfiguration Tests
 

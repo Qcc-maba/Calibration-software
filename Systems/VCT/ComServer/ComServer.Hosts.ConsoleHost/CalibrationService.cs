@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using System.ServiceProcess;
 
@@ -39,7 +39,11 @@ namespace Maba.VCT.CommServer.Hosts.ConsoleHost
                     vctSettings.Save();
                 }
 
-                var settings = CommServer.Core.Settings.ComServerSettings.CreateDefaultSettings();
+                // Read what is on disk first: CreateDefaultSettings() never carries any Modules, so
+                // building from it and saving unconditionally overwrote Settings\ComServerSettings.json
+                // on every startup and silently erased any module an operator had added. Defaults are
+                // seeded only when the file genuinely lists none.
+                var settings = CommServer.Core.Settings.ComServerSettings.Read();
                 if (settings.Modules == null || settings.Modules.Length == 0)
                 {
                     settings.Modules = new Core.Module[]
@@ -53,6 +57,11 @@ namespace Maba.VCT.CommServer.Hosts.ConsoleHost
                         {
                             AssemblyName = System.IO.Path.GetFileNameWithoutExtension(typeof(BL.HydraDevices.BLCore.Datron9100BLCore).Assembly.ManifestModule.Name),
                             TypeName = typeof(BL.HydraDevices.BLCore.Datron9100BLCore).FullName
+                        },
+                        new Core.Module()
+                        {
+                            AssemblyName = System.IO.Path.GetFileNameWithoutExtension(typeof(BL.HydraDevices.BLCore.KeysightEdux1002aBLCore).Assembly.ManifestModule.Name),
+                            TypeName = typeof(BL.HydraDevices.BLCore.KeysightEdux1002aBLCore).FullName
                         }
                     };
                     settings.Save();

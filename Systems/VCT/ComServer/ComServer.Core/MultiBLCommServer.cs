@@ -1,4 +1,5 @@
-using Maba.VCT.Core.Device;
+﻿using Maba.VCT.Core.Device;
+using Maba.VCT.CommServer.BL.HydraDevices.Settings;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -50,6 +51,35 @@ namespace Maba.VCT.CommServer.Core
 
             this.Settings4VCTServer = VCT.Core.Settings.VCTSettings.Read();
             CalibratorLoggerSettingsFromDb.TryApplyToVctSettings(this.Settings4VCTServer);
+
+            /*  At this point nobody has signed in yet - the ComServer starts before the browser
+                does - so the two loads above fall back to App.config and usually find nothing.
+                When the web app announces the signed-in calibrator they are run again for that
+                user. HardwareBL_Settings.Read() is a process-wide singleton, so a later load is
+                seen by everything that reads it from then on; a BL module that already copied a
+                value into its own field at Start keeps the old one until the next restart, which
+                is why the reload says so out loud rather than implying a clean swap. */
+            Maba.VCT.Common.CalibratorSession.EmailChanged += (sender, email) =>
+            {
+                try
+                {
+                    VCT.Libs.Trace.Tracer.Info("[DB->HW] Reloading station configuration for {0}.", email);
+                    CalibratorLoggerSettingsFromDb.TryApplyToVctSettings(this.Settings4VCTServer);
+                    CalibratorDeviceConfigFromDb.TryApplyToHardwareSettings(HardwareBL_Settings.Read());
+                    VCT.Libs.Trace.Tracer.Info("[DB->HW] Reload done. BL modules already running keep "
+                        + "their cached channel set until the server is restarted.");
+                }
+                catch (Exception ex)
+                {
+                    // a failed reload must never take the server down
+                    VCT.Libs.Trace.Tracer.Info("[DB->HW] Reload for {0} failed: {1}", email, ex.Message);
+                }
+            };
+
+            // Override the per-family measurement config (scan rate / interval / channels) with what
+            // the coordinator saved for this station's masters (dbo.AssignMeasurmentDevicesToCalibrator).
+            // Must run BEFORE the BL modules start, since BaseBLCore.Start caches HardwareBL_Settings.Read().
+            CalibratorDeviceConfigFromDb.TryApplyToHardwareSettings(HardwareBL_Settings.Read());
 
             Console.ForegroundColor = ConsoleColor.Green;
             VCT.Libs.Trace.Tracer.Info("VCT Server Starting.");

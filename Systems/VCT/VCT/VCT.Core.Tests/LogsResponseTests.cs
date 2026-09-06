@@ -191,7 +191,7 @@ namespace Maba.VCT.Core.Tests
         }
 
         [TestMethod]
-        public void ParseLogResponse_GetLogs_Meas_InvalidValue_AddsZero()
+        public void ParseLogResponse_GetLogs_Meas_InvalidValue_IsDiscarded()
         {
             var response = new LogsResponse(true, LogsRequest.LogCommands.GetLogs);
             var cmd = new HardwarePacket("MEAS?\r\n", true);
@@ -199,10 +199,11 @@ namespace Maba.VCT.Core.Tests
 
             response.ParseLogResponse(cmd, result, LogsRequest.LogCommands.GetLogs);
 
-            // TryParse fails, res = 0
-            Assert.AreEqual(1, response.Measurements.Count);
-            Assert.AreEqual(0.0, response.Measurements[0]);
-            Assert.IsTrue(response.HasResponse);
+            // The branch used to add the failed TryParse out-value, so a garbled reply reached the app
+            // as a plausible reading of 0. Harmless while no device sent MEAS commands; not harmless
+            // now that the EDUX1002A does. A reply we cannot parse yields no measurement at all.
+            Assert.AreEqual(0, response.Measurements.Count);
+            Assert.IsFalse(response.HasResponse);
         }
 
         #endregion

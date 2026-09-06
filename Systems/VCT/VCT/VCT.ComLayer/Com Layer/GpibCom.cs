@@ -1,4 +1,4 @@
-using Maba.VCT.Libs.Trace;
+﻿using Maba.VCT.Libs.Trace;
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -206,8 +206,20 @@ namespace Maba.VCT.ComLayer
             SendBytes(Encoding.ASCII.GetBytes(s));
             // GPIB queries are request/response: read the reply back immediately. EOI (asserted on the
             // instrument's last byte) terminates the read, so no line terminator is appended on write.
-            if (ReadAfterEveryWrite || s.TrimEnd().EndsWith("?"))
+            if (ReadAfterEveryWrite || IsQuery(s))
                 ReadReply();
+        }
+
+        /// <summary>
+        /// True when a SCPI command expects a reply. The '?' is not always last: a query that takes
+        /// parameters puts them after it, as the CNT-90 does in ":MEASure:FREQuency? (@1)". Testing
+        /// only the final character left such a reply unread and stalled acquisition - the same bug
+        /// that bit the oscilloscope over USBTMC (see VisaCom.IsQuery). In SCPI '?' appears only in
+        /// queries, so looking anywhere in the command is the correct test.
+        /// </summary>
+        internal static bool IsQuery(string command)
+        {
+            return command != null && command.IndexOf('?') >= 0;
         }
 
         public void SendBytes(byte[] b)

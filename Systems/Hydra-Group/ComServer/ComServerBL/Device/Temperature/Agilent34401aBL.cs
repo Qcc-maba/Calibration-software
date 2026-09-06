@@ -1,4 +1,4 @@
-using Maba.VCT.Common;
+﻿using Maba.VCT.Common;
 using Maba.VCT.Common.API.RemoteProtocolService;
 using Maba.VCT.CommServer.BL.HydraDevices.BLCore;
 using Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations;
@@ -15,7 +15,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
     /// Verified protocol (2026-07-16, fw 10-5-2): 9600 8-N-1, DTR/DSR, "\r\n".
     /// Sequence: *RST -> *CLS -> SYST:REM (mandatory) -> CONF:&lt;func&gt; -> &lt;func&gt;:RANG:AUTO ON -> READ? loop.
     /// READ? returns a scientific-notation value; 9.9E37 = over-range / open.
-    /// See docs/devices/Agilent-34401A/protocol.md.
+    /// See docs/devices/temperature/Agilent-34401A/protocol.md.
     /// </summary>
     public class Agilent34401aBL : CommonBL.BaseBLDevice
     {

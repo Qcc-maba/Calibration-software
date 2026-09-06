@@ -1,4 +1,4 @@
-using Maba.VCT.Libs.Trace;
+﻿using Maba.VCT.Libs.Trace;
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -70,6 +70,12 @@ namespace Maba.VCT.ComLayer.Com_Layer
             {
                 if (WebSocket != null && WebSocket.State == WebSocketState.Open)
                 {
+                    /*  Every frame the server sends is printed, the mirror of the [WS RX] line in
+                        RunReceiveLoopAsync. Without this only one direction was visible, so a
+                        silent graph could not be told apart from a graph that was never sent
+                        anything - the first question asked whenever readings do not appear. */
+                    LogFrame("TX", Encoding.UTF8.GetString(b, offset, count));
+
                     await WebSocket.SendAsync(new ArraySegment<byte>(b, offset, count), WebSocketMessageType.Text, true, CancellationToken.None);
                     LastTX_Time = DateTime.Now;
                 }
@@ -83,6 +89,34 @@ namespace Maba.VCT.ComLayer.Com_Layer
                 Console.WriteLine($"[WS Send] ERROR: {ex.Message}");
             }
         }
+        /// <summary>
+        /// Prints one WebSocket frame to the console AND to server.log, so the two directions can
+        /// be read together after the fact. Long frames are truncated in the log line only - what
+        /// is sent or received is untouched.
+        /// </summary>
+        private static void LogFrame(string direction, string message)
+        {
+            if (string.IsNullOrEmpty(message))
+            {
+                return;
+            }
+
+            var flat = message.Replace("\r", " ").Replace("\n", " ").Trim();
+            var shown = flat.Length > 400
+                ? flat.Substring(0, 400) + " ...(" + flat.Length + " chars)"
+                : flat;
+
+            Console.WriteLine("[WS " + direction + "] " + shown);
+            try
+            {
+                Tracer.Info("[WS {0}] {1}", direction, shown);
+            }
+            catch
+            {
+                // never let logging break the socket
+            }
+        }
+
         public void SendString(string s)
         {
             if (!string.IsNullOrEmpty(s))
@@ -247,7 +281,7 @@ namespace Maba.VCT.ComLayer.Com_Layer
                         var message = sb.ToString();
                         if (message.Length > 0)
                         {
-                            Console.WriteLine($"[WS RX] {message}");
+                            LogFrame("RX", message);
                             DataReceived?.Invoke(this, new DataReceivedEventArgs(message));
                         }
                     }
