@@ -64,6 +64,55 @@ DeviceModel NVARCHAR(30)
 INSERT #DeviceModels(DeviceModel)
 SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceModels) as v
 
+-- MBA: the device texts for the whole order, fetched once.
+-- These used to be read inside the row-by-row OUTER APPLY below, which asked the amaba linked
+-- server for SERNUMBERSTEXT again for every row: a single order took over three minutes. One
+-- remote round trip per call, filtered by the order, brings it back to seconds.
+DROP TABLE IF EXISTS #DeviceTexts
+CREATE TABLE #DeviceTexts
+(
+OrderDetailId INT NOT NULL,
+OrderDetailsItemId INT NOT NULL,
+TEXTORD INT NULL,
+TEXTLINE INT NULL,
+CleanText NVARCHAR(MAX) NULL
+)
+
+INSERT #DeviceTexts (OrderDetailId, OrderDetailsItemId, TEXTORD, TEXTLINE, CleanText)
+SELECT od.OrderDetailId, odt.OrderDetailsItemId, st.TEXTORD, st.TEXTLINE,
+       LTRIM(RTRIM(
+                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                        REVERSE(CAST(st.[TEXT] AS NVARCHAR(MAX))),
+                        N'<style> p,div,li', N''),
+                        N'</style>', N''),
+                        N'<style>', N''),
+                        N'<P dir=rtl align=right>', N''),
+                        N'<P dir=rtl>', N''),
+                        N'dir=rtl>', N''),
+                        N'<FONT size=3 face=David>', N''),
+                        N'<FONT face=David size=3>', N''),
+                        N'<FONT face=David size=2>', N''),
+                        N'<FONT face=David>', N''),
+                        N'</FONT>', N''),
+                        N'<BR>', NCHAR(10)),
+                        N'</P>', NCHAR(10)),
+                        N'&nbsp;', N' '),
+                        N'<B>', N''),
+                        N'</B>', N''),
+                        N'<STRONG>', N''),
+                        N'</STRONG>', N''),
+                        N'</strong>', N'')
+                ))
+FROM [dbo].[OrderWorkPlans] AS op
+JOIN [dbo].[OrderDetails] AS od ON od.OrderWorkPlanId = op.OrderWorkPlanId
+JOIN [dbo].[OrderDetailsItems] AS odt ON odt.OrderDetailId = od.OrderDetailId
+     AND ISNULL(odt.IsDeleted, 0) = 0 AND odt.SERN IS NOT NULL
+JOIN [31.168.173.93].[amaba].[dbo].[SERNUMBERSTEXT] AS st ON st.SERN = odt.SERN
+WHERE op.OrderNumber = TRIM(@OrderNumber)
+
+CREATE CLUSTERED INDEX IDX_DeviceTexts ON #DeviceTexts(OrderDetailId, OrderDetailsItemId)
+
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
 'SELECT DISTINCT
@@ -155,47 +204,19 @@ OUTER APPLY
 
 OUTER APPLY
 (
-    SELECT
-        STRING_AGG(x.CleanText, NCHAR(10))
-            WITHIN GROUP (ORDER BY x.TEXTORD, x.TEXTLINE) AS TextToDevice
-    FROM (
-        SELECT
-            st.TEXTORD,
-            st.TEXTLINE,
-            CleanText =
-                LTRIM(RTRIM(
-                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-                        REVERSE(CAST(st.[TEXT] AS NVARCHAR(MAX))),
-                        N''<style> p,div,li'', N''''),
-                        N''</style>'', N''''),
-                        N''<style>'', N''''),
-                        N''<P dir=rtl align=right>'', N''''),
-                        N''<P dir=rtl>'', N''''),
-                        N''dir=rtl>'', N''''),
-                        N''<FONT size=3 face=David>'', N''''),
-                        N''<FONT face=David size=3>'', N''''),
-                        N''<FONT face=David size=2>'', N''''),
-                        N''<FONT face=David>'', N''''),
-                        N''</FONT>'', N''''),
-                        N''<BR>'', NCHAR(10)),
-                        N''</P>'', NCHAR(10)),
-                        N''&nbsp;'', N'' ''),
-                        N''<B>'', N''''),
-                        N''</B>'', N''''),
-                        N''<STRONG>'', N''''),
-                        N''</STRONG>'', N''''),
-                        N''</strong>'', N'''')
-                ))
-        FROM [31.168.173.93].[amaba].[dbo].[SERNUMBERSTEXT] AS st
-        WHERE st.SERN = itm.SERN AND od.OrderLineCnt = 1
-    ) x
-    WHERE x.CleanText <> N''''
-      AND x.CleanText NOT LIKE N''%font-family%''
-      AND x.CleanText NOT LIKE N''%font-size%''
-      AND x.CleanText NOT LIKE N''%margin%''
-      AND x.CleanText NOT LIKE N''%style%''
-      AND x.CleanText NOT LIKE N''%p,div,li%''
+    -- Every device on the line, comma separated. The text used to be read from the single joined
+    -- item and only when OrderLineCnt = 1, so a grouped line never showed any. Reads #DeviceTexts,
+    -- populated once above. NOTE: no apostrophes in comments here - this is inside a SQL literal.
+    SELECT STRING_AGG(dt.CleanText, N'', '')
+             WITHIN GROUP (ORDER BY dt.OrderDetailsItemId, dt.TEXTORD, dt.TEXTLINE) AS TextToDevice
+    FROM #DeviceTexts AS dt
+    WHERE dt.OrderDetailId = od.OrderDetailId
+      AND dt.CleanText <> N''''
+      AND dt.CleanText NOT LIKE N''%font-family%''
+      AND dt.CleanText NOT LIKE N''%font-size%''
+      AND dt.CleanText NOT LIKE N''%margin%''
+      AND dt.CleanText NOT LIKE N''%style%''
+      AND dt.CleanText NOT LIKE N''%p,div,li%''
 ) as dtxt
 '
 +'
