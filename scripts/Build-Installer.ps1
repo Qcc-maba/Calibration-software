@@ -1,4 +1,4 @@
-# Calibration Software - Installer Builder
+﻿# Calibration Software - Installer Builder
 # Builds Next.js app + ConsoleHost, then compiles an Inno Setup .exe installer
 #
 # Usage:
@@ -144,6 +144,15 @@ if (-not $Iscc) {
 Write-OK "Inno Setup: $Iscc"
 
 # ─── Step 5: Compile installer ────────────────────────────────────────────────
+
+# The station env is generated, not the developer one: shipping app\.env verbatim would put
+# the staging database password, the SQL admin connection string, the SMTP password and the test
+# accounts onto every customer machine.
+& (Join-Path $Root "scripts\New-StationEnv.ps1")
+if (-not (Test-Path (Join-Path $Root "Installer\assets\.env.station"))) {
+    Write-Fail "Station env was not generated"
+}
+Write-OK "Station env generated"
 
 Write-Step 5 5 "Compiling installer with Inno Setup..."
 $IssFile = Join-Path $Root "Installer\setup.iss"
