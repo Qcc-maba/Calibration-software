@@ -10,6 +10,10 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
   <ItemGroup>
+    <!-- ConnectionStringSettingsCollection, for the ResolveDbSectionName tests. -->
+    <Reference Include="System.Configuration" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="System.Memory" Version="4.5.5" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />

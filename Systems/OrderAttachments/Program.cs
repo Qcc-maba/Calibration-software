@@ -10,6 +10,19 @@ MsgEncoding.EnsureRegistered();
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Listen on our OWN setting, not the shared ASPNETCORE_URLS.
+//
+// ASPNETCORE_URLS is a machine-wide environment variable that EVERY ASP.NET service on the box
+// reads. Maba.VCT.CustomerPortalApi runs on these same machines, so whichever installer ran last
+// silently repointed the other service - and on 07/09 both ended up on 5312, where the portal won
+// the port and answered /health for a request meant for this service. Reading a variable only this
+// service knows about removes the collision at the source rather than relying on port discipline.
+var ownUrls = builder.Configuration["OrderAttachments:Urls"];
+if (!string.IsNullOrWhiteSpace(ownUrls))
+{
+    builder.WebHost.UseUrls(ownUrls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+}
+
 // Lets the same executable run as a console app in development and as a Windows Service on the
 // server, the same way Maba.VCT.InstructionAssistant does.
 builder.Host.UseWindowsService(o => o.ServiceName = "MabaOrderAttachments");

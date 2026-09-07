@@ -580,15 +580,38 @@ namespace Maba.VCT.Core
             #endregion
 
             #region DB connector
-            try
+            /* VCT.json names the connection string "KyulanSyncDB", but the station's .exe.config
+               ships it as REMOTE_DATABASE_URL - the name the web app and the rest of the host use.
+               Looking up only GeneralDBName returns null, and BaseDALConnector dereferences it, so
+               a perfectly healthy station reported "DB connection FAILED ... Object reference not
+               set" and printed "DB: not connected" in the startup summary. That summary is what an
+               installer checks to confirm the connection string points where it should, so it has
+               to tell the truth. Program.GetSqlConnectionString() already falls back this way. */
+            var dbSectionName = ResolveDbSectionName(
+                CurrentServerSettings.GeneralDBName,
+                System.Configuration.ConfigurationManager.ConnectionStrings);
+            if (dbSectionName == null)
             {
-                connector = new MSSqlServer(CurrentServerSettings.GeneralDBName);
-                await connector.OpenAsync();
-                Libs.Trace.Tracer.Info("[STARTUP] DB connected OK.");
+                Libs.Trace.Tracer.Info(
+                    $"[STARTUP] DB not configured (non-fatal): no connectionStrings entry named " +
+                    $"'{CurrentServerSettings.GeneralDBName}' or 'REMOTE_DATABASE_URL' in the .exe.config.");
             }
-            catch (Exception dbEx)
+            else
             {
-                Libs.Trace.Tracer.Info($"[STARTUP] DB connection FAILED (non-fatal): {dbEx.Message}");
+                try
+                {
+                    var candidate = new MSSqlServer(dbSectionName);
+                    await candidate.OpenAsync();
+                    // Only now is it genuinely connected; assigning before the open made the
+                    // summary claim "connected" whenever Open() itself failed.
+                    connector = candidate;
+                    Libs.Trace.Tracer.Info($"[STARTUP] DB connected OK (connectionStrings/{dbSectionName}).");
+                }
+                catch (Exception dbEx)
+                {
+                    Libs.Trace.Tracer.Info(
+                        $"[STARTUP] DB connection FAILED (non-fatal) using connectionStrings/{dbSectionName}: {dbEx.Message}");
+                }
             }
             #endregion
 
@@ -917,6 +940,28 @@ namespace Maba.VCT.Core
             }
 
             return discovered;
+        }
+
+        /// <summary>
+        /// The name of the connectionStrings entry to open the startup DB check with: the one
+        /// VCT.json asks for, else REMOTE_DATABASE_URL, else null when neither is configured.
+        /// Returning the name rather than the string keeps the connection string itself - which
+        /// carries a password - out of every log line and exception message.
+        /// </summary>
+        /// <remarks>
+        /// Takes the collection rather than reading ConfigurationManager itself so a test can hand
+        /// it an empty one - the "nothing is configured" case is otherwise unreachable, because the
+        /// test host's own App.config always defines REMOTE_DATABASE_URL.
+        /// </remarks>
+        internal static string ResolveDbSectionName(
+            string preferredName, System.Configuration.ConnectionStringSettingsCollection configured)
+        {
+            if (!string.IsNullOrWhiteSpace(preferredName) && configured[preferredName] != null)
+            {
+                return preferredName;
+            }
+
+            return configured["REMOTE_DATABASE_URL"] != null ? "REMOTE_DATABASE_URL" : null;
         }
 
         /// <summary>

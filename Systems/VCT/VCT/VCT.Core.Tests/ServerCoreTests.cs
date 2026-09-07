@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -391,6 +392,59 @@ namespace Maba.VCT.Core.Tests
             var com = new MockComLayer();
             var wsHost = new WebSocketDeviceHost(server.MainEventsBus, com, "WS_TimerNull");
             server.MainEventsBus.Fire_OnIncomingEvent(wsHost, new DeviceEventArgs(wsHost, new StatusMessage { Value = "Start" }));
+        }
+
+        #endregion
+
+        #region ResolveDbSectionName Tests
+
+        /*  VCT.json asks for "KyulanSyncDB" while the station's .exe.config ships the entry as
+            REMOTE_DATABASE_URL. Looking up only the requested name returned null and the DAL
+            dereferenced it, so a healthy station reported "DB: not connected" at startup - the one
+            line a deploy reads to confirm the connection string points where it should.
+            This App.config defines REMOTE_DATABASE_URL (deliberately unreachable) and no
+            KyulanSyncDB, which is exactly the station's shape. */
+
+        /// <summary>The station's shape: REMOTE_DATABASE_URL present, KyulanSyncDB absent.</summary>
+        private static ConnectionStringSettingsCollection StationConnectionStrings()
+        {
+            var collection = new ConnectionStringSettingsCollection();
+            collection.Add(new ConnectionStringSettings(
+                "REMOTE_DATABASE_URL", "Server=(local)\\NONEXISTENT;Database=UnitTests;"));
+            return collection;
+        }
+
+        [TestMethod]
+        public void ResolveDbSectionName_PreferredEntryExists_ReturnsPreferred()
+        {
+            Assert.AreEqual("REMOTE_DATABASE_URL",
+                ServerCore.ResolveDbSectionName("REMOTE_DATABASE_URL", StationConnectionStrings()));
+        }
+
+        [TestMethod]
+        public void ResolveDbSectionName_PreferredEntryMissing_FallsBackToRemoteDatabaseUrl()
+        {
+            // The real station case: VCT.json's GeneralDBName has no matching entry.
+            Assert.AreEqual("REMOTE_DATABASE_URL",
+                ServerCore.ResolveDbSectionName("KyulanSyncDB", StationConnectionStrings()));
+        }
+
+        [TestMethod]
+        public void ResolveDbSectionName_NoPreferredName_FallsBackToRemoteDatabaseUrl()
+        {
+            Assert.AreEqual("REMOTE_DATABASE_URL",
+                ServerCore.ResolveDbSectionName(null, StationConnectionStrings()));
+            Assert.AreEqual("REMOTE_DATABASE_URL",
+                ServerCore.ResolveDbSectionName("   ", StationConnectionStrings()));
+        }
+
+        [TestMethod]
+        public void ResolveDbSectionName_NothingConfigured_ReturnsNull()
+        {
+            // Startup must report "DB not configured" rather than throwing a NullReferenceException.
+            var empty = new ConnectionStringSettingsCollection();
+            Assert.IsNull(ServerCore.ResolveDbSectionName("KyulanSyncDB", empty));
+            Assert.IsNull(ServerCore.ResolveDbSectionName(null, empty));
         }
 
         #endregion
