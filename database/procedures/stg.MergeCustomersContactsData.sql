@@ -1,7 +1,9 @@
-/*
+﻿/*
     stg.MergeCustomersContactsData                                                     MBA-922
     ---------------------------------------------------------------------------------------------
-    Carries IsPrimary and DoNotMail through from staging, and fixes the match test.
+    Carries IsPrimary, DoNotMail and IsActive through from staging, and fixes the match test.
+    IsActive is Priority's INACTIVE flag inverted: the row is kept and updated like any other,
+    so nothing is ever deleted on either side.
 
     The WHEN MATCHED clause ANDed every field comparison together, so a row only updated when EVERY
     field had changed at once - which never happens. One of those lines even tested for equality
@@ -34,6 +36,9 @@ BEGIN
 			,0 [UpdateUserID]
 			,ISNULL(cc.[IsPrimary],0) as [IsPrimary]
 			,ISNULL(cc.[DoNotMail],0) as [DoNotMail]
+			/* Priority's INACTIVE. A contact who has left stays in both systems and keeps this
+			   flag; the portal simply will not resolve a visitor to them. */
+			,ISNULL(cc.[IsActive],1) as [IsActive]
 		FROM stg.stg_CustomerContacts as cc
 		JOIN dbo.Source as ss ON cc.SourceSystem = ss.SourceName
 		JOIN [dbo].[Customers] as c ON cc.[CustomerId] = c.[CustomerIdFromSource] AND c.[SourceId] = ss.SourceId 
@@ -50,7 +55,8 @@ BEGIN
 			 OR ISNULL(dest.[CustomerContactAdditionalPhoneNumber],N'') <> ISNULL(source.[CustomerContactAdditionalPhoneNumber],N'')
 			 OR ISNULL(dest.[CustomerContactEmail],N'')                 <> ISNULL(source.[CustomerContactEmail],N'')
 			 OR ISNULL(dest.[IsPrimary],0)                              <> source.[IsPrimary]
-			 OR ISNULL(dest.[DoNotMail],0)                              <> source.[DoNotMail])
+			 OR ISNULL(dest.[DoNotMail],0)                              <> source.[DoNotMail]
+			 OR ISNULL(dest.[IsActive],1)                               <> source.[IsActive])
 		THEN
 			UPDATE
 			SET  dest.[CustomerId] = source.[CustomerId]
@@ -62,6 +68,7 @@ BEGIN
 				,dest.[CustomerContactIdFromSource] = source.[CustomerContactIdFromSource]
 				,dest.[IsPrimary] = source.[IsPrimary]
 				,dest.[DoNotMail] = source.[DoNotMail]
+				,dest.[IsActive] = source.[IsActive]
 				,dest.[UpdatedDate] = GETDATE()
 				,dest.[UpdateUserID] = 0
 	WHEN NOT MATCHED
@@ -78,6 +85,7 @@ BEGIN
 				,[UpdateUserID]
 				,[IsPrimary]
 				,[DoNotMail]
+				,[IsActive]
 				)
 			VALUES (
 				 source.[CustomerId]
@@ -91,6 +99,7 @@ BEGIN
 				,source.[UpdateUserID]
 				,source.[IsPrimary]
 				,source.[DoNotMail]
+				,source.[IsActive]
 				);
 /*
 --Add customer contact as a user

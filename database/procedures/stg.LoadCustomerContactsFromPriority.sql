@@ -1,4 +1,4 @@
-/*
+﻿/*
     stg.LoadCustomerContactsFromPriority                                               MBA-922
     ---------------------------------------------------------------------------------------------
     Fills stg.stg_CustomerContacts from Priority's PHONEBOOK - EVERY row for a customer we hold,
@@ -10,6 +10,8 @@
 
     ORDFLAG becomes IsPrimary rather than a filter, so the designated contact is still identifiable.
     MBA_NOTMAIL becomes DoNotMail and must be honoured before anything is sent.
+    INACTIVE becomes IsActive = 0: the row is still imported, but nothing resolves a portal
+    visitor to it. Priority is never written to, and no row is deleted on either side.
 
     Phone: PHONENUM if present, otherwise OFFICEPHONE. CELLPHONE goes to the additional number.
     Rows with no NAME are skipped - there is nobody to show.
@@ -43,7 +45,8 @@ BEGIN
                CELLPHONE   = LTRIM(RTRIM(CELLPHONE)),
                EMAIL       = LTRIM(RTRIM(EMAIL)),
                ORDFLAG     = LTRIM(RTRIM(ISNULL(ORDFLAG,'''')))  ,
-               NOTMAIL     = LTRIM(RTRIM(ISNULL(MBA_NOTMAIL,'''')))
+               NOTMAIL     = LTRIM(RTRIM(ISNULL(MBA_NOTMAIL,''''))),
+               INACTIVE    = LTRIM(RTRIM(ISNULL(INACTIVE,'''')))
         FROM amaba.dbo.PHONEBOOK
         WHERE CUST > 0
     ');
@@ -55,7 +58,8 @@ BEGIN
                MatchOurCustomers  = COUNT(DISTINCT CASE WHEN c.CustomerId IS NOT NULL THEN p.CUST END),
                RowsWeWouldTake    = SUM(CASE WHEN c.CustomerId IS NOT NULL THEN 1 ELSE 0 END),
                MarkedPrimary      = SUM(CASE WHEN c.CustomerId IS NOT NULL AND p.ORDFLAG = 'Y' THEN 1 ELSE 0 END),
-               MarkedDoNotMail    = SUM(CASE WHEN c.CustomerId IS NOT NULL AND p.NOTMAIL = 'Y' THEN 1 ELSE 0 END)
+               MarkedDoNotMail    = SUM(CASE WHEN c.CustomerId IS NOT NULL AND p.NOTMAIL = 'Y' THEN 1 ELSE 0 END),
+               MarkedInactive     = SUM(CASE WHEN c.CustomerId IS NOT NULL AND p.INACTIVE = 'Y' THEN 1 ELSE 0 END)
         FROM #PB AS p
         LEFT JOIN dbo.Customers AS c ON c.CustomerIdFromSource = p.CUST;
         RETURN;
@@ -66,7 +70,7 @@ BEGIN
     INSERT INTO stg.stg_CustomerContacts
           (CustomerContactIdFromSource, CustomerContactName, CustomerContactPersonRole,
            CustomerContactPhone, CustomerContactAdditionalPhoneNumber, CustomerContactEmail,
-           CustomerId, SourceSystem, IsPrimary, DoNotMail)
+           CustomerId, SourceSystem, IsPrimary, DoNotMail, IsActive)
     SELECT p.PHONE,
            LEFT(p.NAME, 100),
            LEFT(NULLIF(p.POSITIONDES, ''), 100),
@@ -77,7 +81,11 @@ BEGIN
            p.CUST,
            s.SourceName,
            CAST(CASE WHEN p.ORDFLAG = 'Y' THEN 1 ELSE 0 END AS BIT),
-           CAST(CASE WHEN p.NOTMAIL = 'Y' THEN 1 ELSE 0 END AS BIT)
+           CAST(CASE WHEN p.NOTMAIL = 'Y' THEN 1 ELSE 0 END AS BIT),
+           /* Priority's own active flag. Nothing is dropped here - an inactive contact is
+              imported like any other and carries the flag; only the portal's identity lookups
+              refuse to resolve a visitor to one. */
+           CAST(CASE WHEN p.INACTIVE = 'Y' THEN 0 ELSE 1 END AS BIT)
     FROM #PB AS p
     JOIN dbo.Customers AS c ON c.CustomerIdFromSource = p.CUST
     JOIN dbo.Source    AS s ON s.SourceId = c.SourceId
@@ -86,6 +94,7 @@ BEGIN
     SELECT Staged      = COUNT(*),
            Customers   = COUNT(DISTINCT CustomerId),
            Primary_    = SUM(CAST(IsPrimary AS INT)),
-           DoNotMail_  = SUM(CAST(DoNotMail AS INT))
+           DoNotMail_  = SUM(CAST(DoNotMail AS INT)),
+           Inactive_   = SUM(CASE WHEN IsActive = 0 THEN 1 ELSE 0 END)
     FROM stg.stg_CustomerContacts;
 END

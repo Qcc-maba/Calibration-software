@@ -1,4 +1,4 @@
-SET ANSI_NULLS ON;
+﻿SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
@@ -67,6 +67,9 @@ RETURN
                MIN(cc.CustomerContactId) AS FirstContactId
         FROM dbo.CustomerContacts AS cc
         WHERE ISNULL(cc.IsDeleted, 0) = 0
+          /* Priority's INACTIVE, carried by the sync. The row stays - it is simply not an
+             identity any more, so a contact who has left cannot still open that customer. */
+          AND ISNULL(cc.IsActive, 1) = 1
           AND LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))) = LOWER(LTRIM(RTRIM(@LoggedInUserEmail)))
         GROUP BY cc.CustomerId
     ),

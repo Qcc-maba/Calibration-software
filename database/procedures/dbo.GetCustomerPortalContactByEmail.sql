@@ -1,4 +1,4 @@
-SET ANSI_NULLS ON;
+﻿SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
@@ -68,6 +68,7 @@ BEGIN
         @ContactPhone      = cc.CustomerContactPhone
     FROM dbo.CustomerContacts AS cc
     WHERE cc.IsDeleted = 0
+      AND ISNULL(cc.IsActive, 1) = 1   /* Priority's INACTIVE - see dbo.GetPortalCustomerIds */
       AND LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))) = @NormalizedEmail
       AND (@PrimaryCustomerId IS NULL OR cc.CustomerId = @PrimaryCustomerId)
     ORDER BY cc.CustomerContactId ASC;   /* deterministic pick within the chosen customer */
@@ -79,6 +80,7 @@ BEGIN
         SELECT @MatchCount = COUNT(DISTINCT cc.CustomerId)
         FROM dbo.CustomerContacts AS cc
         WHERE cc.IsDeleted = 0
+          AND ISNULL(cc.IsActive, 1) = 1
           AND LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))) = @NormalizedEmail;
     END
     ELSE
