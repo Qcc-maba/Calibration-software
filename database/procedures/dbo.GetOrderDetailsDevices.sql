@@ -31,15 +31,22 @@ JOIN dbo.UserRoles as ur ON u.UserRoleId = ur.UserRoleId
 ;WITH numbers
 as
 (
-SELECT 1 as cnt, od.OrderLineCnt, od.OrderDetailId, od.OrdersProductTypeId, od.OrderWorkPlanId
+-- MBA: a line gets as many slots as it has devices, never fewer than OrderLineCnt. The
+-- recursion used to stop at OrderLineCnt, so a line carrying more items than its count
+-- (32476 on LA26103958: count 1, items 11058 and 11059) silently dropped the surplus item,
+-- and the wizard opened it to 'no items'.
+SELECT 1 as cnt, od.OrderLineCnt, od.OrderDetailId, od.OrdersProductTypeId, od.OrderWorkPlanId,
+       Slots = CASE WHEN ic.ItemCount > ISNULL(od.OrderLineCnt, 0) THEN ic.ItemCount ELSE ISNULL(od.OrderLineCnt, 0) END
 FROM [dbo].[OrderDetails] as od 
+OUTER APPLY (SELECT ItemCount = COUNT(*) FROM [dbo].[OrderDetailsItems] AS i
+             WHERE i.OrderDetailId = od.OrderDetailId AND ISNULL(i.IsDeleted, 0) = 0) AS ic
 WHERE od.OrderWorkPlanId = @OrderWorkPlanId
 UNION ALL
-SELECT n.cnt +1, od.OrderLineCnt, od.OrderDetailId, od.OrdersProductTypeId, od.OrderWorkPlanId
+SELECT n.cnt +1, od.OrderLineCnt, od.OrderDetailId, od.OrdersProductTypeId, od.OrderWorkPlanId, n.Slots
 FROM numbers as n
 JOIN [dbo].[OrderDetails] as od ON od.OrderDetailId = n.OrderDetailId AND od.OrderLineCnt = n.OrderLineCnt
 WHERE od.OrderWorkPlanId = @OrderWorkPlanId
-AND cnt < od.OrderLineCnt
+AND n.cnt < n.Slots
 )
 ,
 result as
