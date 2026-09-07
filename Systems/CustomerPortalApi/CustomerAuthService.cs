@@ -95,13 +95,12 @@ public sealed class CustomerAuthService(
             logger.LogInformation("{Email} resolved from Priority and added to CustomerContacts", email);
         }
 
-        if (_devLoginCode is not null)
+        if (_devLoginCode is not null && string.IsNullOrWhiteSpace(_options.Smtp.User))
         {
-            /* The code is already known - it is the configured one - so there is nothing an e-mail
-               would tell the developer, and a mailbox that cannot be reached from a workstation
-               (or an SMTP account the machine cannot authenticate as) would otherwise fail the
-               request and stop a local login that is meant to need no mail at all. */
-            logger.LogWarning("Development login code issued for {Email} without sending mail", email);
+            /* No relay to send through, and the code is the configured one anyway - so there is
+               nothing an e-mail could add. Without this, a workstation with no SMTP account fails
+               the request and stops a local login that is meant to need no mail at all. */
+            logger.LogWarning("Development login code issued for {Email}; no SMTP configured", email);
 
             return RequestOtpResponse.Sent(_options.OtpTtlSeconds);
         }
@@ -121,6 +120,14 @@ public sealed class CustomerAuthService(
             /* The code row is already in place; the visitor simply asks for another one. Failing the
                whole request would leak nothing useful and read as a server error in the UI. */
             logger.LogError(exception, "Failed to send the OTP e-mail to {Email}", email);
+
+            if (_devLoginCode is not null)
+            {
+                /* The code is the configured one, so the login can go ahead without the mail: a
+                   relay a workstation cannot reach must not block local work. Loopback-only
+                   Development host - see DevLoginCode. */
+                return RequestOtpResponse.Sent(_options.OtpTtlSeconds);
+            }
 
             return RequestOtpResponse.SendFailed();
         }
