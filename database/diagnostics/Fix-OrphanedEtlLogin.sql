@@ -1,4 +1,24 @@
 /*
+    ==========================================================================================
+    RESOLVED 07/09/2026. Kept as the record of what was actually wrong, because the reasoning
+    below is still how you would diagnose a repeat.
+
+    Three faults were stacked, each hidden by the one before it. Watch the run DURATION as the
+    signal: 7s (login) -> 19s (password) -> minutes (working).
+
+      1. No server login 'ed'         -> CREATE LOGIN + ALTER USER ... WITH LOGIN, both databases
+      2. Its password did not match   -> lifted verbatim from the connection string (see below)
+      3. No EXECUTE on the procedures -> GRANT EXECUTE ON SCHEMA::stg / etl / dbo
+
+    CalibratorProd went from 2,838 work plans stopped at 31/08 to 2,900 reaching 07/09.
+
+    CORRECTION to step 5 of the original script: reading sys.server_principals as app_prod shows
+    only app_prod and sa, so every database user looks orphaned. That was an artifact of missing
+    VIEW ANY DEFINITION, not a diagnosis. Re-check as sysadmin before believing it.
+    ==========================================================================================
+*/
+
+/*
     Fixes the hourly CalibratorMainLoad / CalibratorMainLoadProd failure.
 
     Run on MBACUSTWEB\QCC (51.17.121.203\QCC) as sysadmin. app_prod cannot do step 1: creating a
