@@ -195,11 +195,11 @@ OUTER APPLY
         WHERE pt.PART = od.PART
     ) x
     WHERE x.CleanText <> N''''
-      AND x.CleanText NOT LIKE N''%font-family%''
-      AND x.CleanText NOT LIKE N''%font-size%''
-      AND x.CleanText NOT LIKE N''%margin%''
-      AND x.CleanText NOT LIKE N''%style%''
-      AND x.CleanText NOT LIKE N''%p,div,li%''
+      -- MBA: the NOT LIKE filters on font-family / font-size / margin / style / p,div,li are
+      -- gone. They were meant to drop CSS boilerplate, but Priority splits one HTML element
+      -- across several TEXTLINE rows, so a bullet that merely carried a style attribute vanished
+      -- with them - 160101-x lost every bullet it had. Tags and leftover CSS are stripped in the
+      -- app by sanitizeCrmText, where a real parser exists.
 ) as ptxt
 
 OUTER APPLY
@@ -212,11 +212,11 @@ OUTER APPLY
     FROM #DeviceTexts AS dt
     WHERE dt.OrderDetailId = od.OrderDetailId
       AND dt.CleanText <> N''''
-      AND dt.CleanText NOT LIKE N''%font-family%''
-      AND dt.CleanText NOT LIKE N''%font-size%''
-      AND dt.CleanText NOT LIKE N''%margin%''
-      AND dt.CleanText NOT LIKE N''%style%''
-      AND dt.CleanText NOT LIKE N''%p,div,li%''
+      -- MBA: the NOT LIKE filters on font-family / font-size / margin / style / p,div,li are
+      -- gone. They were meant to drop CSS boilerplate, but Priority splits one HTML element
+      -- across several TEXTLINE rows, so a bullet that merely carried a style attribute vanished
+      -- with them - 160101-x lost every bullet it had. Tags and leftover CSS are stripped in the
+      -- app by sanitizeCrmText, where a real parser exists.
 ) as dtxt
 '
 +'
