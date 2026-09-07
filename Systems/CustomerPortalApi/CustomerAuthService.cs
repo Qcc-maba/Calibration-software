@@ -1,4 +1,4 @@
-using System.Net.Mail;
+﻿using System.Net.Mail;
 using Maba.VCT.CustomerPortalApi.Auth;
 using Maba.VCT.CustomerPortalApi.Data;
 using Maba.VCT.CustomerPortalApi.Mail;
@@ -93,6 +93,17 @@ public sealed class CustomerAuthService(
         {
             // Missing from the local mirror; the procedure has just pulled it in from Priority.
             logger.LogInformation("{Email} resolved from Priority and added to CustomerContacts", email);
+        }
+
+        if (_devLoginCode is not null)
+        {
+            /* The code is already known - it is the configured one - so there is nothing an e-mail
+               would tell the developer, and a mailbox that cannot be reached from a workstation
+               (or an SMTP account the machine cannot authenticate as) would otherwise fail the
+               request and stop a local login that is meant to need no mail at all. */
+            logger.LogWarning("Development login code issued for {Email} without sending mail", email);
+
+            return RequestOtpResponse.Sent(_options.OtpTtlSeconds);
         }
 
         try
