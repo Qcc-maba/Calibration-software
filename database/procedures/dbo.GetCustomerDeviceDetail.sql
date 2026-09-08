@@ -1,4 +1,4 @@
-SET ANSI_NULLS ON;
+﻿SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
@@ -44,7 +44,10 @@ GO
 --   productLocation, siteAddress, shippingMethod,
 --   orderNumber, lastReport,
 --   calibratorFullName, calibratorPhone,
---   customerName  -- NEW (MBA-943): which company owns this device. Front end: MBA-942.
+--   customerName  -- MBA-943: which company owns this device. Front end: MBA-942.
+--   calibrationDate, calibrationSpecification, calibrationMethod, referenceDocument, tolerance,
+--   resolution, requiredProbability, visualCheck, reportLanguage, calibrationComment,
+--   measurementUnitLong  -- 2026-09-08: what the calibration tab needs and the schema has.
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerDeviceDetail]
     @LoggedInUserEmail  NVARCHAR(100),
@@ -96,6 +99,22 @@ BEGIN
         ,CONCAT(u.FirstName, ' ', u.LastName)                                     AS calibratorFullName
         ,u.Phone                                                                  AS calibratorPhone
         ,mine.CustomerName                                                        AS customerName
+        /*  THE CALIBRATION TAB                                                      2026-09-08
+            The portal's "מידע על כיול" tab was disabled because nothing here answered it. These
+            are the fields the calibration itself carries; the ones it does not have - ציון, תא,
+            כיול צד ב', סוג מסקנה - are not in this schema at all and stay out rather than being
+            invented. */
+        ,CONVERT(VARCHAR(10), itm.ActualCalibrationDate, 104)                     AS calibrationDate
+        ,ms.Name                                                                  AS calibrationSpecification
+        ,ms.MeasurementsSpecificationDescription                                  AS calibrationMethod
+        ,sr.Name                                                                  AS referenceDocument
+        ,itm.Tolerance                                                            AS tolerance
+        ,itm.Resolution                                                           AS resolution
+        ,itm.RequiredProbability                                                  AS requiredProbability
+        ,itm.VisualCheck                                                          AS visualCheck
+        ,itm.ReportLanguage                                                       AS reportLanguage
+        ,itm.CalibrationStoppedComment                                            AS calibrationComment
+        ,mu.LongNameHe                                                            AS measurementUnitLong
     /* Ownership guard: the device must belong to one of the caller's own customers. */
     FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail) AS mine
     JOIN [dbo].[OrderWorkPlans]        AS wp  ON wp.CustomerId      = mine.CustomerId
@@ -106,6 +125,8 @@ BEGIN
     LEFT JOIN [dbo].[MainCategories]       AS mc ON mc.ID                    = od.MainCategoryId
     LEFT JOIN [dbo].[SecondaryCategories]  AS sc ON sc.ID                    = od.SecondaryCategoryId
     LEFT JOIN [dbo].[MeasurementDeviceUnits] AS mu ON mu.MeasurementDeviceUnitId = itm.MeasurementUnitId
+    LEFT JOIN [dbo].[MeasurementsSpecifications] AS ms ON ms.ID                  = itm.CalibrationSpecificationId
+    LEFT JOIN [dbo].[SpecificationReference]     AS sr ON sr.ID                  = itm.SpecificationReferenceId
     LEFT JOIN [dbo].[CustomerSites]        AS cs ON cs.CustomerSiteId        = od.CustomerSiteId
     LEFT JOIN [dbo].[Users]                AS u  ON u.ID                     = od.CalibratorId
     WHERE itm.OrderDetailsItemId    = @OrderDetailsItemId

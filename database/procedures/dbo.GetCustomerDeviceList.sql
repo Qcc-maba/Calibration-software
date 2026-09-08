@@ -1,4 +1,4 @@
-SET ANSI_NULLS ON;
+﻿SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
@@ -42,6 +42,43 @@ CREATE OR ALTER PROCEDURE [dbo].[GetCustomerDeviceList]
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    /*  DEVICES THE CUSTOMER HAS RETIRED                                            2026-09-08
+        Priority's device card carries a ת. ביטול, and 28,401 of its 658,219 devices have one -
+        650 for a single customer we looked at. A retired device is not something a customer
+        should still see waiting for calibration, so the ones Priority has cancelled are dropped.
+
+        The check is one remote query for this caller's customers, not a join per row: a per-row
+        linked-server lookup on this screen is measured in minutes. If Priority cannot be reached
+        the list is returned whole rather than emptied - a device shown in error beats a screen
+        that goes blank when a link is down. */
+    DROP TABLE IF EXISTS #CancelledSerials;
+    CREATE TABLE #CancelledSerials (SerialNumber NVARCHAR(200) COLLATE Hebrew_BIN);
+
+    DECLARE @Custs NVARCHAR(MAX);
+
+    SELECT @Custs = STRING_AGG(CAST(c.CustomerIdFromSource AS NVARCHAR(20)), ',')
+    FROM dbo.Customers AS c
+    JOIN dbo.GetPortalCustomerIds(@LoggedInUserEmail) AS m ON m.CustomerId = c.CustomerId
+    WHERE c.SourceId = 1
+      AND c.CustomerIdFromSource IS NOT NULL;
+
+    IF @Custs IS NOT NULL
+    BEGIN
+        DECLARE @Remote NVARCHAR(MAX) =
+            N'SELECT SERNUM FROM amaba.dbo.SERNUMBERS WHERE CANCELDATE > 0 AND CUST IN (' + @Custs + N')';
+        DECLARE @Pull NVARCHAR(MAX) =
+            N'INSERT INTO #CancelledSerials (SerialNumber) SELECT LTRIM(RTRIM(SERNUM)) FROM OPENQUERY([31.168.173.93], '
+            + CHAR(39) + REPLACE(@Remote, CHAR(39), CHAR(39) + CHAR(39)) + CHAR(39) + N')';
+
+        BEGIN TRY
+            EXEC sp_executesql @Pull;
+        END TRY
+        BEGIN CATCH
+            /* Linked server unreachable - show everything rather than nothing. */
+            DELETE FROM #CancelledSerials;
+        END CATCH
+    END;
 
     ;WITH devices AS
     (
@@ -112,6 +149,8 @@ BEGIN
         ,d.CustomerName                                                  AS customerName
     FROM devices AS d
     WHERE d.IsLatestOrder = 1
+      AND NOT EXISTS (SELECT 1 FROM #CancelledSerials AS x
+                      WHERE x.SerialNumber = LTRIM(RTRIM(d.SerialNumber)) COLLATE Hebrew_BIN)
     ORDER BY d.ActualCalibrationDate DESC
     OPTION (RECOMPILE);
 END
