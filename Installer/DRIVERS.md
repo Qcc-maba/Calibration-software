@@ -7,12 +7,36 @@ system needs on the target machine.
 
 | Driver | For | Why | Status |
 |--------|-----|-----|--------|
-| **NI-488.2** (National Instruments GPIB) | GPIB-USB-HS+ adapter → **Datron 9100** master | Without it the adapter is dead (Device-Manager **Code 28**); no GPIB device works | ✅ **in the installer** (v1.6.3) |
+| **NI-488.2** (National Instruments GPIB) | GPIB-USB-HS+ adapter → **Datron 9100** master | Without it the adapter is dead (Device-Manager **Code 28**); no GPIB device works | ⚙️ **installed separately** — deliberately not in the installer |
 
 Serial instruments (e.g. Agilent 34401A) use the in-box Windows serial stack and need no extra driver
 (a USB-serial adapter brings its own driver, e.g. Prolific).
 
-## How it is wired (as shipped)
+## Why NI-488.2 is not in the installer
+
+It was bundled in v1.6.3–v1.6.6 and taken out again in **v1.6.7**. NI ships a ~9 MB *online*
+installer that downloads several hundred MB while it runs, which turned a **3-minute** station
+installation into **15 minutes** — on every machine, for hardware most stations do not have. A
+serial-only bench (the Fluke loggers, the PRODIGIT load, the Agilent meters) never needs it.
+
+Install NI-488.2 by hand on the stations that actually get a GPIB master.
+
+Setup still *detects* it and records the outcome in `install.log`:
+
+```
+GPIB: NI-488.2 present - GPIB masters (e.g. Datron 9100) can be used
+GPIB: NI-488.2 absent  - serial instruments work, GPIB masters will not until the driver is installed separately
+```
+
+That line is the whole point of keeping the check: the symptom of a missing driver is an empty
+graph, which is expensive to diagnose remotely and cheap to answer from a log.
+
+`GpibDriverInstalled` looks for `gpib-32.dll` in **SysWOW64** (it is the 32-bit DLL the ComServer
+loads; `{sys}` is System32 on x64 and will not hold it) and for the NI key under both the 64-bit and
+`Wow6432Node` views. The `Wow6432Node` check was missing and made Setup report the driver absent on a
+machine that had it.
+
+## If you ever want it back in the installer
 
 `Installer\drivers\ni-488.2_26.5_online.exe` — National Instruments' **online** installer, ~9 MB.
 It is gitignored (`Installer/drivers/`): NI's redistributable, not ours. A fresh clone must drop the

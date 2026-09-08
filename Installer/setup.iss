@@ -1,5 +1,5 @@
 ﻿#define AppName "Calibration Software"
-#define AppVersion "1.6.6"
+#define AppVersion "1.6.7"
 #define AppPublisher "MBA"
 #define AppURL "http://localhost:3000"
 #define ServiceName "MabaCalibrationServer"
@@ -128,12 +128,9 @@ Source: "assets\start-webapp.ps1";          DestDir: "{app}\assets";           F
 ; a customer machine can be investigated without going there. Called by start-webapp.ps1.
 Source: "assets\publish-logs.ps1";          DestDir: "{app}\assets";           Flags: ignoreversion
 
-; --- GPIB driver ---
-; Shipped only when the target lacks NI-488.2, and deleted after the run. The file itself is
-; gitignored: it is National Instruments' redistributable, not ours.
-; Tasks: gpibdriver - not even unpacked when the operator skips it.
-Source: "drivers\ni-488.2_26.5_online.exe"; DestDir: "{tmp}"; DestName: "ni-488.2_online.exe"; \
-  Flags: deleteafterinstall; Check: GpibDriverMissing; Tasks: gpibdriver
+; NI-488.2 is deliberately NOT shipped or installed here - see Installer\DRIVERS.md. Bundling NI's
+; online installer added 7 MB and, far worse, several hundred MB of download that turned a 3-minute
+; installation into 15. Stations are set up with the driver separately.
 Source: "assets\start-consolehost.bat";     DestDir: "{app}\assets";           Flags: ignoreversion
 Source: "assets\start-all.bat";             DestDir: "{app}\assets";           Flags: ignoreversion
 Source: "assets\start-silent.vbs";          DestDir: "{app}\assets";           Flags: ignoreversion
@@ -154,28 +151,13 @@ Name: "{group}\Uninstall {#AppName}";       Filename: "{uninstallexe}"
 Name: "{commondesktop}\{#AppName}";         Filename: "{app}\CalibrationLauncher.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
+; Ticked by default: the launcher is how a station is started, and the Windows service only brings
+; up the ComServer and the WebSocket - the web UI is not running after a reboot until someone runs
+; it. Leaving this off meant a default or silent install put no icon anywhere except the Start menu.
+Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"
 
-; The GPIB driver is the longest step in the whole installation by a wide margin - it downloads
-; hundreds of MB from National Instruments and takes 10-15 minutes. A station with only serial
-; instruments never needs it, so it is offered as a task rather than forced: the choice is made on
-; the Select Tasks page, before installing, instead of being discovered halfway through.
-; Only shown when the driver is actually absent (Check), and left ticked because a GPIB station
-; without it is silently dead - an unticked box would be the easier default and the worse one.
-Name: "gpibdriver"; Description: "Install the NI-488.2 GPIB driver - needed only for GPIB masters such as the Datron 9100. Downloads from National Instruments and takes 10-15 minutes."; GroupDescription: "Hardware drivers:"; Check: GpibDriverMissing
 
 [Run]
-; NI-488.2, for the GPIB-USB-HS+ adapter that drives the Datron 9100 and the other GPIB masters.
-; Without it the adapter is dead (Device Manager code 28) and no GPIB measurement reaches the graph.
-;
-; This is NI's ~9 MB ONLINE installer: it downloads the real package (hundreds of MB) as it runs, so
-; the station needs internet for this step and it can take several minutes. Skipped outright when the
-; driver is already there, so re-installs and serial-only stations are unaffected.
-;
-; The GPIB driver is NOT run from here. A [Run] entry shows one static line against a full progress
-; bar, and this step is minutes of downloading - it read as a hung installer. It is executed from
-; CurStepChanged instead, where the bar can be put into marquee and the status line kept truthful.
-
 ; Launch web app (optional, user can close) - all other steps handled by CurStepChanged with logging
 Filename: "{app}\CalibrationLauncher.exe"; Description: "Launch {#AppName} now"; Flags: nowait postinstall skipifsilent
 
@@ -233,14 +215,6 @@ begin
     WizardForm.ProgressGauge.Style := npbstNormal;
     WizardForm.ProgressGauge.Position := Position;
   end;
-end;
-
-{ For a step whose duration cannot be known - the driver download is minutes of network - a moving
-  bar is the honest signal. A determinate bar frozen at one value reads as a hang. }
-procedure SetInstallStatusBusy(const Text: String);
-begin
-  WizardForm.StatusLabel.Caption := Text;
-  WizardForm.ProgressGauge.Style := npbstMarquee;
 end;
 
 function RunAndLog(const Step, Filename, Params: String): Boolean;
@@ -312,11 +286,6 @@ begin
             RegKeyExists(HKLM, 'SOFTWARE\National Instruments\NI-488.2') or
             RegKeyExists(HKLM64, 'SOFTWARE\National Instruments\NI-488.2') or
             RegKeyExists(HKLM, 'SOFTWARE\Wow6432Node\National Instruments\NI-488.2');
-end;
-
-function GpibDriverMissing: Boolean;
-begin
-  Result := not GpibDriverInstalled;
 end;
 
 function ServiceExists: Boolean;
@@ -568,14 +537,10 @@ begin
     WriteLog('Prerequisite check: NI-488.2 (GPIB) - OK')
   else
   begin
-    WriteLog('Prerequisite check: NI-488.2 (GPIB) - NOT FOUND, will install');
-    MsgBox('The NI-488.2 GPIB driver was not detected.' + #13#10#13#10 +
-           'It is only needed for GPIB masters such as the Datron 9100. Serial instruments - ' +
-           'including the Fluke loggers - work without it.' + #13#10#13#10 +
-           'Installing it downloads several hundred MB from National Instruments and takes about ' +
-           '10-15 minutes. On the next page you can untick "Install the NI-488.2 GPIB driver" to ' +
-           'skip it; it can be installed by hand later.',
-           mbInformation, MB_OK);
+    { Recorded, not shown. The dialog interrupted every install of a serial-only station to talk
+      about hardware it does not have, and Setup no longer installs the driver anyway. }
+    WriteLog('Prerequisite check: NI-488.2 (GPIB) - NOT FOUND. Serial instruments work; ' +
+             'install NI-488.2 separately if this station gets a GPIB master.');
   end;
 
   WriteLogSection('PREREQUISITES COMPLETE');
@@ -600,8 +565,6 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   LogSrc: String;
-  DriverExe: String;
-  DriverResult: Integer;
 begin
   if CurStep = ssInstall then
   begin
@@ -628,38 +591,13 @@ begin
     WizardForm.ProgressGauge.Max := 100;
     WizardForm.ProgressGauge.Position := 0;
 
-    { NI-488.2. Run here rather than from [Run] so the bar can move while it works: this downloads
-      hundreds of MB and is by far the longest step, and a frozen bar reads as a crashed installer.
-      Skipped when the driver is already present, so most re-installs never see it. }
-    if GpibDriverMissing and WizardIsTaskSelected('gpibdriver') then
-    begin
-      DriverExe := ExpandConstant('{tmp}\ni-488.2_online.exe');
-      if FileExists(DriverExe) then
-      begin
-        SetInstallStatusBusy('Installing the GPIB driver (NI-488.2). This downloads from National ' +
-                             'Instruments and can take 10-15 minutes - please leave Setup running.');
-        WriteLog('GPIB: starting NI-488.2 silent install (this can take many minutes)');
-        if Exec(DriverExe, '--quiet --accept-eulas --prevent-reboot', '', SW_HIDE,
-                ewWaitUntilTerminated, DriverResult) then
-          WriteLog('GPIB: NI-488.2 installer finished with exit code ' + IntToStr(DriverResult))
-        else
-          WriteLog('GPIB: NI-488.2 installer could not be started');
-      end
-      else
-        WriteLog('GPIB: driver package not present in {tmp} - skipping');
-    end;
-
-    { Whether the NI-488.2 step actually left a usable driver. Reported rather than enforced: the
-      silent install can fail on a station with no internet, and that must not stop a serial-only
-      bench from finishing. Recording it here is what turns "no data in the graph" from a mystery
-      into a one-line answer in install.log. }
+    { Setup does not install the driver, but it does say whether GPIB will work. This is the line
+      that turns a later "no data in the graph" from a mystery into a one-line answer. }
     if GpibDriverInstalled then
       WriteLog('GPIB: NI-488.2 present - GPIB masters (e.g. Datron 9100) can be used')
-    else if not WizardIsTaskSelected('gpibdriver') then
-      WriteLog('GPIB: NI-488.2 absent - SKIPPED BY OPERATOR. Serial instruments work; install the ' +
-               'driver by hand if this station gets a GPIB master.')
     else
-      WriteLog('GPIB: NI-488.2 STILL MISSING - serial instruments work, GPIB masters will not');
+      WriteLog('GPIB: NI-488.2 absent - serial instruments work, GPIB masters will not until the ' +
+               'driver is installed separately');
 
     // Step 0: Set write permissions (Program Files is read-only for non-admins)
     SetInstallStatus('Setting folder permissions...', 10);
