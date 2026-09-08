@@ -1,4 +1,4 @@
-# Resolves the database connection for this station, then starts the Next.js standalone server.
+﻿# Resolves the database connection for this station, then starts the Next.js standalone server.
 #
 # app\src\env.js declares REMOTE_DATABASE_URL as required (z.string().min(1)) and reads it straight
 # from the process environment, with no fallback. The .env shipped by the installer carries only
@@ -71,6 +71,28 @@ if (Test-Path $publishLogs) {
     catch {
         Write-Log ("Log publish skipped: {0}" -f $_.Exception.Message)
     }
+}
+
+# A station that already has something on the port starts a server that exits at once, and the
+# only trace is a stack in node's own log. Name the holder instead: on a workstation it is usually
+# a development server, and on a station a webapp nobody stopped.
+$port = 3000
+if ($env:PORT) { $port = [int]$env:PORT }
+
+$holder = $null
+try {
+    $holder = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction Stop |
+        Select-Object -First 1 -ExpandProperty OwningProcess
+}
+catch {
+    # No listener, or the cmdlet is unavailable on this Windows build - either way, carry on.
+}
+
+if ($holder) {
+    $name = (Get-Process -Id $holder -ErrorAction SilentlyContinue).ProcessName
+    Write-Log ("ERROR: port {0} is already in use by process {1} ({2}). The web app cannot start." -f $port, $holder, $name)
+    Write-Host ("Port {0} is already in use by {1} (PID {2}). Stop it and run this again." -f $port, $name, $holder)
+    exit 1
 }
 
 Write-Log '===== WEBAPP SESSION STARTED ====='
