@@ -1,4 +1,4 @@
-# Drivers bundled by the installer
+﻿# Drivers bundled by the installer
 
 The installer must set up not only the application but also the **hardware drivers** the calibration
 system needs on the target machine.
@@ -7,14 +7,34 @@ system needs on the target machine.
 
 | Driver | For | Why | Status |
 |--------|-----|-----|--------|
-| **NI-488.2** (National Instruments GPIB) | GPIB-USB-HS+ adapter → **Datron 9100** master | Without it the adapter is dead (Device-Manager **Code 28**); no GPIB device works | ⛔ **not yet in the installer** |
+| **NI-488.2** (National Instruments GPIB) | GPIB-USB-HS+ adapter → **Datron 9100** master | Without it the adapter is dead (Device-Manager **Code 28**); no GPIB device works | ✅ **in the installer** (v1.6.3) |
 
 Serial instruments (e.g. Agilent 34401A) use the in-box Windows serial stack and need no extra driver
 (a USB-serial adapter brings its own driver, e.g. Prolific).
 
-## How to add NI-488.2 to `setup.iss`
+## How it is wired (as shipped)
 
-NI-488.2 is a large (~GB) third-party package, so **do not commit it to git**. Two options:
+`Installer\drivers\ni-488.2_26.5_online.exe` — National Instruments' **online** installer, ~9 MB.
+It is gitignored (`Installer/drivers/`): NI's redistributable, not ours. A fresh clone must drop the
+file back in before building, or ISCC fails on the missing source.
+
+- `[Files]` ships it to `{tmp}` with `Check: GpibDriverMissing`, so a station that already has the
+  driver carries no extra weight and re-installs stay fast.
+- `[Run]` executes it with `--quiet --accept-eulas --prevent-reboot`, `waituntilterminated`.
+- `ssPostInstall` re-checks and records the outcome in `install.log` — the symptom of a missing
+  driver is otherwise silent (an empty graph), which is expensive to diagnose remotely.
+
+**It downloads several hundred MB while it runs**, so the station needs internet for that step and it
+can take minutes. Failure is deliberately non-fatal: a serial-only bench must still finish.
+
+`GpibDriverInstalled` looks for `gpib-32.dll` in **SysWOW64** (it is the 32-bit DLL the ComServer
+loads; `{sys}` is System32 on x64 and will not hold it) and for the NI key under both the 64-bit and
+`Wow6432Node` views.
+
+## Alternative: bundle the offline package
+
+The full offline installer is ~GB, so **do not commit it** either. If you prefer it over the online
+one — a station with no internet, say:
 
 1. **Bundle the offline installer** — place NI's `ni-488.2_*.exe` next to the build (gitignored),
    ship it via `[Files]`, and run it silently from `[Run]`:
@@ -31,4 +51,4 @@ Prefer a `Check:` that skips the install when NI-488.2 is already present (detec
 System32 or the NI registry key), so re-installs are fast. Verify NI's redistribution terms and the
 current silent-install switches against their documentation before shipping.
 
-> Tracked as a requirement in the Datron 9100 work — see `docs/devices/Datron-9100/README.md`.
+> Tracked as a requirement in the Datron 9100 work — see `docs/devices/electronics/Datron-9100/README.md`.

@@ -59,6 +59,20 @@ if (-not $env:REMOTE_DATABASE_URL) {
     Write-Log "Resolved REMOTE_DATABASE_URL from REMOTE_DATABASE_URL_$target."
 }
 
+# Ship the PREVIOUS run's logs before this one starts overwriting them - that is the crash case,
+# and it is the only moment the files are complete. Best effort: a station with no route to the
+# share must still start.
+$publishLogs = Join-Path $PSScriptRoot 'publish-logs.ps1'
+if (Test-Path $publishLogs) {
+    try {
+        & $publishLogs -AppDir $appDir
+        Write-Log 'Published previous run logs to the shared folder.'
+    }
+    catch {
+        Write-Log ("Log publish skipped: {0}" -f $_.Exception.Message)
+    }
+}
+
 Write-Log '===== WEBAPP SESSION STARTED ====='
 
 $errLog = Join-Path $logDir 'webapp-error.log'

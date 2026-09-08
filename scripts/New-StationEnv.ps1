@@ -18,7 +18,11 @@
 
 param(
     [string]$SourceEnv,
-    [string]$OutFile
+    [string]$OutFile,
+    # Replaces REMOTE_DATABASE_URL_PROD in the output. A station that runs against the on-prem
+    # copy (CalibratorLocal on maba-priority) must not inherit app\.env's AWS connection string,
+    # and app\.env itself stays as it is - it belongs to the developers, not to the installer.
+    [string]$DatabaseUrl
 )
 
 $ErrorActionPreference = 'Stop'
@@ -56,7 +60,16 @@ foreach ($line in (Get-Content -Path $SourceEnv -Encoding utf8)) {
     if ($keep -notcontains $name) { continue }
     if ($seen.ContainsKey($name)) { continue }   # app\.env has a duplicate NEXT_PUBLIC_WEBSOCKET_URL
     $seen[$name] = $true
+    if ($name -eq 'REMOTE_DATABASE_URL_PROD' -and $DatabaseUrl) {
+        $lines.Add('REMOTE_DATABASE_URL_PROD="' + $DatabaseUrl + '"')
+        continue
+    }
     $lines.Add($line.TrimEnd())
+}
+# app\.env may lack the key entirely (a developer using only .env.local); the station still needs it.
+if ($DatabaseUrl -and -not $seen.ContainsKey('REMOTE_DATABASE_URL_PROD')) {
+    $lines.Add('REMOTE_DATABASE_URL_PROD="' + $DatabaseUrl + '"')
+    $seen['REMOTE_DATABASE_URL_PROD'] = $true
 }
 
 if (-not $seen.ContainsKey('NODE_ENV')) { $lines.Add('NODE_ENV=production') }
