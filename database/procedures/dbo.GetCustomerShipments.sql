@@ -1,4 +1,4 @@
-SET ANSI_NULLS ON;
+﻿SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
@@ -17,7 +17,7 @@ GO
 --
 -- Output columns (order):
 --   id, orderNumber, mbaReportNumber, serialNumber, deviceDescription,
---   deviceManufacturer, deviceModel, shippingMethod, shippingDoc, shippingAddress,
+--   deviceManufacturer, deviceModel, sku, site, shippingMethod, shippingDoc, shippingAddress,
 --   receivingDate, calibrationDate, expectedReturnDate, deliveryDate, status
 --
 --   * status       -> ORDER-level status (wp.OrderOverallStatusId -> dbo.Statuses),
@@ -29,6 +29,9 @@ GO
 --                     which keys on the item calibration status). See NOTE below.
 --   * statusLabel  -> Hebrew label of the same status (StatusDescriptionHEB) for the
 --                     Hebrew-first portal, since no FE code->label map exists for this screen yet.
+--   * sku              -> itm.ManufacturerNumber, the same column the device list calls sku.
+--   * site             -> CustomerSites.CustomerSiteDescription via od.CustomerSiteId; NULL when
+--                         the order line carries no site, which is most of them today.
 --   * shippingMethod   -> wp.ShipTypeDesc (order-level shipping method).
 --   * shippingDoc      -> itm.ShippingDoc (delivery note / shipping document number).
 --   * shippingAddress  -> COALESCE(itm.ShippingAddress, c.CustomerAddress).
@@ -65,6 +68,10 @@ BEGIN
             ,pt.OrdersProductTypeName                                                AS DeviceDescription
             ,itm.OrdersDeviceManufacturer                                            AS DeviceManufacturer
             ,itm.DeviceModel                                                         AS DeviceModel
+            /* MBA: the shipping screen shows a catalogue number and the site the device belongs
+               to. Same sources the device list uses, so the two screens agree. */
+            ,itm.ManufacturerNumber                                                  AS Sku
+            ,cs.CustomerSiteDescription                                              AS SiteName
             ,wp.ShipTypeDesc                                                         AS ShippingMethod
             ,itm.ShippingDoc                                                         AS ShippingDoc
             ,COALESCE(itm.ShippingAddress, c.CustomerAddress)                        AS ShippingAddress
@@ -82,6 +89,8 @@ BEGIN
         LEFT JOIN [dbo].[Customers]          AS c  ON c.CustomerId          = wp.CustomerId
         LEFT JOIN [dbo].[Statuses]           AS st ON st.StatusId           = wp.OrderOverallStatusId
         LEFT JOIN [dbo].[OrdersProductTypes] AS pt ON pt.OrdersProductTypeId = od.OrdersProductTypeId
+        LEFT JOIN [dbo].[CustomerSites]      AS cs ON cs.CustomerSiteId       = od.CustomerSiteId
+                                                 AND ISNULL(cs.IsDeleted, 0) = 0
         WHERE wp.CustomerId IN (SELECT CustomerId FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail))
           AND wp.IsCancelled      = 0
           AND ISNULL(od.IsDeleted, 0)  = 0
@@ -97,6 +106,8 @@ BEGIN
         ,s.DeviceDescription                                            AS deviceDescription
         ,s.DeviceManufacturer                                           AS deviceManufacturer
         ,s.DeviceModel                                                   AS deviceModel
+        ,s.Sku                                                           AS sku
+        ,s.SiteName                                                      AS site
         ,s.ShippingMethod                                               AS shippingMethod
         ,s.ShippingDoc                                                   AS shippingDoc
         ,s.ShippingAddress                                              AS shippingAddress
