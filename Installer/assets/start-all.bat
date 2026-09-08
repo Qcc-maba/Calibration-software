@@ -114,10 +114,15 @@ if exist "%CONSOLEHOST%\Maba.VCT.CommServer.Hosts.ConsoleHost.exe" (
 ping -n 6 127.0.0.1 >nul
 
 :: ---- Step 2: Start webapp (hidden) ----
+:: Through start-webapp.ps1, never `node server.js` directly. The shipped .env carries only
+:: REMOTE_DATABASE_URL_PROD / _STAGE; src\env.js requires the plain REMOTE_DATABASE_URL and that
+:: script is what derives it. Starting node here meant the server came up, answered every request
+:: with "Invalid environment variables" and returned 500 - the site looked dead while the service
+:: and the WebSocket were both fine. It also skips the log upload the script performs on launch.
 echo [2/3] Starting Web App... >> "%LOGFILE%"
 if exist "%WEBAPP%\server.js" (
-    powershell -WindowStyle Hidden -Command "Start-Process -FilePath 'node' -ArgumentList 'server.js' -WorkingDirectory '%WEBAPP%' -WindowStyle Hidden -RedirectStandardOutput '%LOGDIR%\webapp.log' -RedirectStandardError '%LOGDIR%\webapp-error.log'"
-    echo   Web App started (hidden) >> "%LOGFILE%"
+    powershell -WindowStyle Hidden -Command "Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','%APPDIR%\assets\start-webapp.ps1' -WindowStyle Hidden"
+    echo   Web App started via start-webapp.ps1 (hidden) >> "%LOGFILE%"
 ) else (
     echo   ERROR: server.js not found! >> "%LOGFILE%"
 )

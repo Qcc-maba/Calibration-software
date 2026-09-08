@@ -1,5 +1,5 @@
 ﻿#define AppName "Calibration Software"
-#define AppVersion "1.6.5"
+#define AppVersion "1.6.6"
 #define AppPublisher "MBA"
 #define AppURL "http://localhost:3000"
 #define ServiceName "MabaCalibrationServer"
