@@ -1,4 +1,4 @@
-SET ANSI_NULLS ON;
+﻿SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
@@ -55,8 +55,11 @@ END
 SELECT c.[CustomerContactId]
       ,c.[CustomerId]
       ,cust.[CustomerName]
-      ,c.[CustomerContactName]
-      ,c.[CustomerContactPersonRole]
+      /* Priority keeps PHONEBOOK in visual order, so a Latin name arrives reversed: Damian Pluzka
+         is stored "akzulP naimaD" and his colleague's role "reganaM SMQ". Hebrew is unaffected by
+         the function, so both columns can go through it unconditionally. */
+      ,dbo.fnUnreverseVisualText(c.[CustomerContactName])       AS [CustomerContactName]
+      ,dbo.fnUnreverseVisualText(c.[CustomerContactPersonRole]) AS [CustomerContactPersonRole]
       ,c.[CustomerContactPhone]
       ,c.[CustomerContactAdditionalPhoneNumber]
       ,c.[CustomerContactEmail]

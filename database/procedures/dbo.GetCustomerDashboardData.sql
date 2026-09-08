@@ -1,4 +1,4 @@
-SET ANSI_NULLS ON;
+﻿SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
@@ -85,7 +85,12 @@ FROM
 [dbo].[OrderWorkPlans] as wp
 JOIN #CustomerOrdersIds as f ON wp.OrderWorkPlanId = f.OrderWorkPlanId
 JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
-LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
+/* MBA: a device in this portal is an OrderDetailsItems row - that is what the device list,
+   the reports screen and the shipping screen all count. This join was LEFT, so an order
+   line with no item still produced a row here and was counted on the status card: 9,014 of
+   17,503 order lines on PROD have no item, and a customer whose lines are all like that saw
+   a total of 1 device with every list empty and no way to reach it. */
+JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
 LEFT JOIN [dbo].[Customers] as c ON wp.[CustomerId] = c.[CustomerId]
 LEFT JOIN [dbo].[Statuses] as clst ON itm.[CalibrationStatusId] = clst.[StatusId]
 LEFT JOIN [dbo].[MainCategories] as mcf ON od.MainCategoryId	= mcf.ID
