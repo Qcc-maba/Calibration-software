@@ -11,11 +11,15 @@ There are two repositories with different rules. Getting this wrong puts work wh
 |---|---|---|
 | Remote | `Qcc-maba/Calibration-software` | `Qcc-maba/app` |
 | Work on | branch **`Eliran`** | a **`reference/*`** branch |
-| Default branch | `master` — lags, treat `Eliran` as trunk | `main`; deployments come off `stg` |
+| Default branch | `master` — lags, treat `Eliran` as trunk | `main` — **and it is Vercel's Production branch** |
 | Pre-commit hook | none | `pnpm install` + `lint-staged` + `tsc --noEmit` |
 
 `app/` is its own git repository cloned inside this one. Never commit it into the parent, and never
 turn it into a submodule.
+
+**Pushing to `main` in the app repo deploys to `cal.qcc.co.il`.** `stg` builds `stg.qcc.co.il`;
+production comes off `main`. Merging one into the other is a release, not a branch tidy-up — see
+[merging-stale-branches](../merging-stale-branches/SKILL.md).
 
 ## Before you commit anything
 

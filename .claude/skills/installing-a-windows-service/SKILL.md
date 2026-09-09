@@ -30,9 +30,19 @@ not help when the mechanism lets either installer overwrite the other's setting.
 
 | Service | Port | Reads its URL from |
 |---|---|---|
-| `MabaInstructionAssistant` | 5312 | its own key |
+| `MabaInstructionAssistant` | 5312 *on the dev workstation* | its own key |
 | `MabaOrderAttachments` | 5313 | `OrderAttachments__Urls` |
-| `Maba.VCT.CustomerPortalApi` | 5314 in dev | its own key |
+| `MabaCustomerPortalApi` | **5312 on `MbaCustWeb`**, 5314 in dev | its own key |
+
+**The same number means different services on different machines**, which is worse than a collision
+because nothing conflicts and nothing errors. On the dev workstation 5312 is the Instruction
+Assistant; on `MbaCustWeb` it is the portal API, and the Instruction Assistant is not installed there.
+
+That produced the trap worth remembering: a **local** portal-API instance on 5312 answers `/health`
+with a body **byte-identical** to production's, so a health check run in the wrong window is
+indistinguishable from proof that the server is fine. Two full rounds of server commands were run on
+a workstation before anyone noticed — they failed with `Get-WebBinding is not recognized`, the correct
+answer for a machine with no IIS. Run `hostname` first, every time, and believe it over the prompt.
 
 ```powershell
 Get-NetTCPConnection -State Listen -OwningProcess <pid>
@@ -75,3 +85,17 @@ See [failure-codes.md](failure-codes.md). Each of them was diagnosed as somethin
 `\\tsclient\...` exists **only inside an RDP session**. A command that uses it, handed to someone to
 "run on the server", fails on their own machine with a path error that looks like a permissions
 problem. Use a UNC path to a real share, or copy through one.
+
+**Hand a multi-step block over as something that cannot be half-run.** Never leave a `<PLACEHOLDER>`
+inside a block whose later lines are destructive — one beginning `$new = '<THUMBPRINT>'` was pasted
+verbatim, the `netsh … delete` succeeded and the `add` did not, and a public site served no TLS until
+the real value arrived. Derive the value inside the block instead, so there is nothing left to
+substitute by hand.
+
+## Once it is healthy, if it has to face the internet
+
+Stop here if the service only serves the machine or the LAN. If it must answer a public hostname over
+TLS, that is a separate procedure with its own failure modes —
+[exposing-a-service-publicly](../exposing-a-service-publicly/SKILL.md). Do not begin it until
+`/health` passes locally: diagnosing the service and the path to it at the same time is how a morning
+disappears.
