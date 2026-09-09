@@ -6,6 +6,11 @@ using System.Threading.Tasks;
 
 namespace Maba.VCT.ComLayer
 {
+    /// <summary>
+    /// A raw byte transport to a device — serial, TCP socket, Modbus or WebSocket. It knows nothing
+    /// about the instrument protocol: it only opens/closes the link, sends bytes and raises
+    /// DataReceived. Protocol framing happens above, in the device host's parser.
+    /// </summary>
     public interface IComLayer : IDisposable
     {
         #region Members

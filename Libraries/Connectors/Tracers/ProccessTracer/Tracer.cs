@@ -39,7 +39,7 @@ namespace Maba.VCT.Libs.Trace
         public static void Trace(string type, string format, params object[] args)
         {
 #if TRACE
-            CurrentTracer.OutputStream.WriteLine($"{type} :: {DateTime.UtcNow.ToString("yyyyMMdd-HH:mm:ss.fff")} ::" + String.Format(format, args));
+            CurrentTracer.OutputStream.WriteLine($"{type} :: {DateTime.Now.ToString("yyyyMMdd-HH:mm:ss.fff")} ::" + String.Format(format, args));
 #endif
         }
 

@@ -7,8 +7,8 @@
     <ProjectGuid>{ED605124-593E-4D34-B5E5-9A9B413A4729}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.InMemoryCache</RootNamespace>
-    <AssemblyName>Galcon.Connectors.InMemoryCache</AssemblyName>
+    <RootNamespace>Maba.Connectors.InMemoryCache</RootNamespace>
+    <AssemblyName>Maba.Connectors.InMemoryCache</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />

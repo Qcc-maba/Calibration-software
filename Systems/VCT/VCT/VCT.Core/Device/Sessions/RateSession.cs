@@ -45,13 +45,19 @@ namespace Maba.VCT.Core.Device.Sessions
             if (LastRequest != null && LastRequest.CallBackResponse != null)
             {
                 response.SN = this.Parent.SN;
-                LastRequest.CallBackResponse(this, response);
+                var req = LastRequest;
+                LastRequest = null;
+                req.CallBackResponse(this, response);
             }
-            LastRequest = null;
+            else
+            {
+                LastRequest = null;
+            }
         }
         internal override bool HandlePacket(Common.HardwarePacket p)
         {
-            if (LastRequest != null && LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.RateRequest))
+            // Only answer when p.OK=True: Hydra sends "=>" first (p.OK=False), then "\r\n" (p.OK=True)
+            if (LastRequest != null && p.OK && LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.RateRequest))
             {
                 AnswerLastRequest(new RateResponse(p.OK));
                 return true;

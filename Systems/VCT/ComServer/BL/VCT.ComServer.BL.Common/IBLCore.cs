@@ -8,6 +8,12 @@ using System.Threading.Tasks;
 
 namespace Maba.VCT.CommServer.CommonBL
 {
+    /// <summary>
+    /// A pluggable business-logic module for one instrument FAMILY (Hydra, Agilent, TTI, ...).
+    /// The server offers every newly identified device to each loaded core; the core claims the
+    /// device if the serial number matches its family and attaches a per-device BL. Modules are
+    /// listed in ComServerSettings.Modules and loaded by reflection.
+    /// </summary>
     public interface IBLCore
     {
         void Start(Core.ServerCore server);

@@ -1,0 +1,19 @@
+using Maba.VCT.CommServer.BL.HydraDevices.Device;
+using Maba.VCT.CommServer.CommonBL;
+
+namespace Maba.VCT.CommServer.BL.HydraDevices.BLCore
+{
+    /// <summary>BL core for the Fluke Hydra 2625A logger family.</summary>
+    public class Hydra2BLCore : BaseBLCore
+    {
+        protected override string DeviceIdToken
+        {
+            get { return "2625"; }
+        }
+
+        protected override BaseBLDevice CreateDeviceBL()
+        {
+            return new Hydra2DeviceBL(this);
+        }
+    }
+}

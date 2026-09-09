@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Maba.VCT.ReportArchiveSync</RootNamespace>
+    <AssemblyName>Maba.VCT.ReportArchiveSync</AssemblyName>
+    <!-- On-prem Windows service. Mirrors calibration report PDFs out of Priority's Tomax archive
+         (\\maba-priority\priority\Tomax\Archives\DOC_Q\Out) into the S3 bucket the web app reads,
+         and indexes them in dbo.CalibrationReportFile.
+
+         Runs on-prem because the archive is an SMB share on the Priority server and the web app
+         is hosted on Vercel, which cannot reach it. Same deployment pattern as
+         Maba.VCT.InstructionAssistant. -->
+  </PropertyGroup>
+
+  <!-- Local dev config holds the real connection string; Production supplies it through
+       machine-scope environment variables instead. Never publish the dev file. -->
+  <ItemGroup>
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <Content Update="appsettings.Local.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- S3 4.0.10 drags in AWSSDK.Core 4.0.2, which carries advisory GHSA-9cvc-h2w8-phrp.
+         Pinned forward to a Core past the fix; keep the two moving together on upgrades. -->
+    <PackageReference Include="AWSSDK.S3" Version="4.0.102.3" />
+    <PackageReference Include="AWSSDK.Core" Version="4.0.102" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.10" />
+  </ItemGroup>
+
+</Project>

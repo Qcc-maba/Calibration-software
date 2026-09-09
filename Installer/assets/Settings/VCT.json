@@ -1,0 +1,39 @@
+{
+  "GeneralDBName": "KyulanSyncDB",
+  "PriorityDBName": "Priority",
+  "Tunnels": [
+    {
+      "BacklogClients": 5000,
+      "Name": "VCTTunnelSettings",
+      "Address": "127.0.0.1",
+      "Ports": [
+        50000,
+        50050
+      ],
+      "SettingsName": "",
+      "SerialPortName": null,
+      "SerialBaudRate": 9600,
+      "SerialTimeout": 100,
+      "GpibPrimaryAddress": -1,
+      "GpibBoardIndex": 0
+    }
+  ],
+  "DeviceSettings": [
+    {
+      "IdentificationType": 0,
+      "SettingsName": "",
+      "SessionRequestTimeout_TimeSpan": "00:01:00",
+      "KeepAlive_RXTimeout_TimeSpan": "00:02:00",
+      "ClocksDeviation_TimeSpan": "00:00:05",
+      "ClocksDeviation_MaxAttempts": 10
+    }
+  ],
+  "WebSocketListenPrefix": "http://localhost:5001/ws/",
+  "PendingDevice_AwakePacketInterval_TimeSpan": "00:00:10",
+  "PendingDevice_MaximumSilence_TimeSpan": "00:01:00",
+  "PendingDevice_FirstAwakePacket_TimeSpan": "00:00:01",
+  "PendingDevice_MaxAwakePacketTimes": 5,
+  "ServerTimerInterval": 2000,
+  "AutoDiscoverTransports": true,
+  "RediscoverIntervalSeconds": 30
+}

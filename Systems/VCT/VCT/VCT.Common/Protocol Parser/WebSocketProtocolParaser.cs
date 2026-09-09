@@ -54,6 +54,19 @@ namespace Maba.VCT.Common.Protocol_Parser
             {
                 baseMessage = CreateReportParser();
             }
+            else if (value == "Status")
+            {
+                baseMessage = StatusParser();
+            }
+
+            /*  "Email" is read here rather than in each of the four parsers: it may ride on any
+                message type, the parsers each name their local message differently, and reading it
+                once means a new message type gets it for free. Absent field -> nothing changes. */
+            if (baseMessage != null)
+            {
+                baseMessage.Email = ExtractField("Email");
+            }
+
             OnPacket(this, new PacketEventArgs(baseMessage));
         }
 
@@ -61,6 +74,40 @@ namespace Maba.VCT.Common.Protocol_Parser
         #endregion
 
         #region Private Methods
+
+        /// <summary>
+        /// Reads one "Key":"Value" pair out of the raw message, for fields that are not specific to
+        /// a single message type. Returns null when the field is absent.
+        /// </summary>
+        private string ExtractField(string fieldName)
+        {
+            if (string.IsNullOrEmpty(MessageData))
+            {
+                return null;
+            }
+
+            var parts = MessageData.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                           .Select(p => p.Trim());
+
+            foreach (var part in parts)
+            {
+                if (!part.Contains(":"))
+                {
+                    continue;
+                }
+
+                var keyValue = part.Split(new[] { ':' }, 2);
+                var key = keyValue[0].Trim().Replace("\"", "").Replace("{", "").Trim();
+
+                if (string.Equals(key, fieldName, StringComparison.OrdinalIgnoreCase))
+                {
+                    var value = keyValue[1].Trim().Replace("\"", "").Replace("}", "").Trim();
+                    return string.IsNullOrWhiteSpace(value) ? null : value;
+                }
+            }
+
+            return null;
+        }
 
         private BaseMessage CreateReportParser()
         {
@@ -209,6 +256,33 @@ namespace Maba.VCT.Common.Protocol_Parser
                 }
             }
             return configurations;
+        }
+
+        private BaseMessage StatusParser()
+        {
+            var msg = new StatusMessage();
+            var parts = MessageData.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                           .Select(p => p.Trim())
+                           .ToList();
+            foreach (var part in parts)
+            {
+                if (part.Contains(":"))
+                {
+                    var keyValue = part.Split(new[] { ':' }, 2);
+                    var key = keyValue[0].Trim().Replace("\"", "");
+                    var value = keyValue[1].Trim().Replace("\"", "");
+                    switch (key)
+                    {
+                        case "Value":
+                            msg.Value = value;
+                            break;
+                        case "DeviceID":
+                            msg.DeviceID = value;
+                            break;
+                    }
+                }
+            }
+            return msg;
         }
 
         public static string SerializeMessage<T>(T message) where T : BaseMessage

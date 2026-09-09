@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Maba.VCT.CustomerPortalApi</RootNamespace>
+    <AssemblyName>Maba.VCT.CustomerPortalApi</AssemblyName>
+    <!-- Standalone net10 web service that owns the customer-portal e-mail (OTP) login.
+         Same deployment pattern as Maba.VCT.InstructionAssistant: the web front end calls it
+         over HTTP, it is the only tier that talks to Calibrator and to the mail server. -->
+  </PropertyGroup>
+
+  <!-- Local dev configs hold REAL secrets - the Calibrator connection string, the SMTP password,
+       the session secret and the OTP pepper - and a DevLoginCode. They are gitignored, but the Web
+       SDK copies appsettings*.json into the publish output by default, which would carry every one
+       of them onto an internet-facing production host.
+
+       Caught 01/09/2026 while building the MbaCustWeb package: appsettings.Development.json was in
+       the output with all five values populated. The other three services in Systems/ already had
+       this exclusion; this one - the only internet-facing service - did not.
+
+       In Production every value comes from a machine-scope environment variable instead, set by
+       scripts/Install-CustomerPortalApi-Service.ps1. -->
+  <ItemGroup>
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <Content Update="appsettings.Local.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MailKit" Version="4.17.0" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Attached to the OTP mail by content id, so it renders even when the client blocks
+         remote images. -->
+    <EmbeddedResource Include="Assets\Logo.png" />
+  </ItemGroup>
+
+</Project>

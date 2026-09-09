@@ -7,8 +7,8 @@
     <ProjectGuid>{2A658AD4-2524-44BD-9D10-77A869B93B3A}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.Elasticsearch</RootNamespace>
-    <AssemblyName>Galcon.Connectors.Elasticsearch</AssemblyName>
+    <RootNamespace>Maba.Connectors.Elasticsearch</RootNamespace>
+    <AssemblyName>Maba.Connectors.Elasticsearch</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\..\..\</SolutionDir>

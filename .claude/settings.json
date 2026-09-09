@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''http://localhost:3000'' -UseBasicParsing -TimeoutSec 30 | Select-Object -ExpandProperty StatusCode\")",
+      "Bash(node -e:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(powershell -File -:*)",
+      "Bash(sc query:*)",
+      "Read(//c/Temp/certcapture/**)",
+      "Bash(cmd.exe /c \"\"\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\18\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\"\" \"\"C:\\\\Users\\\\eliran_ha\\\\OneDrive - MBA\\\\Documents\\\\Eliran\\\\MBA\\\\Calibration-software\\\\Systems\\\\VCT\\\\ComServer\\\\ComServer.Hosts.ConsoleHost\\\\ComServer.Hosts.ConsoleHost.csproj\"\" /p:Configuration=Debug /t:Build /v:minimal\")",
+      "Bash(cmd.exe /c \"\"\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\18\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\"\" \"\"C:\\\\Users\\\\eliran_ha\\\\OneDrive - MBA\\\\Documents\\\\Eliran\\\\MBA\\\\Calibration-software\\\\Systems\\\\VCT\\\\ComServer\\\\ComServer.Hosts.ConsoleHost\\\\ComServer.Hosts.ConsoleHost.csproj\"\" /p:Configuration=Debug /t:Build /v:minimal 2>&1\")",
+      "Bash(powershell.exe -Command:*)",
+      "Bash(Select-String -Pattern \"error|warning|Build succeeded|Build FAILED\")",
+      "Bash(powershell.exe -File:*)",
+      "Bash(\"/c/Users/eliran_ha/OneDrive - MBA/Documents/Eliran/MBA/Calibration-software/Systems/VCT/ComServer/ComServer.Hosts.ConsoleHost/bin/Debug/Maba.VCT.CommServer.Hosts.ConsoleHost.exe\")",
+      "Bash(netsh http show urlacl:*)",
+      "Bash(netsh http add urlacl:*)",
+      "Bash(netstat:*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\eliran_ha\\\\OneDrive - MBA\\\\Documents\\\\Eliran\\\\MBA\\\\Calibration-software\\\\test_ports.ps1\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \":*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\eliran_ha\\\\OneDrive - MBA\\\\Documents\\\\Eliran\\\\MBA\\\\Calibration-software\\\\build.ps1\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\eliran_ha\\\\OneDrive - MBA\\\\Documents\\\\Eliran\\\\MBA\\\\Calibration-software\\\\kill_console.ps1\")",
+      "Bash(tasklist:*)",
+      "Bash(SKIP_ENV_VALIDATION=1 cd:*)",
+      "Bash(\"$PNPM\" build)",
+      "Read(//c/Users/eliran_ha/OneDrive - MBA/Documents/Eliran/MBA/Calibration-software/**)",
+      "Bash(/tmp/test_pnpm.ps1:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File:*)",
+      "Bash(/tmp/test_pnpm2.ps1:*)",
+      "Bash(/tmp/find_pnpm.ps1:*)",
+      "Bash(/tmp/test_pnpm3.ps1:*)",
+      "Bash(SKIP_ENV_VALIDATION=1 \"/c/Users/eliran_ha/AppData/Local/pnpm/.tools/pnpm/9.15.0_tmp_45148/bin/pnpm\" build:*)",
+      "Bash(\"$PNPM\" add mssql)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
+    ]
+  }
+}

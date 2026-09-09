@@ -20,9 +20,9 @@ namespace Maba.DAL.BaseDAL.Records
         {
 
         }
-        public CorrectionValues(double temprature,  double deviation)
+        public CorrectionValues(double temperature, double deviation)
         {
-            this.TemperatureValue = temprature;
+            this.TemperatureValue = temperature;
             this.Deviation = deviation;
         }
 

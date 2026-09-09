@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Maba.VCT.Libs.Trace;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -17,6 +18,9 @@ namespace Maba.VCT.Core.Settings
 
         public const string DEFAULT_SETTINGS_FOLDER = "Settings";
         public const string DEFAULT_FILE_NAME = "VCT.json";
+
+        /// <summary>Default HttpListener prefix for WebSocket (must end with /).</summary>
+        public const string DEFAULT_WEBSOCKET_LISTEN_PREFIX = "http://localhost:5001/ws/";
         #endregion
 
         #region Members
@@ -28,7 +32,46 @@ namespace Maba.VCT.Core.Settings
 
         public ComLayer.Tunnel[] Tunnels { get; set; }
 
+        /// <summary>
+        /// Find attached instruments at startup instead of requiring a tunnel per instrument.
+        /// <para>
+        /// Discovery enumerates the USB and GPIB instruments that actually answer, and probes serial
+        /// ports for their baud rate. Anything listed in <see cref="Tunnels"/> still opens exactly as
+        /// configured and its serial port is never probed, so a static entry remains available as an
+        /// override for an instrument that does not answer *IDN?.
+        /// </para>
+        /// <para>
+        /// This is what keeps the configuration free of per-instrument detail. It also removes two
+        /// failure modes that static tunnels caused: two instruments configured on one COM port, and a
+        /// tunnel for an instrument that had been unplugged wedging the device tick on its bus error.
+        /// </para>
+        /// </summary>
+        public bool AutoDiscoverTransports { get; set; } = true;
+
+        /// <summary>
+        /// How often, in seconds, to look for instruments that were plugged in after startup.
+        /// 0 disables it.
+        /// <para>
+        /// Discovery used to run once, during startup. Unplugging a logger and plugging it back in
+        /// therefore ended the session for good: the pending device is dropped the moment its link
+        /// reports disconnected, and nothing ever looked again - not even the app's manual refresh,
+        /// which only redraws the client (MBA-962 item 4).
+        /// </para>
+        /// <para>
+        /// Thirty seconds rather than the two-second device tick because a serial pass physically
+        /// opens each candidate port and sends *IDN?; doing that every couple of seconds would
+        /// disturb instruments that are mid-measurement for no benefit.
+        /// </para>
+        /// </summary>
+        public int RediscoverIntervalSeconds { get; set; } = 30;
+
         public DeviceSettings[] DeviceSettings { get; set; }
+
+        /// <summary>
+        /// HttpListener URL prefix for the WebSocket endpoint (must end with /).
+        /// Clients use the matching ws:// or wss:// URL (see <see cref="NormalizeWebSocketListenPrefix"/>).
+        /// </summary>
+        public string WebSocketListenPrefix { get; set; }
 
         public TimeSpan PendingDevice_AwakePacketInterval_TimeSpan
         {
@@ -80,6 +123,7 @@ namespace Maba.VCT.Core.Settings
         {
             //OTA_LocalStorageFolder = null;
             PendingDevice_MaxAwakePacketTimes = 5;
+            WebSocketListenPrefix = DEFAULT_WEBSOCKET_LISTEN_PREFIX;
         }
 
         #endregion
@@ -94,7 +138,10 @@ namespace Maba.VCT.Core.Settings
                     Formatting = Formatting.Indented
                 };
 
-                using (var st = new FileStream(fullPath, FileMode.OpenOrCreate, FileAccess.Write))
+                // FileMode.Create, not OpenOrCreate: OpenOrCreate does not truncate, so saving a settings
+                // file shorter than the one on disk left the tail of the old content behind and
+                // produced a file that is valid JSON followed by garbage.
+                using (var st = new FileStream(fullPath, FileMode.Create, FileAccess.Write))
                 {
                     using (var txtWriter = new StreamWriter(st))
                     {
@@ -106,8 +153,9 @@ namespace Maba.VCT.Core.Settings
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Tracer.Info("[VCTSettings] Save failed: {0}", ex.Message);
             }
         }
 
@@ -142,6 +190,9 @@ namespace Maba.VCT.Core.Settings
 
         #region static
 
+        /// <summary>Process environment variable: when set to an absolute path, <see cref="GetSettingsFullPath"/> uses that file instead of the default under the executing assembly (tests/CI isolation).</summary>
+        public const string VCT_SETTINGS_FULL_PATH_ENV = "VCT_SETTINGS_FULL_PATH";
+
         public static string GetSettingFolder()
         {
             var folderName = Path.Combine(
@@ -153,6 +204,16 @@ namespace Maba.VCT.Core.Settings
 
         public static string GetSettingsFullPath()
         {
+            var env = Environment.GetEnvironmentVariable(VCT_SETTINGS_FULL_PATH_ENV);
+            if (!string.IsNullOrWhiteSpace(env))
+            {
+                var p = env.Trim().Trim('"');
+                var dir = Path.GetDirectoryName(p);
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+                return p;
+            }
+
             return Path.Combine(GetSettingFolder(), DEFAULT_FILE_NAME);
         }
 
@@ -183,20 +244,38 @@ namespace Maba.VCT.Core.Settings
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Tracer.Info("[VCTSettings] Read failed: {0}", ex.Message);
             }
 
             _settings = _settings ?? CreateDefaultSettings();
 
+            if (string.IsNullOrWhiteSpace(_settings.WebSocketListenPrefix))
+                _settings.WebSocketListenPrefix = DEFAULT_WEBSOCKET_LISTEN_PREFIX;
+            else
+                _settings.WebSocketListenPrefix = NormalizeWebSocketListenPrefix(_settings.WebSocketListenPrefix);
+
             _settings.Save();
             return _settings;
+        }
+
+        /// <summary>Ensures trailing slash and trims whitespace (HttpListener requirement).</summary>
+        public static string NormalizeWebSocketListenPrefix(string prefix)
+        {
+            if (string.IsNullOrWhiteSpace(prefix))
+                return DEFAULT_WEBSOCKET_LISTEN_PREFIX;
+            var p = prefix.Trim();
+            if (!p.EndsWith("/", StringComparison.Ordinal))
+                p += "/";
+            return p;
         }
 
         public static VCTSettings CreateDefaultSettings()
         {
             var defaultSettings = new VCTSettings()
             {
+                WebSocketListenPrefix = DEFAULT_WEBSOCKET_LISTEN_PREFIX,
                 Tunnels = new ComLayer.Tunnel[]
                  {
                     new ComLayer.Tunnel()
@@ -205,6 +284,13 @@ namespace Maba.VCT.Core.Settings
                         Address = "127.0.0.1",
                         BacklogClients = 5000,
                         Ports = new int[] { 50000, 50050 }
+                    },
+                    new ComLayer.Tunnel()
+                    {
+                        Name = "SerialDevice_AUTO",
+                        SerialPortName = "AUTO",
+                        SerialBaudRate = 9600,
+                        SerialTimeout = 100
                     }
                 },
                 DeviceSettings = new DeviceSettings[]

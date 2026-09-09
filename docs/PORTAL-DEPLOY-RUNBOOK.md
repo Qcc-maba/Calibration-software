@@ -1,0 +1,345 @@
+# פורטל הלקוחות — runbook לעלייה לאוויר
+
+> **נכתב:** 2026-08-30 · יעד: `portal-api.qcc.co.il` על AWS
+> הסודות עצמם **אינם** במסמך הזה במכוון — הם נמסרו בטרמינל. אל תכניס אותם לכאן ואל תשלח במייל.
+
+---
+
+## 0. מה שכבר מוכן
+
+| | |
+|---|---|
+| השירות ללא תלות on-prem | ✅ נבדק: רק SQL + SMTP |
+| `SecureCookies: true` | ✅ |
+| `AllowedOrigins` כולל `portal.qcc.co.il` | ✅ |
+| `ExposureGuard` — סירוב לעלות חשוף בלי מפתח | ✅ |
+| `DevLoginCode` לא קיים בקובץ הייצור | ✅ |
+| סקריפט התקנה | ✅ `scripts/Install-CustomerPortalApi-Service.ps1` |
+
+## 0.1 שערי העלייה לאוויר — מה חוסם, נכון ל-02/09/2026
+
+47 טיקטים פתוחים נושאים את המילה portal או customer. **רובם המכריע אינם חוסמים.** אלה שכן,
+מסודרים לפי מה שהלקוח חווה אם עולים בלעדיהם.
+
+### שער 1 — בלעדיהם הפורטל לא עובד או לא בטוח
+
+| טיקט | מה קורה בלעדיו | סטטוס |
+|---|---|---|
+| [MBA-937](https://calibration-maba.atlassian.net/browse/MBA-937) | **אף אחד לא יכול להתחבר.** האפליקציה לא שולחת `X-Portal-Api-Key`, והשירות מחזיר 401 על כל בקשת התחברות | In Testing |
+| [MBA-938](https://calibration-maba.atlassian.net/browse/MBA-938) | `portal.qcc.co.il` מגיש גם את שיבוץ עבודה, אשף הכיול והאריזה — מסכים פנימיים תחת דומיין ממותג-לקוח | In Testing |
+| [MBA-946](https://calibration-maba.atlassian.net/browse/MBA-946) | עוגייה פגומה מייצרת לולאת הפניות. ללקוח זה נראה כמו אתר שבור | In Progress |
+
+**MBA-937 הוא החסם היחיד שאין עליו מחלוקת.** הוא לא באג עדין: השירות מסרב לעלות בהאזנה ציבורית
+בלי `ProxyApiKey` (`Auth/ExposureGuard.cs`), והמפתח לא יכול להישאר ריק — `request-otp` עונה תשובה
+שונה לכתובת רשומה ולא רשומה, כך ששירות פתוח מאפשר לגלות מי מהלקוחות שלנו. אין "לעלות בלי מפתח".
+
+### שער 2 — הפורטל עובד, אבל מראה נתונים שגויים או ריקים
+
+| טיקט | מה הלקוח רואה | סטטוס |
+|---|---|---|
+| [MBA-943](https://calibration-maba.atlassian.net/browse/MBA-943) | 181 אנשי קשר רואים פורטל ריק — כתובת מייל אחת משרתת כמה לקוחות, וה-SP פותר רק אחד | To Do |
+| [MBA-949](https://calibration-maba.atlassian.net/browse/MBA-949) | רשימת המכשירים היא mock קשיח. `GetCustomerDeviceList` לא נקרא בכלל | To Do |
+| [MBA-934](https://calibration-maba.atlassian.net/browse/MBA-934) | שאר ה-mock שעדיין לא הוחלף ב-SP אמיתי | To Do |
+| [MBA-936](https://calibration-maba.atlassian.net/browse/MBA-936) | איש קשר שמשרת כמה לקוחות רואה רק אחד מהם | To Do |
+| [MBA-942](https://calibration-maba.atlassian.net/browse/MBA-942) | אין סימון לאיזו חברה כל שורה שייכת | In Testing |
+
+**MBA-949 ו-MBA-934 הם הקשים כאן.** פורטל שמראה ללקוח נתוני דמה גרוע יותר מפורטל שלא עלה — הוא
+שורף אמון שקשה להחזיר.
+
+### מצב בסיס הנתונים — נבדק ב-02/09/2026
+
+שבעת אובייקטי הפורטל קיימים **בשתי הסביבות**, ו-`VerifyCustomerPortalOtp` זהה בשתיהן בתוכן
+(הפרש תאריכי השינוי הוא תזמון פריסה, לא גרסה). `GetPortalCustomerIds` הוא inline TVF ולא
+פרוצדורה — בדיקה שמחפשת אותו כ-`type='P'` תדווח בטעות שהוא חסר.
+
+**צד ה-DB אינו החסם.** החסמים הם צד קדמי והגדרות.
+
+### כל השאר — אחרי העלייה
+
+~35 הטיקטים הנותרים הם פיצ'רים ולא חסמים: עימוד, פופ-אפים, פעולות מרובות, חיפוש, בקשות תמחור
+ומשלוח. אפשר להעלות בלעדיהם.
+
+---
+
+## 1. היעד: המכונה `MbaCustWeb`
+
+מה שנמצא בבדיקה:
+
+```
+51.17.121.203  →  ec2-51-17-121-203.il-central-1.compute.amazonaws.com
+SQL @@SERVERNAME = MbaCustWeb\QCC   ·   MachineName = MbaCustWeb   ·   Windows
+port 443 OPEN   ·   port 80 closed   ·   port 5312 closed
+```
+
+זו מכונת Windows על EC2 ב-`il-central-1` — **אותו region של ה-S3 bucket**, ועליה כבר רץ ה-SQL Server של הפורטל. השם `MbaCustWeb` ("MBA Customer Web") ופורט 443 שכבר פתוח מרמזים שיש שם IIS.
+
+**למה דווקא כאן ולא מכונה חדשה:** השירות מדבר רק עם ה-SQL שכבר יושב על המכונה הזו (חיבור מקומי, בלי לצאת לרשת) ועם M365. מכונה נוספת תוסיף עלות, latency ועוד משהו לתחזק, בלי להרוויח דבר.
+
+✅ **אושר (2026-08-31):** מותר להוסיף role למכונה שמריצה את ה-SQL של הייצור. `MbaCustWeb` הוא היעד.
+
+## 1.5 גישה למכונה והעברת החבילה
+
+הסעיף הזה היה חסר, ומי שביצע נתקע בדיוק כאן.
+
+### איך נכנסים
+
+```powershell
+mstsc /v:51.17.121.203
+```
+
+`3389` פתוח מהרשת של מבא — **אין צורך לגעת ב-Security Group** כדי להתחבר.
+נבדק 01/09/2026: `3389` פתוח, `443` פתוח, `1433` פתוח, `5312` סגור (הפורטל, עדיין לא הותקן).
+
+פרטי ההתחברות הם של **Windows**, לא של SQL. `app_prod` הוא login של SQL Server ולא יעבוד ב-RDP.
+מי שהקים את ה-EC2 מחזיק או ב-Administrator המקומי, או ב-key pair שמפענח את הסיסמה דרך
+EC2 Console → Instance → Connect → RDP Client → Get password, עם קובץ ה-`.pem`.
+
+### למה לא בונים על השרת
+
+`Install-CustomerPortalApi-Service.ps1` הריץ בעבר `dotnet publish`, כלומר דרש **קוד מקור ו-SDK**
+על המכונה. `MbaCustWeb` היא שרת ה-SQL של הייצור — לא המקום לאף אחד משניהם.
+
+הסקריפט מקבל היום `-SkipPublish -PublishDir`. בונים במקום אחר, מעבירים, מתקינים.
+
+### הבנייה, על מכונת הפיתוח
+
+```powershell
+dotnet publish Systems\CustomerPortalApi\Maba.VCT.CustomerPortalApi.csproj `
+  -c Release -r win-x64 --self-contained -o C:\portal-publish
+```
+
+`--self-contained` בכוונה: הוא מייתר גם את התקנת ה-.NET runtime על השרת. התוצאה ~358 קבצים.
+הסקריפט מזהה לבד איזו חבילה קיבל — לפי `hostfxr.dll` — ואם היא תלוית-framework הוא בודק שיש
+runtime ומזהיר מראש, במקום להשאיר שירות שלא עולה.
+
+### ההעברה
+
+ב-`mstsc`, לפני החיבור: Local Resources → More → לסמן את הכונן. הכוננים המקומיים יופיעו על השרת
+תחת `\tsclient\`, ואפשר להעתיק משם. לחלופין S3, או כל דרך אחרת — החבילה היא תיקייה רגילה.
+
+### ההתקנה, על MbaCustWeb, כמנהל
+
+```powershell
+.\Install-CustomerPortalApi-Service.ps1 -SkipPublish -PublishDir C:\portal-publish `
+    -Bind any -Port 5312 `
+    -ProxyApiKey       "<שנמסר>" `
+    -ConnectionString  "Server=localhost\QCC;Database=CalibratorProd;User Id=app_prod;Password=<...>;Encrypt=True;TrustServerCertificate=True" `
+    -SmtpUser zimun@mba.co.il -SmtpPassword "<...>" -SmtpFrom zimun@mba.co.il
+```
+
+### 🔒 לבדוק ב-Security Group לפני העלייה לאוויר
+
+`1433` ו-`3389` שניהם ענו מהרשת של מבא. מבחוץ אי אפשר לדעת אם זה כלל מוגבל ל-IP של מבא או
+`0.0.0.0/0`.
+
+**אם זה השני — SQL Server ו-RDP חשופים לאינטרנט על המכונה שעומדת לארח את פורטל הלקוחות.**
+
+EC2 Console → Security Groups → Inbound rules. חמש דקות, ולפני העלייה לאוויר ולא אחריה.
+
+---
+
+## 2. התקנת השירות (על MbaCustWeb, כמנהל)
+
+```powershell
+.\scripts\Install-CustomerPortalApi-Service.ps1 `
+    -Bind any -Port 5312 `
+    -ProxyApiKey       "<המפתח שנמסר>" `
+    -ConnectionString  "Server=localhost\QCC;Database=CalibratorProd;User Id=app_prod;Password=<...>;Encrypt=True;TrustServerCertificate=True" `
+    -SmtpUser zimun@mba.co.il -SmtpPassword "<...>" -SmtpFrom zimun@mba.co.il
+```
+
+שים לב ל-`Server=localhost\QCC` — מקומי, לא דרך הכתובת הציבורית.
+
+בנוסף, שני משתני מכונה שהסקריפט לא מקבל כפרמטר:
+
+```powershell
+[Environment]::SetEnvironmentVariable('CustomerPortal__SessionSecret','<שנמסר>','Machine')
+[Environment]::SetEnvironmentVariable('CustomerPortal__OtpPepper','<שנמסר>','Machine')
+Restart-Service MabaCustomerPortalApi
+```
+
+> **`SessionSecret` חייב להיות זהה בשני הצדדים.** השירות חותם את עוגיית הסשן והאפליקציה מאמתת אותה. ערכים שונים = הלקוח מתחבר ומיד נזרק החוצה, בלי הודעת שגיאה מובנת.
+>
+> **`OtpPepper` — החלפה מבטלת כל קוד שנשלח ועדיין לא נוצל.** לקבוע פעם אחת.
+
+## 3. Reverse proxy ל-HTTPS
+
+השירות מדבר HTTP בלבד ומאזין על 5312. מול העולם צריך TLS:
+
+* IIS → אתר חדש ל-`portal-api.qcc.co.il`, תעודה, ו-URL Rewrite ל-`http://localhost:5312`.
+* להעביר `X-Forwarded-For` ו-`X-Forwarded-Proto`.
+* **לא לפתוח את 5312 ל-Security Group.** רק 443. הסקריפט פותח 5312 בחומת האש של Windows ל-Domain/Private — כשפרוקסי מקומי עומד מלפנים אפשר לצמצם גם את זה ל-loopback.
+
+לאחר מכן, ב-`appsettings.json`:
+
+```json
+"TrustedProxies": [ "127.0.0.1" ]
+```
+
+**בלי זה מגביל הקצב יראה את כתובת הפרוקסי במקום את כתובת הלקוח, וכל הלקוחות ייספרו כאחד** — לקוח אחד פעיל יחסום את כל השאר.
+
+## 4. DNS
+
+```
+portal-api.qcc.co.il   A   51.17.121.203
+```
+
+(או CNAME ל-`ec2-51-17-121-203.il-central-1.compute.amazonaws.com`. אם ה-IP אינו Elastic IP — **לוודא שהוא כן**, אחרת הוא ישתנה בהפעלה מחדש ויפיל את הפורטל.)
+
+## 5. Vercel — הנחיות מדויקות למי שמבצע
+
+> **סדר הפעולות אינו שרירותי.** הדומיין מתחבר **אחרון**. ברגע שהוא מחובר, האפליקציה כולה
+> עונה עליו — כולל שיבוץ עבודה, אשף הכיול והאריזה. כל עוד MBA-938/946 לא מוזגו, חיבור
+> הדומיין חושף את המסכים הפנימיים בכתובת שנמסרה ללקוחות.
+
+### 5.0 תנאי סף — לוודא לפני שנוגעים ב-Vercel
+
+| | איך בודקים |
+|---|---|
+| MBA-937 מוזג ל-`stg` | `git show origin/stg:src/env.js \| grep CUSTOMER_PORTAL_API_KEY` — חייב להחזיר שורה |
+| MBA-938 + MBA-946 מוזגו | `git show origin/stg:src/middleware.ts` — חייב להתקיים |
+| השירות למעלה ועונה | `curl -s https://portal-api.qcc.co.il/health` |
+
+**אם MBA-937 לא מוזג — עצור.** ברגע ש-`ProxyApiKey` מוגדר על השירות, כל בקשת התחברות
+תיענה ב-401 והפורטל יהיה בלתי שמיש. מצב Jira "Approved" **אינו** אומר שהקוד קיים; נבדק
+ב-01/09/2026 שהוא Approved אך הקוד אינו ב-`stg` ואין ענף.
+
+### 5.1 משתני סביבה — קודם
+
+בפרויקט `app` → Settings → Environment Variables, ל-Production ול-Preview:
+
+| שם | ערך |
+|---|---|
+| `CUSTOMER_PORTAL_API_URL` | `https://portal-api.qcc.co.il` |
+| `CUSTOMER_SESSION_SECRET` | הערך שנמסר — **זהה** ל-`CustomerPortal__SessionSecret` |
+| `CUSTOMER_PORTAL_API_KEY` | המפתח שנמסר — **זהה** ל-`CustomerPortal__ProxyApiKey` |
+| `SMTP_FROM` | `פורטל מ.ב.א. הזורע <zimun@mba.co.il>` |
+
+ואז **Redeploy** — משתני סביבה נקראים בזמן build/הרצה של הפונקציה, ולא נכנסים לתוקף בלי פריסה מחדש.
+בחר את הפריסה האחרונה של `stg`/`production` → תפריט `…` → `Redeploy`. **בטל את הסימון של
+"Use existing Build Cache"**, אחרת ערכים שנצרבים בזמן build לא יתעדכנו.
+
+### 5.2 DNS — לפני חיבור הדומיין
+
+Vercel יבקש רשומה. ברוב המקרים:
+
+```
+portal.qcc.co.il   CNAME   cname.vercel-dns.com
+```
+
+Vercel מציג את הערך המדויק במסך הוספת הדומיין — **להעתיק משם ולא מכאן**, כי הוא משתנה בין
+חשבונות. אחרי ההוספה, להמתין שהסטטוס יהפוך ל-`Valid Configuration`; תעודת ה-TLS מונפקת
+אוטומטית ורק אחרי שה-DNS מתפשט.
+
+לבדיקה מבחוץ, לפני שממשיכים:
+
+```bash
+nslookup portal.qcc.co.il
+```
+
+### 5.3 חיבור הדומיין — אחרון
+
+Settings → Domains → `Add` → `portal.qcc.co.il` → לשייך ל-branch שממנו רץ הייצור.
+
+> ⚠ **נכון ל-01/09/2026 הדומיין עדיין אינו מחובר, וזה המצב הנכון.** אין לחבר אותו לפני
+> ש-5.0 מתקיים במלואו.
+
+### 5.4 אם משהו משתבש
+
+| תסמין | הסיבה כמעט תמיד |
+|---|---|
+| כל בקשת התחברות מחזירה 401 | MBA-937 לא נפרס, או `CUSTOMER_PORTAL_API_KEY` שונה מ-`CustomerPortal__ProxyApiKey` |
+| הלקוח מתחבר ומיד נזרק החוצה | `CUSTOMER_SESSION_SECRET` שונה מ-`CustomerPortal__SessionSecret` |
+| כל דף בפורטל מחזיר 404 | ה-matcher ב-`middleware.ts` תופס גם `_next` |
+| לקוח אחד פעיל חוסם את השאר | `TrustedProxies` לא כולל `127.0.0.1` — מגביל הקצב רואה את הפרוקסי כפונה יחיד |
+| המייל לא מגיע | `SmtpUser`/`SmtpPassword` ברמת Machine, ולוודא שהשירות הופעל מחדש אחריהם |
+
+**גלגול אחור מהיר:** Settings → Domains → הסרת `portal.qcc.co.il`. הלקוחות מאבדים גישה,
+אבל שום מסך פנימי אינו נחשף. זו הפעולה הראשונה בכל תקלה שאינה מובנת.
+
+> ### 🛑 חסם ידוע — MBA-937
+>
+> **האפליקציה אינה שולחת את הכותרת `X-Portal-Api-Key` בכלל.** נבדק בקוד: `callPortalApi`
+> שולח רק `content-type`, ואין משתנה למפתח ב-`src/env.js`.
+>
+> המשמעות: ברגע שיוגדר `ProxyApiKey` על השירות — וזה **חובה** לחשיפה ציבורית, אחרת
+> הוא מסרב לעלות — **כל בקשה תיענה ב-401 והפורטל יהיה בלתי שמיש**. זה לא מתגלה היום רק
+> מפני שמקומית המפתח ריק והבדיקה מושבתת.
+>
+> **[MBA-937](https://calibration-maba.atlassian.net/browse/MBA-937) חייב להיסגר ולהיפרס לפני שלב 5.**
+> אין דרך לעקוף: לוותר על המפתח פירושו להשאיר את `request-otp` פתוח, והוא מגלה אילו
+> כתובות מייל שייכות ללקוחות.
+
+## 6. תכנית בדיקה
+
+לפי סדר. **כל שלב שנכשל עוצר את הבא אחריו** — אין טעם לבדוק מסכים אם ההתחברות שבורה.
+
+### שלב א — השירות, לפני שנוגעים בדומיין
+
+| # | פעולה | מה שמצופה | אם נכשל |
+|---|---|---|---|
+| א1 | `GET /health` | `200`, ו-`database`/`smtp` = `configured` | השירות לא עלה או ה-proxy לא מנתב — §3 |
+| א2 | `POST /api/customer-auth/request-otp` **בלי** הכותרת `X-Portal-Api-Key` | **`401`** | ה-`ProxyApiKey` לא נאכף. **עצור** — `request-otp` חשוף ומגלה מי לקוח |
+| א3 | אותה בקשה **עם** הכותרת, לכתובת מייל אמיתית | `200` ומייל מגיע | SMTP — §5.4 |
+| א4 | אותה בקשה עם הכותרת, לכתובת שאינה לקוח | `200` בלי מייל | — |
+
+### שלב ב — הדומיין, מיד אחרי החיבור
+
+**זו הבדיקה הכי חשובה ברשימה.** אם היא נכשלת, להסיר את הדומיין מיד (§5.4).
+
+| # | כתובת | מה שמצופה |
+|---|---|---|
+| ב1 | `portal.qcc.co.il/coordinator-orders` | **לא** מסך שיבוץ. הפניה לכניסה/דשבורד (MBA-946) |
+| ב2 | `portal.qcc.co.il/packing` | אותו דבר |
+| ב3 | `portal.qcc.co.il/calibration-wizard` | אותו דבר |
+| ב4 | `portal.qcc.co.il/` | הפניה ל-`/customer/sign-in` (בלי סשן) |
+| ב5 | `portal.qcc.co.il/customer/xyz123` (טעות הקלדה) | הפניה, לא מבוי סתום |
+| ב6 | `cal.qcc.co.il/coordinator-orders` | **עובד כרגיל** — לא נשבר |
+
+### שלב ג — הפורטל עצמו עובד
+
+הטעות הקלה ביותר כאן היא לבדוק רק שהמסך הפנימי חסום, ולשכוח שה-matcher עלול לשבור את
+הפורטל כולו. **חובה לעבור את כל השלב הזה.**
+
+| # | פעולה | מה שמצופה |
+|---|---|---|
+| ג1 | להקליד מייל → "שלח קוד" | המסך עובר לשלב הקוד, בלי שגיאה |
+| ג2 | המייל מגיע | שולח = **פורטל מ.ב.א. הזורע** |
+| ג3 | להקליד את הקוד | נכנס לדשבורד |
+| ג4 | **לרענן את הדף (F5)** | נשאר מחובר. אם נזרק — `CUSTOMER_SESSION_SECRET` לא תואם |
+| ג5 | לנווט למכשירים, דוחות, פרופיל | נטענים, עם עיצוב ותמונות. אם העיצוב נעלם — ה-matcher תופס `_next` |
+| ג6 | ללחוץ על אייקון דוח | ה-PDF נפתח |
+| ג7 | להתנתק ולחזור ל-`/` | הפניה למסך הכניסה |
+
+### שלב ד — בדיקות נתונים
+
+| # | מה | מה שמצופה |
+|---|---|---|
+| ד1 | לקוח בעל חברה אחת | רואה את המכשירים שלו בלבד |
+| ד2 | `khaled.abushaban@sanmina.com` | **137 מכשירים בשתי חברות** (MBA-943). לפני התיקון ראה 84 |
+| ד3 | `golan@meditec.co.il` | **24 מכשירים**. לפני התיקון ראה 0 |
+| ד4 | כרטיס "שירות לקוחות" | מציג נציג, לא ריק |
+| ד5 | כרטיס "כיול קרוב" | ריק זה **תקין** אם אין שיבוצים עתידיים — לא באג |
+
+### שלב ה — ניסיון עוין קל
+
+| # | מה | מה שמצופה |
+|---|---|---|
+| ה1 | מחובר כלקוח א', לשנות `orderDetailsItemId` בבקשת פרטי מכשיר למספר של לקוח אחר | ריק. אומת ב-SQL, כאן לאמת דרך ה-UI |
+| ה2 | עוגיית סשן זבל | חוזר למסך הכניסה, **בלי לולאת הפניות** (MBA-946) |
+| ה3 | קריאה ל-`portal-api` מבחוץ בלי הכותרת | 401 |
+
+### קריטריון יציאה
+
+שלבים א–ג עוברים במלואם. ד ו-ה יכולים להתגלגל ליום שאחרי — **חוץ מ-ה2**, כי לולאת הפניות
+נראית ללקוח כמו אתר שבור.
+
+---
+
+## מה שאסור לשכוח
+
+1. **`DevLoginCode` לא מוגדר בייצור.** הוא לא בקובץ, וה-guard חוסם אותו גם אם מישהו יוסיף — אבל אל תוסיף.
+2. **`ProxyApiKey` ריק = השירות מסרב לעלות** בהאזנה ציבורית. זה מכוון: `request-otp` עונה תשובה שונה לכתובת רשומה ולא רשומה, כך ששירות פתוח מאפשר לגלות מי מהלקוחות שלך.
+3. **`portal.qcc.co.il` מ-Vercel מגיש את כל האפליקציה** — דומיין ב-Vercel מתחבר לפרויקט, לא לנתיב. כלומר שיבוץ עבודה, אשף הכיול והאריזה ייענו בכתובת שנמסרה ללקוח. אלה מסכים פנימיים ואין להם מה לעשות שם. ההגבלה ל-`/customer/*` נכתבה ב-[MBA-938](https://calibration-maba.atlassian.net/browse/MBA-938) (ענף `feature/MBA-938-restrict-portal-host`, **טרם מוזג**), ו-[MBA-946](https://calibration-maba.atlassian.net/browse/MBA-946) משנה את היעד מ-404 להפניה ללובי או לכניסה.
+   זו **הגנה בשכבות ולא בקרת הגישה עצמה**: המסכים הפנימיים ממילא דורשים התחברות, כך שאין כאן חור. זה מונע מלקוח לגלות שהם קיימים, ומונע ממסך פנימי להיטען תחת דומיין ממותג-לקוח.
+4. **`ReportArchiveSync` נשאר on-prem** ואינו חלק מהעלייה הזו. הוא קורא מה-share של Priority וכותב ל-S3 ול-DB שבענן.

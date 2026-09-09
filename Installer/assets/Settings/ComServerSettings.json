@@ -1,0 +1,60 @@
+{
+  "Modules": [
+    {
+      "AssemblyName": "Maba.VCT.CommServer.BL.HydraDevices",
+      "TypeName": "Maba.VCT.CommServer.BL.HydraDevices.BLCore.Hydra2BLCore"
+    },
+    {
+      "AssemblyName": "Maba.VCT.CommServer.BL.HydraDevices",
+      "TypeName": "Maba.VCT.CommServer.BL.HydraDevices.BLCore.Datron9100BLCore"
+    },
+    {
+      "AssemblyName": "Maba.VCT.CommServer.BL.HydraDevices",
+      "TypeName": "Maba.VCT.CommServer.BL.HydraDevices.BLCore.KeysightEdux1002aBLCore"
+    },
+    {
+      "AssemblyName": "Maba.VCT.CommServer.BL.HydraDevices",
+      "TypeName": "Maba.VCT.CommServer.BL.HydraDevices.BLCore.Cnt90BLCore"
+    },
+    {
+      "AssemblyName": "Maba.VCT.CommServer.BL.HydraDevices",
+      "TypeName": "Maba.VCT.CommServer.BL.HydraDevices.BLCore.Sdg6052xBLCore"
+    },
+    {
+      "AssemblyName": "Maba.VCT.CommServer.BL.HydraDevices",
+      "TypeName": "Maba.VCT.CommServer.BL.HydraDevices.BLCore.Prodigit3111BLCore"
+    },
+    {
+      "AssemblyName": "Maba.VCT.CommServer.BL.HydraDevices",
+      "TypeName": "Maba.VCT.CommServer.BL.HydraDevices.BLCore.Hp53181aBLCore"
+    },
+    {
+      "AssemblyName": "Maba.VCT.CommServer.BL.HydraDevices",
+      "TypeName": "Maba.VCT.CommServer.BL.HydraDevices.BLCore.Fluke5522aBLCore"
+    },
+    {
+      "AssemblyName": "Maba.VCT.CommServer.BL.HydraDevices",
+      "TypeName": "Maba.VCT.CommServer.BL.HydraDevices.BLCore.Fluke5322aBLCore"
+    },
+    {
+      "AssemblyName": "Maba.VCT.CommServer.BL.HydraDevices",
+      "TypeName": "Maba.VCT.CommServer.BL.HydraDevices.BLCore.MeatestM142BLCore"
+    }
+  ],
+  "IP2Scan": [
+    {
+      "10.3.3.46": "21-431",
+      "10.3.3.47": "21-473",
+      "10.3.3.34": "21-474",
+      "10.3.3.37": "21-527",
+      "10.3.3.32": "21-534",
+      "10.3.3.38": "21-549",
+      "10.3.3.33": "21-596",
+      "10.3.3.35": "21-597",
+      "10.3.3.39": "21-649",
+      "10.3.3.48": "21-651",
+      "10.3.3.36": "31-65",
+      "10.3.3.40": "21-999"
+    }
+  ]
+}

@@ -8,7 +8,12 @@ using System.Threading.Tasks;
 namespace Maba.VCT.Core.Device
 {
 
-    // Change to WebSocket and Hardware DeviceHost
+    /// <summary>
+    /// Hosts ONE physical instrument: wraps its <see cref="ComLayer.IComLayer"/>, cuts the incoming
+    /// bytes into packets via the protocol parser, derives the serial number from the identification
+    /// reply, routes each packet to the waiting <see cref="Sessions.BaseSession"/>, and owns the
+    /// device's <see cref="IDeviceBL"/>. Measurements leave through BroadcastAllMeasurements.
+    /// </summary>
     public class HardwareDeviceHost : IDeviceHost
     {
         #region Members
@@ -373,6 +378,97 @@ namespace Maba.VCT.Core.Device
 
         #region Fire Events
 
+        /// <summary>UTC of the last measurement this device broadcast; null until scanning produces data.
+        /// Drives the ServerCore data-timeout watchdog (MBA-485 AC5/AC6 — comm-loss / DataTimeout / DataRestored).</summary>
+        public DateTime? LastMeasurementUtc { get; private set; }
+
+        /// <summary>Edge-detection flag for the data-timeout watchdog so DataTimeout/DataRestored alerts fire once per transition.</summary>
+        public bool DataTimedOut { get; set; }
+
+        /// <summary>Guards against a double disconnect alert when both the self-disconnect and comm-loss paths fire (MBA-485 AC5).</summary>
+        public bool DisconnectAlerted { get; set; }
+
+        /// <summary>MBA-962: UTC of the last power-cycle recovery attempt; null while the device is producing data.</summary>
+        public DateTime? LastRecoveryAttemptUtc { get; set; }
+
+        /// <summary>MBA-962: recovery attempts made since this device last produced data, so the retry is bounded.</summary>
+        public int RecoveryAttempts { get; set; }
+
+        /// <summary>
+        /// MBA-962: the BL's way to report a fault it alone can see, as a WS alert about this device.
+        /// <paramref name="channel"/> is the channel number as text, or "ALL" for a device-wide alert.
+        /// </summary>
+        public void RaiseAlert(string alertType, string message, string channel)
+        {
+            Libs.Trace.Tracer.Info("[ALERT] SN={0} Channel={1} {2}: {3}", SN, channel, alertType, message);
+            MainEventsBus?.Fire_DeviceAlert(this, new Events.DeviceAlertEventArgs(this, alertType, message, channel));
+        }
+
+        /// <summary>
+        /// MBA-962 (power-cycle recovery): re-run the BL's init sequence on a device that is still
+        /// connected but has stopped producing data.
+        ///
+        /// A logger that loses power and comes back has forgotten its scan configuration, while the
+        /// serial port stayed open the whole time — so nothing looks disconnected, no discovery pass
+        /// will find it (the port is held), and the session that was polling for logs waits for a
+        /// device that will never answer on its own. Only re-sending the setup sequence starts it
+        /// scanning again.
+        ///
+        /// The sessions are reset first: OnDisconnect clears the in-flight request and drains the
+        /// queue, so the restart does not begin behind a pile of requests aimed at the device's
+        /// pre-power-cut state.
+        /// </summary>
+        /// <returns>false when there is no BL to restart, so the caller can log the difference
+        /// between "recovery attempted" and "nothing to recover".</returns>
+        public bool ReinitializeBL(string reason)
+        {
+            var bl = this.BL;
+            if (bl == null)
+            {
+                Libs.Trace.Tracer.Info("[RECOVERY] SN={0} has no BL to re-initialize ({1})", SN, reason);
+                return false;
+            }
+
+            Libs.Trace.Tracer.Info("[RECOVERY] SN={0} re-initializing the device BL: {1}", SN, reason);
+
+            if (Sessions != null)
+            {
+                for (int i = 0; i < Sessions.Length; i++)
+                {
+                    Sessions[i].OnDisconnect();
+                }
+            }
+
+            // OnConnection(true) is the BL's own restart: it rebuilds the state array, resets every
+            // state and puts the machine back at the first step (*IDN?/*RST onward).
+            bl.OnConnection(true);
+            return true;
+        }
+
+        public void BroadcastMeasurement(int channel, double value)
+        {
+            LastMeasurementUtc = DateTime.UtcNow;
+            var packet = new HardwarePacket(string.Format(System.Globalization.CultureInfo.InvariantCulture, "E,{0},{1},{2}", SN, channel, value), false);
+            IncomingEvents(packet);
+        }
+
+        public void BroadcastAllMeasurements(System.Collections.Generic.List<int> channels, System.Collections.Generic.List<double> values)
+        {
+            LastMeasurementUtc = DateTime.UtcNow;
+            // Build multi-channel packet: E,SN,ch1,val1,ch2,val2,...
+            var sb = new System.Text.StringBuilder();
+            sb.Append("E,");
+            sb.Append(SN);
+            for (int i = 0; i < channels.Count && i < values.Count; i++)
+            {
+                sb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, ",{0},{1}", channels[i], values[i]);
+            }
+            var rawPacket = sb.ToString();
+            Libs.Trace.Tracer.Info("[BroadcastAllMeasurements] SN={0}, {1} channels, raw packet: {2}", SN, channels.Count, rawPacket);
+            var packet = new HardwarePacket(rawPacket, false);
+            IncomingEvents(packet);
+        }
+
         internal void IncomingEvents(IPacket p)
         {
             var e = new Events.DeviceEventArgs(this, p);
@@ -406,11 +502,32 @@ namespace Maba.VCT.Core.Device
             {
                 bl.OnConnection(false);
             }
+
+            // Comm-loss path: surface the disconnect so ServerCore can notify WS clients (MBA-485 AC5).
+            // (The self-disconnect path in Disconnect() already fires this.)
+            MainEventsBus?.Fire_DeviceConnection(this, new Events.DeviceConnectionEventArgs(this));
         }
 
         private void OnConnection()
         {
             Libs.Trace.Tracer.Info(true, $"#{SN} Connected");
+
+            // MBA-485 AC5: arm the disconnect alert again. ServerCore reuses this instance when a
+            // known SN reconnects (see AddPendingDevices - it calls InitSessions on the existing
+            // host rather than creating one), so without this reset the flag stays true for the
+            // life of the process and only the FIRST disconnect of a device is ever reported.
+            DisconnectAlerted = false;
+
+            // A device that reconnects has not produced data yet. Clearing this stops the watchdog
+            // from firing DataTimeout off a stale pre-disconnect timestamp the moment it comes back.
+            LastMeasurementUtc = null;
+            DataTimedOut = false;
+
+            // MBA-962: a device that has just reconnected gets its full recovery budget back. Without
+            // this a device that used up its five attempts before being unplugged would come back
+            // with none left, and the next power cycle would go unrecovered.
+            LastRecoveryAttemptUtc = null;
+            RecoveryAttempts = 0;
 
             var bl = this.BL;
             if (bl != null)
@@ -458,6 +575,64 @@ namespace Maba.VCT.Core.Device
             }
         }
 
+        /// <summary>
+        /// True when an identification reply names a Keysight 1000 X-Series scope. The model token is
+        /// matched with spaces and hyphens stripped, because the instrument reports "EDU-X 1002A"
+        /// while the datasheet, the settings and our own SN use "EDUX1002A".
+        /// </summary>
+        internal static bool IsKeysight1000XSeries(string identificationReply)
+        {
+            if (string.IsNullOrEmpty(identificationReply))
+                return false;
+
+            var normalized = identificationReply.Replace(" ", "").Replace("-", "").Replace("_", "");
+            return normalized.IndexOf("EDUX1002", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>
+        /// True when an identification reply names a Fluke 5322A electrical tester calibrator.
+        /// <para>
+        /// ⚠️ The model this instrument reports is a MENU SETTING, not a fixed fact. With 5320A
+        /// emulation off it answers "FLUKE,5322A,&lt;serial&gt;,&lt;firmware&gt;"; with emulation on
+        /// the SAME unit answers "FLUKE,5320A,...". Both spellings are matched here and normalised to
+        /// one SN, because otherwise an operator flipping that menu on the front panel takes the
+        /// instrument out of the server with no error anywhere.
+        /// </para>
+        /// </summary>
+        internal static bool IsFluke5322a(string identificationReply)
+        {
+            if (string.IsNullOrEmpty(identificationReply))
+                return false;
+
+            if (identificationReply.IndexOf("FLUKE", StringComparison.OrdinalIgnoreCase) < 0)
+                return false;
+
+            return identificationReply.IndexOf("5322A", StringComparison.OrdinalIgnoreCase) >= 0
+                || identificationReply.IndexOf("5320A", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>
+        /// True when an identification reply names a Meatest M-142 calibrator, whose <c>*IDN?</c>
+        /// answers "MEATEST,M-142,&lt;serial&gt;,&lt;firmware&gt;".
+        /// <para>
+        /// Both halves are required. The model number alone is matched with spaces and hyphens
+        /// stripped (the instrument writes "M-142", the settings and our SN use the same spelling but
+        /// a reply could reasonably print "M 142"), and the vendor name keeps that loose model match
+        /// from claiming an unrelated instrument whose reply happens to contain those digits.
+        /// </para>
+        /// </summary>
+        internal static bool IsMeatestM142(string identificationReply)
+        {
+            if (string.IsNullOrEmpty(identificationReply))
+                return false;
+
+            if (identificationReply.IndexOf("MEATEST", StringComparison.OrdinalIgnoreCase) < 0)
+                return false;
+
+            var normalized = identificationReply.Replace(" ", "").Replace("-", "").Replace("_", "");
+            return normalized.IndexOf("M142", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         private void handlePacket(object o, Common.PacketEventArgs e)
         {
 
@@ -470,9 +645,40 @@ namespace Maba.VCT.Core.Device
                 {
                     SN = "Optidew";
                 }
+                else if (res.IndexOf("5522A", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    // Fluke 5522A calibrator. Verified live 2026-09-03: *IDN? answers
+                    // "FLUKE,5522A,1972905,1.1+1.3+1.8".
+                    // Placed before the vendor-level "FLUKE" branch below, which takes the first 11
+                    // characters - that rule exists for the Hydra loggers ("FLUKE,2625A") and giving
+                    // the calibrator its own model SN keeps the two families cleanly apart.
+                    SN = "5522A";
+                }
+                else if (IsFluke5322a(res))
+                {
+                    // Fluke 5322A electrical tester calibrator. NOT yet verified live; per the
+                    // Operators Manual *IDN? answers "FLUKE,5322A,<serial>,<firmware>", or
+                    // "FLUKE,5320A,..." when 5320A emulation is switched on - both are normalised to
+                    // this one SN so a front-panel menu cannot silently unclaim the instrument.
+                    // Placed before the vendor-level "FLUKE" branch below for the same reason the
+                    // 5522A branch is: that branch takes the first 11 characters, a rule that exists
+                    // for the Hydra loggers ("FLUKE,2625A").
+                    SN = "5322A";
+                }
                 else if (res.Contains("FLUKE"))
                 {
                     SN = res.Substring(0, 11);
+                }
+                else if (res.IndexOf("53181A", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    // HP 53181A counter. Verified live 2026-09-02: *IDN? answers
+                    // "HEWLETT-PACKARD,53181A,0,3703".
+                    // ⚠️ This branch MUST come before the "HEWLETT" one below: that branch takes the
+                    // first 15 characters, which is "HEWLETT-PACKARD" for this counter and for the
+                    // 34401A multimeter alike. Sharing an SN would let Agilent34401aBLCore (token
+                    // "HEWLETT") claim the counter and drive it with multimeter commands, and would
+                    // collide in BaseBLCore's per-SN dictionary if both were on the bench.
+                    SN = "53181A";
                 }
                 else if (res.Contains("HEWLETT"))
                 {
@@ -490,8 +696,57 @@ namespace Maba.VCT.Core.Device
                 {
                     SN = "Instek";
                 }
+                else if (IsMeatestM142(res))
+                {
+                    // Meatest M-142 multifunction calibrator. NOT yet verified live; per the manual
+                    // *IDN? answers "MEATEST,M-142,412341,4.6". Matched on vendor + model so a
+                    // Meatest M-140 or M-143 on the same bus is not claimed by this BL.
+                    SN = "M-142";
+                }
+                else if (res.IndexOf("PRODIGIT_3111", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    // PRODIGIT 3111 DC electronic load over RS-232. Verified live 2026-09-02: *IDN?
+                    // answers the bare model token "PRODIGIT_3111" - no vendor, serial or firmware
+                    // fields, unlike every other instrument here.
+                    SN = "PRODIGIT_3111";
+                }
+                else if (res.IndexOf("CNT-90", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    // Pendulum CNT-90 counter. Verified live 2026-09-01: *IDN? answers
+                    // "PENDULUM, CNT-90, 938636, V1.14 28 Jun 2006". Matched on the model, since the
+                    // same vendor also ships the CNT-91 with a different BL.
+                    SN = "CNT-90";
+                }
+                else if (res.IndexOf("SDG6052X", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    // Siglent SDG6052X generator. Verified live 2026-09-01: *IDN? answers
+                    // "Siglent Technologies,SDG6052X,SDG6XEBD4R0879,6.01.01.35R5B1".
+                    SN = "SDG6052X";
+                }
+                else if (IsKeysight1000XSeries(res))
+                {
+                    // Keysight InfiniiVision EDUX1002A oscilloscope. Verified live 2026-09-01: *IDN?
+                    // answers "KEYSIGHT TECHNOLOGIES,EDU-X 1002A,CN59280205,01.10.2018012838" - the
+                    // model is spelled "EDU-X 1002A", with a hyphen and a space, NOT "EDUX1002A" as the
+                    // datasheet's model number suggests. Matched on the model rather than the vendor,
+                    // which is shared with every other Keysight instrument, and normalised so both
+                    // spellings identify the device. SN is the canonical form the BLCore matches.
+                    SN = "EDUX1002A";
+                }
+                else if (res.IndexOf("DATRON", StringComparison.OrdinalIgnoreCase) >= 0
+                      || res.IndexOf("WAVETEK", StringComparison.OrdinalIgnoreCase) >= 0
+                      || res.Contains("9100"))
+                {
+                    // Datron/Wavetek 9100 calibrator (GPIB). Exact *IDN? text to be confirmed
+                    // against the programming manual; matched on the model/vendor token for now.
+                    SN = "Datron9100";
+                }
                 IdentificationDate = DateTime.Now;
             }
+
+            // NOTE: Raw E, scan packets are NOT broadcast here to avoid duplicates.
+            // The BL layer (Hydra2DeviceBL.HandleLogData) reads log entries and
+            // calls BroadcastAllMeasurements() which is the single broadcast path.
 
             if (PacketReceived != null)
             {
@@ -503,7 +758,14 @@ namespace Maba.VCT.Core.Device
             {
                 for (int i = 0; i < Sessions.Length; i++)
                 {
-                    Sessions[i].HandlePacket(e.P as HardwarePacket);
+                    try
+                    {
+                        Sessions[i].HandlePacket(e.P as HardwarePacket);
+                    }
+                    catch (Exception ex)
+                    {
+                        Libs.Trace.Tracer.Info("[Session] HandlePacket error in session {0}: {1}", i, ex.Message);
+                    }
                 }
             }
             #endregion

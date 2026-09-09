@@ -32,17 +32,44 @@ namespace Maba.VCT.Common
         }
         private void ParsePackets()
         {
-            var packetBytes = new byte[writeIndex];
-            Buffer.BlockCopy(_Buffer, 0, packetBytes, 0, packetBytes.Length);
-            var packet = new HardwarePacket(ASCIIEncoding.ASCII.GetString(packetBytes));
-
-            OnPacket(this, new PacketEventArgs(packet));
-            for (int i = 0; i < writeIndex; i++)
+            while (writeIndex > 0)
             {
-                _Buffer[i] = _Buffer[i + writeIndex];
-            }
+                string accumulated = ASCIIEncoding.ASCII.GetString(_Buffer, 0, writeIndex);
 
-            writeIndex = 0;
+                // Primary terminator: "=>" (Hydra ready-prompt, sent after command responses)
+                int promptIdx = accumulated.IndexOf("=>");
+                if (promptIdx >= 0)
+                {
+                    string responseStr = accumulated.Substring(0, promptIdx);
+                    var packet = new HardwarePacket(responseStr);
+                    OnPacket(this, new PacketEventArgs(packet));
+
+                    int consumed = promptIdx + 2;
+                    int remaining = writeIndex - consumed;
+                    if (remaining > 0)
+                        Buffer.BlockCopy(_Buffer, consumed, _Buffer, 0, remaining);
+                    writeIndex = remaining > 0 ? remaining : 0;
+                    continue;
+                }
+
+                // Fallback terminator: "\r\n" (scan data lines like "E,..." have no "=>")
+                int newlineIdx = accumulated.IndexOf("\r\n");
+                if (newlineIdx >= 0)
+                {
+                    string responseStr = accumulated.Substring(0, newlineIdx + 2);
+                    var packet = new HardwarePacket(responseStr);
+                    OnPacket(this, new PacketEventArgs(packet));
+
+                    int consumed = newlineIdx + 2;
+                    int remaining = writeIndex - consumed;
+                    if (remaining > 0)
+                        Buffer.BlockCopy(_Buffer, consumed, _Buffer, 0, remaining);
+                    writeIndex = remaining > 0 ? remaining : 0;
+                    continue;
+                }
+
+                break; // Incomplete data, wait for more
+            }
         }
         public void OnData(float floatData)
         {

@@ -1,0 +1,156 @@
+using Maba.VCT.InstructionAssistant;
+using Maba.VCT.InstructionAssistant.Auth;
+using Maba.VCT.InstructionAssistant.Extraction;
+using Maba.VCT.InstructionAssistant.Models;
+using Maba.VCT.InstructionAssistant.Options;
+using Maba.VCT.InstructionAssistant.Sources;
+using Maba.VCT.InstructionAssistant.Summarize;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Lets the same executable run as a console app during development and as a Windows Service on
+// the VCT server (no-op when not started by the SCM). Installed by
+// scripts/Install-InstructionAssistant-Service.ps1.
+builder.Host.UseWindowsService(o => o.ServiceName = "MabaInstructionAssistant");
+
+builder.Services
+    .AddOptions<InstructionAssistantOptions>()
+    .Bind(builder.Configuration.GetSection(InstructionAssistantOptions.SectionName));
+
+// Text extraction
+builder.Services.AddSingleton<IDocumentTextExtractor, PlainTextExtractor>();
+builder.Services.AddSingleton<IDocumentTextExtractor, DocxTextExtractor>();
+builder.Services.AddSingleton<IDocumentTextExtractor, PdfTextExtractor>();
+builder.Services.AddSingleton<CompositeTextExtractor>();
+
+// Instruction sources
+builder.Services.AddSingleton<IInstructionSourceProvider, ExcelInstructionProvider>();
+builder.Services.AddSingleton<IInstructionSourceProvider, FileShareInstructionProvider>();
+builder.Services.AddSingleton<IInstructionSourceProvider, PriorityInstructionSource>();
+
+// Resolves a MABA number (מספר מבא) to the full instrument context.
+builder.Services.AddSingleton<PriorityRecordResolver>();
+
+// Summarizer — pick by config Mode (Claude cloud vs offline extractive)
+var mode = builder.Configuration[$"{InstructionAssistantOptions.SectionName}:Summarizer:Mode"] ?? "Claude";
+if (string.Equals(mode, "Extractive", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddSingleton<IInstructionSummarizer, ExtractiveSummarizer>();
+else
+{
+    var timeoutSeconds =
+        builder.Configuration.GetValue<int?>($"{InstructionAssistantOptions.SectionName}:Summarizer:TimeoutSeconds")
+        ?? 180;
+    builder.Services.AddHttpClient<IInstructionSummarizer, ClaudeSummarizer>(c =>
+        c.Timeout = TimeSpan.FromSeconds(timeoutSeconds));
+}
+
+builder.Services.AddSingleton<InstructionAssistantService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<SummaryCache>();
+builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
+    p.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod()));
+
+var app = builder.Build();
+app.UseCors();
+
+// Shared-secret gate for the API. Left open when no key is configured (local development);
+// the installer sets one whenever the service is bound beyond localhost.
+var accessKey = builder.Configuration[$"{InstructionAssistantOptions.SectionName}:AccessKey"];
+
+async ValueTask<object?> RequireAccessKey(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next)
+    => AccessKey.Matches(AccessKey.Extract(ctx.HttpContext.Request), accessKey)
+        ? await next(ctx)
+        : Results.Json(new { error = "unauthorized" }, statusCode: StatusCodes.Status401Unauthorized);
+
+// Operator UI. Read once from the embedded resource; a missing resource degrades to a hint
+// rather than a 500, because the JSON API is what actually matters.
+var uiPage = new Lazy<string?>(() =>
+{
+    using var stream = typeof(Program).Assembly
+        .GetManifestResourceStream("Maba.VCT.InstructionAssistant.Web.index.html");
+    if (stream is null) return null;
+    using var reader = new StreamReader(stream);
+    return reader.ReadToEnd();
+});
+
+app.MapGet("/", () => uiPage.Value is { } html
+    ? Results.Content(html, "text/html; charset=utf-8")
+    : Results.Text("UI resource missing; the API under /api/instructions is unaffected."));
+
+app.MapGet("/health", (IEnumerable<IInstructionSourceProvider> sources,
+    Microsoft.Extensions.Options.IOptions<Maba.VCT.InstructionAssistant.Options.InstructionAssistantOptions> opt) => Results.Ok(new
+{
+    status = "ok",
+    sources = sources.Select(s => s.Name),
+    mode,
+    centralExcelPath = opt.Value.CentralExcel.Path,
+    centralExcelExists = !string.IsNullOrWhiteSpace(opt.Value.CentralExcel.Path) && File.Exists(opt.Value.CentralExcel.Path),
+    accessKey = string.IsNullOrEmpty(opt.Value.AccessKey) ? "open" : "required",
+}));
+
+// Auto (mabaNum) OR manual (customer/serial/deviceType) — "both" per the chosen design.
+// mabaNum resolves the whole instrument from Priority; any explicit parameter overrides it.
+app.MapGet("/api/instructions/summary", async (
+    string? mabaNum, string? calibRecordId, string? customer, string? customerId,
+    string? serial, string? deviceType, string? manufacturer, string? model, bool? refresh,
+    InstructionAssistantService svc, PriorityRecordResolver resolver, SummaryCache cache,
+    CancellationToken ct) =>
+{
+    var recordId = mabaNum ?? calibRecordId;   // calibRecordId kept as the older parameter name
+
+    var explicitCtx = new InstrumentContext
+    {
+        CalibRecordId = recordId,
+        CustomerName = customer,
+        CustomerId = customerId,
+        SerialNumber = serial,
+        DeviceType = deviceType,
+        Manufacturer = manufacturer,
+        Model = model,
+    };
+
+    var ctx = explicitCtx;
+    string? resolveNotice = null;
+
+    if (!string.IsNullOrWhiteSpace(recordId))
+    {
+        var resolved = await resolver.ResolveAsync(recordId, ct);
+        if (resolved is not null)
+            ctx = resolved.MergeWith(explicitCtx);
+        else
+            resolveNotice = $"מספר מבא '{recordId}' לא נמצא ב-Priority — נעשה שימוש בפרמטרים שהועברו בלבד.";
+    }
+
+    // Cached on the *resolved* context, so the same instrument reached by MABA number or by
+    // explicit parameters shares one entry.
+    var summary = await cache.GetOrCreateAsync(ctx, refresh ?? false, () => svc.GetSummaryAsync(ctx, ct));
+
+    if (resolveNotice is not null && !summary.Notices.Contains(resolveNotice))
+        summary.Notices.Add(resolveNotice);
+
+    return Results.Ok(summary);
+}).AddEndpointFilter(RequireAccessKey);
+
+// Manual fallback — find the MABA number by serial / model / manufacturer / customer.
+app.MapGet("/api/instructions/search", async (
+    string q, PriorityRecordResolver resolver, CancellationToken ct) =>
+{
+    var hits = await resolver.SearchAsync(q, 20, ct);
+    return Results.Ok(new
+    {
+        query = q,
+        results = hits.Select(h => new
+        {
+            mabaNum = h.CalibRecordId,
+            customerId = h.CustomerId,
+            customer = h.CustomerName,
+            deviceType = h.DeviceType,
+            manufacturer = h.Manufacturer,
+            model = h.Model,
+            serial = h.SerialNumber,
+            customerAssetNumber = h.CustomerAssetNumber,
+        }),
+    });
+}).AddEndpointFilter(RequireAccessKey);
+
+app.Run();

@@ -2,7 +2,6 @@
 using Maba.VCT.Common.API;
 using Maba.VCT.Common.API.RemoteProtocolService;
 using System;
-using System.Text;
 
 namespace Maba.VCT.Core.Device.Sessions
 {
@@ -19,24 +18,19 @@ namespace Maba.VCT.Core.Device.Sessions
 
         #region Private methods
 
-        private void AnswerLastRequest(BaseResponse response)
-        {
-            if (LastRequest != null && LastRequest.CallBackResponse != null)
-            {
-                //response.SN = this.Parent.SN;
-                LastRequest.CallBackResponse(this, response);
-            }
-            LastRequest = null;
-        }
-
         private void AnswerLastRequest(Common.API.RemoteProtocolService.GetSetDateResponse response)
         {
             response.SN = this.Parent.SN;
             if (LastRequest != null && LastRequest.CallBackResponse != null)
             {
-                LastRequest.CallBackResponse(this, response);
+                var req = LastRequest;
+                LastRequest = null;
+                req.CallBackResponse(this, response);
             }
-            LastRequest = null;
+            else
+            {
+                LastRequest = null;
+            }
         }
 
         #endregion
@@ -55,7 +49,8 @@ namespace Maba.VCT.Core.Device.Sessions
 
         internal override bool HandlePacket(Common.HardwarePacket p)
         {
-            if (LastRequest != null && LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.GetSetDateRequest))
+            // Only answer when p.OK=True: Hydra sends "=>" first (p.OK=False), then "\r\n" (p.OK=True)
+            if (LastRequest != null && p.OK && LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.GetSetDateRequest))
             {
                 AnswerLastRequest(new GetSetDateResponse(p.OK));
                 return true;
@@ -82,21 +77,6 @@ namespace Maba.VCT.Core.Device.Sessions
                     Message = "Request was timed-out!",
                 });
             }
-            else if (LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.GetSetDateRequest))
-            {
-                AnswerLastRequest(new Common.API.RemoteProtocolService.GetSetDateResponse(false)
-                {
-                    Message = "Request was timed-out!"
-                });
-            }
-            else if (LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.GetSetDateRequest))
-            {
-                AnswerLastRequest(new Common.API.RemoteProtocolService.GetSetDateResponse(false)
-                {
-                    Message = "Request was timed-out!"
-                });
-            }
-
         }
 
         #endregion

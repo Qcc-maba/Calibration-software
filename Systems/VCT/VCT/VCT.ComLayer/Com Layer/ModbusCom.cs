@@ -1,4 +1,5 @@
-﻿using Modbus.Device;
+using Modbus.Device;
+using Maba.VCT.Libs.Trace;
 using System;
 using System.Collections;
 using System.IO.Ports;
@@ -87,7 +88,10 @@ namespace Maba.VCT.ComLayer
                         s.Close();
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Tracer.Info("[Modbus] Serial close {0}: {1}", PortName, ex.Message);
+                }
             }
 
             if (LayerClosed != null)

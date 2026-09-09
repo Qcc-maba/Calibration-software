@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,13 +19,17 @@ namespace Maba.VCT.Core.Events
         public event DeviceConnnectionDelegate DeviceConnnection;
 
         public delegate void WebsocketDeviceConnnectionDelegate(object o, Events.DeviceConnectionEventArgs e);
-        public event DeviceConnnectionDelegate WebsocketDeviceConnnection;
+        public event WebsocketDeviceConnnectionDelegate WebsocketDeviceConnnection;
 
         public delegate void DeviceUnIdentifyConnnectionDelegate(object o, DeviceConnectionEventArgs e);
         public event DeviceUnIdentifyConnnectionDelegate DeviceUnIdentifyConnnection;
 
         public delegate void DeviceEventDelegate(object o, Events.DeviceEventArgs e);
         public event DeviceEventDelegate DeviceOnIncomingEvent;
+
+        public delegate void DeviceAlertDelegate(object o, Events.DeviceAlertEventArgs e);
+        /// <summary>MBA-962: raised by a device's BL for a fault only the BL can see (see DeviceAlertEventArgs).</summary>
+        public event DeviceAlertDelegate DeviceAlert;
 
         #endregion
 
@@ -57,6 +61,8 @@ namespace Maba.VCT.Core.Events
 
         public void Fire_WebSocketConnection(object o, DeviceConnectionEventArgs e)
         {
+            if (e == null || e.Device == null) return;
+
             if (WebsocketDeviceConnnection != null)
             {
                 WebsocketDeviceConnnection(o, e);
@@ -68,6 +74,21 @@ namespace Maba.VCT.Core.Events
             }
         }
 
+
+        /// <summary>
+        /// MBA-962. Deliberately does nothing when no one is listening: a BL raising an alert on a
+        /// host with no ServerCore attached (tests, GUIMonitor before it subscribes) must not throw
+        /// into the middle of a measurement loop.
+        /// </summary>
+        public void Fire_DeviceAlert(object o, DeviceAlertEventArgs e)
+        {
+            if (e == null || e.Device == null) return;
+
+            if (DeviceAlert != null)
+            {
+                DeviceAlert(o, e);
+            }
+        }
 
         public void Fire_UnIdentifiedConnection(object o, DeviceConnectionEventArgs e)
         {

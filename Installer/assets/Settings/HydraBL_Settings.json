@@ -1,0 +1,142 @@
+{
+  "Hydra3type": {
+    "MeasurementRate": 1,
+    "Channels": [
+      101,
+      102
+    ],
+    "Interval": 30,
+    "Sensor": {
+      "MeasureType": 0,
+      "SensType": -1,
+      "ThermocoupleType": 1,
+      "numbertOfWires": 2
+    },
+    "MaxNumOfChannels": 200,
+    "Masters": [
+      "21-449"
+    ]
+  },
+  "Hydra2type": {
+    "MeasurementRate": 0,
+    "Channels": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    "Interval": 30,
+    "Sensor": {
+      "MeasureType": 0,
+      "SensType": -1,
+      "ThermocoupleType": 1,
+      "numbertOfWires": 2
+    },
+    "MaxNumOfChannels": 200,
+    "Masters": [
+      "21-449"
+    ]
+  },
+  "Agilent": {
+    "MeasurementRate": 0,
+    "Channels": [
+      1
+    ],
+    "Interval": 0,
+    "Sensor": {
+      "MeasureType": 1,
+      "SensType": 2,
+      "ThermocoupleType": 0,
+      "numbertOfWires": 4
+    },
+    "MaxNumOfChannels": 1,
+    "Masters": [
+      "21-114"
+    ]
+  },
+  "Additel": {
+    "MeasurementRate": 0,
+    "Channels": [
+      1
+    ],
+    "Interval": 0,
+    "Sensor": {
+      "MeasureType": 2,
+      "SensType": 2,
+      "ThermocoupleType": 0,
+      "numbertOfWires": 4
+    },
+    "MaxNumOfChannels": 1,
+    "Masters": [
+      "21-702"
+    ]
+  },
+  "Optidew": {
+    "MeasurementRate": 0,
+    "Channels": [
+      1
+    ],
+    "Interval": 0,
+    "Sensor": {
+      "MeasureType": 3,
+      "SensType": -1,
+      "ThermocoupleType": 0,
+      "numbertOfWires": 2
+    },
+    "MaxNumOfChannels": 1,
+    "Masters": [
+      "21-711"
+    ]
+  },
+  "TTI22": {
+    "MeasurementRate": 0,
+    "Channels": [
+      1
+    ],
+    "Interval": 0,
+    "Sensor": {
+      "MeasureType": 2,
+      "SensType": -1,
+      "ThermocoupleType": 0,
+      "numbertOfWires": 2
+    },
+    "MaxNumOfChannels": 1,
+    "Masters": [
+      "21-422"
+    ]
+  },
+  "Instek": {
+    "MeasurementRate": 0,
+    "Channels": [
+      101,
+      102
+    ],
+    "Interval": 30,
+    "Sensor": {
+      "MeasureType": 0,
+      "SensType": 0,
+      "ThermocoupleType": 1,
+      "numbertOfWires": 2
+    },
+    "MaxNumOfChannels": 50,
+    "Masters": [
+      "21-999"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Maba.VCT.Priority</RootNamespace>
+    <AssemblyName>Maba.VCT.Priority</AssemblyName>
+    <!-- Copied from maba2000-web; keep in sync with that source. -->
+  </PropertyGroup>
+
+  <!-- Controllers / IHostedService / IOptions / ILogger live in the ASP.NET Core shared framework. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <!-- The source came from a Web SDK project; add its ASP.NET Core global usings so the copied
+       files compile unchanged under the plain Microsoft.NET.Sdk. -->
+  <ItemGroup>
+    <Using Include="Microsoft.Extensions.Logging" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Excluded: coupled to maba2000-web (MabaDbContext / Maba.Core / Maba.Api DTOs).
+         These stay in the folder as reference; they belong to the maba2000-web sync layer. -->
+    <Compile Remove="Services\PriorityODataSyncService.cs" />
+    <Compile Remove="Services\PrioritySyncBackgroundService.cs" />
+    <Compile Remove="Services\PrioritySyncBase.cs" />
+    <Compile Remove="Services\PrioritySyncDispatcher.cs" />
+    <Compile Remove="Services\PrioritySyncService.cs" />
+    <Compile Remove="Controllers\SyncController.cs" />
+    <!-- The DB-backed provider is replaced by PriorityODataOptionsProvider.Config.cs -->
+    <Compile Remove="Services\Priority\PriorityODataOptionsProvider.cs" />
+    <!-- Separate console tool with its own project + top-level statements. -->
+    <Compile Remove="tools\**" />
+  </ItemGroup>
+
+</Project>

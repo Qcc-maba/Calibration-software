@@ -7,8 +7,8 @@
     <ProjectGuid>{9CE699AF-7A49-4A0E-A57D-2F674A8BA914}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.VCT.Clients.Demo</RootNamespace>
-    <AssemblyName>Galcon.VCT.Clients.Demo</AssemblyName>
+    <RootNamespace>Maba.VCT.Clients.Demo</RootNamespace>
+    <AssemblyName>Maba.VCT.Clients.Demo</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />

@@ -23,7 +23,8 @@ namespace Maba.VCT.Core.Device.Sessions
 
         internal override bool HandlePacket(Common.HardwarePacket p)
         {
-            if (LastRequest != null && LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.InitChannelsRequest))
+            // Only answer when p.OK=True: Hydra sends "=>" first (p.OK=False), then "\r\n" (p.OK=True)
+            if (LastRequest != null && p.OK && LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.InitChannelsRequest))
             {
                 AnswerLastRequest(new InitChannelsResponse(p.OK));
                 return true;
@@ -35,9 +36,14 @@ namespace Maba.VCT.Core.Device.Sessions
         {
             if (LastRequest != null && LastRequest.CallBackResponse != null)
             {
-                LastRequest.CallBackResponse(this, response);
+                var req = LastRequest;
+                LastRequest = null;
+                req.CallBackResponse(this, response);
             }
-            LastRequest = null;
+            else
+            {
+                LastRequest = null;
+            }
         }
         internal Common.API.RemoteProtocolService.InitChannelsResponse HandleRequest(Common.API.RemoteProtocolService.InitChannelsRequest Request)
         {

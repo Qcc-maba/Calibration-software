@@ -7,8 +7,8 @@
     <ProjectGuid>{F02BE13F-738B-4A24-82A2-76B3AF75D85C}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Galcon.Connectors.SMSServices.Tools</RootNamespace>
-    <AssemblyName>Galcon.Connectors.SMSServices.Tools</AssemblyName>
+    <RootNamespace>Maba.Connectors.SMSServices.Tools</RootNamespace>
+    <AssemblyName>Maba.Connectors.SMSServices.Tools</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

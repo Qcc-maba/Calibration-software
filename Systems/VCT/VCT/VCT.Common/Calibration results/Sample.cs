@@ -48,7 +48,7 @@ namespace Maba.VCT.Common.Calibration_results
         {
 
             SecondValue = secondValue;
-            SecondValue =secondValue;
+            SecondValueBeforeCorrection = secondValue;
             TotalResults = results;
         }
     }
