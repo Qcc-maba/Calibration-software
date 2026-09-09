@@ -560,7 +560,7 @@ payload check in one pass and restores `App.config` to its committed default aft
 `Priority → on-prem (priority_kyul / kyulan on the PRI instance, via SQL Agent jobs) → AWS (which
 *pulls* over a linked server) → calibration station`. **The station reads from AWS.** Do not point
 it at the on-prem `Calibrator` database: that is a frozen legacy carcass with none of the app's
-tables. See `docs/decisions.md`.
+tables. See `docs/session1-decisions.md`.
 
 **`App.config` in the repo points at STAGE on purpose.** The build script rewrites it to PROD for
 the duration of the compile and puts STAGE back. Never commit it pointing at PROD.
@@ -588,7 +588,7 @@ Things that cost a day each and will not be obvious:
 - **A silent install does not start the web app.** The `[Run]` entry is `postinstall skipifsilent`,
   so `/VERYSILENT` leaves only the Windows service running. Interactive installs offer a "Launch
   now" checkbox; from v1.6.7 a Startup shortcut also brings the station up after a reboot.
-- **NI-488.2 is deliberately not bundled** — see `Installer/DRIVERS.md` and `docs/decisions.md`.
+- **NI-488.2 is deliberately not bundled** — see `Installer/DRIVERS.md` and `docs/session1-decisions.md`.
 
 ### Verifying a station honestly
 
@@ -870,7 +870,7 @@ usually names the exact identifier.
   cause. Say which evidence supports which claim.
 - **Deploy a procedure to STAGE *and* PROD, or say plainly that you did not.** Half of the SQL from a
   session ending up on STAGE only is the single most common way this repo ends up with
-  "works here, missing there" bugs. `Compare-Schema.ps1` will show it; `docs/decisions.md` lists what
+  "works here, missing there" bugs. `Compare-Schema.ps1` will show it; `docs/session1-decisions.md` lists what
   is currently one-sided.
 - **Change one variable at a time before attributing a hardware fault.** A bit-level corruption was
   measured on two GPIB instruments and blamed on the shared adapter, with a table of numbers behind
