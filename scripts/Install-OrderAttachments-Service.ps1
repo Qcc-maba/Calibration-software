@@ -27,7 +27,17 @@
     service starts without it and reports those specific files as unconvertible.
 
 .PARAMETER CalibratorConnectionString
-    Connection string to the Calibrator database. Omit to keep the one already configured.
+    Connection string to the Calibrator database.
+
+    Omit it and the script reads app\.env itself - REMOTE_DATABASE_URL_PROD for -Environment
+    Prod, REMOTE_DATABASE_URL_STAGE for Stage - and builds the connection string from it. That is
+    the normal case; pass this only to point somewhere else. Nothing has to be typed or pasted,
+    which is the point: a half-pasted placeholder is a service that starts and cannot read
+    anything.
+
+.PARAMETER Environment
+    Which database app\.env entry to read when -CalibratorConnectionString is omitted.
+    Prod (default) or Stage.
 
 .PARAMETER ServiceAccount
     Domain account to run as, e.g. MBA\svc-attachments. Strongly recommended: LocalSystem cannot
@@ -37,7 +47,11 @@
     Password for -ServiceAccount.
 
 .PARAMETER Port
-    TCP port. Default 5312.
+    TCP port. Default 5313.
+
+    NOT 5312 - that belongs to Maba.VCT.CustomerPortalApi, which is installed on the same machines.
+    Both services grabbing one port means whichever starts second dies on "address already in use",
+    and the survivor answers /health for a request meant for the other. That happened on 07/09.
 
 .PARAMETER CacheDirectory
     Where converted PDFs are kept. Default C:\ProgramData\Maba\OrderAttachments\pdf-cache.
@@ -49,7 +63,8 @@
     Do not download Chromium. Only when it is already present at the machine-wide path.
 
 .EXAMPLE
-    .\Install-OrderAttachments-Service.ps1 -CalibratorConnectionString "Server=...;Database=Calibrator;..." -ServiceAccount 'MBA\svc-attachments' -ServiceAccountPassword (Read-Host -AsSecureString)
+    # Normal install. The connection string comes from app\.env; nothing to paste.
+    .\Install-OrderAttachments-Service.ps1 -ServiceAccount 'MBA\<account>' -ServiceAccountPassword (Read-Host -AsSecureString)
 
 .EXAMPLE
     # Upgrade the binaries only; everything already configured
@@ -57,9 +72,11 @@
 #>
 param(
     [string] $CalibratorConnectionString,
+    [ValidateSet('Prod', 'Stage')]
+    [string] $Environment = 'Prod',
     [string] $ServiceAccount,
     [System.Security.SecureString] $ServiceAccountPassword,
-    [int]    $Port = 5312,
+    [int]    $Port = 5313,
     [string] $CacheDirectory = 'C:\ProgramData\Maba\OrderAttachments\pdf-cache',
     [string] $LibreOfficePath = 'C:\Program Files\LibreOffice\program\soffice.exe',
     [switch] $SkipBrowserInstall
@@ -103,9 +120,13 @@ if (-not (Test-Path $BinaryPath)) { Write-Error "Published executable not found 
 Write-Host "  Binary: $BinaryPath" -ForegroundColor Gray
 
 # -- Chromium, machine-wide -------------------------------------------------------------------
-# Set the variable for THIS process too: playwright.ps1 below reads it from the environment, and
-# a machine-scope variable is not visible to an already-running shell.
-[Environment]::SetEnvironmentVariable('PLAYWRIGHT_BROWSERS_PATH', $BrowsersPath, 'Machine')
+# Only for THIS process, so playwright.ps1 below installs into the machine-wide directory.
+#
+# Deliberately NOT a machine-scope variable. PLAYWRIGHT_BROWSERS_PATH is read by every Playwright
+# on the box: setting it machine-wide sent the frontend's own e2e Playwright - which pins a
+# different Chromium build - looking in a directory that does not hold it, and it could not launch
+# at all. The service points itself at this directory from its own configuration instead
+# (OrderAttachments:BrowsersPath, applied in Program.cs).
 $env:PLAYWRIGHT_BROWSERS_PATH = $BrowsersPath
 
 if ($SkipBrowserInstall) {
@@ -140,16 +161,43 @@ function Set-MachineVar {
     Write-Host "  $Name = $shown" -ForegroundColor Gray
 }
 
+# Derive the connection string from app\.env unless one was supplied. app\.env stores it in
+# Prisma's URL form; SqlClient needs the key/value form.
+if (-not $CalibratorConnectionString) {
+    $envFile = Join-Path $Root 'app\.env'
+    $key     = if ($Environment -eq 'Stage') { 'REMOTE_DATABASE_URL_STAGE' } else { 'REMOTE_DATABASE_URL_PROD' }
+
+    if (Test-Path $envFile) {
+        $line = (Get-Content $envFile | Where-Object { $_ -match "^$key=" })
+        if ($line) {
+            $raw    = ($line -replace "^$key=", '') -replace '"', ''
+            $srv    = ($raw -split '//')[1].Split(';')[0]
+            $dbName = [regex]::Match($raw, 'database=([^;]+)').Groups[1].Value
+            $usr    = [regex]::Match($raw, 'user=([^;]+)').Groups[1].Value
+            $pwd    = [regex]::Match($raw, 'password=([^;]+)').Groups[1].Value
+
+            if ($srv -and $dbName -and $usr) {
+                $CalibratorConnectionString =
+                    "Server=$srv;Database=$dbName;User Id=$usr;Password=$pwd;TrustServerCertificate=True;Encrypt=False"
+                Write-Host "  (connection string read from app\.env, $key -> $dbName)" -ForegroundColor DarkGray
+            }
+        }
+    }
+}
+
 Write-Host 'Applying machine-scope configuration...' -ForegroundColor Yellow
 Set-MachineVar 'ConnectionStrings__Calibrator' $CalibratorConnectionString -Secret
+Set-MachineVar 'OrderAttachments__BrowsersPath' $BrowsersPath
 Set-MachineVar 'OrderAttachments__CacheDirectory' $CacheDirectory
 Set-MachineVar 'OrderAttachments__LibreOfficePath' $LibreOfficePath
-Set-MachineVar 'ASPNETCORE_URLS' "http://localhost:$Port"
+# Deliberately NOT ASPNETCORE_URLS - it is machine-wide and shared with every other ASP.NET
+# service on this box. OrderAttachments__Urls is read only by this service.
+Set-MachineVar 'OrderAttachments__Urls' "http://localhost:$Port"
 
 $effectiveConn = [Environment]::GetEnvironmentVariable('ConnectionStrings__Calibrator', 'Machine')
 if (-not $effectiveConn) {
     Write-Host 'ERROR: no machine-scope Calibrator connection string. The service will not start.' -ForegroundColor Red
-    Write-Host '       Pass -CalibratorConnectionString.' -ForegroundColor Red
+    Write-Host "       Could not read it from app\.env either. Pass -CalibratorConnectionString." -ForegroundColor Red
     exit 1
 }
 
@@ -168,30 +216,90 @@ if ($svc) {
     Start-Sleep -Seconds 2
 }
 
+# A domain account cannot run a service without the "Log on as a service" right. Without it the
+# service is created happily and then refuses to start with 1069, which reads like a password
+# problem and is not one. There is no cmdlet for this; secedit is the supported route.
+function Grant-LogonAsService {
+    param([string] $Account)
+
+    try {
+        $sid = (New-Object System.Security.Principal.NTAccount($Account)
+               ).Translate([System.Security.Principal.SecurityIdentifier]).Value
+    } catch {
+        Write-Host "  WARNING: could not resolve $Account to a SID: $($_.Exception.Message)" -ForegroundColor Yellow
+        return
+    }
+
+    $export = Join-Path $env:TEMP "maba-rights-export.inf"
+    $import = Join-Path $env:TEMP "maba-rights-import.inf"
+    secedit /export /cfg $export /areas USER_RIGHTS | Out-Null
+
+    $line = (Get-Content $export | Where-Object { $_ -like 'SeServiceLogonRight*' })
+    $current = if ($line) { ($line -split '=', 2)[1].Trim() } else { '' }
+
+    if (($current -split ',' | ForEach-Object { $_.Trim() }) -contains "*$sid") {
+        Write-Host '  log on as a service: already granted' -ForegroundColor Gray
+        return
+    }
+
+    $updated = if ($current) { "$current,*$sid" } else { "*$sid" }
+    @(
+        '[Unicode]'
+        'Unicode=yes'
+        '[Version]'
+        'signature="$CHICAGO$"'
+        'Revision=1'
+        '[Privilege Rights]'
+        "SeServiceLogonRight = $updated"
+    ) | Set-Content $import -Encoding Unicode
+
+    secedit /configure /db secedit.sdb /cfg $import /areas USER_RIGHTS | Out-Null
+    Write-Host "  log on as a service: granted to $Account" -ForegroundColor Gray
+    Remove-Item $export, $import -ErrorAction SilentlyContinue
+}
+
 Write-Host "Creating Windows Service '$ServiceName'..." -ForegroundColor Yellow
+
+# New-Service rather than sc.exe. sc.exe takes the password as a command-line argument, and a
+# password holding a character PowerShell's native-argument parser treats specially produces
+# "Failed to create service (exit 1639)" - ERROR_INVALID_COMMAND_LINE - which says nothing about
+# the real cause. New-Service takes a PSCredential, so the password never reaches a command line.
+$newServiceArgs = @{
+    Name           = $ServiceName
+    BinaryPathName = "`"$BinaryPath`""
+    DisplayName    = $DisplayName
+    Description    = $Description
+    StartupType    = 'Automatic'
+    ErrorAction    = 'Stop'
+}
+
 if ($ServiceAccount) {
     if (-not $ServiceAccountPassword) {
         Write-Host 'ERROR: -ServiceAccount needs -ServiceAccountPassword.' -ForegroundColor Red
         exit 1
     }
-    $plain = [Runtime.InteropServices.Marshal]::PtrToStringUni(
-        [Runtime.InteropServices.Marshal]::SecureStringToGlobalAllocUnicode($ServiceAccountPassword))
-    sc.exe create $ServiceName binPath= "`"$BinaryPath`"" start= auto `
-        DisplayName= "$DisplayName" obj= "$ServiceAccount" password= "$plain" | Out-Null
-    $createExit = $LASTEXITCODE
-    $plain = $null
+    Grant-LogonAsService -Account $ServiceAccount
+    $newServiceArgs.Credential =
+        New-Object System.Management.Automation.PSCredential($ServiceAccount, $ServiceAccountPassword)
     Write-Host "  running as: $ServiceAccount" -ForegroundColor Gray
 } else {
-    sc.exe create $ServiceName binPath= "`"$BinaryPath`"" start= auto DisplayName= "$DisplayName" | Out-Null
-    $createExit = $LASTEXITCODE
     Write-Host '  running as: LocalSystem' -ForegroundColor Yellow
-    Write-Host '  WARNING: LocalSystem cannot read \\maba-priority. Every conversion will fail.' -ForegroundColor Yellow
+    Write-Host '  WARNING: LocalSystem cannot read \maba-priority. Every conversion will fail.' -ForegroundColor Yellow
     Write-Host '           Re-run with -ServiceAccount <domain user>, or set the account in' -ForegroundColor Yellow
     Write-Host '           services.msc > Log On.' -ForegroundColor Yellow
 }
-if ($createExit -ne 0) { Write-Host "ERROR: Failed to create service (exit $createExit)" -ForegroundColor Red; exit 1 }
 
-sc.exe description $ServiceName $Description | Out-Null
+try {
+    New-Service @newServiceArgs | Out-Null
+} catch {
+    Write-Host "ERROR: Failed to create service: $($_.Exception.Message)" -ForegroundColor Red
+    if ($ServiceAccount) {
+        Write-Host '       If it mentions the account or password, check that the account name is' -ForegroundColor Red
+        Write-Host '       fully qualified (DOMAIN\user) and that the password is correct.' -ForegroundColor Red
+    }
+    exit 1
+}
+
 # Restart on failure: 1st and 2nd after 30s, subsequent after 60s; counter resets daily.
 sc.exe failure $ServiceName reset= 86400 actions= restart/30000/restart/30000/restart/60000 | Out-Null
 

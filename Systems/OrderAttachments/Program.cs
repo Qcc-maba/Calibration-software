@@ -40,6 +40,19 @@ if (string.IsNullOrWhiteSpace(cacheDirectory))
 var libreOffice = builder.Configuration["OrderAttachments:LibreOfficePath"]
                   ?? @"C:\Program Files\LibreOffice\program\soffice.exe";
 
+// Point Playwright at OUR browser directory, in-process, rather than through a machine-wide
+// PLAYWRIGHT_BROWSERS_PATH.
+//
+// That variable is read by EVERY Playwright on the box. Setting it machine-wide so a service
+// account could find Chromium also redirected the frontend's own Playwright, which pins a
+// different build - it went looking for chromium-1208 in a directory that only holds 1234 and
+// could not launch at all. Same shape of mistake as sharing ASPNETCORE_URLS between two services.
+//
+// Setting it here affects this process and the driver it spawns, and nothing else on the machine.
+var browsersPath = builder.Configuration["OrderAttachments:BrowsersPath"]
+                   ?? @"C:\ProgramData\ms-playwright";
+Environment.SetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH", browsersPath);
+
 builder.Services.AddSingleton(new AttachmentCatalog(connectionString));
 builder.Services.AddSingleton<MsgExtractor>();
 builder.Services.AddSingleton<ChromiumRenderer>();
@@ -85,13 +98,10 @@ app.MapGet("/health", async (AttachmentCatalog catalog, CancellationToken ct) =>
     var share = builder.Configuration["OrderAttachments:AttachmentShare"]
                 ?? @"\\maba-priority\Priority\Attachments";
 
-    // Playwright looks for browsers under PLAYWRIGHT_BROWSERS_PATH, defaulting to the CURRENT
-    // USER's LocalAppData. A service running as LocalSystem therefore cannot see a browser you
-    // installed for yourself - the install script sets a machine-wide path for exactly this.
-    var browsersPath = Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH");
-    var browsersDir = string.IsNullOrWhiteSpace(browsersPath)
-        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ms-playwright")
-        : browsersPath;
+    // The directory THIS service points Playwright at (see the startup block). Reported rather
+    // than assumed, because a browser the service cannot read is the difference between working
+    // and every conversion failing.
+    var browsersDir = browsersPath;
 
     return Results.Ok(new
     {
