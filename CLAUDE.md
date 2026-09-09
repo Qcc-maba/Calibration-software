@@ -390,19 +390,24 @@ the *other* one, silently, at a distance.
 
 | Service | Port | Reads its URL from |
 |---|---|---|
-| `MabaInstructionAssistant` | 5311 | its own key |
-| `Maba.VCT.CustomerPortalApi` | 5312 | its own key |
-| `MabaOrderAttachments` | 5313 | `OrderAttachments__Urls` |
+| `MabaInstructionAssistant` | **5312** | its own key |
+| `MabaOrderAttachments` | **5313** | `OrderAttachments__Urls` |
+| `Maba.VCT.CustomerPortalApi` | 5314 in dev | its own key; not installed on the dev workstation |
+
+Verify with `Get-NetTCPConnection -State Listen -OwningProcess <pid>` rather than trusting a comment —
+the header comment in `Systems/OrderAttachments/Program.cs` names CustomerPortalApi as the service it
+collided with on 5312, and the port is actually the Instruction Assistant's.
 
 **Never configure one of these through a variable another process also reads.** Two concrete failures,
 both mine, both the same shape:
 
 - **`ASPNETCORE_URLS` is machine-wide and every ASP.NET service on the box reads it.** Each installer
-  set it, so whichever ran last silently repointed the other service. On 2026-09-07 both ended up on
-  5312: the portal won the port and answered `/health` for requests meant for the attachments service,
-  which was in a crash loop with `Failed to bind to address http://127.0.0.1:5312: address already in
-  use`. The fix is a key only that service knows about (`OrderAttachments__Urls`), read in
-  `Program.cs` via `builder.WebHost.UseUrls(...)`.
+  set it, so whichever ran last silently repointed the other service. On 2026-09-07 two of them ended
+  up on 5312: one won the port and answered `/health` for requests meant for the other, which was in a
+  crash loop with `Failed to bind to address http://127.0.0.1:5312: address already in use`. A health
+  check that passes because the *wrong service* answered it is the worst part of this failure. The fix
+  is a key only that service knows about (`OrderAttachments__Urls`), read in `Program.cs` via
+  `builder.WebHost.UseUrls(...)`.
 - **`PLAYWRIGHT_BROWSERS_PATH` is read by every Playwright on the box.** Setting it machine-wide so a
   service account could find Chromium also redirected the *frontend's* Playwright, which pins
   chromium-**1208**, into a directory holding only **1234** — "Executable doesn't exist", in a project
@@ -465,6 +470,84 @@ Four things about the Priority data that will mislead you:
 **A document that cannot be converted must still be visible.** The list returns such parts with an
 `Error` instead of omitting them, and the endpoint answers **422**, not 500 — the request was valid,
 this one document just cannot become a PDF. The calibrator needs to know the document exists.
+
+## The portal's own API in production — `MbaCustWeb`, IIS and TLS
+
+The portal is two halves on two machines. The **screens** are the Vercel app. The **one-time-code
+login** is `Systems/CustomerPortalApi` (net10), installed as the Windows service
+`MabaCustomerPortalApi` on **`MbaCustWeb`** — which is also the production SQL host. Putting a
+public-facing role on the production database server was approved deliberately (2026-08-31); it is
+not an accident to be tidied away.
+
+**It listens on 5312 there.** That is the port the *Instruction Assistant* occupies on a development
+workstation, which is why the dev instructions above say 5314 — different machines, both correct.
+The overlap is not harmless: a local dev instance of this API on 5312 answers `/health` with a JSON
+body identical to production's, so a health check run in the wrong window looks like proof that the
+server is fine. Confirm `hostname` first.
+
+`scripts/Install-CustomerPortalApi-Service.ps1 -SkipPublish -PublishDir <dir>` installs from bits
+published elsewhere — the default path runs `dotnet publish`, which would need source and the SDK on
+a production SQL box. Publish `--self-contained` so the server needs no .NET runtime either.
+`scripts/Verify-PortalApi-Deploy.ps1` is the gate: it must print **STAGE A PASSED**, and a `SKIP` is
+not a pass. `docs/PORTAL-DEPLOY-RUNBOOK.md` is the procedure; the rest of this section is what the
+runbook did not say and what cost the most time.
+
+**The service must be built as a Windows service host, not a console web app.** Registered with
+`sc.exe` and started, a plain `WebApplication` listens but never signals the SCM, so it dies with
+**error 1053** after 30s and the logs show nothing wrong. It needs
+`builder.Host.UseWindowsService(...)` plus `Microsoft.Extensions.Hosting.WindowsServices`, mirroring
+`Systems/InstructionAssistant`.
+
+### IIS reverse proxy — three traps, in the order you will hit them
+
+1. **IIS cannot reverse-proxy out of the box.** URL Rewrite and Application Request Routing are
+   **separate downloads**, not Windows features — `Install-WindowsFeature Web-Scripting-Tools` does
+   not bring them and reports `NoChangeNeeded`. Install URL Rewrite **first**, then ARR. Then enable
+   the proxy at server level (`system.webServer/proxy` → `enabled`). Miss that last step and every
+   rewritten request returns a bare 404 that looks like a broken rule.
+2. **`allowedServerVariables` can only be set at server scope.** Adding `HTTP_X_FORWARDED_PROTO` at
+   site scope fails with *"This configuration section cannot be used at this path… locked at a parent
+   level"*. Use `appcmd … /commit:apphost`. Until it is there, a `web.config` that sets that variable
+   answers **500**, not 404 — the two error codes tell you which of these two traps you are in.
+   ARR sends `X-Forwarded-For` by itself; `X-Forwarded-Proto` is the one you must add.
+3. **`CustomerPortal:TrustedProxies` must be set once a proxy is in front.** The service only calls
+   `UseForwardedHeaders` when the array is non-empty, so while it is `[]` every caller looks like
+   `127.0.0.1` and the rate limiter counts all customers as one — one active customer locks out the
+   rest. As a machine-scope variable: `CustomerPortal__TrustedProxies__0`.
+
+### An IP:port SSL binding beats SNI, and that decides which certificate to buy
+
+Measured, after an SNI binding that was correctly created was never once presented:
+
+```
+netsh http show sslcert
+  IP:port        <private-ip>:443            -> cert A   (the site's existing certificate)
+  Hostname:port  portal-api.<domain>:443     -> cert B   (added for the new host)
+
+openssl s_client -servername portal-api.<domain>   ->  cert A
+openssl s_client -servername <domain>              ->  cert A
+```
+
+http.sys resolves an exact **IP:port** binding before it ever consults a hostname (SNI) binding, so
+while one exists on that address every name on it gets that one certificate. A per-host certificate
+bound by SNI is money spent on something that will never be served.
+
+**So: one certificate whose SAN covers every hostname on the address, bound to the IP:port.** Ours is
+a DigiCert DV reissue — adding a subdomain of an already-validated domain needs no new validation and
+usually costs nothing, which makes it same-day. Generate the CSR **on the server** (`certreq -new`)
+so the private key never travels; a CSR is public and safe to e-mail. Come back with the signed
+`.crt`, `certreq -accept` it, and check `HasPrivateKey` is `True` before going near the binding.
+
+**The rebind is the only moment the existing site is down**, because `netsh http delete sslcert`
+succeeds on its own:
+
+```
+netsh http delete sslcert ipport=<ip>:443
+netsh http add    sslcert ipport=<ip>:443 certhash=<hash> appid='{<guid>}' certstorename=MY
+```
+
+Have the rollback (`add` with the *old* hash and its store) written out before you start, and do not
+delete the old certificate from the store until the new one is verified from outside.
 
 ## The calibration station installer
 
@@ -659,6 +742,25 @@ Priority.
 - When handing someone a command to paste, remember **the console prompt is not part of it**.
   Copying `PS C:\...> powershell -File ...` runs `PS`, which is an alias for `Get-Process`, and the
   error message names `Get-Process` rather than anything you recognise.
+- **`hostname` before anything else, every time you believe you are on a server.** Two full rounds of
+  IIS commands were run on the workstation instead of `MbaCustWeb` and failed with
+  `Get-WebBinding is not recognized` — the correct answer for a machine with no IIS. What hid it: a
+  local development instance of the portal API was listening on the **same port**, so
+  `Invoke-WebRequest http://localhost:5312/health` returned the identical `{"status":"ok",…}` the
+  production service returns and read as proof the server was healthy. Same family as the
+  `\\tsclient\` trap already in the runbook.
+- **Never leave a placeholder inside a block that contains a destructive command.** A block whose
+  first line was `$new = '<THUMBPRINT>'` was pasted verbatim; the `netsh … delete sslcert` that
+  followed succeeded and the `add` then failed with `The parameter is incorrect`, leaving the site
+  with no certificate. Derive the value in the block instead — `$new = (Get-ChildItem Cert:… ).Thumbprint`
+  — so there is nothing left to substitute by hand.
+- **The IIS PowerShell provider caches configuration per process.** After `web.config` is written by
+  anything other than the provider, `Add-WebConfiguration` fails with *"Cannot commit configuration
+  changes because the file has changed on disk"*. Use `appcmd.exe`, or a fresh PowerShell session.
+- **`appcmd` needs the stop-parsing token.** `& appcmd --% set config … /+"[name='X']"` — without
+  `--%`, PowerShell parses `/+` and the brackets as operators and mangles the argument.
+- **`appcmd`'s "duplicate collection entry" error means it is already there.** It reads as a failure
+  and is a success from a previous run.
 
 ## Inno Setup gotchas (`Installer/setup.iss`)
 
@@ -705,7 +807,25 @@ usually names the exact identifier.
   files only — not in runbooks, not in tickets, not in terminal output, not in a commit message.
 - **`app/` is front-end work that normally belongs to Dako** — a Jira US plus a `reference/*` branch,
   not a direct edit. The user does override this and ask for direct fixes; treat the override as
-  covering that request, not as a standing licence.
+  covering that request, not as a standing licence. **Dako owns the customer portal only**: "Dako
+  אחראית רק על פורטל הלקוחות. אם זה לא קשור לפורטל תעביר לאולקסנדר." Anything that is not portal work
+  is routed to Oleksandr. Tickets are written in English for both of them, unlike this Hebrew-first
+  repo.
+- **A `reference/*` branch is a deliverable, not a sketch.** It must at minimum typecheck and lint
+  cleanly, and the behaviour it claims should be exercised against a running app. A branch that was
+  handed over without a typecheck is a defect handed to someone else.
+- **Measure the blast radius of a shared function before deploying it.** The first
+  `fnUnreverseVisualText` fix was correct for the case in the ticket and silently corrupted 24 device
+  descriptions. Counting the rows whose output would change is what caught it — *before* the deploy,
+  not after.
+- **Do not raise an alarm from a naming convention.** Two "missing procedure" reports this session
+  were wrong: `GetPortalCustomerIds` is an inline table-valued function, so it is not `type = 'P'`;
+  and a `modify_date` gap between STAGE and PROD meant nothing because the two definitions were
+  identical. Compare the definitions before reporting drift.
+- **A slow single request is not an N+1.** A screen throwing hundreds of console errors looked like
+  queueing; one call from outside took 10.5s and returned 500 while the same query ran in 0ms
+  locally, which is the network shape, not the code shape. The N+1 was real and was still not the
+  cause. Say which evidence supports which claim.
 - **Deploy a procedure to STAGE *and* PROD, or say plainly that you did not.** Half of the SQL from a
   session ending up on STAGE only is the single most common way this repo ends up with
   "works here, missing there" bugs. `Compare-Schema.ps1` will show it; `docs/decisions.md` lists what
@@ -729,6 +849,21 @@ usually names the exact identifier.
 
 - **Finish the walk before reporting.** "אתה צריך לבדוק את כל הטאבים והפופאפים" — a screen that loads
   is not a screen that works; open every tab and every dialog on it.
+- **Run the control before blaming your own change.** A dependency bump appeared to break
+  `next build` at "Finalizing page optimization". Running the identical build on unmodified `main`
+  with the original lockfile, in a clean worktree, failed at exactly the same line — it was a missing
+  local `.env`. Without that control the change would have been reverted for no reason.
+- **A ticket's status is a claim, not evidence.** Several tickets in this repo's project sat in
+  `To Do` while the work was merged, and one sat in `In Testing` with nothing implemented. Read the
+  branch before moving anything: `git grep` for the symbol the ticket names, and check the merge
+  commit. Two tickets closed this way had been finished for over a week.
+- **Verify the security question you were actually asked.** Scanning ports from inside the office
+  cannot distinguish "restricted to the office" from "open to the internet" — both answer. Only the
+  Security Group's inbound rules, or a scan from a foreign network, settles it. Say which of the two
+  you did.
+- **Say plainly when a URL or fact came from memory and turned out wrong.** A Microsoft download link
+  given from memory 404'd; the verification step that caught it was in the instructions on purpose.
+  Check a link before handing it over.
 
 ## Small mechanical traps
 
@@ -745,3 +880,84 @@ usually names the exact identifier.
   tool instead.
 - Several `.config` files in this repo carry plaintext database passwords. Don't add more, don't echo
   them into terminal output, and don't paste them into commit messages or docs.
+
+## VCT runtime: discovery, the device tick, and identification
+
+These four are the difference between "the instrument answers `*IDN?` but never appears" being a
+five-minute question and a five-hour one. All were found against hardware.
+
+**Transports are discovered, not configured.** `Settings/VCT.json` holds **one** tunnel — the TCP
+listener, which has nothing to discover because it waits for a device to dial in. Everything else is
+found at startup by `ComLayer.TransportDiscovery` and turned into a tunnel by
+`ServerCore.DiscoverTransportTunnels`. USB and GPIB are enumerated through VISA (`viFindRsrc`), so a
+handle is only ever opened where something answers; serial baud cannot be enumerated, so each
+candidate port is probed with `*IDN?` across `SerialBaudCandidates` and the first speed that answers
+wins. That last part is what removed the final per-device setting — the PRODIGIT wants 115200 and
+the Fluke 9600 on the same adapter.
+
+- **A configured tunnel is left alone** and its port is never probed, so an instrument that does not
+  answer `*IDN?` can still be pinned by hand. `AutoDiscoverTransports` (default true) disables the
+  whole mechanism.
+- **Never probe a Bluetooth COM port.** Opening one can block for many seconds; two on the bench
+  stretched startup from ~1.6s to **46s**. `ServerCore.ListProbeableSerialPorts` asks WMI which
+  ports are Bluetooth and excludes them — which is why the OS query lives in `ServerCore` and
+  `DiscoverSerial` takes the candidate list as a parameter rather than building it.
+- **A wrong baud rate still returns bytes**, just meaningless ones. `LooksLikeIdentification`
+  therefore requires mostly-printable ASCII with at least one letter; accepting noise would pin an
+  instrument to the wrong speed permanently.
+
+**The device tick is re-entrancy-guarded, and it has to be.** `System.Timers.Timer` fires every 2s
+whether or not the previous callback finished, and `_TempDeviceHost` is a *shared field* that each
+tick clears at the start and reads at the end. Overlapping ticks meant one tick queued a device for
+promotion while another cleared the list before it got there — the device was re-queued forever and
+never promoted, with no exception and no log. Guarded with `Interlocked` (`_deviceTickRunning`);
+the body lives in `DeviceTick()`. Three failure paths that used to be silent now log, including
+**an identified device that no BL core claimed** — which is what you see when a `DeviceIdToken` does
+not match the SN, or the module is missing from `Settings/ComServerSettings.json`.
+
+**Identification matches the model before the manufacturer.** The HP 53181A and the Agilent 34401A
+both answer `HEWLETT-PACKARD`, and the old code compared `Substring(0, 15)` — identical for both, so
+the 34401A's `"HEWLETT"` token would claim the counter and drive it with `CONF:VOLT:DC`. Match the
+model (`53181A`) first. Any new instrument from a manufacturer already present needs the same
+treatment.
+
+**`WebSocketProtocolParaser` does not strip the closing brace.** It splits JSON by hand, so the
+**last** field of a message parses with a trailing `}` — `{"CMD":"Status","Value":"Start"}` yields
+`Value = "Start}"` and the server ignores it. When sending WS commands by hand, put a throwaway
+field last (`,"DeviceID":"0"`). Note the misspelled class name; it is spelled that way in the code.
+
+### The Meatest M-142 cannot do GPIB — and only the M-142
+
+A bit-level corruption on the GPIB bus was attributed first to one instrument, then to the adapter,
+and both were wrong. Three instruments on one adapter, one cable, one driver settled it: the
+Pendulum CNT-90 (address 7) and Fluke 5322A (address 2) return **0%** corrupt bytes; the M-142
+(address 10) returns **86-100%**. It fails on the first high-to-low transition of DIO7 and recovers
+on the next byte, which rules out both firmware and software.
+
+It is **not a setting** — the M-142 exposes only interface, address and serial baud/handshake, and
+GPIB is eight parallel lines with no format or parity, so no menu item can set a bit on every byte.
+**Use its RS-232 port**, which never touches DIO7: Interface = `RS232`, baud 9600, handshake off,
+and a **straight 1:1 cable** (2-2, 3-3, 5-5 — it is wired as DCE). Note that this is the *opposite*
+of the Fluke 5522A, which needs a null-modem cable for the same rescue.
+
+Corrupted numbers are rejected rather than believed: the corruption turns digits into letters, so
+`TryParseValue` fails and the reading is discarded instead of broadcast as a plausible wrong
+measurement. That is why those parsers return false rather than 0.
+
+**Do not re-attempt the one-byte-at-a-time read.** It fixes the corruption through VISA and cannot
+work through `GpibCom`: NI's device-level `ibrd` re-addresses the instrument on every call, so the
+rest of the message is discarded. It was implemented, tested against hardware, and removed.
+
+### The wizard's "already assigned" error is a business rule
+
+`dbo.AssignMeasurmentDeviceToOrderDetailsItems` throws `51000, 'Sensor with specified channel(s)
+already assigned to other device.'` when the same logger + sensor pair is used on two devices of one
+order line. Despite the message the guard **ignores channels**, so a 5-channel sensor cannot serve
+two devices on one line even on different channels. The router maps it to a tRPC `CONFLICT` and the
+screen shows a Hebrew message; before that it surfaced as a bare 500. Changing the rule is the
+procedure owner's call, not a bug to fix in passing.
+
+**Reproduce a write-path error without writing:** pyodbc with `autocommit=False`, execute the
+procedure, read the exception, `rollback()`. Only a faithful payload reproduces — a guessed one
+"succeeds" and proves nothing. This is what produced the real text behind two "Internal server
+error"s in one afternoon.

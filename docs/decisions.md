@@ -344,6 +344,499 @@ this addresses one. See "In flight" below.
 
 ---
 
+# The customer portal — screens, identity, and reading Priority
+
+The customer-facing half of the web app: who a login is, where the deployment actually runs,
+and how it reads data that lives in Priority. Written 2026-09-09.
+
+---
+
+## 15. A calibration may use fewer channels than the sensor has — pick them, don't redefine the sensor
+
+The wizard assigned a logger and a sensor and implicitly used *every* channel the sensor declares.
+Real jobs use a subset.
+
+**Chosen:** a `ChannelPicker` popover on the logger-config screen, one checkbox per channel, with the
+invariant that the selection can never become empty — unchecking the last one is a no-op rather than
+an error, because an empty selection has no meaning downstream.
+
+**Rejected — a numeric "how many channels" field.** Channels are identified, not counted; 2 of 4 is
+not the same job as channels 3 and 4.
+
+**Rejected — editing the sensor definition per order.** The sensor is a shared master record; a
+per-order need must not mutate it.
+
+---
+
+## 16. A portal login is an e-mail, and an e-mail is not one customer
+
+Signing in with a real address landed the user on the wrong company, with an empty portal. The
+address was a contact on two Priority customers — one live, one long dead.
+
+**Chosen:** `GetPortalCustomerIds` returns every customer the address is a contact of, and the
+customer **that actually has devices** wins. It answers the real question ("whose portal is this
+person supposed to see?") with data rather than with an id ordering.
+
+**Rejected — take the first / lowest / newest `CustomerId`.** Identity columns differ between STAGE
+and PROD, so this is unstable by construction, and the dead record is as likely to sort first.
+
+**Rejected — delete the stale contact row.** Priority owns it. See 17.
+
+---
+
+## 17. When Priority retires something, carry a flag — never delete a row
+
+Two contact records had to stop signing the user into the wrong company.
+
+**Chosen:** `PHONEBOOK.INACTIVE` is carried into `CustomerContacts.IsActive` through
+`stg.LoadCustomerContactsFromPriority` → `stg.MergeCustomersContactsData`, and the portal procedures
+filter on it. The user's rule, verbatim: *"שיביא אותם במצב INACTIVE זה בסדר. אסור להמחק
+מהפריוריטי."*
+
+**Rejected — deleting contacts that disappear from Priority.** A sync that deletes is a sync that
+loses data the first time the source query is wrong, and it destroys the record of who used to be a
+contact.
+
+**Rejected — filtering in the app instead of in the sync.** Every screen would have to remember, and
+the ones that forgot would be the ones customers see.
+
+---
+
+## 18. Invoice PDFs: resolve the path on the server, pick the file by size
+
+Priority keeps printed invoices as attachments recorded in `EXTFILES`. The customer clicks a row and
+expects the PDF.
+
+**Chosen:** the procedure returns the attachment's **directory** (ASCII) plus the recorded file size;
+an authenticated API route re-runs the same invoice query for the session, refuses an invoice that is
+not in that customer's list, resolves the directory under the attachments root, refuses anything that
+climbs out of it, picks the PDF by size and streams it inline.
+
+**Rejected — returning the stored file name.** Priority stores names in visual (reversed) order.
+Running `fnUnreverseVisualText` over the value reverses the ASCII path with it and nothing opens;
+leaving it reversed does not match the file on disk either. The directory is ASCII, and each
+attachment sits in its own hash directory, so size is enough to choose between candidates.
+
+**Rejected — handing the browser a share path.** That is a file-read primitive with the customer
+holding the parameter.
+
+Related finding, not a decision: rows whose number starts with **`K`** are receipts (קבלה) and
+correctly have no document. The screen now shows the Priority document type (`IVTYPES.IVDES`) so the
+absence explains itself. Only 156 of 1,361 invoices had an attachment at all.
+
+---
+
+## 19. Push the whole Priority statement into `OPENQUERY`
+
+The invoice→attachment join written with four-part names took **65 seconds** for 1,361 rows: SQL
+Server issued one remote call per row.
+
+**Chosen:** the entire statement, joins included, runs inside a single `OPENQUERY` and returns a
+finished result set — **0.7–0.8s**.
+
+**Rejected — caching the result locally.** It would have hidden a query that was simply written on
+the wrong side of the link, and invoice data has to be current.
+
+**Rejected — narrowing the row set until it felt fast.** That is tuning the symptom.
+
+Cross-server joins also need an explicit `COLLATE Hebrew_BIN`, or they fail with
+`Cannot resolve the collation conflict between Latin1_General_100_CI_AI_SC and Hebrew_BIN`.
+
+---
+
+## 20. `/api/health/db` — a public endpoint that says *how* the database is unreachable
+
+Every screen on `cal` and `stg` went blank at once while the same query ran in 0.4s from the office.
+From outside, all anyone could see was a tRPC 500 with the stack stripped in production.
+
+**Chosen:** a small public route that runs `SELECT 1` and reports `{database, ms, name, code}` —
+**never the driver message and never the connection string**, because a driver error carries the host
+and the login name. The *shape* of the failure is the diagnosis: ~10.0s of silence is Prisma's
+connect timeout, i.e. dropped packets; an instant refusal is a dead service; a fast rejection is
+credentials.
+
+**Rejected — enriching the tRPC error instead.** That leaks the same detail to every customer.
+
+**Rejected — the Vercel runtime logs as the primary route.** They were the confirmation, not the
+diagnosis, and nobody without a Vercel login can run the check. The health URL is what IT could be
+handed to verify the fix themselves.
+
+---
+
+## 21. The SQL firewall: ask for one `/32`, not for Vercel's address space
+
+The Security Group was tightened for the customer portal on 2026-09-08 and took the application's own
+path to SQL with it. The application does not run in the office: `X-Vercel-Id: fra1::iad1::…` says the
+functions execute in **AWS us-east-1**, so the connection to 1433 leaves from Virginia.
+
+**Chosen:** ask IT to keep the tightening and add exactly one defined path, and enable Vercel
+**Secure Compute** so that path is a single static egress IP — a `/32` rule like the office's, which
+survives the next SG change. Written up in `docs/IT-REQUEST-sql-firewall.md`, with the measurements
+that prove it is the network and not the code, and with the health URL as the acceptance test.
+
+**Rejected — allow-listing "the Vercel ranges".** us-east-1 is hundreds of CIDR blocks against a
+default Security-Group quota of 60 rules. It cannot be done, and proposing it wastes IT's day.
+
+**Rejected — opening 1433 to the internet.** Customer data, and an exposed 1433 is scanned within
+hours. Named as a temporary option only, with conditions attached and a closing date.
+
+**The long-term direction, not built:** the app talks HTTPS to a service inside the VPC that talks to
+SQL privately — the pattern `CustomerPortalApi` already uses — or the database moves to RDS with VPC
+peering. Either removes the question entirely.
+
+---
+
+## 22. Copying one customer's orders PROD → STAGE: translate every lookup by name
+
+STAGE knew the customer and even held 8 of its work plans, but not one `OrderDetailsItems` row, so
+every portal screen was empty for the identity being tested.
+
+**Chosen:** copy the work plans, details and items with every lookup reference **translated by name**
+(`Statuses`, `OrdersProductTypes`, `MainCategories`, `SecondaryCategories`), user columns blanked, and
+an undo script written listing every inserted id. Nothing existing is touched and nothing is deleted;
+the script rolls back unless `--apply` is passed. Result: 8 plans / 67 lines / 22 items → 22 devices.
+
+**Rejected — an id-preserving copy.** 69 of 158 `Statuses` and 608 of 610 `OrdersProductTypes` carry
+the same id with a *different* name on the two servers. A straight copy would have silently
+mislabelled almost every row.
+
+**Rejected — pointing local development at PROD to demonstrate the screens.** It works, and it means
+the next write goes to production data.
+
+---
+
+## 23. `npm run verify` — one command, run after every task, that walks the UI
+
+Screens were repeatedly reported as fixed and were not, and a dead dev server was repeatedly
+misdiagnosed as a broken screen. The ask: *"סט בדיקות מקיפות שבכל פעם שאתה מסיים משימה אתה מריץ
+אותם… גם ל UI וגם לקוד"*, then *"אתה צריך לבדוק את כל הטאבים והפופאפים"*.
+
+**Chosen:** a single script with four sections — code (`tsc`, `eslint`, `vitest`), sources (no mock
+module imported by a customer screen, no hardcoded clock), http (every route answers, `/api/trpc`
+compiles), browser (sign in, walk every screen, **every tab and every dialog**, fail on placeholder
+text or a console error). It reports "the dev server stopped answering" separately from "this screen
+is broken", and a step that cannot run reports instead of throwing, so one flaky interaction does not
+hide the other 36 checks.
+
+**Rejected — unit tests only.** Every defect in this session was a wiring or data defect that a unit
+test would not have seen.
+
+**Rejected — keeping the mock modules behind a flag.** Four were deleted outright. A mock that can be
+imported eventually is, and a screen full of plausible fake data reads as working.
+
+---
+
+## 24. Retired devices and empty tabs: decide in the procedure, show the truth in the UI
+
+*"כשתאריך הביטול לא ריק אתה לא מציג את המכשיר."*
+
+**Chosen:** the cancelled-serial set is built with **one** remote query into a temp table and
+anti-joined, wrapped in TRY/CATCH that **degrades open** — if Priority is unreachable the customer
+sees their devices rather than an empty screen. Tabs with no wired data source render an explicit
+empty state instead of leftover sample values, and the reports tab is filtered to the device's serial
+so it is that device's history, not the customer's.
+
+**Rejected — filtering cancelled devices in the app.** Every screen would need the same list, fetched
+again.
+
+**Rejected — a per-row remote existence check.** The same one-call-per-row mistake as 19.
+
+---
+
+## 25. The development sign-in code must not suppress the real mail
+
+A development-only code was added so the portal could be signed into locally. It also stopped the
+OTP mail being sent — and the only symptom, for a day, was *"המייל לא מגיע אלי"*.
+
+**Chosen:** mail is attempted whenever a relay is configured, in every environment. Development
+tolerates a send *failure* (so a machine with no relay can still sign in with the dev code); it never
+skips the send. The dev code itself stays gated on the Development environment **and** a loopback
+caller.
+
+**Rejected — a "quiet mode" flag.** The same trap with a name on it; the next person turns it on to
+stop the noise and the outage is invisible again.
+
+---
+
+## 26. The "local primary, global secondary" topology: measured, not built
+
+The stated target is a **local** primary database with a **global** AWS secondary — WorkPlan synced
+outward, external calibrators and the driver connecting to the global copy.
+
+**Not implemented, and this is a finding rather than a decision.** What was measured: the on-prem
+`Calibrator` is a frozen legacy schema (58 tables; WorkPlan 4 rows, last written 2024-07-28; Orders
+newest 2025-03-03) sharing only **15 table names** with the AWS schema (96/95 tables). All live data
+is on AWS (`OrderWorkPlans` 2,913 PROD / 1,328 STAGE, newest row dated 2026-09-08). Nothing syncs
+between them in either direction today.
+
+The blockers are structural, not effort: engine 2019 vs 2022, compat 110 vs 160, `Hebrew_BIN` vs
+`Latin1_General_100_CI_AI_SC`, plus the previously abandoned on-prem copy recorded in decision 5.
+Any plan that starts "we already have a local copy" is starting from something that is not true.
+
+---
+
+# VCT instrument bring-up
+
+Nine electronics instruments were added to a server that had only ever handled temperature and
+humidity loggers. These entries cover that work.
+
+---
+
+## 32. Transports are discovered, not configured
+
+**Chosen:** at startup the server enumerates VISA/USB, the GPIB bus and the serial ports, sends an
+identification packet, and creates a tunnel only for links that answered. `VCT.json` went from eight
+static tunnels to one.
+
+**Rejected:** a configured tunnel per instrument. It failed three ways at once - two instruments
+configured on the same COM port collided; a tunnel for an unplugged instrument wedged the whole
+device tick on its bus error; and every new instrument meant editing JSON on every station.
+
+**Why:** the requirement was explicit - settings must not be per-device, and should follow from what
+is attached and what the identification reply says. Discovery also absorbed a port renumbering (a
+logger moved COM10 to COM11 between sessions) with no change anywhere.
+
+**Consequence to know:** an instrument with no identification command cannot be discovered. Optidew
+speaks Modbus and has no `*IDN?`, so it still needs a static tunnel.
+
+---
+
+## 33. Identification lives in the device host, not in the BL
+
+**Chosen:** the chain of model matches sits in `HardwareDeviceHost.handlePacket`, with `internal
+static` helpers beside it for the awkward cases, and the BL cores match on the resulting SN.
+
+**Rejected:** putting the match next to the BL that uses it. It reads more cohesively and it is
+wrong: the BL assembly is not referenced by the core, so the check would have to be duplicated, and
+two copies of "which instrument is this" is exactly the bug you cannot afford.
+
+**Ordering matters and is not obvious.** Vendor-level branches are legacy: `FLUKE` takes the first 11
+characters (for the Hydra loggers) and `HEWLETT` the first 15. Any model-specific branch - 5522A,
+5322A, 53181A - **must** come before them, or the counter is claimed by the multimeter's BL and
+driven with multimeter commands.
+
+Two model tokens are not literal strings:
+
+- The scope answers `EDU-X 1002A` while its datasheet, our SN and the settings all say `EDUX1002A`.
+  Matched with spaces, hyphens and underscores stripped.
+- The 5322A answers **either** `FLUKE,5322A` or `FLUKE,5320A` depending on an emulation menu.
+  Both are matched and normalised to one SN, so flipping a front-panel option cannot silently take
+  the instrument out of the server.
+
+---
+
+## 34. Default units follow the instrument, and `VDC` does not mean volts
+
+**The bug:** an oscilloscope broadcast its readings labelled `Celsius`, because a flat Celsius
+default predated any instrument that measured electricity.
+
+**The trap:** the obvious fix - map the existing `MeasureTypes.VDC` to Volt - is wrong. Reading
+`ProcessResults` shows `VDC` in this codebase means *a resistance measured in volts and converted to
+temperature*, i.e. a PRT. Remapping it would have relabelled every existing temperature device.
+
+**Chosen:** add `VoltageDC` for genuine volts and leave `VDC` alone; resolve defaults per family from
+the identification SN; keep the sensor-type rule (RTD / FRTD / thermocouple gives Celsius) on top,
+since an instrument wired to a PRT reports temperature whatever it is. The TTI was marked `FRTD` for
+that reason, on the correction that it measures temperature too.
+
+**Result:** no pre-existing device changed behaviour. That was the acceptance test.
+
+---
+
+## 35. A parse failure returns false, never zero
+
+Every reading helper returns `bool` with an `out` value rather than a default.
+
+**Why:** on a calibrator, `0 V` is a legitimate setpoint. A parser that returns 0 on failure produces
+a number indistinguishable from a real reading the moment it is broadcast. This turned out to matter
+more than expected: when a GPIB line corrupts digits into letters, the parse fails and the reading is
+*discarded* - the instrument goes quiet instead of publishing plausible wrong numbers.
+
+---
+
+## 36. The byte-wise GPIB read: built, measured, removed
+
+**Problem:** an instrument's replies came back with bit 6 set on bytes that should have had it clear.
+
+**Tried:** reading one byte per call, so the millisecond gap between calls lets the line settle. Via
+VISA this worked - 0/60 correct became 57/60.
+
+**Rejected and removed.** It cannot be done on the path the server actually uses: NI's device-level
+`ibrd` re-addresses the instrument on every call, so the rest of the message is discarded. The server
+received exactly one byte. It was implemented, tested against hardware, and deleted rather than left
+as dead code with a caveat. 95% would not have been good enough for measurements anyway.
+
+**Kept from that work:** `TransportDiscovery.FindGpibListeners`, a driver-level bus scan used when
+VISA's GPIB enumeration returns nothing - which it did while an instrument was answering normally.
+
+---
+
+## 37. The corruption is one instrument, not the adapter
+
+**What was concluded, and then retracted twice.** The corruption was first blamed on the Fluke 5522A,
+then on the shared GPIB adapter (two instruments, two cables, a 100% failure rate on the first
+high-to-low transition of one data line - real measurements, and a recommendation to replace the
+adapter). Then NI-488.2 was reinstalled and its driver properly bound, and two other instruments read
+perfectly on that same adapter and cable.
+
+**Settled by isolation:** three instruments, one adapter, one cable, one driver, one session - two at
+0% failure, the Meatest M-142 at 86-100%. It is the M-142.
+
+**It is not a setting.** The M-142 exposes three interface options and standard GPIB functions; GPIB
+is eight parallel lines with no format or parity, so no menu item can set a bit on every byte.
+
+**Lesson recorded in `CLAUDE.md`:** two variables changed together and the stronger-sounding
+conclusion was presented instead of the isolation step. The workaround is the M-142's RS-232 port.
+
+---
+
+## 38. Output-enable is built, marked, and never called
+
+Six of the nine instruments source rather than measure - up to 1000 V / 20 A, hipot levels, and with
+one option 1000 A through a coil.
+
+**Chosen:** build the energise command, document it with a warning at every layer, and issue it only
+from an explicit commanded target. Init sequences drive the *other* way and end de-energised as a
+stated intention rather than as a side effect of `*RST`. Tests assert all of this per instrument.
+
+**Deliberately not built:** any wiring from an app command to an output enable. That is a product
+decision - who authorises energising an output, and how it is confirmed - not a coding gap.
+
+---
+
+## 39. The Transmille 3200A was not written
+
+Researched alongside the M-142 and the 5322A and deliberately left out: no `*IDN?`, a proprietary
+`F1/S12.32<CR>` dialect, and no documented baud rate. Everything written from that manual would have
+been a guess presented as a driver. It needs the hardware in hand first.
+
+---
+
+## 40. The 5322A read loop is gated on the instrument's current function
+
+Hardware showed that `SAF:<function>?` **selects** that function rather than merely reading it -
+`SAF:LOOP?` moved the instrument from Ground Bond to Loop and `SAF:GBR?` moved it back, error queue
+empty throughout. The read loop therefore asks the mode first and requests a setpoint only for the
+mode the instrument is already in; in any other function it logs and broadcasts nothing.
+
+Without the gate the polling loop would have overridden the operator's front-panel selection every
+two seconds. Nothing in the manual hints at it; only connecting the instrument found it.
+
+---
+
+---
+
+---
+
+# Taking `portal.qcc.co.il` live
+
+Getting the customer portal in front of real customers. The API half reached production; the domain
+had not been connected when this was written.
+
+---
+
+## 27. The portal API runs on the production SQL host, behind IIS
+
+**Chosen:** `MabaCustomerPortalApi` as a Windows service on `MbaCustWeb` — the production SQL box —
+listening on 5312, with IIS terminating TLS on 443 and reverse-proxying to it. Only 443 is open
+externally; 5312 is not.
+
+**Why:** the service needs the production database and the M365 mailbox, and it is the one component
+that cannot live on Vercel because it owns the one-time-code flow. Adding a role to the production
+SQL server was raised explicitly and approved on 2026-08-31 rather than assumed.
+
+**Rejected — building on the server.** The installer originally ran `dotnet publish`, which requires
+the source tree and the .NET SDK on that machine. Neither belongs there. It now takes
+`-SkipPublish -PublishDir`, and the package is published `--self-contained` so the server needs no
+.NET runtime either.
+
+**Rejected — exposing 5312.** `request-otp` answers differently for a registered and an unregistered
+address, so a reachable service without the shared key lets anyone walk a list of e-mails and learn
+which belong to MABA customers. `Auth/ExposureGuard.cs` refuses to start on a public binding with no
+`ProxyApiKey`, which makes "go live without the key" not an option rather than a bad idea.
+
+## 28. One SAN certificate on the IP:port binding — not a certificate per hostname
+
+**Chosen:** reissue the existing DigiCert certificate with `portal-api` added to its SAN, and bind
+that one certificate to the address's `IP:port`.
+
+**Why, and this was measured rather than reasoned:** an SNI binding for the new hostname was created
+correctly and `netsh http show sslcert` listed it — and it was never once served. Every request,
+whatever `-servername` was sent, got the certificate on the `IP:port` binding, confirmed by
+fingerprint. http.sys resolves an exact IP:port binding before it consults a hostname binding, so
+while one exists on that address it answers for every name on it.
+
+**Rejected — a separate certificate for the portal host.** It would have been bought, installed, and
+never presented. This is the reason the finding is written down.
+
+**Rejected — converting the existing site to SNI so each host carries its own certificate.** It is
+the better long-term shape and it stays available, but it means changing a live binding on the
+company's public site during a launch, and the SAN reissue achieved the same result with no exposure.
+
+**Consequence to keep in mind:** any certificate bound to that address must cover *every* hostname on
+it. Binding one that covers only the portal API would take the main site down.
+
+## 29. Launching the portal meant releasing four months of the internal system
+
+**Chosen:** merged `stg` → `main` on 2026-09-07 — 205 commits, 639 files — and said so plainly as a
+full release rather than describing it as a portal deploy.
+
+**Why:** Vercel's Production branch is `main`, and `main` had not moved since 10/08. There is no path
+that ships a portal fix to production without shipping everything else on `stg` with it.
+
+**Rejected — pointing the customer domain at a `stg` branch deployment.** A branch build is
+`VERCEL_ENV=preview`, which `env.js` resolves to `REMOTE_DATABASE_URL_STAGE`. The portal would have
+served customers staging data. This is the trap most worth remembering, because it looks like a clean
+way to decouple the two releases and is not.
+
+**Rejected — cherry-picking the portal commits onto `main`.** The portal work sits on shared
+`src/server` and `src/lib` changes; the subset does not stand alone.
+
+The four merge conflicts all resolved to `stg`. `src/env.js` was whitespace only — the database-URL
+resolution was byte-identical on both sides, which was worth confirming before trusting it.
+
+## 30. Security fixes by `pnpm.overrides`, pinned inside the existing major
+
+**Chosen:** targeted `pnpm.overrides` entries, each a caret range with a version selector, closing 30
+of 60 runtime critical/high Dependabot alerts including the only runtime critical.
+
+**Rejected — `pnpm update`.** It also rewrote 166 lines of ranges in `package.json` (the AWS SDK from
+`^3.937.0` to `^3.1127.0`, every Radix package). That is a mass upgrade wearing a security-fix label.
+
+**Rejected — a bare `>=` in the override.** It resolved `minimatch` to 10, `brace-expansion` to 5,
+`nanoid` to 6 and `js-yaml` to 5 — across breaking API changes for the packages that depend on them.
+Every entry is `^` with a range selector so each package stays in the major its parents already use.
+Checked against the previous lockfile that `minimatch@10`, `brace-expansion@5` and `picomatch@4` were
+already in the tree and were not introduced by the change.
+
+**Deliberately left open:** `next` 16.0.10 → 16.2.11 (26 high, five of them App Router middleware
+bypasses) needs its own regression pass; `xlsx` 0.18.5 has **no patched release on npm** at all —
+SheetJS moved distribution off npm at 0.20.x, so Dependabot will never close it and it needs a
+decision, not a bump.
+
+**Consequence worth carrying:** until `next` is bumped, the `portal.qcc.co.il` host restriction is
+App Router middleware on a version with five published bypasses. Treat it as defence in depth, which
+is how its own ticket framed it — not as the access control.
+
+## 31. Two go-live gates were dropped after re-reading what they actually protected
+
+**Dropped — the "no dead end" redirect work.** Its launch-critical criterion was *a junk session
+cookie must not cause a redirect loop*, and that is already satisfied by the host-restriction change:
+the root redirects on cookie presence, then the session provider verifies the HMAC server-side and
+sends an invalid cookie to sign-in, where it stops. What remained was the difference between a
+well-built translated 404 page and a redirect to the lobby — a product preference, not a blocker.
+
+**Closed by a different mechanism — the multi-company branch picker.** The ticket designed a picker
+driven by `MatchCount` and `@SelectedCustomerId`. What shipped instead was the **union**: the
+procedures return every company the caller belongs to, and rows carry `customerName`. The reported
+problem no longer occurs, so the bug was closed — but the picker was never built, and the
+`@SelectedCustomerId` parameter still exists on twelve procedures and still validates against the
+caller's own contacts. If a picker is ever wanted it is front-end work only.
+
+**Closed as already-done.** Several tickets were sitting in `To Do` or `In Testing` with the work
+merged — one for over a week. The lesson is in the working-style notes: read the branch, not the
+status field.
+
 ## In flight — nothing here is finished
 
 **Deployed to STAGE only; PROD has none of it.** `IsInactiveInSource` and
@@ -427,3 +920,100 @@ ever returns, a fresh clone will fail to build with a missing-file error that do
 logs to a per-machine folder on the share at every launch, and the scratch verification scripts
 written for the remote station are scratch — they were pasted one command at a time, not packaged.
 If station support becomes routine, that packaging is the missing piece.
+
+### The customer portal, as of 2026-09-09
+
+**STAGE leads PROD on four procedures.** All verified on STAGE, none deployed to PROD:
+
+| Procedure | What the PROD deploy changes |
+|---|---|
+| `GetCustomerDeviceDetail` | adds the calibration-tab fields (date, specification, method, reference document, tolerance, resolution, required probability, visual check, report language, comment, long unit) |
+| `GetCustomerDeviceList` | filters devices Priority has cancelled |
+| `GetCustomerInvoicesFromPriority` | the `OPENQUERY` rewrite, plus document directory / size / type and the receipt flag |
+| `GetCustomerDashboardData` | `LEFT JOIN` → `JOIN` on `OrderDetailsItems` — this **changes the counts ~957 customers see**, so it wants a deliberate before/after check, not a quiet deploy |
+
+The contact `IsActive` chain (column, loader, merge, the three portal identity procedures) **is** on
+both servers.
+
+**Two diagnostic scripts written and not run on PROD.** `database/diagnostics/` holds
+`Deactivate-Duplicate-Users-PROD.sql` (34 duplicate portal accounts) and
+`Fix-Portal-Identity-Philips.sql`. Both are dry-run first by construction. Nobody has decided when.
+
+**The Priority side of the identity fix is not done.** Two `PHONEBOOK` rows still need
+`INACTIVE = 'Y'` set *in Priority*, after which `stg.LoadCustomerContactsFromPriority` +
+`stg.MergeCustomersContactsData` carry it through. Until then the STAGE identity is forced by
+`database/diagnostics/Simulate-Priority-Inactive-STAGE.sql`, **which the next contact sync reverts** —
+if the local portal suddenly signs in as the wrong company again, that is why.
+
+**STAGE carries copied data.** One customer's orders were copied from PROD into STAGE (decision 22).
+The undo script is `database/diagnostics/undo_philips_copy.sql`. It is test data, not history.
+
+**Fields with no source yet.** The reports table's `performedBy`, five device-detail fields and three
+reports columns currently resolve to `''` because no schema column holds them. They are empty
+deliberately — do not wire them to something plausible. The device screen's **"פעולות"** tab is
+disabled pending a product decision on what belongs in it, and the profile screen's sub-sites are
+local state with no persistence behind them.
+
+**Priority service-call history is half-built.** `SERVCALLS` ↔ `SERNUMBERS` was proven to join
+(22 of 22 serials matched for the test customer), but the field that carries the MABA number
+("מספר מ.ב.א") has not been located, so the history cannot be tied to a report. Blocked on that, not
+on code.
+
+**Infrastructure left open after the outage.** Vercel **Secure Compute** is not enabled, so the
+egress address is still not static; and the exact Security-Group rule IT applied has not been read
+back — it should be confirmed and tightened to a `/32` once the static IP exists (decision 21).
+`/api/health/db` is live on `stg` but **not on `cal`**, which deploys from a different branch.
+
+**SSIS `OnPremCalibrator` still points at AWS**, not at the local server. Unchanged this session; the
+SSIS Sensitive-password work was explicitly deferred by the user, as were the malformed customer
+e-mail addresses.
+
+
+### VCT instruments - in flight
+
+**Two of nine BLs have never measured a real signal, for different reasons.**
+
+- **Meatest M-142 - blocked on hardware.** Written from the manual, never verified end to end. Its
+  own GPIB circuit is faulty (decision 14) so it must move to RS-232: instrument menu
+  `8. Interface = RS232`, `10. baud = 9600`, `11. Handshake = OFF`, and a **straight 1:1** cable
+  (2-2, 3-3, 5-5; the instrument is wired as DCE) - *not* the null-modem the 5522A needs. The first
+  serial adapter tried was a counterfeit CH340 that fails every open; use the Prolific adapter that
+  drives the Hydra logger, or an FTDI one.
+- **HP 53181A - the quickest remaining win.** Identified long ago, its no-signal guard works, but it
+  has never been fed an input. The Siglent SDG6052X is proven as a source - the same pairing that
+  verified the CNT-90 at 1000.000743 Hz against a 1 kHz setpoint. Feed the counter from it.
+
+**Three instruments have only ever run against a resting state.** The 5322A (command set verified,
+error queue clean), the 5522A (0 V in standby) and the PRODIGIT 3111 (empty input) have never seen a
+real calibration target. That needs a target, not just a cable.
+
+**The 5322A reads only the ground-bond setpoint.** The other ~20 functions are recognised and logged
+but have no setpoint query. Adding them is not a matter of writing more builders - see decision 17
+for why each one has to be gated on the current mode.
+
+**Remote output enable is unwired for all six source instruments** (decision 15). Product decision,
+not a coding gap.
+
+**Two devices are effectively dormant.** TTI is identified but its state machine is commented out and
+it broadcasts nothing. Optidew cannot be auto-discovered at all (Modbus, no `*IDN?`) and needs a
+static tunnel.
+
+**Transmille 3200A is not written** and should not be attempted without the hardware (decision 16).
+
+### Known bugs found this session and deliberately not fixed
+
+- **`Libraries/Connectors/JSON/FileReadWrite.cs` writes with `FileMode.OpenOrCreate`**, which does
+  not truncate - a shorter save over a longer file leaves valid JSON plus a garbage tail. The three
+  VCT settings classes were fixed; this shared helper was not, so anything using it inherits the bug.
+- **The WebSocket message parser does not strip the closing brace.** It splits JSON by hand, so the
+  **last** field of a message parses with `}` attached - a status message ending in `"Value":"Start"`
+  yields `Start}` and is ignored. One of the parsers already works around it by stripping `{`; the
+  others do not. Sending a throwaway field last is the current workaround.
+- **A stale Windows service keeps taking the WebSocket port.** `MabaCalibrationServer` runs an old
+  build from a temporary verification directory, restarts within seconds of being stopped, and holds
+  port 5001 so a dev server cannot open its listener. It has no recovery actions configured, so
+  something else is starting it. Setting it to Manual start was proposed and **not** done - it
+  changes how the machine boots and needs the owner's decision.
+- **An absent GPIB tunnel can still wedge the device tick.** Auto-discovery avoids creating one, so
+  this is mostly latent now, but a statically configured tunnel for a disconnected instrument will
+  still block every other device.
