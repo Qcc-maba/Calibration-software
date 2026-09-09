@@ -73,6 +73,23 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         }
 
         /// <summary>
+        /// True when the instrument is in the Ground Bond Resistance function, the only one this BL
+        /// knows how to read a setpoint for.
+        /// <para>
+        /// ⚠️ This gate is not tidiness, it is correctness. On the 5322A a setpoint query is NOT
+        /// read-only: it SELECTS that function. Verified live 2026-09-08 against
+        /// FLUKE,5322A,655320925,1.018 - <c>SAF:LOOP?</c> moved the instrument GBR -> LOOP and
+        /// <c>SAF:GBR?</c> moved it straight back, with an empty error queue throughout. Asking for
+        /// the ground-bond setpoint unconditionally would therefore drive the instrument into
+        /// Ground Bond on every poll and silently override whatever the operator selected.
+        /// </para>
+        /// </summary>
+        public static bool IsGroundBondMode(string modeReply)
+        {
+            return NormalizeMode(modeReply) == "GBR";
+        }
+
+        /// <summary>
         /// The broadcast unit implied by a <c>SAF:MODE?</c> function. The 5322A's functions are
         /// mostly resistance and leakage-current simulations, so an unrecognised mode falls back to
         /// resistance rather than to voltage: ground bond and the two resistance modes are what this

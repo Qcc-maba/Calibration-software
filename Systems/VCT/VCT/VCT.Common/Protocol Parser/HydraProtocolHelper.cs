@@ -1204,7 +1204,16 @@ namespace Maba.VCT.Common
         /// </summary>
         public static HardwarePacket Build_F5322a_QueryMode() { return new HardwarePacket(F5322_ModeQuery_Command, true); }
 
-        /// <summary>SAF:GBR? - the ground-bond resistance setpoint, in exponential form.</summary>
+        /// <summary>
+        /// SAF:GBR? - the ground-bond resistance setpoint, in exponential form.
+        /// <para>
+        /// ⚠️ NOT READ-ONLY, despite being a query. On the 5322A this SELECTS the Ground Bond
+        /// function if it is not already selected. Verified live 2026-09-08 against
+        /// FLUKE,5322A,655320925,1.018: SAF:LOOP? moved the instrument GBR -&gt; LOOP and SAF:GBR?
+        /// moved it back, error queue empty throughout. Only issue it when SAF:MODE? already says
+        /// GBR, or a polling loop will override the operator's front-panel selection every tick.
+        /// </para>
+        /// </summary>
         public static HardwarePacket Build_F5322a_QueryGroundBond() { return new HardwarePacket("SAF:GBR?", true); }
 
         /// <summary>Sets the ground-bond resistance in ohms. Selects the value; does not connect it.</summary>

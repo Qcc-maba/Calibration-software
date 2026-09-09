@@ -145,9 +145,70 @@ namespace Maba.VCT.ComLayer
         /// never opened.
         /// </para>
         /// </summary>
+        [DllImport("gpib-32.dll", EntryPoint = "FindLstn", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void FindLstn(int boardID, ushort[] pads, ushort[] results, int limit);
+
+        [DllImport("gpib-32.dll", EntryPoint = "ThreadIbsta", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int GpibThreadIbsta();
+
+        [DllImport("gpib-32.dll", EntryPoint = "ThreadIbcntl", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int GpibThreadIbcntl();
+
+        /// <summary>
+        /// Asks the NI-488.2 driver which primary addresses are physically holding the bus.
+        /// <para>
+        /// This exists because <c>viFindRsrc("GPIB?*INSTR")</c> is not reliable here: on the bench,
+        /// 2026-09-07, it reported no GPIB instruments at all while a Meatest M-142 was answering
+        /// perfectly well at address 10. VISA's GPIB enumeration depends on what has been configured
+        /// in NI MAX; <c>FindLstn</c> asks the bus itself, so it also finds an instrument nobody has
+        /// registered.
+        /// </para>
+        /// <para>
+        /// Returns an empty list when the driver is absent or the board is not the controller - a
+        /// machine with no GPIB adapter must discover nothing, not throw.
+        /// </para>
+        /// </summary>
+        internal static List<int> FindGpibListeners(int boardIndex = 0)
+        {
+            var found = new List<int>();
+            try
+            {
+                // Every primary address except 0 (the controller), terminated by NOADDR.
+                var pads = new ushort[31];
+                for (int a = 1; a <= 30; a++) pads[a - 1] = (ushort)a;
+                pads[30] = 0xFFFF;
+
+                var results = new ushort[32];
+                FindLstn(boardIndex, pads, results, 31);
+
+                const int ERR = 0x8000;
+                int sta = GpibThreadIbsta();
+                if ((sta & ERR) != 0)
+                    return found;
+
+                int count = GpibThreadIbcntl();
+                for (int i = 0; i < count && i < results.Length; i++)
+                {
+                    int address = results[i];
+                    if (address >= 1 && address <= 30)
+                        found.Add(address);
+                }
+            }
+            catch (DllNotFoundException)
+            {
+                // No NI-488.2 on this machine. Nothing to discover, and nothing to report.
+            }
+            catch (Exception ex)
+            {
+                Tracer.Info("[Discovery] GPIB driver scan failed: {0}", ex.Message);
+            }
+            return found;
+        }
+
         public static List<DiscoveredTransport> DiscoverGpib()
         {
             var result = new List<DiscoveredTransport>();
+            var seen = new HashSet<int>();
             foreach (var resource in FindVisaResources("GPIB?*INSTR"))
             {
                 int address;
@@ -157,6 +218,9 @@ namespace Maba.VCT.ComLayer
                     continue;
                 }
 
+                if (!seen.Add(address))
+                    continue;
+
                 result.Add(new DiscoveredTransport
                 {
                     Name = "GPIB " + address,
@@ -164,6 +228,21 @@ namespace Maba.VCT.ComLayer
                 });
                 Tracer.Info("[Discovery] GPIB instrument at address {0} ({1})", address, resource);
             }
+
+            // VISA misses instruments that were never registered in NI MAX, so ask the driver too.
+            foreach (var address in FindGpibListeners())
+            {
+                if (!seen.Add(address))
+                    continue;
+
+                result.Add(new DiscoveredTransport
+                {
+                    Name = "GPIB " + address,
+                    GpibPrimaryAddress = address
+                });
+                Tracer.Info("[Discovery] GPIB instrument at address {0} (NI-488.2 bus scan)", address);
+            }
+
             return result;
         }
 

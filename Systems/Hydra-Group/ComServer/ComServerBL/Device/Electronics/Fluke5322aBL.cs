@@ -216,7 +216,23 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
                 case ReadPhase.Mode:
                     _mode = Fluke5322aReadings.NormalizeMode(reply);
-                    Send(ReadPhase.Setpoint, HydraProtocolHelper.Build_F5322a_QueryGroundBond());
+
+                    // ⚠️ A setpoint query on this instrument is NOT read-only - it SELECTS that
+                    // function (proven live; see Fluke5322aReadings.IsGroundBondMode). So only ask
+                    // for the setpoint of the function it is ALREADY in. Asking unconditionally
+                    // would drag the calibrator into Ground Bond on every single poll and quietly
+                    // undo the operator's front-panel selection.
+                    if (Fluke5322aReadings.IsGroundBondMode(_mode))
+                    {
+                        Send(ReadPhase.Setpoint, HydraProtocolHelper.Build_F5322a_QueryGroundBond());
+                    }
+                    else
+                    {
+                        Libs.Trace.Tracer.Info(
+                            "[FLUKE 5322A] {0}: function is {1}; this BL can only read a Ground Bond setpoint, so nothing is broadcast (asking anyway would switch the instrument).",
+                            HW_Device.SN, string.IsNullOrEmpty(_mode) ? "unknown" : _mode);
+                        Continue();
+                    }
                     return;
 
                 case ReadPhase.Setpoint:

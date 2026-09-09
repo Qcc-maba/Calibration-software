@@ -160,6 +160,27 @@ namespace Maba.VCT.Core.Tests
             Assert.AreEqual(HardwareBL_Settings.Units_Resistance, Fluke5322aReadings.UnitsForMode(null));
         }
 
+        [TestMethod]
+        public void IsGroundBondMode_GatesTheOnlySetpointThisBlCanRead()
+        {
+            // ⚠️ Verified live 2026-09-08: on the 5322A a setpoint query SELECTS that function.
+            // SAF:LOOP? moved the instrument GBR -> LOOP and SAF:GBR? moved it back, with an empty
+            // error queue throughout. The read loop therefore asks for the ground-bond setpoint
+            // only when the instrument is already in GBR; without this gate the poll would drag the
+            // calibrator out of whatever function the operator selected, every couple of seconds.
+            Assert.IsTrue(Fluke5322aReadings.IsGroundBondMode("GBR"));
+            Assert.IsTrue(Fluke5322aReadings.IsGroundBondMode("gbr\r\n"));
+
+            // Every other documented function must NOT trigger the query.
+            foreach (var mode in new[] { "MET", "LOOP", "LIN", "VOLT", "HRES", "LRES", "IDAC",
+                                         "RCDT", "HIPL", "HIPT", "FLI", "GBOP", "" })
+            {
+                Assert.IsFalse(Fluke5322aReadings.IsGroundBondMode(mode),
+                    "a setpoint query in mode '" + mode + "' would switch the instrument's function");
+            }
+            Assert.IsFalse(Fluke5322aReadings.IsGroundBondMode(null));
+        }
+
         #endregion
 
         #region identification - the emulation-menu trap
