@@ -79,9 +79,12 @@ Carried forward and re-checked today where the check was cheap. Items already re
 6's in-flight list — the portal not being live, MBA-960, `main` going stale, the Security Group
 question — are not repeated here and still stand.
 
-**The `Eliran` branch is 36 commits ahead of its remote and unpushed.** This has been the standing
-first item for over a week and has not moved. The working tree was clean when checked at 15:41, so
-the work is committed — it is only unpushed.
+**The `Eliran` branch is now fully pushed — this item is closed.** It was 36 commits ahead when
+measured at 15:41, which is what the standing first item had said for over a week; by 16:05 it was
+`0 0` against `origin/Eliran` at `cff61eb`, pushed by the parallel session while this handoff was
+being written. Recorded rather than deleted because the sequence is the point: the claim was true
+when written and false twenty minutes later, in the same file that tells you to re-check before you
+ship. It was caught by re-measuring on the way back to the branch, not by remembering.
 
 **A second agent session was committing to this tree throughout, and may still be.** HEAD last moved
 at 13:52 (`cff61eb`, an installer startup-timing fix) and was stable across the twenty-minute window
