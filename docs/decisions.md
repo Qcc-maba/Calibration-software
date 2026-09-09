@@ -1060,3 +1060,271 @@ static tunnel.
 - **An absent GPIB tunnel can still wedge the device tick.** Auto-discovery avoids creating one, so
   this is mostly latent now, but a statically configured tunnel for a disconnected instrument will
   still block every other device.
+
+---
+
+# Order attachments, shared machines, and the September rebrand
+
+Added 2026-09-09. MBA-930 end to end, the two outages caused by services sharing a machine, and the
+half of MBA-946 that was still open.
+
+---
+
+## 42. Order attachments: cache the catalogue, convert on demand
+
+**Context.** MBA-930 — the calibrator needs to see the documents Priority hangs off an order. Two
+independent questions: where the file *list* comes from, and when the PDFs are made.
+
+**The list is a cache table, not a live `OPENQUERY`.** `dbo.CrmOrderAttachments` is refreshed by
+`dbo.RefreshOrderAttachmentsCache` in a single round-trip for the whole `TYPE='O'` set. Rejected:
+querying Priority per order. The work-assignment grid renders a page of orders at once, and the
+linked-server lesson from the invoice work — 65 seconds of per-row remote calls against 0.7s for the
+same join pushed into `OPENQUERY` — applies here with more force.
+
+**Conversion is on demand and cached to disk.** Rejected: converting all ~13,200 orders' files up
+front. Most will never be opened, so a batch pass is almost entirely wasted work and has to be re-run
+whenever Priority gains a file. Measured on the real path: 6,217 ms cold, 126 ms cached, 1,024 ms for
+a merged multi-part document.
+
+**The primary key is `(order, EXTFILENUM)`.** This was got wrong first. `(order, LINE)` looked
+natural and blew up with a PK violation on the first full rebuild: `LINE` has three distinct values
+in the entire table and repeats within an order — order 106663 has two files, both `LINE = 0`.
+Measured: `distinct (IV, EXTFILENUM)` = 15,326 = the row count; `distinct (IV, LINE)` = 13,239. An
+order can hold twelve files, not four.
+
+**`EXTFILES.FILESIZE` is deliberately not cached.** 15,225 of 15,326 rows report `74`, which is the
+length of the path string; one such row is a 522,752-byte `.msg`. A column that is wrong 99.3% of the
+time is worse than an absent one, because someone will use it to pick "the real document" — as the
+invoice code already does, for a narrower case where it happens to hold.
+
+**Paths are truncated at 80 characters** in `EXTFILES`, exactly 35 rows. Those files cannot be
+opened; the row is cached with `IsPathTruncated` so the UI can say so rather than show a button that
+fails.
+
+---
+
+## 43. The conversion engine: headless Chromium plus LibreOffice
+
+**Chosen.** PdfPig for merging (Apache 2.0), Playwright/headless Chromium for HTML, text and images,
+LibreOffice for Office formats, and a passthrough that leaves an existing PDF alone. The converter
+registry is ordered and first-match-wins, so the passthrough sits ahead of anything that would
+re-render a PDF that is already fine.
+
+**Rejected: Office automation.** There is no Office licence on the server, and Excel OLE is already
+something the wider rewrite deliberately dropped.
+
+**A document that cannot be converted stays visible.** Such parts are returned with an `Error` rather
+than omitted, and the endpoint answers **422**, not 500 — the request was valid, this one document
+just cannot become a PDF. A calibrator who cannot open a document must still know it exists.
+
+**Consequence, still open.** LibreOffice is not installed on the host, so `/health` reports
+`libreOfficeInstalled: false` and Office attachments fail with a 422. Everything else converts.
+
+---
+
+## 44. Attachments reach the browser through the app, not directly
+
+The service listens on an internal host. Putting its address in a `NEXT_PUBLIC_` variable would
+publish the internal topology to every visitor, so the PDF comes back through the app's
+order-attachments proxy route — the same hop the attachment metadata already takes. The proxy
+allow-lists exactly one path shape, so a caller cannot reach `/health` or anything the service grows
+later, and it passes a 422 through unflattened so the dialog can say *which* document failed and why.
+
+---
+
+## 45. `fnUnreverseVisualText`: peel `:;!?` only, and only at one end
+
+**Context.** The function returned `:RE` where the mail subject was `RE:`.
+
+**Rejected: peeling the obvious punctuation set.** The first fix was correct for `RE:` and changed
+**24 device descriptions** for the worse — `'5000.` became `0005'.` — because `.` and `,` are decimal
+separators inside the numeric runs it reverses. Brackets are excluded for a different reason: they
+are mirrored pairs and must travel with the reversal.
+
+**Chosen.** Trailing `:;!?` only, and only when the run does not *also* start with one of them.
+Measured against the device table before deploying: zero rows changed.
+
+The durable lesson is the method, not the character set. This function is used by display code all
+over the portal; count the rows whose output changes before touching it.
+
+---
+
+## 46. One service, one configuration key
+
+**Context.** Several net10 services run on one box, and two outages came from sharing a variable
+between them.
+
+**Rejected: `ASPNETCORE_URLS` and `PLAYWRIGHT_BROWSERS_PATH` set machine-wide.** Both are read by
+*every* process of their kind on the machine. The first put two services on 5312, where one won the
+port and answered `/health` for requests meant for the other, which was crash-looping on
+`address already in use` — a health check passing because the wrong service answered it. The second
+redirected the *frontend's* Playwright, in a project nobody had touched, into a browser directory
+holding a different build.
+
+**Chosen.** `OrderAttachments__Urls`, read at startup; and `PLAYWRIGHT_BROWSERS_PATH` set in-process,
+which reaches the driver this service spawns and nothing else.
+
+**Rejected: port discipline as the fix.** Agreeing which service owns which port does not help when
+the mechanism lets either installer overwrite the other's setting. The collision had to be removed at
+the source.
+
+---
+
+## 47. MBA-946: the not-found boundary goes at the app root, and reads the host
+
+**This corrects an earlier entry in this file**, which recorded that what remained on MBA-946 was
+"the difference between a well-built translated 404 page and a redirect to the lobby — a product
+preference, not a blocker". Measured against `stg` on 2026-09-09, that is not what remained.
+
+The middleware sends a portal visitor asking for an internal path to `/customer/blocked`, which is a
+real page with a way back, and that half works. It deliberately lets every `/customer/*` address
+through, because it cannot know which of them are real routes — so a mistyped portal link reached
+Next's built-in *"404: This page could not be found."*, in English, with no link anywhere. There was
+no `not-found` file anywhere in the app.
+
+**Rejected: a `not-found` inside the customer segment.** Tried first, and it does not do this. A
+segment-level `not-found` catches only a `notFound()` thrown by a page in that segment; an address
+matching no route reaches the **root** boundary. It renders for every case you test by calling
+`notFound()`, which is exactly what makes it convincing.
+
+**Rejected: making the middleware rewrite `/customer/*` too.** It would have to know the route table
+to avoid swallowing real pages.
+
+**Chosen.** A root `not-found`, which because it answers for both audiences reads the `host` through
+the same predicate the middleware uses — extracted so the two host lists cannot drift — and offers a
+coordinator the application home rather than "back to portal". The segment file is kept for
+`notFound()` calls inside portal pages, where the audience is already known.
+
+Verified by request against a running app on both host branches, not by reading the code.
+
+---
+
+## 48. The lab has no local database, and `Calibrator` on PRI is not one
+
+**Context.** During an AWS maintenance window the question was whether the lab could fall back to
+something on-premises, on the stated understanding that the PRI instance is the database everyone
+working inside the lab uses.
+
+**Measured, and the answer is no.** The `Calibrator` database on PRI has 59 tables and **none** of
+the application's — no `OrderWorkPlans`, no `CrmOrders`, no `Customers`. Its `Orders` table stops in
+March 2025, and `sys.dm_db_index_usage_stats` shows zero user writes to any table in it. The busy
+database on that server is `priority_kyul` — `MBA_CALIBLOAD` 12.5M rows, `MBA_DOCLOAD` 17.4M, both
+written within the last five minutes at any hour — and it is Priority integration staging, not an
+application schema. PRI does define a linked server pointing at the AWS instance, but no procedure on
+PRI references it.
+
+**Do not read "the server is busy" as "that database is current".** The instance is under constant
+load and the database beside the live one is a carcass with a familiar name.
+
+The maintenance window itself only broke the Vercel path: the production database stayed reachable
+and current from inside the MABA network throughout, and both sites returned to a ~1s response the
+next morning.
+
+---
+
+## 49. The rebranded mark ships as a raster, and gets a white knockout
+
+**Context.** The new lockup replaces a square 54×54 inline SVG glyph used in five places, plus the
+e-mail and PDF headers.
+
+**Chosen.** Height-driven sizing: `height` sets the height and the width follows the 2.47:1 ratio.
+The old callers all used `size-10` / `size-12` / `width=16 height=16`; forcing the new mark into a
+square either distorts it or shrinks it to a sliver, and what those callers actually cared about was
+the row or bar height. A separate reversed asset ships for the dark customer header, because the
+mark's navy is close enough to that ground to disappear.
+
+**Rejected, but only for now: an SVG.** The new mark has gradients, so no single-path CSS-filled SVG
+can express it, and the `fill-*` tinting the old glyph relied on is gone. This is a real loss of
+crispness at 16px. A proper SVG from the designer should replace the raster when it arrives.
+
+---
+
+## In flight — the September 9 work
+
+**MBA-930's backend is live; its front end is not.** The SQL objects are on STAGE and PROD (2,328
+files cached on PROD), the service runs on 5313, and real PDF conversion is verified. The UI is a
+`reference/*` branch handed over as a Jira US and **was pushed without a typecheck** — treat it as a
+draft until someone runs one. LibreOffice is still not installed, so Office attachments 422.
+
+**The MBA-946 fix is written but not committed or pushed.** It sits as uncommitted changes on a
+`reference/*` branch in the app repo: a root `not-found`, a customer-segment `not-found`, a shared
+panel component, a shared `isInternalHost` predicate the middleware now imports, and two new
+translation keys in both `en` and `he`. Typecheck, eslint and prettier all pass, and both host
+branches were verified against a running dev server. It needs committing, pushing, and a comment on
+the ticket — which is sitting in *In Testing* with the gap still open.
+
+**`PLAYWRIGHT_BROWSERS_PATH` is still set machine-wide**, to a directory holding only chromium-1234
+while the sibling frontend pins 1208. Clearing it needs elevation and the session was not elevated.
+The attachments service no longer depends on it; until it is cleared, that frontend's Playwright
+cannot launch.
+
+**MBA-862 is a confirmed live bug on PROD.** `dbo.AssignCarToOrder` still has the empty
+`BEGIN CATCH ROLLBACK END CATCH` that swallows save failures, so the mutation reports success while
+nothing was written. The repo's copy carries the `THROW;` fix and has not been deployed. Naive text
+searches pass because three unrelated `THROW 51000` validation guards are present. Deploying it was
+offered and not answered.
+
+**Two tickets were offered and not opened**: the N+1 in the customer-info hover, and
+`GetNumberOfLoggersConfiguredByUser` missing from both environments.
+
+**`portal.qcc.co.il` does not resolve.** DNS has not been created, so nothing on the portal host path
+can be tested end to end; `stg` and `cal` both answer 200.
+
+**Still needed from IT:** the service account (`docs/IT-REQUEST-service-account.md`) — the attachments
+service currently runs as a named human account, which was explicitly a "get it working first"
+decision — LibreOffice on the server, and a decision on which host owns the service.
+
+---
+
+## 41. The packing barcode scan is client-side, and `ValidateMABA` is cruft to delete
+
+**Context.** MBA-827 (epic MBA-360 Logistics, Oleksandr). The packing screen shows a barcode button
+per device card; the operator scans the label and the checkbox turns green on a match. The ticket
+was originally titled "connect the barcode scan to the web socket", which reads like server work.
+
+**The business rule is only the comparison** — confirmed with the user: check that the packer scanned
+the right product. No database lookup, no server-side validation. That comparison is already fully
+implemented client-side in the packing dialog.
+
+**Chosen — delete the `ValidateMABA` round trip.** It is a WebSocket call added by an outside
+contributor with no spec anywhere and **no counterpart in C#**: grep over every `.cs` returns zero.
+It runs *after* the local comparison has already succeeded, and because nothing ever answers, its
+10-second timeout turns every **correct** scan into `Invalid`. The feature is broken *because* of
+this step, not for the lack of one. Its check-digit rule is Luhn, reverse-engineered from synthetic
+test buttons, and fails on every real label.
+
+**Rejected — implementing the missing server handler.** This is the trap, and it is the obvious
+reading of both the ticket title and the code. Writing the handler would add a server round trip,
+a new WebSocket message and a C# dependency to a feature whose entire rule is a string comparison
+the client has already done. The ticket was rewritten and retitled to
+"Barcode scan on the Packing screen must match the label to the card", scoped front-end only, with
+no C# work.
+
+**Compare digits only.** The real label is `NNNNNNN/NN` (e.g. `2605006/60`) and the scanner is a
+keyboard wedge, so Windows renders its keystrokes through the **active keyboard layout**. Under the
+Hebrew layout the key that gives `/` in English gives `.` — the same label captured twice reads
+`2605006/60` under English and `2605006.60` under Hebrew. Since Hebrew is the normal working layout,
+every scan would fail. Comparing digits only (`260500660`) is immune to any layout mangling.
+
+**Rejected — fixing only the scanner's layout.** Reconfiguring the scanner to a US layout at source
+is worth doing, but as the *sole* fix it leaves the comparison one keyboard setting away from
+breaking again on any other machine.
+
+---
+
+### Still in flight, as of this handoff
+
+- **`docs/decisions.md` numbering is not unique.** This file was appended to by several sessions and
+  now carries three concatenated series — there are two `## 9.`, two `## 13.`, two `## 14.` and so
+  on, and the sequence runs 26 → 32-40 → 27-31 → 41. Cross-references of the form "see decision 5"
+  are therefore ambiguous in places. Renumbering was deliberately **not** done here because the file
+  was being written concurrently while this entry was added; do it in one pass when the file is
+  quiet, and fix the inbound references in `CLAUDE.md` at the same time.
+- **The working tree is well ahead of the branch, and the branch is ahead of its remote.** A large
+  amount of instrument, installer, portal and analytics work is uncommitted. Commit and push before
+  starting anything new — this has been the standing first item for over a week.
+- **Two of the three logger-disconnect kinds remain unfixed** (power and channels); only the
+  communication case is addressed. The channels case is the dangerous one: a disconnected channel
+  returns a sentinel that is skipped silently, so a calibration proceeds with fewer points than the
+  operator asked for and nothing on screen says so.
+- **`correction.log` grows without bound** — 53 MB on the bench machine, nothing rotates it.

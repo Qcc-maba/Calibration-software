@@ -842,7 +842,7 @@ usually names the exact identifier.
 - **A default that is wrong for a whole class is a bug, not a detail.** Every instrument broadcast
   `Celsius` because that was the historic default — "בגדול מכשיר שמודד אלקטרוניקה ערך ברירת
   המחדל צריך להיות וולט." Fixing it required reading what the existing enum members actually meant
-  rather than what they were named — see decision 11.
+  rather than what they were named — see decision 34.
 - **Explain the mechanism, not just the conclusion.** "לא הבנתי מה אתה רוצה שאני אעשה" and
   "איך זה קשור ל-USB?" both followed answers that were technically complete and practically useless.
   When asking for a physical action, name the instrument, the panel, and the button.
