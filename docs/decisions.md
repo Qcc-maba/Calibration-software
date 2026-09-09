@@ -1314,12 +1314,13 @@ breaking again on any other machine.
 
 ### Still in flight, as of this handoff
 
-- **`docs/decisions.md` numbering is not unique.** This file was appended to by several sessions and
-  now carries three concatenated series — there are two `## 9.`, two `## 13.`, two `## 14.` and so
-  on, and the sequence runs 26 → 32-40 → 27-31 → 41. Cross-references of the form "see decision 5"
-  are therefore ambiguous in places. Renumbering was deliberately **not** done here because the file
-  was being written concurrently while this entry was added; do it in one pass when the file is
-  quiet, and fix the inbound references in `CLAUDE.md` at the same time.
+- **`docs/decisions.md` numbers are unique but out of order.** This file was appended to by several
+  sessions in parallel. The numbering was de-duplicated, but the sections still run
+  1-26 → 32-40 → 27-31 → 42-49 → 41, so reading top to bottom does not read in numeric order and a
+  new entry cannot simply take "the number after the last heading". Before adding one, check the
+  highest number in the file rather than the last one on the page. Reordering the sections to match
+  is safe to do in one pass when the file is quiet; every cross-reference is by number, not by
+  position, so moving a section does not break them.
 - **The working tree is well ahead of the branch, and the branch is ahead of its remote.** A large
   amount of instrument, installer, portal and analytics work is uncommitted. Commit and push before
   starting anything new — this has been the standing first item for over a week.
