@@ -49,6 +49,17 @@ editing. A merge was built on a 219-line copy of `docs/decisions.md` whose real 
 lines. What caught it was `git diff --cached --numstat`: an edit that only adds must report **0
 deletions**. `wc -l` will happily confirm the wrong number; the staged diff will not.
 
+## Someone else may be committing the same tree while you work
+
+This repository is edited by more than one agent session at a time. Staged work has been swept into
+another session's commit, under a message about something else entirely — the files were correct, but
+no commit in the log describes them, and `git status` came back clean before the commit was made.
+
+Before reporting "committed", check `git log -3` and confirm a commit you recognise carries the work.
+If it was swept in, say so and name the commits that carry it rather than claiming the commit as
+yours. If you must be sure the work lands under its own message, commit it before starting the next
+file rather than staging everything and committing at the end.
+
 ## Grouping
 
 Group by intent, not by directory. A session that touched thirty files produces five or six commits.

@@ -63,6 +63,13 @@ Power, communication and channels are three different failures with three differ
 does not cover another. `disconnect-kinds.md` in this skill directory has the symptoms, the code that
 handles each, and the bench check that proves it.
 
+**A station is no longer only loggers.** It also hosts oscilloscopes, counters, generators,
+calibrators and loads over GPIB, USBTMC and serial, and those fail in ways the three logger kinds do
+not cover — an adapter that enumerates with no driver bound, a counterfeit USB-serial chip, an
+instrument that corrupts its own replies. Use the **bringing-up-an-instrument** skill and its
+`transport-faults.md` for those, and note that its first rule applies here too: decide whether you
+have a transport fault or an instrument fault before editing any BL.
+
 ## 5. Say what you measured, not what you infer
 
 The station's logs, the payload count and the port owner are facts. "It works now" is not a fact

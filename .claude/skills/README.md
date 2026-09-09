@@ -6,6 +6,7 @@ reference files it points at. The description is what decides whether a skill ge
 
 | Skill | Use it when |
 |---|---|
+| [bringing-up-an-instrument](bringing-up-an-instrument/SKILL.md) | adding or verifying an instrument on the VCT server, or one that is connected but not identified, returns corrupted replies, or measures nothing |
 | [changing-a-database](changing-a-database/SKILL.md) | a task needs a schema change, a new stored procedure or a one-off data fix on Calibrator/CalibratorProd |
 | [committing-work](committing-work/SKILL.md) | landing uncommitted changes, choosing where to push, deciding what must never be committed, or fighting the app repo's pre-commit hook |
 | [diagnosing-a-station](diagnosing-a-station/SKILL.md) | a station is reported broken, blank or "no internet", or a logger stops recording, and you cannot sit at the machine |

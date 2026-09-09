@@ -37,6 +37,15 @@ $env:BUILD_STANDALONE='true'; $env:SKIP_ENV_VALIDATION='1'; npx next build
 `.next\standalone` compiles into the installer perfectly happily and ships UI fixes that are not in
 it — which is exactly how a "fixed and shipped" item gets reported as still broken.
 
+**Clean up after verifying a build on your own machine.** A verification install leaves the
+`MabaCalibrationServer` Windows service running the *verified* copy from wherever it was installed,
+set to start automatically. Days later it is still there: it takes the WebSocket port so a dev server
+cannot open its listener, and it holds the COM ports so discovery finds nothing. It restarts within
+seconds of being stopped even with no recovery actions configured, so stopping it is not enough —
+decide with the owner whether to set it to manual start or remove it, and do not leave it running
+against an old build. The symptom that gives it away is a dev server logging that the WebSocket
+prefix "conflicts with an existing registration on the machine".
+
 **Read the payload count the script prints.** A healthy build is thousands of files (4,523 for the
 1.6.10 build; ~2,600 before the portal screens landed). Around 18 means the web app silently did not
 make it in. The script fails below 2,000 for that reason — do not raise or bypass that floor.
