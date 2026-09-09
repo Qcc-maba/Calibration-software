@@ -924,30 +924,31 @@ scratch, not part of the build.
 
 ### Station installer and MBA-962 (added later the same day)
 
-**v1.6.9 has not been built, and the rediscovery code has never been compiled.** The `ServerCore`
-rediscovery timer and `VCTSettings.RediscoverIntervalSeconds` (decision 13) are written and
-committed but no build has run over them. Compile before believing any of it. The last installer
-actually built and installed is **1.6.8**, which does *not* contain them.
+**v1.6.9 is built. What it contains has not met a logger.** Rediscovery (decision 13), the
+per-channel alert and the power-cycle restart (decision 50) compile, 687 unit tests pass, and a real
+server process ran three clean rediscovery passes. No Fluke Hydra was connected on the day any of it
+was written, so the two new alert paths have never fired against an instrument. Note that the
+rediscovery code had **never been compiled** until this build — it was written in an earlier session
+and left uncommitted, which is exactly the state that hides a syntax error for two days (it had one:
+a doc comment inserted between another method's attribute and its signature).
 
-**MBA-962 is one quarter done.** The user's four answers map to:
+**MBA-962, item by item, against the user's own four answers:**
 
-1. *Check* — needs the person on the affected station to retest on 1.6.8. Not reproducible here.
-2. *The two-loggers-connected indicator is a UI badge* — client-side, unverified, untouched.
-3. *Units should render as symbols* — client-side (decision 12), untouched.
-4. *Fix the disconnect* — only the **communication** case is addressed.
+1. *Check* — needs the person on the affected station to retest, now on 1.6.9. Not reproducible here.
+2. *The two-loggers-connected indicator is a UI badge* — client-side; the app has moved on since the
+   last installer and 1.6.9 carries whatever is in it. **Needs verifying on the built station**, which
+   is what the user asked for ("it is already closed, it just needs building and verifying").
+3. *Units should render as symbols* — client-side (decision 12), untouched here.
+4. *Fix the disconnect* — all three kinds are now addressed in the server (decisions 13 and 50).
 
-**Two of the three disconnect kinds are diagnosed and unfixed.** The user named three: power,
-communication, channels.
+**The bench verification that is still owed**, and it needs the hardware:
 
-- **Power.** A power-cycled logger comes back with its scan configuration gone. The link reports
-  connected again, but `DataRestored` never fires and no session re-sends the setup sequence.
-  Rediscovery cannot help: the port is still held, so nothing looks like a new device. This needs
-  re-initialisation on reconnect, which does not exist.
-- **Channels.** `Hydra2DeviceBL.cs` (~line 491) `continue`s silently when a reading is
-  `>= 9000000000`, the sentinel a disconnected channel returns. No alert, no log line, no client
-  message — the calibration proceeds with fewer points than the operator asked for and nothing on
-  screen says so. This is the most dangerous of the three because it is invisible.
-- **Communication** is the case decision 13 covers, and only once it is compiled and shipped.
+- Pull one thermocouple mid-scan → expect `ChannelDisconnected` naming that channel, that channel's
+  trace shaded in the UI, and the calibration no longer proceeding as if nothing happened; plug it
+  back → expect `DataRestored` on the same channel and the shading to close.
+- Power-cycle the logger → expect `DataTimeout`, then `[RECOVERY] ... re-initializing the device BL`
+  in `server.log`, then data resuming and `DataRestored`. Five attempts, a minute apart, then it
+  stops trying.
 
 **The app repo has uncommitted work.** `src/server/api/root.ts` and the paths module are modified to
 wire in an `order-approval` feature whose files are entirely untracked. The committed
@@ -1312,6 +1313,75 @@ breaking again on any other machine.
 
 ---
 
+
+## 50. The other two disconnects: a channel alert, and a restart after a power cycle
+
+Decision 13 covered one of the three kinds of disconnect the user named. These are the other two,
+built in the same session, on the user's instruction ("both are in the server, ours").
+
+### Channels — alert with the channel number instead of a silent `continue`
+
+**Context.** The Hydra reports `9.00E+9` for an open input. `Hydra2DeviceBL` dropped those readings
+with a bare `continue`: no alert, no log line, and the calibration went on with fewer points than
+the operator had asked for. Of the three failures this is the dangerous one, because it is the only
+one that is completely invisible — the logger is connected, the graph is drawing, and one trace is
+simply not there.
+
+**Chosen.** A per-channel `ChannelDisconnected` on the falling edge, naming the channel, and a
+`DataRestored` on the rising edge naming the same channel.
+
+**Rejected — alerting on every scan.** A logger scanning at the usual rate would emit an alert per
+channel every couple of seconds for as long as the sensor stays out, and the operator would learn
+to ignore the alert area entirely. The state is edge-detected per channel in the BL.
+
+**Rejected — a new AlertType such as `ChannelRestored`.** The app declares `TAlertType` as a closed
+union of five names. Anything else is parsed, stored and never rendered. Worse, the app closes a
+channel's shaded disconnect range only when it sees a `DataRestored` on the *same*
+`deviceId:channel` key — so the restore has to be that exact type, carrying that exact channel, or
+the channel stays shaded for the rest of the session.
+
+**Scope, stated so nobody assumes more than was built.** This detects a channel that *reports* the
+open-input sentinel. A channel that stops appearing in the scan output altogether is not covered —
+the loop pairs measurements to configured channels by index and stops at the shorter of the two, so
+a short reply is simply a short reply. Whether the Hydra can produce one has not been observed.
+
+**Why the BL raises it and not the server.** The BL is the only layer that can see this failure. To
+everything above it, `9.00E+9` is a number. The path added for it —
+`HardwareDeviceHost.RaiseAlert` → `EventsBus.DeviceAlert` → `ServerCore` — is the first way a BL
+has ever had to say something to the WS clients that is not a measurement.
+
+### Power — re-initialise the BL when the watchdog fires
+
+**Context.** A power-cycled logger comes back with its scan configuration gone while its serial port
+stayed open, so nothing looks disconnected and no discovery pass can find it — the port is still
+held. `DataTimeout` fired, the operator was told, and nothing was done about it.
+
+**Chosen.** On the `DataTimeout` edge, `HardwareDeviceHost.ReinitializeBL` resets the sessions
+(clearing the in-flight request and draining the queue) and calls the BL's own `OnConnection(true)`,
+which rebuilds the state array and puts the machine back at its first step. Retried once a minute,
+**five times**, then left alone.
+
+**Rejected — an unbounded retry.** A logger that is simply switched off would be re-initialised
+every minute for as long as the server runs, and every attempt re-reads the master corrections from
+SQL.
+
+**Rejected — recovering inside the device read lock.** The restart re-reads those corrections
+synchronously, so devices to recover are collected under the lock and restarted after it is
+released. Holding the lock across a SQL round-trip would stall the tick for every other instrument.
+
+**Rejected — treating this as something rediscovery could fix.** It cannot: rediscovery looks for
+transports, and this transport was never lost.
+
+### `correction.log` deleted rather than rotated
+
+It was written on every channel of every reading, to a path relative to the working directory —
+which for the Windows service is `system32` — and never rotated. It reached 53 MB on the bench.
+Every line was already being written by `Tracer.Info` immediately above it, into `logs\server.log`,
+which is the file `publish-logs.ps1` ships off a customer station. *Rejected: rotating it or moving
+it beside the executable* — that is upkeep for a duplicate. Removing it also means a station's
+correction history now travels with the logs that already get collected.
+
+---
 ### Still in flight, as of this handoff
 
 - **`docs/decisions.md` numbers are unique but out of order.** This file was appended to by several
@@ -1324,8 +1394,14 @@ breaking again on any other machine.
 - **The working tree is well ahead of the branch, and the branch is ahead of its remote.** A large
   amount of instrument, installer, portal and analytics work is uncommitted. Commit and push before
   starting anything new — this has been the standing first item for over a week.
-- **Two of the three logger-disconnect kinds remain unfixed** (power and channels); only the
-  communication case is addressed. The channels case is the dangerous one: a disconnected channel
-  returns a sentinel that is skipped silently, so a calibration proceeds with fewer points than the
-  operator asked for and nothing on screen says so.
-- **`correction.log` grows without bound** — 53 MB on the bench machine, nothing rotates it.
+- **All three logger-disconnect kinds are now handled in code, and none of them has met a logger.**
+  Communication (decision 13), power and channels (decision 50) are written, compiled, unit-tested
+  and shipped in **1.6.9**. What has been proven on a running server is the rediscovery timer: three
+  passes, clean, on a machine with no instrument attached. The channel alert and the power-cycle
+  restart have never run against a Fluke Hydra — no logger was connected on the day they were
+  written. **Verifying them is a bench task with hardware**: pull one thermocouple and watch for a
+  `ChannelDisconnected` naming that channel, then power-cycle the logger and watch `server.log` for
+  `[RECOVERY]` followed by data resuming and a `DataRestored`.
+- **`correction.log` is gone** (decision 50). A station upgraded from an older version still has the
+  old file sitting in the ComServer's working directory; it is not deleted by the installer, and on
+  the bench it was 53 MB.

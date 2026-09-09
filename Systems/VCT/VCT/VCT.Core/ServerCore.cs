@@ -50,6 +50,12 @@ namespace Maba.VCT.Core
 
         private Timer TimerManager_DeviceHost = null;
 
+        // Its own timer, not a counter inside the device tick: a serial rediscovery pass opens ports
+        // and waits for *IDN?, and doing that on the 2s tick thread would stall every live device
+        // for the duration - the same starvation a slow GPIB address already causes.
+        private Timer TimerRediscover = null;
+        private int _rediscoverRunning;
+
         private MyReaderWriterLockSlim<ConcurrentDictionary<string, Device.HardwareDeviceHost>> DeviceHost_Slim = new MyReaderWriterLockSlim<ConcurrentDictionary<string, Device.HardwareDeviceHost>>(new ConcurrentDictionary<string, Device.HardwareDeviceHost>());
         private MyReaderWriterLockSlim<ConcurrentDictionary<string, Device.WebSocketDeviceHost>> WSDeviceHost_Slim = new MyReaderWriterLockSlim<ConcurrentDictionary<string, Device.WebSocketDeviceHost>>(new ConcurrentDictionary<string, Device.WebSocketDeviceHost>());
         private MyReaderWriterLockSlim<List<Device.DeviceHostPending>> DeviceHost_Pending_Slim = new MyReaderWriterLockSlim<List<Device.DeviceHostPending>>(new List<Device.DeviceHostPending>());
@@ -88,7 +94,19 @@ namespace Maba.VCT.Core
             this.MainEventsBus = new Events.EventsBus();
             this.MainEventsBus.DeviceOnIncomingEvent += MainEventsBus_DeviceOnIncomingEvent;
             this.MainEventsBus.DeviceConnnection += MainEventsBus_DeviceConnectionForAlerts;
+            this.MainEventsBus.DeviceAlert += MainEventsBus_DeviceAlert;
             CurrentServerSettings = new Settings.VCTSettings();
+        }
+
+        /// <summary>
+        /// MBA-962: forwards an alert a device's BL raised (a lost channel, typically) to the WS
+        /// clients, in the same shape and through the same path as the server's own alerts.
+        /// </summary>
+        private void MainEventsBus_DeviceAlert(object o, Events.DeviceAlertEventArgs e)
+        {
+            if (e?.Device == null || string.IsNullOrEmpty(e.AlertType)) return;
+
+            BroadcastAlertToWebSockets(e.Device, e.AlertType, e.Message, e.Channel);
         }
 
         /// <summary>
@@ -255,6 +273,17 @@ namespace Maba.VCT.Core
         /// <summary>How long a scanning logger may go silent before a DataTimeout alert (MBA-485 AC5/AC6).</summary>
         private static readonly TimeSpan DataTimeout_TimeSpan = TimeSpan.FromSeconds(60);
 
+        /// <summary>MBA-962: how long to wait between attempts to restart a silent device's BL.</summary>
+        private static readonly TimeSpan Recovery_RetryInterval = TimeSpan.FromSeconds(60);
+
+        /// <summary>
+        /// MBA-962: how many times to try restarting one silent device before leaving it alone.
+        /// Bounded on purpose — a device that is off, or whose cable is dead in a way the port does not
+        /// report, would otherwise be re-initialized every minute for as long as the server runs, each
+        /// attempt re-reading the master corrections from SQL.
+        /// </summary>
+        private const int Recovery_MaxAttempts = 5;
+
         /// <summary>
         /// The app drops an alert entirely unless EVERY field matches its regex and is non-empty
         /// (parse-alert-message.ts returns null on the first blank). A device-wide alert has no
@@ -274,13 +303,22 @@ namespace Maba.VCT.Core
         /// <param name="loggerId">Same serial; the app carries both fields through to the UI.</param>
         /// <param name="batchId">The receiving client's run, or LIVE.</param>
         /// <param name="localTime">Local time: the app parses with date-fns into the browser's zone.</param>
+        /// <param name="channel">
+        /// The channel the alert is about, or null for a device-wide alert (rendered as "ALL").
+        /// MBA-962: the app groups disconnect ranges by deviceId:channel and closes a range only with a
+        /// DataRestored carrying the SAME channel, so a per-channel alert must name its channel and its
+        /// restore must name it again — a restore sent as "ALL" leaves the channel shaded for good.
+        /// </param>
         internal static string BuildAlertMessage(string deviceId, string loggerId, string batchId,
-                                                string alertType, string message, DateTime localTime)
+                                                string alertType, string message, DateTime localTime,
+                                                string channel = null)
         {
             return string.Format(
                 CultureInfo.InvariantCulture,
                 "CMD:\"Alert\", DeviceID:\"{0}\", LoggerID:\"{1}\", BatchID:\"{2}\", Channel:\"{3}\", Value:\"{4}\", AlertType:\"{5}\", Message:\"{6}\", Time:\"{7}\"",
-                deviceId, loggerId, batchId, AlertChannelAll, AlertValueNone, alertType, message,
+                deviceId, loggerId, batchId,
+                string.IsNullOrWhiteSpace(channel) ? AlertChannelAll : channel,
+                AlertValueNone, alertType, message,
                 // InvariantCulture matters: the app parses 'MM/dd/yyyy HH:mm:ss', and the '/' in a
                 // custom format string is the CULTURE's date separator, not a literal. A server whose
                 // locale uses '.' would emit a timestamp the app cannot parse, and the alert would be
@@ -302,7 +340,8 @@ namespace Maba.VCT.Core
         /// channel and type), so the id is a label, and a truthful serial beats a wrong association.
         /// </summary>
         [ExcludeFromCodeCoverage]
-        private void BroadcastAlertToWebSockets(Device.HardwareDeviceHost device, string alertType, string message)
+        private void BroadcastAlertToWebSockets(Device.HardwareDeviceHost device, string alertType, string message,
+                                                string channel = null)
         {
             if (device == null) return;
 
@@ -319,7 +358,7 @@ namespace Maba.VCT.Core
                         // run the operator is looking at, which is what the alert has to appear inside.
                         var batchId = !string.IsNullOrEmpty(wsHost.AssociatedBatchId) ? wsHost.AssociatedBatchId : "LIVE";
 
-                        var wsMessage = BuildAlertMessage(device.SN, device.SN, batchId, alertType, message, DateTime.Now);
+                        var wsMessage = BuildAlertMessage(device.SN, device.SN, batchId, alertType, message, DateTime.Now, channel);
 
                         com.SendString(wsMessage);
                         Libs.Trace.Tracer.Info("[WS TX ALERT] {0}", wsMessage);
@@ -341,6 +380,11 @@ namespace Maba.VCT.Core
         [ExcludeFromCodeCoverage]
         private void CheckDataTimeouts(DateTime nowUtc)
         {
+            // MBA-962: devices to restart are collected under the lock and restarted after it is
+            // released. ReinitializeBL runs the BL's OnCreateStates, which re-reads the master
+            // corrections from SQL - holding the device read lock across that would stall the tick.
+            var toRecover = new System.Collections.Generic.List<Device.HardwareDeviceHost>();
+
             DeviceHost_Slim.MyReadLock(list =>
             {
                 foreach (var device in list.Values)
@@ -360,11 +404,65 @@ namespace Maba.VCT.Core
 
                         case DataWatchdogAction.Restored:
                             device.DataTimedOut = false;
+                            device.RecoveryAttempts = 0;
+                            device.LastRecoveryAttemptUtc = null;
                             BroadcastAlertToWebSockets(device, "DataRestored", "Data transmission resumed");
                             break;
                     }
+
+                    if (ShouldAttemptRecovery(device.IsConnected, device.DataTimedOut,
+                                              device.LastRecoveryAttemptUtc, device.RecoveryAttempts,
+                                              Recovery_MaxAttempts, nowUtc, Recovery_RetryInterval))
+                    {
+                        device.RecoveryAttempts++;
+                        device.LastRecoveryAttemptUtc = nowUtc;
+                        toRecover.Add(device);
+                    }
                 }
             });
+
+            foreach (var device in toRecover)
+            {
+                try
+                {
+                    device.ReinitializeBL(string.Format(CultureInfo.InvariantCulture,
+                        "silent for over {0}s - power-cycle recovery attempt {1}/{2}",
+                        (int)DataTimeout_TimeSpan.TotalSeconds, device.RecoveryAttempts, Recovery_MaxAttempts));
+                }
+                catch (Exception ex)
+                {
+                    // A failed restart must not take the server timer down with it: the device is
+                    // already not producing data, and the next attempt is a minute away.
+                    Libs.Trace.Tracer.Info("[RECOVERY] SN={0} re-initialization threw: {1}", device.SN, ex.Message);
+                }
+            }
+        }
+
+        /// <summary>
+        /// MBA-962 (power-cycle recovery) — whether to restart one silent device's BL on this tick.
+        /// Pure, for the same reason <see cref="EvaluateDataWatchdog"/> is: the interesting part is
+        /// the edges and the bound, and neither is reachable in a test that needs a real instrument.
+        ///
+        /// A power-cycled logger is the case this exists for. It comes back with its scan
+        /// configuration gone while the serial port stayed open, so it reports connected, produces
+        /// nothing, and no discovery pass can find it because the port is still held.
+        /// </summary>
+        /// <param name="isConnected">A dropped link is a different failure with a different alert.</param>
+        /// <param name="timedOut">Only a device the watchdog has already declared silent is restarted.</param>
+        /// <param name="lastAttemptUtc">Null when no attempt has been made since the device last had data.</param>
+        internal static bool ShouldAttemptRecovery(bool isConnected, bool timedOut, DateTime? lastAttemptUtc,
+                                                   int attempts, int maxAttempts, DateTime nowUtc,
+                                                   TimeSpan retryInterval)
+        {
+            if (!isConnected) return false;
+            if (!timedOut) return false;
+            if (attempts >= maxAttempts) return false;
+
+            // First attempt goes out on the same tick the timeout was declared: a power cycle is over
+            // long before the 60s watchdog fires, so there is nothing to wait for.
+            if (lastAttemptUtc == null) return true;
+
+            return nowUtc - lastAttemptUtc.Value >= retryInterval;
         }
 
         /// <summary>What the data watchdog decided for one device on one tick.</summary>
@@ -571,6 +669,21 @@ namespace Maba.VCT.Core
             TimerManager_DeviceHost.AutoReset = true;
             TimerManager_DeviceHost.Start();
             Libs.Trace.Tracer.Info($"[STARTUP] Device timer started (interval={CurrentServerSettings.ServerTimerInterval}ms)");
+
+            if (CurrentServerSettings.AutoDiscoverTransports && CurrentServerSettings.RediscoverIntervalSeconds > 0)
+            {
+                TimerRediscover = new Timer();
+                TimerRediscover.Interval = CurrentServerSettings.RediscoverIntervalSeconds * 1000;
+                TimerRediscover.Elapsed += TimerRediscover_Elapsed;
+                TimerRediscover.AutoReset = true;
+                TimerRediscover.Start();
+                Libs.Trace.Tracer.Info(
+                    $"[STARTUP] Rediscovery timer started (every {CurrentServerSettings.RediscoverIntervalSeconds}s) - an instrument plugged in later will be picked up without a restart.");
+            }
+            else
+            {
+                Libs.Trace.Tracer.Info("[STARTUP] Rediscovery is off; an instrument plugged in after startup needs a service restart.");
+            }
 
             #endregion
 
@@ -822,6 +935,13 @@ namespace Maba.VCT.Core
                 TimerManager_DeviceHost = null;
             }
 
+            if (TimerRediscover != null)
+            {
+                TimerRediscover.Elapsed -= TimerRediscover_Elapsed;
+                TimerRediscover.Stop();
+                TimerRediscover = null;
+            }
+
             #endregion
         }
 
@@ -879,6 +999,129 @@ namespace Maba.VCT.Core
         #region Private methods
 
         /// <summary>
+        /// Opens one discovered transport and hands it to the pending list. Returns false if it
+        /// could not be opened, which for a rediscovery pass is the normal answer for a port
+        /// something else already holds.
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private bool OpenDiscoveredTunnel(ComLayer.Tunnel t, string phase)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(t.VisaResource))
+                {
+                    var visa = new ComLayer.VisaCom(t.VisaResource, t) { TimeoutMs = t.VisaTimeoutMs };
+                    AddDevice_Pending_ComLayer(visa);
+                    visa.Open();
+                    Libs.Trace.Tracer.Info("[{0}] VISA resource {1} opened OK", phase, visa.ResolvedResourceName);
+                }
+                else if (t.GpibPrimaryAddress >= 0)
+                {
+                    var gpib = new ComLayer.GpibCom(t.GpibPrimaryAddress, t.GpibBoardIndex, t);
+                    AddDevice_Pending_ComLayer(gpib);
+                    gpib.Open();
+                    Libs.Trace.Tracer.Info("[{0}] GPIB address {1} opened OK", phase, t.GpibPrimaryAddress);
+                }
+                else if (!string.IsNullOrEmpty(t.SerialPortName))
+                {
+                    var serialCom = new ComLayer.SerialCom(t.SerialPortName, t.SerialBaudRate, t.SerialTimeout, t);
+                    AddDevice_Pending_ComLayer(serialCom);
+                    serialCom.Open();
+                    Libs.Trace.Tracer.Info("[{0}] Serial port {1} opened OK ({2} baud)", phase, t.SerialPortName, t.SerialBaudRate);
+                }
+                else
+                {
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Libs.Trace.Tracer.Info("[{0}] FAILED to open {1}: {2}", phase, t.Name ?? "?", ex.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// The transports we are already holding, as a tunnel array shaped like the configured one,
+        /// so <see cref="DiscoverTransportTunnels"/> can treat them as claimed and leave them alone.
+        /// <para>
+        /// A serial port we hold would fail to reopen anyway - Windows refuses a second open, even
+        /// from the same process - so for serial this only saves a pointless probe. For GPIB and
+        /// VISA it is load-bearing: enumeration does not open anything, so without this a
+        /// rediscovery pass would add a second tunnel for an address that is already live.
+        /// </para>
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private ComLayer.Tunnel[] CurrentlyHeldTransports()
+        {
+            var held = new List<ComLayer.Tunnel>();
+
+            Action<ComLayer.IComLayer> take = (layer) =>
+            {
+                var t = layer?.ParentTunnel;
+                if (t != null) held.Add(t);
+            };
+
+            DeviceHost_Pending_Slim.MyReadLock((list) =>
+            {
+                foreach (var pending in list) take(pending.D?.InternalComLayer);
+            });
+
+            DeviceHost_Slim.MyReadLock((dict) =>
+            {
+                foreach (var host in dict.Values) take(host?.InternalComLayer);
+            });
+
+            return held.ToArray();
+        }
+
+        /// <summary>
+        /// Looks for instruments that appeared since startup and brings them in. This is what makes
+        /// unplugging a logger and plugging it back in recoverable without restarting the service
+        /// (MBA-962 item 4).
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private void RediscoverTick()
+        {
+            var held = CurrentlyHeldTransports();
+
+            // The configured tunnels stay claimed too, or a static tunnel that is merely closed at
+            // this instant would be rediscovered and opened a second time.
+            var claimed = new List<ComLayer.Tunnel>(CurrentServerSettings.Tunnels);
+            claimed.AddRange(held);
+
+            var found = DiscoverTransportTunnels(claimed.ToArray(), "REDISCOVER");
+            if (found.Count == 0) return;
+
+            Libs.Trace.Tracer.Info("[REDISCOVER] {0} new transport(s) appeared since startup.", found.Count);
+            foreach (var t in found) OpenDiscoveredTunnel(t, "REDISCOVER");
+        }
+
+        [ExcludeFromCodeCoverage]
+        private void TimerRediscover_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            // Same one-at-a-time guard as the device tick: a serial pass opens ports and waits for
+            // *IDN?, and two overlapping passes would fight over the same candidate port.
+            if (System.Threading.Interlocked.CompareExchange(ref _rediscoverRunning, 1, 0) != 0)
+                return;
+
+            try
+            {
+                RediscoverTick();
+            }
+            catch (Exception ex)
+            {
+                Libs.Trace.Tracer.Info("[REDISCOVER] pass failed (will retry): {0}", ex.Message);
+            }
+            finally
+            {
+                System.Threading.Interlocked.Exchange(ref _rediscoverRunning, 0);
+            }
+        }
+
+        /// <summary>
         /// Turns everything <see cref="ComLayer.TransportDiscovery"/> can find into tunnels, skipping
         /// anything the static configuration already covers.
         /// <para>
@@ -888,6 +1131,16 @@ namespace Maba.VCT.Core
         /// </summary>
         [ExcludeFromCodeCoverage]
         private List<ComLayer.Tunnel> DiscoverTransportTunnels(ComLayer.Tunnel[] configured)
+        {
+            return DiscoverTransportTunnels(configured, "STARTUP");
+        }
+
+        /// <summary>
+        /// As above, with the phase named in the log so a startup pass and a rediscovery pass can be
+        /// told apart in `server.log` — they do the same work for entirely different reasons.
+        /// </summary>
+        [ExcludeFromCodeCoverage]
+        private List<ComLayer.Tunnel> DiscoverTransportTunnels(ComLayer.Tunnel[] configured, string phase)
         {
             var discovered = new List<ComLayer.Tunnel>();
 
@@ -902,7 +1155,7 @@ namespace Maba.VCT.Core
                     .Select(t => t.SerialPortName.Trim())
                     .ToList();
 
-                Libs.Trace.Tracer.Info("[STARTUP] Discovering attached instruments...");
+                Libs.Trace.Tracer.Info("[{0}] Discovering attached instruments...", phase);
 
                 // A configured VISA entry may be a find expression rather than a literal resource, so
                 // matching names is not reliable. If any USB tunnel is configured at all, that
@@ -930,13 +1183,13 @@ namespace Maba.VCT.Core
                     });
                 }
 
-                Libs.Trace.Tracer.Info("[STARTUP] Discovery added {0} tunnel(s).", discovered.Count);
+                Libs.Trace.Tracer.Info("[{0}] Discovery added {1} tunnel(s).", phase, discovered.Count);
             }
             catch (Exception ex)
             {
                 // Discovery is an optimisation, never a prerequisite: a failure here must not stop the
                 // configured tunnels from opening.
-                Libs.Trace.Tracer.Info("[STARTUP] Transport discovery failed (continuing with configured tunnels): {0}", ex.Message);
+                Libs.Trace.Tracer.Info("[{0}] Transport discovery failed (continuing with configured tunnels): {1}", phase, ex.Message);
             }
 
             return discovered;

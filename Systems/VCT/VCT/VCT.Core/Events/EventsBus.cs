@@ -27,6 +27,10 @@ namespace Maba.VCT.Core.Events
         public delegate void DeviceEventDelegate(object o, Events.DeviceEventArgs e);
         public event DeviceEventDelegate DeviceOnIncomingEvent;
 
+        public delegate void DeviceAlertDelegate(object o, Events.DeviceAlertEventArgs e);
+        /// <summary>MBA-962: raised by a device's BL for a fault only the BL can see (see DeviceAlertEventArgs).</summary>
+        public event DeviceAlertDelegate DeviceAlert;
+
         #endregion
 
         #region Firing events methods
@@ -70,6 +74,21 @@ namespace Maba.VCT.Core.Events
             }
         }
 
+
+        /// <summary>
+        /// MBA-962. Deliberately does nothing when no one is listening: a BL raising an alert on a
+        /// host with no ServerCore attached (tests, GUIMonitor before it subscribes) must not throw
+        /// into the middle of a measurement loop.
+        /// </summary>
+        public void Fire_DeviceAlert(object o, DeviceAlertEventArgs e)
+        {
+            if (e == null || e.Device == null) return;
+
+            if (DeviceAlert != null)
+            {
+                DeviceAlert(o, e);
+            }
+        }
 
         public void Fire_UnIdentifiedConnection(object o, DeviceConnectionEventArgs e)
         {

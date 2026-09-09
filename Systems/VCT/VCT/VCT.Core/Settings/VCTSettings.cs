@@ -48,6 +48,23 @@ namespace Maba.VCT.Core.Settings
         /// </summary>
         public bool AutoDiscoverTransports { get; set; } = true;
 
+        /// <summary>
+        /// How often, in seconds, to look for instruments that were plugged in after startup.
+        /// 0 disables it.
+        /// <para>
+        /// Discovery used to run once, during startup. Unplugging a logger and plugging it back in
+        /// therefore ended the session for good: the pending device is dropped the moment its link
+        /// reports disconnected, and nothing ever looked again - not even the app's manual refresh,
+        /// which only redraws the client (MBA-962 item 4).
+        /// </para>
+        /// <para>
+        /// Thirty seconds rather than the two-second device tick because a serial pass physically
+        /// opens each candidate port and sends *IDN?; doing that every couple of seconds would
+        /// disturb instruments that are mid-measurement for no benefit.
+        /// </para>
+        /// </summary>
+        public int RediscoverIntervalSeconds { get; set; } = 30;
+
         public DeviceSettings[] DeviceSettings { get; set; }
 
         /// <summary>

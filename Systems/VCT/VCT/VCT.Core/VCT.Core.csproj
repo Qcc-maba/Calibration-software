@@ -59,6 +59,7 @@
     <Compile Include="Device\IDeviceBL.cs" />
     <Compile Include="Device\VCTTunnel.cs" />
     <Compile Include="Device\WebSocketDeviceHost.cs" />
+    <Compile Include="Events\DeviceAlertEventArgs.cs" />
     <Compile Include="Events\DeviceConnectionEventArgs.cs" />
     <Compile Include="Events\DeviceEventArgs.cs" />
     <Compile Include="Events\EventsBus.cs" />

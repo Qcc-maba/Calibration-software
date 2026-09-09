@@ -658,6 +658,48 @@ Internal vs external **calibrator** (כייל — a *person*, not a calibration)
 (1 = מעבדה, 0 = לקוח) inside the single AWS database, filtered per screen by `@Page` in
 `GetDevicesGroupsByOrder`. There is no local/global split behind it, in any layer.
 
+## Alerts are a closed contract with the web app
+
+`ServerCore.BuildAlertMessage` emits `CMD:"Alert"` lines that the app parses field by field. Two
+properties of the app side decide what the server may send, and both fail silently:
+
+- **`AlertType` is a closed union.** The app declares `TAlertType` as exactly `DataTimeout`,
+  `OutOfRange_Low`, `OutOfRange_High`, `ChannelDisconnected`, `DataRestored`. A new type name is
+  parsed, stored and never rendered — so a channel coming back is announced as `DataRestored`, not
+  as some more descriptive name.
+- **A restore is matched to its disconnect by `deviceId:channel`.** `getChannelDisconnectRanges`
+  closes a shaded range only with a `DataRestored` carrying the *same* channel, so a per-channel
+  alert must name its channel and its restore must name it again. A restore sent as `ALL` leaves
+  that channel shaded for good.
+
+Every field must also be non-empty: `parse-alert-message.ts` returns null on the first blank and
+drops the whole alert with nothing logged on either side. That is why device-wide alerts send the
+placeholders `Channel:"ALL"` and `Value:"0"` rather than omitting them.
+
+A BL reaches this path through `HardwareDeviceHost.RaiseAlert(type, message, channel)`, which fires
+`EventsBus.DeviceAlert` for ServerCore to broadcast. `AlertMessageFormatTests` and
+`DeviceRecoveryTests` copy the app's regexes verbatim — update them in the same change as the app.
+
+## The three ways a logger disconnects
+
+They are three different failures with three different repairs, and MBA-962 is the ticket where
+they were separated. Do not treat one as covering another:
+
+1. **Power.** The logger is power-cycled. Its serial port stayed open the whole time, so the link
+   reports connected and no discovery pass can find it — the port is still held. It comes back with
+   its scan configuration erased and will never produce data again on its own. Repair:
+   `HardwareDeviceHost.ReinitializeBL`, driven from the `DataTimeout` watchdog in
+   `ServerCore.CheckDataTimeouts`, bounded to five attempts a minute apart.
+2. **Communication.** The cable or adapter drops, the link reports disconnected, the pending device
+   is dropped. Repair: the rediscovery timer (`VCTSettings.RediscoverIntervalSeconds`), which finds
+   the instrument again without a server restart.
+3. **Channels.** One sensor is pulled while everything else stays healthy. The Hydra reports
+   `9.00E+9` (`Hydra2DeviceBL.DISCONNECTED_CHANNEL_READING`) for an open input — a value that
+   arrives looking like any other reading. Repair: a per-channel `ChannelDisconnected` alert on the
+   falling edge and `DataRestored` on the rising one. This is the dangerous one: before the alert
+   existed, the reading was dropped with a bare `continue` and the calibration carried on with fewer
+   points than the operator had asked for, with nothing on screen and nothing in the log.
+
 ## Database work
 
 `database/procedures/` mirrors SQL Server objects one file per object, named `<schema>.<Object>.sql`.

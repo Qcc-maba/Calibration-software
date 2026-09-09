@@ -21,6 +21,14 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         public const int STATE_MACHINE__Logs = 5;
         public const int STATE_MACHINE__Stop = 6;
 
+        /// <summary>
+        /// What the Hydra reports for an open input: 9.00E+9. It is the instrument's way of saying
+        /// "no sensor on this channel", not a temperature, and it arrives looking like any other
+        /// reading — which is why a lost thermocouple used to cost points off a calibration in
+        /// complete silence (MBA-962, disconnect type 3).
+        /// </summary>
+        public const double DISCONNECTED_CHANNEL_READING = 9000000000;
+
 
 
         public CommonBL.SingleState StateMachine_InitSystem { get; private set; }
@@ -42,6 +50,14 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         private int _initChannelsPending = 0;
         private int _pendingLogEntries = 0;
         private readonly object _logLock = new object();
+
+        /// <summary>
+        /// Channels currently reporting an open input, so the alert fires on the transition rather
+        /// than on every scan. A logger scanning at the usual rate would otherwise emit an alert per
+        /// channel every couple of seconds for as long as the sensor stays out, and the operator
+        /// would learn to ignore the whole alert area.
+        /// </summary>
+        private readonly HashSet<int> _disconnectedChannels = new HashSet<int>();
         #endregion
 
         #region ctor
@@ -58,6 +74,11 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         protected override CommonBL.SingleState[] OnCreateStates()
         {
+            // Also the re-init entry point (HardwareDeviceHost.ReinitializeBL after a power cycle).
+            // The channel state has to go with it: the device is about to be set up from scratch, and
+            // a channel remembered as disconnected would never announce its recovery.
+            _disconnectedChannels.Clear();
+
             HC.Init(settings.Hydra2type.Masters).GetAwaiter().GetResult();
 
             if (this.StateMachine_InitSystem == null)
@@ -461,6 +482,38 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             HW_Device.GetLogs(req, LogResponseCallBack);
         }
 
+        /// <summary>
+        /// MBA-962 (disconnect type 3 — channels): a configured channel is reading its open-input
+        /// sentinel. Alerts once, on the way in, naming the channel.
+        /// </summary>
+        private void NoteChannelDisconnected(int channel)
+        {
+            if (!_disconnectedChannels.Add(channel)) return;
+
+            Libs.Trace.Tracer.Info("[HYDRA] CH{0} is reading the open-input value - no sensor connected. " +
+                                   "It is excluded from the broadcast and from the calibration.", channel);
+
+            HW_Device?.RaiseAlert("ChannelDisconnected",
+                string.Format("Channel {0} disconnected - no sensor detected", channel),
+                channel.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>
+        /// The other edge. The alert type is DataRestored and it carries the same channel number
+        /// deliberately: the app closes a channel's disconnect range only when it sees a DataRestored
+        /// on that exact deviceId:channel pair, and it renders no other restore type.
+        /// </summary>
+        private void NoteChannelRestored(int channel)
+        {
+            if (!_disconnectedChannels.Remove(channel)) return;
+
+            Libs.Trace.Tracer.Info("[HYDRA] CH{0} is reading again - sensor reconnected.", channel);
+
+            HW_Device?.RaiseAlert("DataRestored",
+                string.Format("Channel {0} reconnected - readings resumed", channel),
+                channel.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
         private void HandleLogData(LogsResponse response)
         {
             Libs.Trace.Tracer.Info("[HYDRA HandleLogData] Received LogsResponse: Measurements.Count={0}, Configured Channels.Count={1}",
@@ -487,18 +540,27 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 var masterID = settings.Hydra2type.Masters.FirstOrDefault();
                 for (int i = 0; i < response.Measurements.Count && i < settings.Hydra2type.Channels.Count; i++)
                 {
-                    // Skip disconnected channels (Hydra returns 9.00E+9 = 9000000000 for open/no-sensor channels)
-                    if (response.Measurements[i] >= 9000000000)
+                    int channel = settings.Hydra2type.Channels[i];
+                    double rawValue = response.Measurements[i];
+
+                    if (rawValue >= DISCONNECTED_CHANNEL_READING)
+                    {
+                        NoteChannelDisconnected(channel);
                         continue;
+                    }
+
+                    NoteChannelRestored(channel);
 
                     // Apply deviation correction before broadcasting
-                    double rawValue = response.Measurements[i];
                     var corrected = HC.CalcDeviationForTemperature(rawValue, masterID);
-                    var logLine = string.Format("[HYDRA Correction] CH{0} | Raw={1:F4} | Corrected={2:F4} | Status={3} | MasterID={4}",
-                        settings.Hydra2type.Channels[i], rawValue, corrected.Item1, corrected.Item2, masterID);
-                    Libs.Trace.Tracer.Info(logLine);
-                    System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + " " + logLine + Environment.NewLine);
-                    channels.Add(settings.Hydra2type.Channels[i]);
+                    // Tracer.Info goes to logs\server.log, which is the file publish-logs.ps1 ships off
+                    // a customer station. This line used to be written a second time to a bare
+                    // "correction.log" - relative to the working directory, which for the service is
+                    // system32, and never rotated or deleted. It reached 53 MB on the bench machine
+                    // holding nothing that was not already here.
+                    Libs.Trace.Tracer.Info("[HYDRA Correction] CH{0} | Raw={1:F4} | Corrected={2:F4} | Status={3} | MasterID={4}",
+                        channel, rawValue, corrected.Item1, corrected.Item2, masterID);
+                    channels.Add(channel);
                     values.Add(corrected.Item1);
                 }
 

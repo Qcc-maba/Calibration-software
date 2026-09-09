@@ -1,5 +1,5 @@
 ﻿#define AppName "Calibration Software"
-#define AppVersion "1.6.7"
+#define AppVersion "1.6.9"
 #define AppPublisher "MBA"
 #define AppURL "http://localhost:3000"
 #define ServiceName "MabaCalibrationServer"
@@ -78,6 +78,24 @@ Name: "{app}\logs";
 Type: filesandordirs; Name: "{app}\webapp\.next"
 Type: filesandordirs; Name: "{app}\webapp\node_modules"
 Type: files; Name: "{app}\webapp\server.js"
+Type: filesandordirs; Name: "{app}\webapp\public"
+
+; The ComServer binaries, so a DLL that a newer build no longer ships cannot stay behind and be
+; loaded by name. Only the loose files at this level are removed - Settings\ is a subfolder and is
+; left alone on purpose, because a station's tuned VCT.json / ComServerSettings.json live there and
+; are shipped onlyifdoesntexist.
+Type: files; Name: "{app}\consolehost\*.dll"
+Type: files; Name: "{app}\consolehost\*.exe"
+Type: files; Name: "{app}\consolehost\*.config"
+Type: files; Name: "{app}\consolehost\*.xml"
+Type: files; Name: "{app}\consolehost\*.pdb"
+
+; Launcher scripts: an .bat or .ps1 dropped by an older build and since renamed would otherwise sit
+; in assets\ forever, and the wrong one is easy to run by hand.
+Type: files; Name: "{app}\assets\*.ps1"
+Type: files; Name: "{app}\assets\*.bat"
+Type: files; Name: "{app}\assets\*.vbs"
+
 ; Wipe previous run logs (upgrade / reinstall over same folder)
 Type: filesandordirs; Name: "{app}\logs"
 Type: files; Name: "{app}\install.log"
@@ -149,12 +167,21 @@ Source: "..\app\.env.example";              DestDir: "{app}\webapp";           D
 Name: "{group}\{#AppName}";                 Filename: "{app}\CalibrationLauncher.exe"; WorkingDir: "{app}"
 Name: "{group}\Uninstall {#AppName}";       Filename: "{uninstallexe}"
 Name: "{commondesktop}\{#AppName}";         Filename: "{app}\CalibrationLauncher.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+; start-silent.vbs rather than the launcher exe: it runs start-all.bat with no window at all, which
+; is what you want at logon. start-all.bat takes a lock, so a second logon cannot start a second copy.
+Name: "{commonstartup}\{#AppName}";         Filename: "{app}\assets\start-silent.vbs"; WorkingDir: "{app}\assets"; Tasks: autostart
 
 [Tasks]
 ; Ticked by default: the launcher is how a station is started, and the Windows service only brings
 ; up the ComServer and the WebSocket - the web UI is not running after a reboot until someone runs
 ; it. Leaving this off meant a default or silent install put no icon anywhere except the Start menu.
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"
+
+; A calibration station should be usable straight after a reboot. The Windows service already
+; restores the ComServer and the WebSocket on its own; this is what brings back the web UI, which
+; otherwise waits for somebody to run the launcher. Offered as a task so a shared or developer
+; machine can decline - on those, a hidden node at every logon is not wanted.
+Name: "autostart"; Description: "Start the station automatically when Windows starts"; GroupDescription: "Station setup:"
 
 
 [Run]
@@ -548,6 +575,65 @@ end;
 
 // ===== Pre-Install: Kill running processes =====
 
+{ Where the previous installation put itself, from Inno's own uninstall key. Empty when there is
+  no previous install, or when it was recorded under the other registry view. }
+function PreviousInstallPath: String;
+var
+  Key: String;
+  Value: String;
+begin
+  Result := '';
+  { The AppId is written out rather than taken from SetupSetting("AppId"): the [Setup] value is
+    brace-escaped ("{{8F3A..."), and emitting it into a Pascal literal would produce a key name
+    with a doubled brace that silently matches nothing. }
+  Key := 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{8F3A2C1D-4B5E-4F6A-9D2E-1C3B5A7F8E9D}_is1';
+
+  if RegQueryStringValue(HKLM64, Key, 'InstallLocation', Value) then
+    Result := RemoveBackslash(Value)
+  else if RegQueryStringValue(HKLM, Key, 'InstallLocation', Value) then
+    Result := RemoveBackslash(Value);
+end;
+
+{ Remove an installation that lived somewhere else.
+
+  Every build shares one AppId, one service name and one set of shortcuts, so installing to a
+  different folder does not leave two working stations - it leaves one working station and one
+  orphan: files nobody runs, that no longer appear in Add/Remove Programs, and whose ComServer can
+  still wake up and take COM ports or port 3000 from the real one. Seven of those accumulated on
+  the bench in a single day of testing.
+
+  Deliberately narrow: it only touches a folder that still looks like one of ours, and never the
+  folder being installed into. }
+procedure RemoveOrphanedInstall(const NewPath: String);
+var
+  OldPath: String;
+begin
+  OldPath := PreviousInstallPath;
+
+  if OldPath = '' then
+    Exit;
+  if CompareText(AddBackslash(OldPath), AddBackslash(NewPath)) = 0 then
+    Exit;                                { same folder - this is a normal upgrade }
+  if not DirExists(OldPath) then
+    Exit;
+
+  { Proof it is ours before deleting anything. }
+  if not (FileExists(OldPath + '\CalibrationLauncher.exe') or
+          FileExists(OldPath + '\consolehost\Maba.VCT.CommServer.Hosts.ConsoleHost.exe')) then
+  begin
+    WriteLog('Previous install at ' + OldPath + ' does not look like ours - left untouched.');
+    Exit;
+  end;
+
+  WriteLog('Previous installation found in a different folder: ' + OldPath);
+  WriteLog('Removing it so its ComServer cannot compete for the serial ports or port 3000.');
+
+  if DelTree(OldPath, True, True, True) then
+    WriteLog('Removed ' + OldPath)
+  else
+    WriteLog('WARNING: could not fully remove ' + OldPath + ' - delete it by hand.');
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   Result := '';
@@ -572,6 +658,10 @@ begin
       InstallLogPath := ExpandConstant('{tmp}\calibration-install.log');
     WriteLogSection('ssInstall - final stop pass before file extraction');
     StopCalibrationProcesses;
+
+    { After the processes are down, so nothing in the old folder is still holding a file open. }
+    WriteLogSection('ssInstall - remove a previous install left in another folder');
+    RemoveOrphanedInstall(ExpandConstant('{app}'));
   end;
 
   if CurStep = ssPostInstall then

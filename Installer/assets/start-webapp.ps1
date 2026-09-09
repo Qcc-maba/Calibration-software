@@ -16,13 +16,54 @@ $ErrorActionPreference = 'Stop'
 $appDir = Split-Path -Parent $PSScriptRoot
 $webapp = Join-Path $appDir 'webapp'
 $logDir = Join-Path $appDir 'logs'
-if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+
+<#  Getting a logger is the FIRST thing this script does, and it must not be able to fail.
+    Under Program Files the logs folder can be unwritable, and with ErrorActionPreference=Stop the
+    old code died on the New-Item above - before Write-Log existed. The symptom was a station where
+    the web app never started and not one line was written anywhere to say why, which cost a long
+    afternoon of guessing. If the install folder cannot take the log, fall back to TEMP and say so
+    in the first line, so the next person knows where to look.  #>
+$logFallbackReason = $null
+try {
+    if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+    $probe = Join-Path $logDir ('.write-probe-{0}' -f $PID)
+    Set-Content -LiteralPath $probe -Value 'x' -ErrorAction Stop
+    Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
+}
+catch {
+    $logFallbackReason = $_.Exception.Message
+    $logDir = Join-Path $env:TEMP 'CalibrationSoftware-logs'
+    if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+}
+
 # node's stdout redirect truncates its target, so the launcher keeps its own log.
 $log = Join-Path $logDir 'webapp-launcher.log'
 $nodeLog = Join-Path $logDir 'webapp.log'
 
 function Write-Log([string]$Message) {
-    Add-Content -Path $log -Value ("[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Message) -Encoding utf8
+    try {
+        Add-Content -Path $log -Value ("[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Message) -Encoding utf8
+    }
+    catch { }   # logging must never be the thing that stops the station starting
+}
+
+if ($logFallbackReason) {
+    Write-Log ("WARNING: {0}\logs is not writable ({1}). Logging to {2} instead." -f $appDir, $logFallbackReason, $logDir)
+}
+
+<#  Everything below is written down because it is what we actually had to ask for, one machine at
+    a time, when a station would not come up: which build, which node, where it is running from. #>
+Write-Log '--------------------------------------------------------------'
+Write-Log ("Launcher starting. user={0}  computer={1}" -f $env:USERNAME, $env:COMPUTERNAME)
+Write-Log ("App folder: {0}" -f $appDir)
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+if ($nodeCmd) {
+    $nodeVersion = (& node --version 2>&1) -join ' '
+    Write-Log ("node: {0}  ({1})" -f $nodeVersion, $nodeCmd.Source)
+}
+else {
+    Write-Log 'ERROR: node was not found on PATH. The web app cannot start. Install Node.js.'
+    exit 1
 }
 
 $server = Join-Path $webapp 'server.js'
@@ -98,5 +139,33 @@ if ($holder) {
 Write-Log '===== WEBAPP SESSION STARTED ====='
 
 $errLog = Join-Path $logDir 'webapp-error.log'
-Start-Process -FilePath 'node' -ArgumentList 'server.js' -WorkingDirectory $webapp `
-    -WindowStyle Hidden -RedirectStandardOutput $nodeLog -RedirectStandardError $errLog
+$node = Start-Process -FilePath 'node' -ArgumentList 'server.js' -WorkingDirectory $webapp `
+    -WindowStyle Hidden -RedirectStandardOutput $nodeLog -RedirectStandardError $errLog -PassThru
+
+<#  Say plainly whether it worked. "Started node" is not the same as "the page is up": node can
+    exit a second later on a bad environment, and the old log stopped at the launch line either
+    way, so a broken station and a healthy one produced identical logs.  #>
+Write-Log ("node started, pid {0}. Waiting for it to listen on {1}..." -f $node.Id, $port)
+
+$listening = $false
+for ($i = 0; $i -lt 45; $i++) {
+    Start-Sleep -Seconds 2
+
+    if ($node.HasExited) {
+        Write-Log ("ERROR: node exited after {0}s with code {1}. See webapp-error.log." -f ($i * 2), $node.ExitCode)
+        $firstError = Get-Content -Path $errLog -ErrorAction SilentlyContinue |
+            Where-Object { $_ -notmatch '^\s+at ' -and $_.Trim() -ne '' } | Select-Object -First 3
+        foreach ($line in $firstError) { Write-Log ("  node said: {0}" -f $line.Trim()) }
+        exit 1
+    }
+
+    $up = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+    if ($up) { $listening = $true; break }
+}
+
+if ($listening) {
+    Write-Log ("OK: the web app is serving on http://localhost:{0} after {1}s." -f $port, ($i * 2))
+}
+else {
+    Write-Log ("WARNING: node is running (pid {0}) but nothing is listening on {1} after 90s." -f $node.Id, $port)
+}

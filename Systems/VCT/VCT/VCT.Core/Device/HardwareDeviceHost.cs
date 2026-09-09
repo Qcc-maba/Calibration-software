@@ -388,6 +388,63 @@ namespace Maba.VCT.Core.Device
         /// <summary>Guards against a double disconnect alert when both the self-disconnect and comm-loss paths fire (MBA-485 AC5).</summary>
         public bool DisconnectAlerted { get; set; }
 
+        /// <summary>MBA-962: UTC of the last power-cycle recovery attempt; null while the device is producing data.</summary>
+        public DateTime? LastRecoveryAttemptUtc { get; set; }
+
+        /// <summary>MBA-962: recovery attempts made since this device last produced data, so the retry is bounded.</summary>
+        public int RecoveryAttempts { get; set; }
+
+        /// <summary>
+        /// MBA-962: the BL's way to report a fault it alone can see, as a WS alert about this device.
+        /// <paramref name="channel"/> is the channel number as text, or "ALL" for a device-wide alert.
+        /// </summary>
+        public void RaiseAlert(string alertType, string message, string channel)
+        {
+            Libs.Trace.Tracer.Info("[ALERT] SN={0} Channel={1} {2}: {3}", SN, channel, alertType, message);
+            MainEventsBus?.Fire_DeviceAlert(this, new Events.DeviceAlertEventArgs(this, alertType, message, channel));
+        }
+
+        /// <summary>
+        /// MBA-962 (power-cycle recovery): re-run the BL's init sequence on a device that is still
+        /// connected but has stopped producing data.
+        ///
+        /// A logger that loses power and comes back has forgotten its scan configuration, while the
+        /// serial port stayed open the whole time — so nothing looks disconnected, no discovery pass
+        /// will find it (the port is held), and the session that was polling for logs waits for a
+        /// device that will never answer on its own. Only re-sending the setup sequence starts it
+        /// scanning again.
+        ///
+        /// The sessions are reset first: OnDisconnect clears the in-flight request and drains the
+        /// queue, so the restart does not begin behind a pile of requests aimed at the device's
+        /// pre-power-cut state.
+        /// </summary>
+        /// <returns>false when there is no BL to restart, so the caller can log the difference
+        /// between "recovery attempted" and "nothing to recover".</returns>
+        public bool ReinitializeBL(string reason)
+        {
+            var bl = this.BL;
+            if (bl == null)
+            {
+                Libs.Trace.Tracer.Info("[RECOVERY] SN={0} has no BL to re-initialize ({1})", SN, reason);
+                return false;
+            }
+
+            Libs.Trace.Tracer.Info("[RECOVERY] SN={0} re-initializing the device BL: {1}", SN, reason);
+
+            if (Sessions != null)
+            {
+                for (int i = 0; i < Sessions.Length; i++)
+                {
+                    Sessions[i].OnDisconnect();
+                }
+            }
+
+            // OnConnection(true) is the BL's own restart: it rebuilds the state array, resets every
+            // state and puts the machine back at the first step (*IDN?/*RST onward).
+            bl.OnConnection(true);
+            return true;
+        }
+
         public void BroadcastMeasurement(int channel, double value)
         {
             LastMeasurementUtc = DateTime.UtcNow;
@@ -465,6 +522,12 @@ namespace Maba.VCT.Core.Device
             // from firing DataTimeout off a stale pre-disconnect timestamp the moment it comes back.
             LastMeasurementUtc = null;
             DataTimedOut = false;
+
+            // MBA-962: a device that has just reconnected gets its full recovery budget back. Without
+            // this a device that used up its five attempts before being unplugged would come back
+            // with none left, and the next power cycle would go unrecovered.
+            LastRecoveryAttemptUtc = null;
+            RecoveryAttempts = 0;
 
             var bl = this.BL;
             if (bl != null)

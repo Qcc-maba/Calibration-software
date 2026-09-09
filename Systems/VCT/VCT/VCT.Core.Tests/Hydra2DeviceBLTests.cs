@@ -261,5 +261,79 @@ namespace Maba.VCT.Core.Tests
         }
 
         #endregion
+
+        #region Disconnected-channel alerts (MBA-962)
+
+        /// <summary>
+        /// A channel whose sensor has been pulled reads the instrument's open-input sentinel. Before
+        /// MBA-962 that reading was dropped with a bare `continue`: no alert, no log line, and a
+        /// calibration that carried on with fewer points than the operator had asked for.
+        /// </summary>
+        private PrivateObject StartedBL(System.Collections.Generic.List<DeviceAlertEventArgs> seen)
+        {
+            _bus.DeviceAlert += (o, e) => seen.Add(e);
+            _blCore.OnDeviceConnetion(_deviceHost);
+            return new PrivateObject(_deviceHost.BL);
+        }
+
+        [TestMethod]
+        public void DisconnectedChannel_AlertsOnceWithItsChannelNumber()
+        {
+            var seen = new System.Collections.Generic.List<DeviceAlertEventArgs>();
+            var po = StartedBL(seen);
+
+            po.Invoke("NoteChannelDisconnected", 3);
+            po.Invoke("NoteChannelDisconnected", 3);
+            po.Invoke("NoteChannelDisconnected", 3);
+
+            Assert.AreEqual(1, seen.Count, "a logger scanning every two seconds would bury the operator");
+            Assert.AreEqual("ChannelDisconnected", seen[0].AlertType);
+            Assert.AreEqual("3", seen[0].Channel);
+        }
+
+        [TestMethod]
+        public void EachChannelIsTrackedSeparately()
+        {
+            var seen = new System.Collections.Generic.List<DeviceAlertEventArgs>();
+            var po = StartedBL(seen);
+
+            po.Invoke("NoteChannelDisconnected", 3);
+            po.Invoke("NoteChannelDisconnected", 7);
+
+            Assert.AreEqual(2, seen.Count);
+            CollectionAssert.AreEquivalent(new[] { "3", "7" },
+                                           seen.ConvertAll(a => a.Channel));
+        }
+
+        [TestMethod]
+        public void AChannelComingBack_AnnouncesRestoredOnTheSameChannel()
+        {
+            var seen = new System.Collections.Generic.List<DeviceAlertEventArgs>();
+            var po = StartedBL(seen);
+
+            po.Invoke("NoteChannelDisconnected", 3);
+            po.Invoke("NoteChannelRestored", 3);
+
+            Assert.AreEqual(2, seen.Count);
+            Assert.AreEqual("DataRestored", seen[1].AlertType);
+            // The app closes a disconnect range only on a DataRestored carrying the same
+            // deviceId:channel key. A restore that says "ALL" leaves channel 3 shaded for good.
+            Assert.AreEqual("3", seen[1].Channel);
+        }
+
+        [TestMethod]
+        public void AChannelThatWasNeverDown_DoesNotAnnounceARestore()
+        {
+            var seen = new System.Collections.Generic.List<DeviceAlertEventArgs>();
+            var po = StartedBL(seen);
+
+            // Every healthy reading goes through this path, once per channel per scan.
+            po.Invoke("NoteChannelRestored", 3);
+            po.Invoke("NoteChannelRestored", 3);
+
+            Assert.AreEqual(0, seen.Count);
+        }
+
+        #endregion
     }
 }

@@ -14,7 +14,10 @@
 # Console output is ASCII: Windows Server consoles render Hebrew as mojibake.
 
 param(
-    [string]$Destination = '\\maba-srv\maba2000\Eliran\לנופר',
+    # ASCII on purpose. The folder was renamed from a Hebrew name, and a Hebrew literal here only
+    # survives if this file keeps its UTF-8 BOM - one save without it and every station silently
+    # stops publishing.
+    [string]$Destination = '\\maba-srv\maba2000\Eliran\NOFAR',
     [string]$AppDir,
     # A wedged device can grow server.log to tens of MB in a session; the bench produced 53 MB.
     # Copying that over a WAN link on every launch is not worth it, so oversized files are skipped
@@ -49,10 +52,13 @@ try {
         New-Item -ItemType Directory -Path $target -Force | Out-Null
     }
 
-    # Both halves of the system: the webapp launcher's logs and the ComServer's own.
+    # Both halves of the system, plus the install folder itself - install.log lives there, not
+    # under logs\, and it is the file that answers "which build is this and did Setup succeed".
+    # Having to ask for it by hand is what made the first station take a whole afternoon.
     $sources = @(
         (Join-Path $AppDir 'logs'),
-        (Join-Path $AppDir 'consolehost')
+        (Join-Path $AppDir 'consolehost'),
+        $AppDir
     )
 
     $patterns = @('*.log', 'crash.log', 'console-out.txt')
