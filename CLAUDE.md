@@ -6,6 +6,11 @@ Documentation and UI strings are Hebrew-first (RTL) — preserve Hebrew text ver
 `README.md` and `docs/architecture.md` are both in Hebrew and are the primary references for the
 VCT server; **read `docs/architecture.md` before changing anything under `Systems/`**.
 
+Procedures that repeat - committing and pushing across the two repositories, merging a stale
+default branch, diagnosing the portal's path to its data, verifying UI work - are written up as
+skills under `.claude/skills/`. This file is the durable facts; `docs/session1-decisions.md` is why each
+call was made, including what was tried and rejected.
+
 ## What lives here
 
 This repo holds several independently deployed systems that share a domain (MABA calibration), not
@@ -590,6 +595,27 @@ Things that cost a day each and will not be obvious:
   now" checkbox; from v1.6.7 a Startup shortcut also brings the station up after a reboot.
 - **NI-488.2 is deliberately not bundled** — see `Installer/DRIVERS.md` and `docs/session1-decisions.md`.
 
+### "The station does not work" usually means "not yet"
+
+Two launcher faults produced most of the remote reports, and both made the station look broken when
+it was merely slow or the log was lying:
+
+- **`start-all.bat` opened the browser on a fixed 6-second delay**, while `start-webapp.ps1` allows
+  the web app **90 seconds** to start listening. From a cold start under Program Files the app needs
+  far more than six seconds, so the operator got the browser's "this site cannot be reached" page —
+  which reads as *no internet* — while the station came up fine a minute later. It now polls the
+  port with a `TcpClient` connect (the same thing the browser is about to do, and available on every
+  Windows build) before opening the browser. **If a station reports that screen, ask whether a
+  refresh a minute later works before looking anywhere else.**
+- **A `)` inside a batch `echo` inside an `if (...)` block closes the block.** `echo Started
+  (hidden)` printed `Started (hidden` and then ran the `else` branch, so every successful launch
+  also logged `ERROR: ConsoleHost.exe not found`. Escape as `^(hidden^)` — the rest of that file
+  already did. A log that reports an error on a healthy run is worse than no log.
+
+Also note `publish-logs.ps1` used to run only *before* node started, so the line that says whether
+the app came up ("OK: the web app is serving" / "ERROR: node exited") was always one launch behind
+and never reached the share. It now publishes again after the outcome is known.
+
 ### Verifying a station honestly
 
 The service only brings up the ComServer and the WebSocket. `HTTP 200` on port 3000 proves nothing
@@ -1003,3 +1029,69 @@ procedure owner's call, not a bug to fix in passing.
 procedure, read the exception, `rollback()`. Only a faithful payload reproduces — a guessed one
 "succeeds" and proves nothing. This is what produced the real text behind two "Internal server
 error"s in one afternoon.
+
+## Git across these two repositories
+
+There are two repositories and they are worked differently. Getting this wrong is how work ends up
+somewhere nobody looks.
+
+| | this repo (`Calibration-software`) | the web app (`app/`) |
+|---|---|---|
+| Remote | `Qcc-maba/Calibration-software` | `Qcc-maba/app` |
+| Where work happens | branch **`Eliran`** | a **`reference/*`** branch |
+| Default branch | `master` | `main` (deployments come off `stg`) |
+
+**`Eliran` is the branch that matters here.** `master` sat untouched from 2025-04-07 until it was
+brought level on 2026-09-09; treat `Eliran` as the trunk, and expect the default branch to lag.
+
+**Front-end work goes to Dako as a Jira US plus a `reference/*` branch**, never as a `feature/*`
+branch that could be merged by mistake. Name the branch after what is in it, not after the local
+branch it happened to be committed on — a local branch called `feature/customer-portal-otp-login`
+was carrying order-approval and master-device work by the time it was pushed.
+
+### What must never be committed here
+
+All of these are in `.gitignore`; the reasons are worth knowing before someone "tidies" them out.
+
+- **`app/`** is its own git repository cloned inside this one. Committing it embeds one repo in
+  another. It is not a submodule and should not become one.
+- **`tmpsetup-watch/`** is installer payload left behind by a build — 267 MB.
+- **`customer-analysis/data/`** is written at runtime. `customer-overrides.json` is every match
+  correction a user has ever confirmed, and `pricelist.xlsx` is the customer price list.
+- **`customer-analysis/deploy/env-additions.txt`** carries a live dashboard password.
+- **`Installer/assets/.env.station`** and the `appsettings.Development.json` files carry real
+  connection strings.
+- Scratch probes under `customer-analysis/local-scripts/` are named with a leading `_`.
+
+When a folder in the VS Code explorer is coloured but `git status` is clean, the folder holds only
+**ignored** changes — `bin/`, `obj/`, `publish/`, a service's own log. Check with
+`git status --ignored --porcelain <path>` before believing there is uncommitted work.
+
+### Committing in the app repo: the pre-commit hook
+
+`pnpm install && lint-staged && tsc --noEmit` runs on every commit, and `lint-staged` **reverts the
+whole commit** when eslint fails. There is no `--no-verify` here; fix the finding. The rules that
+bite new files, all hit in one sitting:
+
+- **`playwright/no-standalone-expect` is enabled repo-wide, not only under `e2e/`, and it recognises
+  `test()` but not `it()`.** A vitest unit test written with `it()` plus `expect()` fails with
+  "Expect must be inside of a test block". Existing tests using `it()` pass because they assert with
+  `node:assert/strict` instead. Either style works — pick one and be consistent inside the file.
+- `jsdoc/require-param` and `require-returns` want a **description**, not just the tag. `eslint --fix`
+  inserts the bare tag and then fails on the missing text.
+- `unicorn` wants `node:fs`, `node:path`, `Number.parseInt`, `String.raw`, and a `Set` for a
+  membership test.
+- **`react/jsx-filename-extension`**: a component that returns `null` contains no JSX, so it must be
+  `.ts`. Renaming it then trips **`check-file/filename-naming-convention`**, which wants kebab-case —
+  `BackgroundDataProcessor.tsx` ends up as `background-data-processor.ts`.
+- A stale `.next/types/validator.ts` referencing routes that no longer exist fails `tsc`. Delete the
+  file, not the route.
+
+Run `npx eslint <the files you added>` before attempting the commit; it is much faster than driving
+the hook.
+
+### Commit hygiene the user expects
+
+Group by intent, not by directory: a session that touched thirty files produces five or six commits
+whose messages say **why**, with the measured numbers. A single "wip" commit over the whole tree is
+not acceptable here, and neither is a message that only restates the diff.
