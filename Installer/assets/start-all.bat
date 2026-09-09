@@ -105,7 +105,7 @@ if !ERRORLEVEL! EQU 0 (
 echo   Service not running - starting ConsoleHost in background >> "%LOGFILE%"
 if exist "%CONSOLEHOST%\Maba.VCT.CommServer.Hosts.ConsoleHost.exe" (
     powershell -WindowStyle Hidden -Command "Start-Process -FilePath '%CONSOLEHOST%\Maba.VCT.CommServer.Hosts.ConsoleHost.exe' -WorkingDirectory '%CONSOLEHOST%' -WindowStyle Hidden"
-    echo   ConsoleHost started (hidden) >> "%LOGFILE%"
+    echo   ConsoleHost started ^(hidden^) >> "%LOGFILE%"
 ) else (
     echo   ERROR: ConsoleHost.exe not found! >> "%LOGFILE%"
 )
@@ -122,15 +122,28 @@ ping -n 6 127.0.0.1 >nul
 echo [2/3] Starting Web App... >> "%LOGFILE%"
 if exist "%WEBAPP%\server.js" (
     powershell -WindowStyle Hidden -Command "Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','%APPDIR%\assets\start-webapp.ps1' -WindowStyle Hidden"
-    echo   Web App started via start-webapp.ps1 (hidden) >> "%LOGFILE%"
+    echo   Web App started via start-webapp.ps1 ^(hidden^) >> "%LOGFILE%"
 ) else (
     echo   ERROR: server.js not found! >> "%LOGFILE%"
 )
 
-ping -n 7 127.0.0.1 >nul
-
-:: ---- Step 3: Open browser ----
-echo [3/3] Opening browser... >> "%LOGFILE%"
+:: ---- Step 3: Open the browser, but only once something answers ----
+:: This used to be a flat 6-second wait and then `start http://localhost:3000`. The web app needs a
+:: great deal longer than that from a cold start under Program Files - start-webapp.ps1 allows it 90
+:: seconds - so the browser regularly arrived at a dead port and showed the operator "this site
+:: cannot be reached". The station was working; it just was not working YET, and by the time it came
+:: up the operator had already been told the software was broken.
+::
+:: A TcpClient connect is the same thing the browser is about to do, and unlike Get-NetTCPConnection
+:: it exists on every Windows build we ship to.
+echo [3/3] Waiting for the web app to answer on port 3000... >> "%LOGFILE%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ok=$false; for($i=0;$i -lt 60;$i++){ try { $c=New-Object Net.Sockets.TcpClient; $c.Connect('127.0.0.1',3000); $c.Close(); $ok=$true; break } catch { Start-Sleep -Seconds 2 } }; if($ok){ exit 0 } else { exit 1 }"
+if !ERRORLEVEL! EQU 0 (
+    echo   Web app is answering - opening the browser. >> "%LOGFILE%"
+) else (
+    echo   WARNING: nothing answered on port 3000 after 120s. Opening the browser anyway; >> "%LOGFILE%"
+    echo   see logs\webapp-launcher.log and logs\webapp-error.log for what node did. >> "%LOGFILE%"
+)
 start http://localhost:3000
 
 echo ========================================== >> "%LOGFILE%"
