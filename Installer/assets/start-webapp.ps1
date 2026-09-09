@@ -104,15 +104,19 @@ if (-not $env:REMOTE_DATABASE_URL) {
 # and it is the only moment the files are complete. Best effort: a station with no route to the
 # share must still start.
 $publishLogs = Join-Path $PSScriptRoot 'publish-logs.ps1'
-if (Test-Path $publishLogs) {
+
+function Publish-StationLogs([string]$When) {
+    if (-not (Test-Path $publishLogs)) { return }
     try {
         & $publishLogs -AppDir $appDir
-        Write-Log 'Published previous run logs to the shared folder.'
+        Write-Log ("Published logs to the shared folder ({0})." -f $When)
     }
     catch {
         Write-Log ("Log publish skipped: {0}" -f $_.Exception.Message)
     }
 }
+
+Publish-StationLogs 'previous run'
 
 # A station that already has something on the port starts a server that exits at once, and the
 # only trace is a stack in node's own log. Name the holder instead: on a workstation it is usually
@@ -156,6 +160,7 @@ for ($i = 0; $i -lt 45; $i++) {
         $firstError = Get-Content -Path $errLog -ErrorAction SilentlyContinue |
             Where-Object { $_ -notmatch '^\s+at ' -and $_.Trim() -ne '' } | Select-Object -First 3
         foreach ($line in $firstError) { Write-Log ("  node said: {0}" -f $line.Trim()) }
+        Publish-StationLogs 'crash'
         exit 1
     }
 
@@ -169,3 +174,10 @@ if ($listening) {
 else {
     Write-Log ("WARNING: node is running (pid {0}) but nothing is listening on {1} after 90s." -f $node.Id, $port)
 }
+
+<#  Publish again, now that the outcome is known. The publish above ships whatever the file held
+    when the run started, which is always one run behind - so the line that actually says whether
+    the station came up ("OK: the web app is serving" / "ERROR: node exited") never reached the
+    share until somebody launched the station a second time. Every remote diagnosis so far has been
+    made on logs that stopped at the launch line for exactly this reason.  #>
+Publish-StationLogs 'this run'
