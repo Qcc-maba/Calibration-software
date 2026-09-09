@@ -1,4 +1,4 @@
-# ארכיטקטורה — שרת ה-VCT
+﻿# ארכיטקטורה — שרת ה-VCT
 
 מסמך זה מסביר איך מדידה עוברת ממכשיר פיזי אל ה-web app. זהו מסמך הקליטה המרכזי:
 אם אתה מוסיף מכשיר, מדבג מכשיר ש"שותק", או משנה את זרימת הנתונים — התחל כאן.
@@ -11,9 +11,9 @@
 
 ```
 מכשיר פיזי
-    │  RS-232 / TCP / Modbus
+    │  RS-232 / TCP / Modbus / GPIB / USB (USBTMC)
     ▼
-IComLayer            SerialCom · SocketCom · ModbusCom · WebSocketCom
+IComLayer            SerialCom · SocketCom · ModbusCom · GpibCom · VisaCom · WebSocketCom
     │                (Systems/VCT/VCT/VCT.ComLayer/Com Layer/)
     │  DataReceived (בתים גולמיים)
     ▼
@@ -60,8 +60,11 @@ ServerCore.BroadcastToWebSockets  →  הודעת LoggerData  →  לקוחות 
 בתים נכנסים → פרסר → `handlePacket` → מנותב ל-sessions.
 
 **זיהוי ה-SN** ב-`handlePacket` הוא שרשרת התאמות מחרוזת על תשובת ה-`*IDN?`
-(`FLUKE`, `HEWLETT`, `TAU`, `TTI`, `Instek`, ו-Modbus→`Optidew`). זו הנקודה הראשונה
-שצריך לגעת בה כשמוסיפים דגם חדש.
+(`FLUKE`, `HEWLETT`, `TAU`, `TTI`, `Instek`, `DATRON`/`WAVETEK`, `EDU-X 1002A`, ו-Modbus→`Optidew`).
+זו הנקודה הראשונה שצריך לגעת בה כשמוסיפים דגם חדש.
+
+⚠אל תשווה למספר הדגם שבדף הנתונים בלי לבדוק מה המכשיר באמת מחזיר: ה-EDUX1002A
+מאיית את עצמו `EDU-X 1002A` (מקף ורווח). ראה `IsKeysight1000XSeries`.
 
 ### `BaseSession` — טרנזקציה מול המכשיר
 `VCT.Core/Device/Sessions/` — `InitSystemSession`, `GetSetTimeSession`, `RateSession`,
@@ -113,14 +116,22 @@ ServerCore.BroadcastToWebSockets  →  הודעת LoggerData  →  לקוחות 
 ## 4. הוספת מכשיר חדש — המתכון
 
 1. **זיהוי SN** — הוסף ענף ב-`HardwareDeviceHost.handlePacket` שמזהה את תשובת ה-`*IDN?`.
-2. **`IBLCore`** חדש תחת `BLCore/` — התאמת SN + יצירת ה-BL (העתק את התבנית מ-`Agilent34401aBLCore`).
-3. **`BaseBLDevice`** חדש תחת `Device/` — הגדר את מכונת המצבים ב-`OnCreateStates`.
+2. **`IBLCore`** חדש תחת `BLCore/Electronics/` או `BLCore/Temperature/` — התאמת SN + יצירת
+   ה-BL (העתק את התבנית מ-`Agilent34401aBLCore`).
+3. **`BaseBLDevice`** חדש תחת `Device/Electronics/` או `Device/Temperature/` — הגדר את מכונת
+   המצבים ב-`OnCreateStates`. לוגיקת פענוח טהורה ב-`<דגם>Readings.cs` לצדו, כדי שתהיה ניתנת לבדיקה.
 4. **Sessions** — רק אם הפרוטוקול לא מתאים לקיימים.
 5. **הגדרות** — הוסף סוג מכשיר ל-`HardwareBL_Settings` (כולל `Masters`), ורשום את ה-BLCore
    ב-`ComServerSettings.Modules`.
-6. **תיעוד** — צור `docs/devices/<שם>/` עם ה-PDF והפרוטוקול (ראה `docs/devices/_template/`).
+6. **תיעוד** — צור `docs/devices/electronics/<שם>/` או `docs/devices/temperature/<שם>/` עם ה-PDF
+   והפרוטוקול (ראה `docs/devices/_template/`).
 
-דוגמה מלאה ומאומתת מקצה לקצה: `docs/devices/Agilent-34401A/protocol.md`.
+> התיקיות הן **ארגוניות בלבד**: ה-namespaces נשארו `...HydraDevices.BLCore` ו-`...HydraDevices.Device`
+> בלי רמה נוספת, ולכן ה-`TypeName` שרשום ב-`ComServerSettings.Modules` לא משתנה כשמעבירים קובץ
+> בין התיקיות. הפרויקט מונה קבצים אחד-אחד (`<Compile Include>`), אז **כל העברה חייבת לעדכן
+> את `ComServer.BL.csproj`** — אחרת הקובץ פשוט לא ייכלל בבנייה.
+
+דוגמה מלאה ומאומתת מקצה לקצה: `docs/devices/temperature/Agilent-34401A/protocol.md`.
 
 ---
 
