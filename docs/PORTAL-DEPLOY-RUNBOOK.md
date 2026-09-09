@@ -16,6 +16,51 @@
 | `DevLoginCode` לא קיים בקובץ הייצור | ✅ |
 | סקריפט התקנה | ✅ `scripts/Install-CustomerPortalApi-Service.ps1` |
 
+## 0.1 שערי העלייה לאוויר — מה חוסם, נכון ל-02/09/2026
+
+47 טיקטים פתוחים נושאים את המילה portal או customer. **רובם המכריע אינם חוסמים.** אלה שכן,
+מסודרים לפי מה שהלקוח חווה אם עולים בלעדיהם.
+
+### שער 1 — בלעדיהם הפורטל לא עובד או לא בטוח
+
+| טיקט | מה קורה בלעדיו | סטטוס |
+|---|---|---|
+| [MBA-937](https://calibration-maba.atlassian.net/browse/MBA-937) | **אף אחד לא יכול להתחבר.** האפליקציה לא שולחת `X-Portal-Api-Key`, והשירות מחזיר 401 על כל בקשת התחברות | In Testing |
+| [MBA-938](https://calibration-maba.atlassian.net/browse/MBA-938) | `portal.qcc.co.il` מגיש גם את שיבוץ עבודה, אשף הכיול והאריזה — מסכים פנימיים תחת דומיין ממותג-לקוח | In Testing |
+| [MBA-946](https://calibration-maba.atlassian.net/browse/MBA-946) | עוגייה פגומה מייצרת לולאת הפניות. ללקוח זה נראה כמו אתר שבור | In Progress |
+
+**MBA-937 הוא החסם היחיד שאין עליו מחלוקת.** הוא לא באג עדין: השירות מסרב לעלות בהאזנה ציבורית
+בלי `ProxyApiKey` (`Auth/ExposureGuard.cs`), והמפתח לא יכול להישאר ריק — `request-otp` עונה תשובה
+שונה לכתובת רשומה ולא רשומה, כך ששירות פתוח מאפשר לגלות מי מהלקוחות שלנו. אין "לעלות בלי מפתח".
+
+### שער 2 — הפורטל עובד, אבל מראה נתונים שגויים או ריקים
+
+| טיקט | מה הלקוח רואה | סטטוס |
+|---|---|---|
+| [MBA-943](https://calibration-maba.atlassian.net/browse/MBA-943) | 181 אנשי קשר רואים פורטל ריק — כתובת מייל אחת משרתת כמה לקוחות, וה-SP פותר רק אחד | To Do |
+| [MBA-949](https://calibration-maba.atlassian.net/browse/MBA-949) | רשימת המכשירים היא mock קשיח. `GetCustomerDeviceList` לא נקרא בכלל | To Do |
+| [MBA-934](https://calibration-maba.atlassian.net/browse/MBA-934) | שאר ה-mock שעדיין לא הוחלף ב-SP אמיתי | To Do |
+| [MBA-936](https://calibration-maba.atlassian.net/browse/MBA-936) | איש קשר שמשרת כמה לקוחות רואה רק אחד מהם | To Do |
+| [MBA-942](https://calibration-maba.atlassian.net/browse/MBA-942) | אין סימון לאיזו חברה כל שורה שייכת | In Testing |
+
+**MBA-949 ו-MBA-934 הם הקשים כאן.** פורטל שמראה ללקוח נתוני דמה גרוע יותר מפורטל שלא עלה — הוא
+שורף אמון שקשה להחזיר.
+
+### מצב בסיס הנתונים — נבדק ב-02/09/2026
+
+שבעת אובייקטי הפורטל קיימים **בשתי הסביבות**, ו-`VerifyCustomerPortalOtp` זהה בשתיהן בתוכן
+(הפרש תאריכי השינוי הוא תזמון פריסה, לא גרסה). `GetPortalCustomerIds` הוא inline TVF ולא
+פרוצדורה — בדיקה שמחפשת אותו כ-`type='P'` תדווח בטעות שהוא חסר.
+
+**צד ה-DB אינו החסם.** החסמים הם צד קדמי והגדרות.
+
+### כל השאר — אחרי העלייה
+
+~35 הטיקטים הנותרים הם פיצ'רים ולא חסמים: עימוד, פופ-אפים, פעולות מרובות, חיפוש, בקשות תמחור
+ומשלוח. אפשר להעלות בלעדיהם.
+
+---
+
 ## 1. היעד: המכונה `MbaCustWeb`
 
 מה שנמצא בבדיקה:
@@ -31,6 +76,67 @@ port 443 OPEN   ·   port 80 closed   ·   port 5312 closed
 **למה דווקא כאן ולא מכונה חדשה:** השירות מדבר רק עם ה-SQL שכבר יושב על המכונה הזו (חיבור מקומי, בלי לצאת לרשת) ועם M365. מכונה נוספת תוסיף עלות, latency ועוד משהו לתחזק, בלי להרוויח דבר.
 
 ✅ **אושר (2026-08-31):** מותר להוסיף role למכונה שמריצה את ה-SQL של הייצור. `MbaCustWeb` הוא היעד.
+
+## 1.5 גישה למכונה והעברת החבילה
+
+הסעיף הזה היה חסר, ומי שביצע נתקע בדיוק כאן.
+
+### איך נכנסים
+
+```powershell
+mstsc /v:51.17.121.203
+```
+
+`3389` פתוח מהרשת של מבא — **אין צורך לגעת ב-Security Group** כדי להתחבר.
+נבדק 01/09/2026: `3389` פתוח, `443` פתוח, `1433` פתוח, `5312` סגור (הפורטל, עדיין לא הותקן).
+
+פרטי ההתחברות הם של **Windows**, לא של SQL. `app_prod` הוא login של SQL Server ולא יעבוד ב-RDP.
+מי שהקים את ה-EC2 מחזיק או ב-Administrator המקומי, או ב-key pair שמפענח את הסיסמה דרך
+EC2 Console → Instance → Connect → RDP Client → Get password, עם קובץ ה-`.pem`.
+
+### למה לא בונים על השרת
+
+`Install-CustomerPortalApi-Service.ps1` הריץ בעבר `dotnet publish`, כלומר דרש **קוד מקור ו-SDK**
+על המכונה. `MbaCustWeb` היא שרת ה-SQL של הייצור — לא המקום לאף אחד משניהם.
+
+הסקריפט מקבל היום `-SkipPublish -PublishDir`. בונים במקום אחר, מעבירים, מתקינים.
+
+### הבנייה, על מכונת הפיתוח
+
+```powershell
+dotnet publish Systems\CustomerPortalApi\Maba.VCT.CustomerPortalApi.csproj `
+  -c Release -r win-x64 --self-contained -o C:\portal-publish
+```
+
+`--self-contained` בכוונה: הוא מייתר גם את התקנת ה-.NET runtime על השרת. התוצאה ~358 קבצים.
+הסקריפט מזהה לבד איזו חבילה קיבל — לפי `hostfxr.dll` — ואם היא תלוית-framework הוא בודק שיש
+runtime ומזהיר מראש, במקום להשאיר שירות שלא עולה.
+
+### ההעברה
+
+ב-`mstsc`, לפני החיבור: Local Resources → More → לסמן את הכונן. הכוננים המקומיים יופיעו על השרת
+תחת `\tsclient\`, ואפשר להעתיק משם. לחלופין S3, או כל דרך אחרת — החבילה היא תיקייה רגילה.
+
+### ההתקנה, על MbaCustWeb, כמנהל
+
+```powershell
+.\Install-CustomerPortalApi-Service.ps1 -SkipPublish -PublishDir C:\portal-publish `
+    -Bind any -Port 5312 `
+    -ProxyApiKey       "<שנמסר>" `
+    -ConnectionString  "Server=localhost\QCC;Database=CalibratorProd;User Id=app_prod;Password=<...>;Encrypt=True;TrustServerCertificate=True" `
+    -SmtpUser zimun@mba.co.il -SmtpPassword "<...>" -SmtpFrom zimun@mba.co.il
+```
+
+### 🔒 לבדוק ב-Security Group לפני העלייה לאוויר
+
+`1433` ו-`3389` שניהם ענו מהרשת של מבא. מבחוץ אי אפשר לדעת אם זה כלל מוגבל ל-IP של מבא או
+`0.0.0.0/0`.
+
+**אם זה השני — SQL Server ו-RDP חשופים לאינטרנט על המכונה שעומדת לארח את פורטל הלקוחות.**
+
+EC2 Console → Security Groups → Inbound rules. חמש דקות, ולפני העלייה לאוויר ולא אחריה.
+
+---
 
 ## 2. התקנת השירות (על MbaCustWeb, כמנהל)
 

@@ -52,6 +52,19 @@
 param(
     [ValidateSet('localhost', 'any')]
     [string] $Bind = 'localhost',
+    # Install from bits that were published elsewhere, instead of building here.
+    #
+    # The default path runs 'dotnet publish', which needs the source tree AND the .NET SDK on
+    # whatever machine you run this on. On MbaCustWeb - a production SQL Server host - neither
+    # belongs there. Publish on your own machine, copy the folder over, and point this at it:
+    #
+    #   dotnet publish Systems\CustomerPortalApi\Maba.VCT.CustomerPortalApi.csproj -c Release     #       -r win-x64 --self-contained -o C:\portal-publish
+    #   (copy C:\portal-publish to the server, then on the server:)
+    #   .\Install-CustomerPortalApi-Service.ps1 -SkipPublish -PublishDir C:\portal-publish -Bind any ...
+    #
+    # --self-contained is deliberate: it removes the need for a .NET runtime on the server too.
+    [switch] $SkipPublish,
+    [string] $PublishDir,
     [string] $ProxyApiKey,
     [string] $ConnectionString,
     [string] $SmtpUser,
@@ -68,12 +81,17 @@ $Description = 'One-time-code login for the customer portal: issues and verifies
 
 $Root       = Split-Path $PSScriptRoot -Parent
 $Project    = Join-Path $Root 'Systems\CustomerPortalApi\Maba.VCT.CustomerPortalApi.csproj'
-$PublishDir = Join-Path $Root 'Systems\CustomerPortalApi\publish'
+if (-not $PublishDir) { $PublishDir = Join-Path $Root 'Systems\CustomerPortalApi\publish' }
 $BinaryPath = Join-Path $PublishDir 'Maba.VCT.CustomerPortalApi.exe'
 
 Write-Host '=== Maba Customer Portal API - Service Installer ===' -ForegroundColor Cyan
 
-if (-not (Test-Path $Project)) { Write-Error "Project not found at $Project"; exit 1 }
+if (-not $SkipPublish -and -not (Test-Path $Project)) {
+    Write-Host "ERROR: project not found at $Project" -ForegroundColor Red
+    Write-Host '       This machine has no source tree. Publish on a build machine and re-run with' -ForegroundColor Red
+    Write-Host '       -SkipPublish -PublishDir <folder>. See the comment on -SkipPublish.' -ForegroundColor Red
+    exit 1
+}
 
 # Refuse before doing any work, not after publishing.
 if ($Bind -eq 'any' -and -not $ProxyApiKey) {
@@ -100,10 +118,34 @@ Get-Process -Name 'Maba.VCT.CustomerPortalApi' -ErrorAction SilentlyContinue | F
     Stop-Process -Id $_.Id -Force
 }
 
-Write-Host "Publishing to $PublishDir ..." -ForegroundColor Yellow
-dotnet publish $Project -c Release -o $PublishDir --nologo | Out-Null
-if ($LASTEXITCODE -ne 0) { Write-Error "dotnet publish failed (exit $LASTEXITCODE)"; exit 1 }
-if (-not (Test-Path $BinaryPath)) { Write-Error "Published executable not found at $BinaryPath"; exit 1 }
+if ($SkipPublish) {
+    Write-Host "Installing from $PublishDir (no build on this machine)" -ForegroundColor Yellow
+    if (-not (Test-Path $BinaryPath)) {
+        Write-Host "ERROR: no executable at $BinaryPath" -ForegroundColor Red
+        Write-Host '       -SkipPublish expects a folder produced by dotnet publish.' -ForegroundColor Red
+        exit 1
+    }
+    # A framework-dependent publish needs the .NET runtime installed here; a self-contained one
+    # does not. Say which this is, so a missing runtime is diagnosed now rather than as a service
+    # that will not start.
+    $selfContained = Test-Path (Join-Path $PublishDir 'hostfxr.dll')
+    if ($selfContained) {
+        Write-Host '  self-contained: no .NET runtime needed on this machine' -ForegroundColor Gray
+    } else {
+        Write-Host '  framework-dependent: this machine must have the .NET 10 runtime' -ForegroundColor Yellow
+        $hasRuntime = $false
+        try { $hasRuntime = @(& dotnet --list-runtimes 2>$null | Where-Object { $_ -like 'Microsoft.AspNetCore.App 10.*' }).Count -gt 0 } catch { }
+        if (-not $hasRuntime) {
+            Write-Host '  WARNING: ASP.NET Core 10 runtime not detected. The service will not start.' -ForegroundColor Yellow
+            Write-Host '           Re-publish with -r win-x64 --self-contained, or install the runtime.' -ForegroundColor Yellow
+        }
+    }
+} else {
+    Write-Host "Publishing to $PublishDir ..." -ForegroundColor Yellow
+    dotnet publish $Project -c Release -o $PublishDir --nologo | Out-Null
+    if ($LASTEXITCODE -ne 0) { Write-Error "dotnet publish failed (exit $LASTEXITCODE)"; exit 1 }
+    if (-not (Test-Path $BinaryPath)) { Write-Error "Published executable not found at $BinaryPath"; exit 1 }
+}
 
 function Set-MachineVar {
     param([string] $Name, [string] $Value, [switch] $Secret)
