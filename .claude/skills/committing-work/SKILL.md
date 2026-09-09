@@ -79,6 +79,16 @@ branch that someone could merge by mistake. Name the branch after **what is in i
 local branch it was committed on. Do not update a `reference/*` branch that has already been handed
 over; make a new one.
 
+**Dako owns the customer portal only.** Anything that is not portal work goes to Oleksandr. Tickets
+for both are written in English, unlike this Hebrew-first repo.
+
+**A `reference/*` branch is a deliverable, not a sketch.** Before pushing one, it must at minimum
+pass `npx tsc --noEmit` and `npx eslint <the files you added>`, and the behaviour it claims should be
+exercised against a running app. The MBA-930 attachments branch was handed over without a typecheck
+and is on the in-flight list as a defect passed to someone else. Note that the repo's eslint requires
+a `@returns` tag on any JSDoc block, so adding a comment to a file that previously had none can fail
+a lint that passed before.
+
 ## Getting past the app repo's hook
 
 `lint-staged` reverts the entire commit when eslint fails. Do not reach for `--no-verify` — the hook

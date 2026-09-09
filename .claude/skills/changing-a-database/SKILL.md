@@ -40,6 +40,51 @@ objects up through `sys.objects` joined to `sys.schemas` rather than assuming `d
 - English comments in SQL objects. `sqlcmd -i` reads a UTF-8 file in the console codepage and mangles
   Hebrew silently — inside a comment just as quietly as inside a literal. Pass `-f 65001` if you must.
 
+## Derive the key from the data, do not infer it from the column names
+
+A cache table over `EXTFILES` was keyed on `(order, LINE)` because that is what the column names
+suggest. It failed with a primary-key violation on the first full rebuild: `LINE` has three distinct
+values in the entire table and repeats within an order. `distinct (IV, EXTFILENUM)` = 15,326 = the
+row count; `distinct (IV, LINE)` = 13,239.
+
+Before declaring a key, count it:
+
+```sql
+SELECT COUNT(*), COUNT(DISTINCT <candidate key>) FROM <source>;
+```
+
+The same measurement tells you the real cardinality — that source allows twelve files per order, not
+the four the shape of the data suggested.
+
+While you are there, check whether the columns you plan to carry are **true**. `EXTFILES.FILESIZE`
+reports `74` on 15,225 of 15,326 rows, which is the length of the path string; one such row is a
+522,752-byte file. A column that is wrong 99.3% of the time is worse than an absent one, because
+someone will use it to pick "the real document". It was deliberately not cached.
+
+## Temp tables that receive `OPENQUERY` results need `COLLATE DATABASE_DEFAULT`
+
+Values arrive from the linked server as `Latin1_General_100_CI_AI_SC`; the target table is
+`Hebrew_CI_AS`. A `MERGE` comparing them fails outright with a collation conflict. Declare the text
+columns of any staging temp table as `COLLATE DATABASE_DEFAULT` and the comparison resolves. This is
+the same family as the cross-server join conflict, but it bites inside a single procedure, where
+nothing looks cross-server.
+
+## Measure the blast radius before changing a shared function
+
+`dbo.fnUnreverseVisualText` returned `:RE` where a mail subject was `RE:`. The obvious fix — peel the
+usual trailing punctuation — was correct for that case and **changed 24 device descriptions for the
+worse**, turning `'5000.` into `0005'.`, because `.` and `,` are decimal separators inside the
+numeric runs it reverses.
+
+A function used by display code across many screens has no local change. Before deploying one, count
+the rows whose output differs:
+
+```sql
+SELECT COUNT(*) FROM <table> WHERE dbo.<fn>(col) <> <expected-or-current>;
+```
+
+The narrowed version was deployed only once that count read zero outside the case being fixed.
+
 ## Address rows by their Priority key, never by an identity column
 
 `CustomerId`, `CustomerContactId` and friends are identity columns and **differ between STAGE and

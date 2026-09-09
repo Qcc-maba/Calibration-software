@@ -8,8 +8,10 @@ VCT server; **read `docs/architecture.md` before changing anything under `System
 
 Procedures that repeat - committing and pushing across the two repositories, merging a stale
 default branch, diagnosing the portal's path to its data, verifying UI work - are written up as
-skills under `.claude/skills/`. This file is the durable facts; `docs/session1-decisions.md` is why each
-call was made, including what was tried and rejected.
+skills under `.claude/skills/`. This file is the durable facts; the per-session files
+`docs/session<n>-decisions.md` are why each call was made, including what was tried and rejected.
+Decision numbers run continuously across those files, so a reference to one means a single thing;
+read `.claude/skills/README.md` for the current skill set.
 
 ## What lives here
 

@@ -48,6 +48,15 @@ that cannot run reports instead of throwing, so one flaky interaction does not h
   same port. A dev build's HTML references `[turbopack]…hmr-client` chunks; a production one does not.
 - **OTP rate limit (5 per 900s)** makes a repeated suite run fail with "שליחת הקוד נכשלה" for reasons
   that have nothing to do with the change under test.
+- **A boundary can render for the case you test and not for the case you built it for.** A
+  `not-found.tsx` placed inside a route segment catches only a `notFound()` thrown by a page in that
+  segment; an address matching **no route** reaches the root boundary and nothing else. The file was
+  in place, every `notFound()` test passed, and `/customer/does-not-exist` still returned Next's
+  built-in English 404. Exercise the route the *user* takes, by request, not the one that is easy to
+  trigger from code.
+- **Host-dependent behaviour needs both hosts.** Middleware here branches on the `host` header, so a
+  check run only against `localhost` exercises the internal branch and never the portal one. Send
+  `Host: <portal hostname>` and verify both.
 
 When the dev server dies mid-run (Turbopack cache, memory), delete `.next` and start it **detached** —
 a server started from a tool call dies with the call.
