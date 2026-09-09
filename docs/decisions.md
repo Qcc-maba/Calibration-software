@@ -837,6 +837,49 @@ caller's own contacts. If a picker is ever wanted it is front-end work only.
 merged — one for over a week. The lesson is in the working-style notes: read the branch, not the
 status field.
 
+## In flight — the portal go-live
+
+**The portal is not live.** `portal.qcc.co.il` does not resolve; the domain was never attached in
+Vercel. Everything below is the state as of 2026-09-09.
+
+**Done and verified from outside the network:** `portal-api.qcc.co.il` resolves, answers `/health`
+with `200` over a trusted certificate, returns `401` on `request-otp` without the shared key, and
+5312 is closed externally. The main site was unaffected. `Verify-PortalApi-Deploy.ps1` printed
+STAGE A PASSED. All portal procedures are on PROD and identical to STAGE (`Compare-Schema.ps1`:
+0 STAGE-only, 0 differing).
+
+**The one code blocker left.** The WebSocket client is mounted in `AppProviders` at the root layout
+and connects unconditionally, so a customer on any portal screen gets a red `destructive` toast —
+*"cannot reconnect to logger"* — about 15 seconds in, after three failed reconnects. No customer
+screen consumes the socket; all five consumers are internal screens. The fix is to gate the
+*connection* (not the provider, or context consumers break) on the route or the host. Not started;
+`socket-provider.tsx` is unchanged on `stg`.
+
+**Unverified, and it is a security question, not a formality.** Whether the EC2 Security Group
+restricts 1433 and 3389 to the office or leaves them open to the internet. Scans from inside the
+office cannot tell the two apart — both answer. It needs the inbound rules themselves or a scan from
+a foreign network. IT were asked; the reply ("the ports were opened") did not answer the question
+that was asked, which was to *restrict* them.
+
+**Possibly not applied on the server** — both were handed over as commands and not confirmed back:
+`CustomerPortal__TrustedProxies__0 = 127.0.0.1` plus a service restart (without it the rate limiter
+counts every customer as one), and the cleanup of the temporary self-signed certificate and its now
+redundant SNI binding.
+
+**Not committed.** `docs/PORTAL-DEPLOY-HANDOFF.md` and `scripts/Verify-PortalApi-Deploy.ps1` are
+still untracked, and they are the only record of what was done on the server.
+
+**Dependency work half done.** The lockfile overrides are merged; `next` → 16.2.11 and the `xlsx`
+decision are not. Re-run the Dependabot count against `stg` to confirm the drop rather than assuming
+it.
+
+**Left behind:** three temporary git worktrees of the app repo under the local scratch folder. One
+holds a directory junction to the real `node_modules` — deleting that worktree recursively would
+follow the junction and destroy the working checkout's dependencies. Remove the junction with
+`rmdir` first, then `git worktree remove`.
+
+---
+
 ## In flight — nothing here is finished
 
 **Deployed to STAGE only; PROD has none of it.** `IsInactiveInSource` and
@@ -974,7 +1017,7 @@ e-mail addresses.
 **Two of nine BLs have never measured a real signal, for different reasons.**
 
 - **Meatest M-142 - blocked on hardware.** Written from the manual, never verified end to end. Its
-  own GPIB circuit is faulty (decision 14) so it must move to RS-232: instrument menu
+  own GPIB circuit is faulty (decision 37) so it must move to RS-232: instrument menu
   `8. Interface = RS232`, `10. baud = 9600`, `11. Handshake = OFF`, and a **straight 1:1** cable
   (2-2, 3-3, 5-5; the instrument is wired as DCE) - *not* the null-modem the 5522A needs. The first
   serial adapter tried was a counterfeit CH340 that fails every open; use the Prolific adapter that
@@ -988,17 +1031,17 @@ error queue clean), the 5522A (0 V in standby) and the PRODIGIT 3111 (empty inpu
 real calibration target. That needs a target, not just a cable.
 
 **The 5322A reads only the ground-bond setpoint.** The other ~20 functions are recognised and logged
-but have no setpoint query. Adding them is not a matter of writing more builders - see decision 17
+but have no setpoint query. Adding them is not a matter of writing more builders - see decision 40
 for why each one has to be gated on the current mode.
 
-**Remote output enable is unwired for all six source instruments** (decision 15). Product decision,
+**Remote output enable is unwired for all six source instruments** (decision 38). Product decision,
 not a coding gap.
 
 **Two devices are effectively dormant.** TTI is identified but its state machine is commented out and
 it broadcasts nothing. Optidew cannot be auto-discovered at all (Modbus, no `*IDN?`) and needs a
 static tunnel.
 
-**Transmille 3200A is not written** and should not be attempted without the hardware (decision 16).
+**Transmille 3200A is not written** and should not be attempted without the hardware (decision 39).
 
 ### Known bugs found this session and deliberately not fixed
 
