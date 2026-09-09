@@ -616,6 +616,27 @@ Also note `publish-logs.ps1` used to run only *before* node started, so the line
 the app came up ("OK: the web app is serving" / "ERROR: node exited") was always one launch behind
 and never reached the share. It now publishes again after the outcome is known.
 
+### "The station does not work" usually means "not yet"
+
+Two launcher faults produced most of the remote reports, and both made the station look broken when
+it was merely slow or the log was lying:
+
+- **`start-all.bat` opened the browser on a fixed 6-second delay**, while `start-webapp.ps1` allows
+  the web app **90 seconds** to start listening. From a cold start under Program Files the app needs
+  far more than six seconds, so the operator got the browser's "this site cannot be reached" page —
+  which reads as *no internet* — while the station came up fine a minute later. It now polls the
+  port with a `TcpClient` connect (the same thing the browser is about to do, and available on every
+  Windows build) before opening the browser. **If a station reports that screen, ask whether a
+  refresh a minute later works before looking anywhere else.**
+- **A `)` inside a batch `echo` inside an `if (...)` block closes the block.** `echo Started
+  (hidden)` printed `Started (hidden` and then ran the `else` branch, so every successful launch
+  also logged `ERROR: ConsoleHost.exe not found`. Escape as `^(hidden^)` — the rest of that file
+  already did. A log that reports an error on a healthy run is worse than no log.
+
+Also note `publish-logs.ps1` used to run only *before* node started, so the line that says whether
+the app came up ("OK: the web app is serving" / "ERROR: node exited") was always one launch behind
+and never reached the share. It now publishes again after the outcome is known.
+
 ### Verifying a station honestly
 
 The service only brings up the ComServer and the WebSocket. `HTTP 200` on port 3000 proves nothing
