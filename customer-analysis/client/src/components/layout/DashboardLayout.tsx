@@ -20,7 +20,8 @@ import {
   Truck,
   Layers,
   Loader2,
-  LayoutDashboard
+  LayoutDashboard,
+  Calculator
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -65,6 +66,38 @@ function useTimeAgo(timestamp: string | null | undefined): string | null {
   return label;
 }
 
+/**
+ * חותמת ה-build שרצה בשרת ברגע זה.
+ *
+ * בלעדיה אין דרך לראות מהמסך אם פריסה נתפסה: בעדכון לשרת הקבצים הוחלפו על
+ * הדיסק בזמן שהתהליך הישן המשיך לשרת מהזיכרון, ושום מסך לא הסגיר את זה.
+ * הערך מגיע מהשרת ולא מהקליינט - קליינט ישן שנשמר במטמון הדפדפן היה מציג
+ * גרסה שגויה, ולכן כשהשניים נבדלים מוצגת בקשה לרענן.
+ */
+function BuildStamp() {
+  const { data } = useQuery<{ build: string; startedAt: string }>({
+    queryKey: ['/api/version'],
+    queryFn: async () => {
+      const res = await fetch('/api/version');
+      if (!res.ok) throw new Error('version unavailable');
+      return res.json();
+    },
+    staleTime: 60_000,
+    retry: false,
+  });
+  if (!data) return null;
+  const clientBuild = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev';
+  const stale = clientBuild !== 'dev' && data.build !== 'dev' && clientBuild !== data.build;
+  return (
+    <div className="text-[10px] leading-tight text-sidebar-foreground/40" data-testid="build-stamp">
+      <div dir="ltr">build {data.build}</div>
+      {stale && (
+        <div className="text-amber-500/80" dir="rtl">גרסה ישנה בדפדפן — רענן (Ctrl+F5)</div>
+      )}
+    </div>
+  );
+}
+
 export function Sidebar({ className, isSyncActive, syncStatus, lastSync }: SidebarProps) {
   const [location] = useLocation();
   const timeAgo = useTimeAgo(lastSync);
@@ -77,6 +110,13 @@ export function Sidebar({ className, isSyncActive, syncStatus, lastSync }: Sideb
         { icon: BarChart3, label: "ניתוח פעילות", href: "/summary" },
         { icon: Users, label: "לקוחות", href: "/customers" },
         { icon: Target, label: "יעדים", href: "/targets" },
+      ]
+    },
+    {
+      title: "תמחור",
+      icon: Calculator,
+      items: [
+        { icon: Calculator, label: "תמחור מוצרים", href: "/pricing" },
       ]
     },
     {
@@ -188,7 +228,8 @@ export function Sidebar({ className, isSyncActive, syncStatus, lastSync }: Sideb
           </div>
         </div>
       </div>
-      <div className="absolute bottom-4 px-6 w-full">
+      <div className="absolute bottom-4 px-6 w-full space-y-2">
+         <BuildStamp />
          <Button variant="ghost" className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10">
             <LogOut className="h-4 w-4" />
             התנתק

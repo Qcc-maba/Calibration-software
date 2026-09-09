@@ -30,6 +30,11 @@ export default defineConfig({
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
   },
+  // Overridden by script/build.ts with the real stamp; this keeps `vite dev`
+  // from blowing up on an undefined identifier.
+  define: {
+    __BUILD_ID__: JSON.stringify(process.env.BUILD_ID ?? "dev"),
+  },
   css: {
     postcss: {
       plugins: [],

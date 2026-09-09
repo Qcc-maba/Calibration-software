@@ -6,6 +6,7 @@ import * as priority from "./priority";
 import { syncedCustomers, appSettings, defaultScoringConfig, companyDaysOff, insertCompanyDayOffSchema, upsExpenses, insertUpsExpenseSchema, shipShipments, departmentStats, calibratorDeptStats, calibrators, monthlyCallStats, companyReturnDocuments, companyCalibrationAlerts, operationalQueryRows, financialQueryRows, monthlyTargets } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import ExcelJS from "exceljs";
+import { registerPricingRoutes } from "./pricing";
 
 // Concurrency limiter for sync endpoint - prevents DB overload
 let syncConcurrency = 0;
@@ -331,7 +332,22 @@ export async function registerRoutes(
   } catch (error) {
     console.log('Database not ready yet, starting with empty cache');
   }
-  
+
+  // מערכת התמחור (לשעבר שרת נפרד על פורט 4000) - כל ה-endpoints שלה תחת /api/pricing
+  registerPricingRoutes(app);
+
+  // חותמת ה-build של מה שרץ *עכשיו*. בלעדיה אין דרך לדעת מבחוץ אם פריסה נתפסה,
+  // וזה בדיוק מה שהקשה על אימות העדכון לשרת: הקבצים הוחלפו על הדיסק בזמן
+  // שהתהליך הישן המשיך לשרת מהזיכרון, ושום מסך לא הסגיר את זה.
+  const serverBuild = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "dev";
+  app.get("/api/version", (_req, res) => {
+    res.json({
+      build: serverBuild,
+      startedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(),
+      uptimeSeconds: Math.round(process.uptime()),
+    });
+  });
+
   // Manually trigger migration to production
   app.post("/api/admin/trigger-migration", async (_req, res) => {
     if (process.env.NODE_ENV === 'production') {

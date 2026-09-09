@@ -17,6 +17,7 @@ import DepartmentsPage from "@/pages/departments";
 import KelitotPage from "@/pages/kelitot";
 import OperationalQueryPage from "@/pages/operational-query";
 import FinancialQueryPage from "@/pages/financial-query";
+import PricingPage from "@/pages/pricing";
 
 function Router() {
   return (
@@ -37,6 +38,7 @@ function Router() {
       <Route path="/kelitot" component={KelitotPage} />
       <Route path="/operational-query" component={OperationalQueryPage} />
       <Route path="/financial-query" component={FinancialQueryPage} />
+      <Route path="/pricing" component={PricingPage} />
       <Route component={NotFound} />
     </Switch>
   );

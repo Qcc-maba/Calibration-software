@@ -46,6 +46,22 @@ const AUTH_PASS = process.env.DASHBOARD_PASSWORD || '';
 const ALLOW_REMOTE_WRITES = process.env.ALLOW_REMOTE_WRITES === 'true';
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+// מסך התמחור עובד ב-POST גם כדי *לקרוא* תשובה: תמחור פריט, העלאת קובץ הלקוח
+// ותיקון התאמה הם השימוש הרגיל בו, לא פעולת אדמין. הוא שירת עד היום את הרשת
+// בפורט 4000 ללא הזדהות כלל, ולכן חסימתו למשתמש מרוחק *מזוהה* הייתה הופכת את
+// האיחוד לרגרסיה. הפתח צר בכוונה: רק המסלולים האלה, ורק אחרי Basic auth —
+// כל 28 endpoint-ים של הדשבורד נשארים חסומים בלי ALLOW_REMOTE_WRITES.
+// /pricing/upload-pricelist לא ברשימה: הוא מחליף את המחירון לכל המשתמשים.
+const REMOTE_WRITABLE_PATHS = new Set([
+  '/api/pricing/price',
+  '/api/pricing/price/batch',
+  '/api/pricing/upload',
+  '/api/pricing/override',
+  '/api/pricing/customers',
+  '/api/pricing/learn',
+  '/api/pricing/refresh',
+]);
+
 function isLocalRequest(req: Request): boolean {
   const ip = (req.ip || req.socket.remoteAddress || '').replace(/^::ffff:/, '');
   return ip === '127.0.0.1' || ip === '::1' || ip === '';
@@ -81,7 +97,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  if (!READ_METHODS.has(req.method) && !ALLOW_REMOTE_WRITES) {
+  if (!READ_METHODS.has(req.method) && !ALLOW_REMOTE_WRITES && !REMOTE_WRITABLE_PATHS.has(req.path)) {
     log(`blocked remote ${req.method} ${req.path} from ${req.ip} — read-only mode`, 'auth');
     return res.status(403).json({ error: 'This dashboard is shared read-only.' });
   }
