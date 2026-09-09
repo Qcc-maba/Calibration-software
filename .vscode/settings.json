@@ -1,0 +1,7 @@
+{
+    "dotnet.preferCSharpExtension": true,
+    "omnisharp.useModernNet": false,
+    "omnisharp.msbuild.enabled": true,
+    "omnisharp.msbuild.useBundledOnly": false,
+    "dotnet.defaultSolution": "UnifiedSystemV1.sln"
+}

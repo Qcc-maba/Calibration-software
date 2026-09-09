@@ -1,0 +1,67 @@
+# מסע 1 — build .NET + בדיקות, ו-app (format, lint, typecheck).
+# דורש GitHub Actions; להגדיר branch protection על main/develop כדי לחייב ירוק לפני merge.
+
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: App (format, lint, typecheck)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          if [[ -f pnpm-lock.yaml ]]; then
+            pnpm install --frozen-lockfile
+          else
+            echo "::warning::app/pnpm-lock.yaml missing — commit it for reproducible CI."
+            pnpm install
+          fi
+
+      # `pnpm ci` is reserved by pnpm (not the package.json script); use `pnpm run ci`.
+      - name: CI (format, lint, typecheck)
+        run: pnpm run ci
+
+  dotnet:
+    name: .NET (build + test)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore
+        run: dotnet restore UnifiedSystemV1.sln
+
+      - name: Build
+        run: dotnet build UnifiedSystemV1.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test UnifiedSystemV1.sln -c Release --no-build --verbosity minimal
