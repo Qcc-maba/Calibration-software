@@ -43,12 +43,16 @@ public static class OtpEmailBuilder
                 SiteUrl),
         };
 
+        /* 180px, not the 260 this used before the September 2026 rebrand.
+           The old lockup was horizontal, 960x179 - about 5.4:1 - so 260 wide came out ~48 tall.
+           The new artwork is the STACKED version, mark over wordmark, about 2:1. Left at 260 it
+           would render ~130 tall and dominate the message above the code the reader came for. */
         var logoBlock = TryAttachLogo(builder, out var logoCid)
             ? $"""
                <div style="margin:0 0 24px;text-align:center;">
                    <a href="{SiteUrl}" target="_blank">
-                     <img src="cid:{logoCid}" alt="QCC Hazorea" width="260"
-                          style="width:260px;max-width:100%;height:auto;display:inline-block;border:0;" />
+                     <img src="cid:{logoCid}" alt="QCC Hazorea" width="180"
+                          style="width:180px;max-width:100%;height:auto;display:inline-block;border:0;" />
                    </a>
                  </div>
                """
