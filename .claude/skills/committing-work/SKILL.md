@@ -30,6 +30,25 @@ turn it into a submodule.
    in an `appsettings.json` stops the service during configuration load, before any logging exists —
    the only symptom is a service that will not start.
 
+## Uncommitted code is not finished code, and a shipped binary must come from the branch
+
+Two things went wrong this way in one session, and both are cheap to prevent:
+
+- Server code written in an earlier session was left uncommitted and **had never once been
+  compiled**. It carried a syntax error (`CS0579`, a doc comment inserted between another method's
+  attribute and its signature) that sat there for two days. If you write code you are not building,
+  say so in those words — "written, never compiled" — and do not describe it as done.
+- A Release build for an installer pulled in four *other* uncommitted files, so the artifact handed
+  to an operator could not be rebuilt from any branch. After building anything you intend to give
+  away, run `git status --porcelain` over the source it consumed and commit what it used.
+
+## Check the numbers, not the file, after a whole-file rewrite
+
+This repository lives in OneDrive, which can hand you a **stale, shorter copy** of a file you are
+editing. A merge was built on a 219-line copy of `docs/decisions.md` whose real length was 1,331
+lines. What caught it was `git diff --cached --numstat`: an edit that only adds must report **0
+deletions**. `wc -l` will happily confirm the wrong number; the staged diff will not.
+
 ## Grouping
 
 Group by intent, not by directory. A session that touched thirty files produces five or six commits.

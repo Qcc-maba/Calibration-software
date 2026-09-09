@@ -616,27 +616,6 @@ Also note `publish-logs.ps1` used to run only *before* node started, so the line
 the app came up ("OK: the web app is serving" / "ERROR: node exited") was always one launch behind
 and never reached the share. It now publishes again after the outcome is known.
 
-### "The station does not work" usually means "not yet"
-
-Two launcher faults produced most of the remote reports, and both made the station look broken when
-it was merely slow or the log was lying:
-
-- **`start-all.bat` opened the browser on a fixed 6-second delay**, while `start-webapp.ps1` allows
-  the web app **90 seconds** to start listening. From a cold start under Program Files the app needs
-  far more than six seconds, so the operator got the browser's "this site cannot be reached" page —
-  which reads as *no internet* — while the station came up fine a minute later. It now polls the
-  port with a `TcpClient` connect (the same thing the browser is about to do, and available on every
-  Windows build) before opening the browser. **If a station reports that screen, ask whether a
-  refresh a minute later works before looking anywhere else.**
-- **A `)` inside a batch `echo` inside an `if (...)` block closes the block.** `echo Started
-  (hidden)` printed `Started (hidden` and then ran the `else` branch, so every successful launch
-  also logged `ERROR: ConsoleHost.exe not found`. Escape as `^(hidden^)` — the rest of that file
-  already did. A log that reports an error on a healthy run is worse than no log.
-
-Also note `publish-logs.ps1` used to run only *before* node started, so the line that says whether
-the app came up ("OK: the web app is serving" / "ERROR: node exited") was always one launch behind
-and never reached the share. It now publishes again after the outcome is known.
-
 ### Verifying a station honestly
 
 The service only brings up the ComServer and the WebSocket. `HTTP 200` on port 3000 proves nothing
@@ -831,6 +810,14 @@ Priority.
 - When handing someone a command to paste, remember **the console prompt is not part of it**.
   Copying `PS C:\...> powershell -File ...` runs `PS`, which is an alias for `Get-Process`, and the
   error message names `Get-Process` rather than anything you recognise.
+- **This repository lives in OneDrive, and OneDrive can hand you a stale copy of a file you are in
+  the middle of editing.** `docs/decisions.md` measured 219 lines and held 8 sections while the real
+  file was 1,331 lines with 52 — a merge was built on the short copy and would have destroyed the
+  rest. What caught it was the commit's own numbers: `git diff --cached --numstat` reported
+  `210 insertions, 0 deletions` when a genuine truncation would have shown ~900 deletions. **After
+  rewriting a whole file, read the staged numstat before trusting the result** — an edit that only
+  adds must show zero deletions, and a large unexplained deletion count means you merged onto a
+  partial copy. `wc -l` on its own will happily confirm the wrong number.
 - **`hostname` before anything else, every time you believe you are on a server.** Two full rounds of
   IIS commands were run on the workstation instead of `MbaCustWeb` and failed with
   `Get-WebBinding is not recognized` — the correct answer for a machine with no IIS. What hid it: a
