@@ -14,9 +14,9 @@ one application:
 | Area | Stack | Notes |
 |------|-------|-------|
 | `Systems/VCT/`, `Systems/Hydra-Group/` | C# **.NET 4.8** | The VCT hardware server. `UnifiedSystemV1.sln`. |
-| `Systems/CustomerPortalApi/`, `InstructionAssistant/`, `Priority/`, `ReportArchiveSync/` | C# **net10.0** | Separate services, own csproj each. |
+| `Systems/CustomerPortalApi/`, `InstructionAssistant/`, `OrderAttachments/`, `Priority/`, `ReportArchiveSync/` | C# **net10.0** | Separate services, own csproj each. Several run as Windows Services **on the same box** — see "Windows services on the MABA machines". |
 | `customer-analysis/` | Node + React + Postgres | QCC Analytics dashboard. Undocumented in README — see below. |
-| `app/` | Next.js | **Its own git repo**, not a submodule. Do not merge it into this one. |
+| `app/` | Next.js | The web app **and** the customer portal. **Its own git repo**, not a submodule — do not merge it into this one, and do not run it from inside OneDrive. |
 | `database/procedures/` | T-SQL | One file per SQL Server object, named `<schema>.<Object>.sql`. |
 | `archive/` | — | Dead code. Not built. |
 
@@ -34,6 +34,16 @@ one application:
 MSBuild lives at `C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe`
 (.NET 4.8 projects will not build with `dotnet build`). The net10.0 services under `Systems/` do use
 `dotnet build` / `dotnet test` normally.
+
+### The order-attachments service (net10)
+```powershell
+dotnet test  Systems/OrderAttachments.Tests      # unit + a live .msg pipeline suite
+dotnet run --project Systems/OrderAttachments    # console mode, listens on 5313
+.\scripts\Install-OrderAttachments-Service.ps1   # installs it as MabaOrderAttachments
+```
+`Systems/OrderAttachments.Tests/LiveMsgPipelineTests.cs` reads real `.msg` files off the Priority
+share; it is skipped where the share is unreachable rather than failing, so a green run does **not**
+prove the conversion path works. Prove that with `/health` and one real PDF.
 
 App on `http://localhost:3000`, WebSocket on `ws://localhost:5001/ws/` (must match
 `NEXT_PUBLIC_WEBSOCKET_URL` in `app\.env.local`).
@@ -62,6 +72,57 @@ There is **no test runner in this project**. Playwright 1.58 is installed at
 `~/AppData/Local/ms-playwright` cache — import it by file URL from a scratch `.mjs` to drive the UI.
 Use `locale: 'en-US'` in the browser context: that is what reproduces locale-dependent bugs here.
 
+### The customer portal web app (`app/`)
+
+`app/` is a **separate git repo** (Qcc-maba): Next.js App Router + tRPC + Prisma over SQL Server.
+It will not run from inside OneDrive — Turbopack cannot resolve the pnpm symlinks there — so the
+working copy lives in a plain local folder outside OneDrive, and every command below is run there.
+The working branch is `stg`; **`main`** is Vercel's Production branch and what `cal` deploys.
+(`origin/HEAD` points at `main` — there is no `master` in that repo.)
+
+**`main` lags `stg` by months, and that makes every release an all-or-nothing one.** On 2026-09-07
+`main` was 205 commits and 639 files behind `stg` — its previous commit was from 10/08. There is no
+way to ship one portal fix to production without shipping everything else on `stg` with it: four
+months of calibration-wizard, coordinator-orders and packing work land the same minute the portal
+does. Merging `stg` → `main` is therefore a **release of the whole internal system**, not a portal
+deploy, and it should be announced as one. Attaching a customer domain to a *branch* deployment is
+not an escape hatch: a branch build is `VERCEL_ENV=preview`, which `env.js` resolves to
+`REMOTE_DATABASE_URL_STAGE`, so the portal would serve customers STAGE data.
+
+That merge conflicts in a handful of files. Take `stg` in each — it is newer and a superset — but
+read `src/env.js` before you do: the database-URL resolution is identical on both sides and the
+conflict there is whitespace only.
+
+```powershell
+npm run dev            # Next dev server on http://localhost:3000
+npm run verify         # the regression suite - run this after every task
+npm run build          # production build
+```
+
+`npm run verify` (`scripts/verify.mjs`) is the "did I break anything" gate. Four sections, ~37
+checks:
+
+| Section | What it proves |
+|---|---|
+| code | `tsc`, `eslint`, `vitest` |
+| sources | no mock module is imported by a customer screen, no hardcoded clock |
+| http | every route answers and `/api/trpc` compiles |
+| browser | signs in, then walks every screen, **every tab and every dialog**; fails on placeholder text or a console error |
+
+It deliberately distinguishes "the dev server stopped answering" from "this screen is broken" —
+believe that distinction, it exists because a dead dev server was repeatedly misread as a regression.
+
+The portal's own API (`Systems/CustomerPortalApi`, net10) is what sends the sign-in code:
+
+```powershell
+dotnet run --project Systems/CustomerPortalApi --urls http://localhost:5314
+```
+
+**Port 5312 is already taken** by the installed MabaInstructionAssistant service, hence 5314. Keep
+`CUSTOMER_PORTAL_API_URL` in the app's env in step with whatever port you pick, and keep
+`CUSTOMER_SESSION_SECRET` identical on both sides or the session cookie the API mints is rejected by
+the app without any error that says so.
+
 ## VCT server architecture
 
 The end-to-end pipeline (full diagram in `docs/architecture.md` §1):
@@ -86,6 +147,84 @@ Points that are not obvious from any single file:
 - **Masters** are reference standards loaded from SQL via `CalibrationRepository.InitMasters`; they
   apply a correction curve to readings.
 - Adding a device is a fixed recipe — follow `docs/architecture.md` §4 rather than improvising.
+
+### Instrument bring-up (`docs/devices/`)
+
+`docs/devices/` is split by what an instrument does, and the code folders mirror it:
+`electronics/` (volts, current, frequency, power) and `temperature/`. The folder split is
+**organisational only** — namespaces stayed `...HydraDevices.BLCore` / `...HydraDevices.Device` with
+no extra level, so a `TypeName` in `ComServerSettings.Modules` does not change when a file moves.
+`ComServer.BL.csproj` lists every file explicitly, so **a move that does not update the csproj
+silently drops the file from the build.**
+
+Nine electronics instruments have BLs. Each has a `protocol.md` whose status header states plainly
+whether it was verified against hardware or written from a manual — trust that header, and do not
+promote a device to "verified" without a capture.
+
+**The one rule every source instrument enforces:** the command that energises an output is built,
+marked, and **never issued from an init sequence or a read loop** — only from an explicit commanded
+target. Tests assert this per device (no init step is the energise command; the init *ends*
+de-energised; a setpoint command carries no output-enable). Keep that shape when adding a source.
+
+### Instrument gotchas that cost real time
+
+- **`?` is not always the last character of a query.** `:MEASure:VPP? CHANnel1` is a query with an
+  argument. Detecting queries with `EndsWith("?")` means the reply is never read and the session
+  stalls after one measurement. `VisaCom.IsQuery` / `GpibCom.IsQuery` scan for `?` anywhere.
+- **A frequency counter with no input signal blocks forever.** It waits for edges and never returns a
+  terminator, wedging the session. Both counters guard by measuring *voltage* first (a query that
+  always answers) and skipping the frequency query when the input is dead.
+- **A SCPI query can have side effects.** On the Fluke 5322A, `SAF:<function>?` *selects* that
+  function. A polling loop that reads a setpoint unconditionally drags the calibrator out of whatever
+  the operator chose, every tick. Read the mode first, then ask only for the mode you are already in.
+- **`*IDN?` can report a different model depending on a front-panel menu** (5322A vs 5320A
+  emulation). Identification matches both spellings and normalises to one SN.
+- **Only one interface is active at a time** on most of these instruments (5522A `HOST`, 5322A
+  `Setup > Interface > Active interface`, M-142 `8. Interface`). Selecting GPIB makes the serial and
+  USB ports *silently dead* — total silence, never an error.
+- **Two kinds of instrument USB.** A virtual COM port (CDC) needs no NI software at all; **USBTMC**
+  needs NI-VISA both for its kernel driver and for `visa32.dll`. The scope and the Siglent generator
+  are USBTMC; the 5322A's USB is a plain COM port.
+- **Reply terminators vary and are not documented consistently.** The Pendulum CNT-90 ends replies
+  with `
+` only. Code that expects CRLF reports a corruption that is not there.
+- **Settings files must be written with `FileMode.Create`.** `OpenOrCreate` does not truncate, so
+  saving a shorter file over a longer one leaves valid JSON followed by a garbage tail. Fixed in the
+  three VCT settings classes; **`Libraries/Connectors/JSON/FileReadWrite.cs` still has it**, so
+  anything using that helper inherits the bug.
+
+### NI-488.2 / NI-VISA on a station
+
+- **The VCT server is x86** (`gpib-32.dll` ships 32-bit only), so it needs the **32-bit** VISA
+  runtime in `SysWOW64`. A 64-bit-only VISA install leaves the server unable to open any USBTMC
+  instrument while every GUI tool still works.
+- **NI-488.2 and NI-VISA share components.** Uninstalling NI-488.2 also removes 32-bit `visa32.dll`,
+  which kills USBTMC for instruments that have nothing to do with GPIB.
+- **A GPIB adapter can enumerate perfectly with no driver bound.** Device Manager shows `Status OK`
+  and error code 0, NI MAX lists it by its raw `USB\VID_...` path and says "Windows does not have a
+  driver associated with your device", the `ni488k` driver stays `Stopped`, no board is registered,
+  and VISA answers `0xBFFF00A5` ("interface number not configured") on `GPIB0::INTFC`. This happens
+  when NI-488.2 is installed while the adapter is already plugged in. Fix from an **elevated** prompt
+  with `pnputil /add-driver` on the staged `ni488.inf` followed by `pnputil /scan-devices`. The tell
+  that it worked: the device renames itself from `GPIB-USB-HS+` to **`NI GPIB-USB-HS+`**.
+- `viFindRsrc("GPIB?*INSTR")` is not a reliable bus scan — it depends on what is registered in NI
+  MAX. `TransportDiscovery.FindGpibListeners` asks the driver directly (`FindLstn`) as a fallback,
+  which finds instruments VISA misses.
+
+### Reading a failed serial port
+
+The error from `SerialPort.Open()` distinguishes four very different faults, and guessing wastes
+hours:
+
+| Error | Meaning |
+|---|---|
+| `A device which does not exist was specified` | stale registry entry, no device behind it |
+| `A device attached to the system is not functioning` | device present, driver refuses it — the counterfeit-chip signature |
+| `Access denied` | another process holds the port |
+| opens fine, then silence | cable, baud rate, or the instrument's interface setting |
+
+Counterfeit PL2303 and CH340 adapters enumerate cleanly, show no warning icon, use the genuine
+VID/PID, and fail **every** open at **every** baud rate. Two of them have appeared on this bench.
 
 ## customer-analysis architecture
 
@@ -135,6 +274,197 @@ prefix is mandatory because both it and the dashboard define `/api/customers`. T
 Server deps are bundled into `dist/index.cjs` per the allowlist in `script/build.ts`; the deploy
 swaps `dist` without running `npm install`, so a new server dependency that is not on that list
 takes the whole service down at startup.
+
+## The customer portal — where it runs, who the user is, and how it reads Priority
+
+The portal is the customer-facing half of `app/`. Two Vercel deployments: **`cal.qcc.co.il`** (prod,
+reads `CalibratorProd`) and **`stg.qcc.co.il`** (staging, reads `Calibrator`). Everything below was
+measured; don't re-derive it from assumptions about where a Vercel site lives.
+
+**The functions do not run on our servers, and not in Israel.** The response header
+`X-Vercel-Id: fra1::iad1::…` reads *PoP that received the request* :: *region that executed it*, and
+`iad1` is **AWS us-east-1**. So the connection to SQL on 1433 leaves from Virginia, not from the
+office. Any firewall or Security-Group rule that allow-lists "our" addresses kills both sites while
+everything still looks healthy from inside the office — which is exactly what happened on 2026-09-08.
+`docs/IT-REQUEST-sql-firewall.md` holds the diagnosis and the request that fixed it. The durable fix
+is Vercel **Secure Compute** (a static egress IP, so one `/32` rule like the office's); it is not yet
+enabled.
+
+**Telling a network problem from a code problem in ten seconds:**
+
+```
+curl https://stg.qcc.co.il/api/health/db
+```
+
+`/api/health/db` runs `SELECT 1` and returns `{database, ms, name, code}` — never the driver message
+and never the connection string, because the endpoint is public. Read the *shape* of the failure:
+
+| Symptom | Meaning |
+|---|---|
+| `{"database":"ok"}` in under a second | the path is open — look at the code |
+| timeout at **almost exactly 10.0s** | Prisma's connect timeout: packets are being dropped, i.e. a Security Group / firewall |
+| immediate refusal | the service is down, or the port is closed at the OS |
+| fast rejection | credentials |
+
+Ten seconds of silence is never a wrong password — a wrong password is refused instantly.
+
+### The identity chain
+
+A portal login is an **e-mail address, and an e-mail address is not one customer.** Three procedures,
+in order:
+
+1. `dbo.GetPortalCustomerIds` — every customer the address is a contact of. When it is attached to
+   several, **the customer that actually has devices wins**. That rule exists because a contact left
+   behind on a dead customer record was signing a real person into an empty portal under the wrong
+   company name.
+2. `dbo.CreateCustomerPortalOtp` — issues the code. Rate limit **5 per 900s**; a repeated test loop
+   trips it and the screen then says "שליחת הקוד נכשלה" for reasons that have nothing to do with mail.
+3. `dbo.GetCustomerPortalContactByEmail` — the session's contact, and the name the mail is addressed to.
+
+`CustomerAuthService` has a development sign-in code, gated on the Development environment **and** a
+loopback caller. It must **not** suppress sending the real mail — it did for one session, and the
+only visible symptom was "the mail never arrives". Development tolerates a send *failure*; it never
+skips the send.
+
+### Priority is the source of truth, and nothing is ever deleted from it
+
+A contact that disappears from Priority is marked **inactive**, never removed.
+`CustomerContacts.IsActive` carries `PHONEBOOK.INACTIVE` through
+`stg.LoadCustomerContactsFromPriority` → `stg.MergeCustomersContactsData`, and the portal procedures
+filter on it. Deleting rows to make a screen behave is not an option, in either direction.
+
+### Reading Priority through the linked server — traps that cost a day each
+
+- **Put the whole statement inside `OPENQUERY`.** The invoice→attachment join written with
+  four-part names issued one remote call per row: **65 seconds** for 1,361 invoices. The identical
+  join pushed entirely into `OPENQUERY` runs in **0.7–0.8s**.
+- **`dbo.fnUnreverseVisualText` is for display text, not for identifiers.** Priority stores Hebrew in
+  visual (reversed) order, so contact and product names must be un-reversed — but running it over an
+  attachment *path* reverses the ASCII path too and nothing opens. `GetCustomerInvoicesFromPriority`
+  therefore returns only the ASCII **directory** from `EXTFILES`, and the API picks the PDF inside it
+  by file size.
+- Cross-server joins fail with `Cannot resolve the collation conflict between
+  Latin1_General_100_CI_AI_SC and Hebrew_BIN`. Add an explicit `COLLATE Hebrew_BIN` on the compared
+  column.
+- Invoice numbers beginning with **`K`** are receipts (קבלה), not invoices, and correctly have no
+  document. The document type comes from `IVTYPES.IVDES`; `OTYPE = 'C'` filters to the customer side.
+- Only a minority of invoices have a stored attachment at all — 156 of 1,361 for the customer this
+  was built against. "No document" is usually the truth, not a bug.
+
+### Next.js / tRPC behaviour that looks like a bug and is not
+
+- **A new route file 404s until the dev server is restarted.** `/customer` and `/api/health/db` each
+  "did not work" for this reason alone.
+- **`loggerLink` logs only in dev, or when the result is an `Error`.** In production a tRPC failure
+  reaches the browser as a bare 500 with the stack stripped — which is the whole reason
+  `/api/health/db` exists.
+- **A screen's `innerText` says nothing about a form.** Inputs carry their content in `.value`; a
+  profile screen that read as empty was fully populated. Check `input.value` before reporting missing
+  data.
+- **A Playwright page in a fresh context has no session cookie**, and a dialog left open makes the
+  body inert — both produced "sign-out is broken" reports that were the harness, not the app.
+  Playwright itself is borrowed from the sibling `maba2000-web/frontend` checkout, and the
+  machine-level `PLAYWRIGHT_BROWSERS_PATH` points at a *different* build: point it at the per-user
+  `ms-playwright` cache or you get "Executable doesn't exist".
+- The pre-commit hook type-checks `.next/types/validator.ts`, which goes stale and references routes
+  that no longer exist — delete the file rather than the route. `scripts/*.mjs` sits outside
+  `tsconfig`, so the type-aware eslint rules cannot parse it; it is ignored in `eslint.config.js` on
+  purpose.
+- When the dev server dies mid-run, delete `.next` and start it **detached** — a server started from
+  a tool call dies with the call.
+- **A `not-found.tsx` inside a route segment does not catch unmatched addresses.** It catches only a
+  `notFound()` thrown by a page in that segment. A URL matching *no route at all* reaches the **root**
+  `app/not-found.tsx` and nothing else. A segment-level file therefore looks like it works — it
+  renders for every case you test by calling `notFound()` — and does nothing for the case you wrote it
+  for. Verified by request, not by reading: the segment file was in place and
+  `/customer/does-not-exist` still returned Next's built-in *"404: This page could not be found."*
+- Because the root boundary answers for **both audiences**, anything rendered there has to read the
+  `host` to know whether it is talking to a customer or to a coordinator. `cal.qcc.co.il` showing
+  "back to portal" walks an internal user out of the system they were using.
+
+## Windows services on the MABA machines
+
+Three of these services are installed **on the same host**, and that fact is the source of the worst
+class of bug in this repo: a service that works perfectly until another one is installed, then breaks
+the *other* one, silently, at a distance.
+
+| Service | Port | Reads its URL from |
+|---|---|---|
+| `MabaInstructionAssistant` | 5311 | its own key |
+| `Maba.VCT.CustomerPortalApi` | 5312 | its own key |
+| `MabaOrderAttachments` | 5313 | `OrderAttachments__Urls` |
+
+**Never configure one of these through a variable another process also reads.** Two concrete failures,
+both mine, both the same shape:
+
+- **`ASPNETCORE_URLS` is machine-wide and every ASP.NET service on the box reads it.** Each installer
+  set it, so whichever ran last silently repointed the other service. On 2026-09-07 both ended up on
+  5312: the portal won the port and answered `/health` for requests meant for the attachments service,
+  which was in a crash loop with `Failed to bind to address http://127.0.0.1:5312: address already in
+  use`. The fix is a key only that service knows about (`OrderAttachments__Urls`), read in
+  `Program.cs` via `builder.WebHost.UseUrls(...)`.
+- **`PLAYWRIGHT_BROWSERS_PATH` is read by every Playwright on the box.** Setting it machine-wide so a
+  service account could find Chromium also redirected the *frontend's* Playwright, which pins
+  chromium-**1208**, into a directory holding only **1234** — "Executable doesn't exist", in a project
+  nobody had touched. The fix is `Environment.SetEnvironmentVariable` inside `Program.cs`, which
+  affects that process and the driver it spawns and nothing else.
+
+The general rule: **a setting that configures one service must not be reachable by another.** If the
+only way to set it is a machine-wide variable, set it in-process instead.
+
+Installing them, the parts that are not obvious:
+
+- **A service secret must be `Machine` scope**, not `User`. A `LocalSystem` service does not read a
+  user-scope variable, and the failure is a null connection string at startup.
+- **Use `New-Service -Credential`, not `sc.exe`.** `sc.exe create ... password= ...` puts the password
+  on the command line and fails with **exit 1639** (invalid command line) on anything with special
+  characters in it.
+- **A domain account needs "Log on as a service" granted first**, or the service fails to start with
+  **error 1069** and no other clue. Grant `SeServiceLogonRight` with `secedit` as part of the install.
+- **Validate a typed password before using it** (`PrincipalContext.ValidateCredentials`). An
+  installer that reads a password blind and hands it to `New-Service` reports "the password is wrong"
+  when what actually happened is that it was mistyped into a masked prompt.
+- **`\\tsclient\...` exists only inside an RDP session.** Commands handed to someone to run "on the
+  server" must not use it, and a `\\tsclient` failure usually means they ran it on their own machine.
+
+## The order-attachments service (MBA-930)
+
+Serves the documents Priority hangs off an order — quotes, mail threads, drawings — to the calibrator,
+converted to PDF. `Systems/OrderAttachments/`, listening on 5313, plus five SQL objects and a proxy
+route in `app/`.
+
+```
+Priority EXTFILES --(OPENQUERY, cached)--> dbo.CrmOrderAttachments
+                                                   |
+  browser --> app /api/order-attachments/... --> :5313 --> convert --> PDF cache on disk
+```
+
+**The cache table is refreshed, not queried live.** `dbo.RefreshOrderAttachmentsCache` does the whole
+`TYPE='O'` set in **one** `OPENQUERY` round-trip and MERGEs it; `@IncrementalOnly BIT = 0` follows the
+house dry-run convention. The read side is `dbo.GetOrderAttachmentsByOrder` (one row per file) and
+`dbo.GetOrderAttachmentCounts` (batched by CSV of order ids, because the work-assignment grid renders
+a page of orders and must not issue one call per row).
+
+Four things about the Priority data that will mislead you:
+
+- **The key is `(order, EXTFILENUM)`, not `(order, LINE)`.** `LINE` has three distinct values in the
+  whole table and repeats within an order — order 106663 has two files, both `LINE = 0`. Measured:
+  `distinct (IV, EXTFILENUM)` = 15,326 = the row count; `distinct (IV, LINE)` = 13,239. Keying on
+  `LINE` gives a primary-key violation on the first full rebuild, and an order can hold **12** files,
+  not 4.
+- **`EXTFILES.FILESIZE` is not the file size.** 15,225 of 15,326 rows report `74`, which is the length
+  of the path string. A row reporting `74` was a 522,752-byte `.msg`. It is deliberately not cached —
+  do not use it to pick "the real document".
+- **Paths are truncated at 80 characters.** `LEN(RTRIM(path)) >= 80` flags exactly 35 rows; those
+  files cannot be opened and the UI must say so rather than showing a broken button.
+- `.msg` files carry **Windows-1255**, and .NET ships only Unicode code pages. Without
+  `CodePagesEncodingProvider` every Hebrew mail fails at runtime with *"No data is available for
+  encoding 1252"* — while `NU1510` insists the `System.Text.Encoding.CodePages` package is
+  unnecessary and the project compiles fine without it. That warning is suppressed on purpose.
+
+**A document that cannot be converted must still be visible.** The list returns such parts with an
+`Error` instead of omitting them, and the endpoint answers **422**, not 500 — the request was valid,
+this one document just cannot become a PDF. The calibrator needs to know the document exists.
 
 ## The calibration station installer
 
@@ -299,6 +629,13 @@ Priority.
   100% score and therefore a wrong part number and price. If both sides carry letters they must agree.
 - Priority dates are minutes since 1988 in some tables; `3000-12-31` is a "never" sentinel, not a
   write timestamp. Don't read either as freshness.
+- **Priority stores text in VISUAL order.** Hebrew therefore reads correctly only after
+  `dbo.fnUnreverseVisualText`, but every Latin/digit run inside it comes back reversed. The function
+  peels **trailing `:;!?` only**, and only when the run does not also *start* with one of them — so
+  `RE:` survives instead of becoming `:RE`. Deliberately excluded: `.` and `,` (decimal separators —
+  a wider set turned the device description `'5000.` into `0005'.` in 24 rows) and brackets (mirrored
+  pairs must travel with the reversal). **Before changing this function, measure how many existing
+  rows its output changes** — it is used by display code all over the portal.
 
 ## Windows / PowerShell gotchas that will bite
 
@@ -361,6 +698,37 @@ usually names the exact identifier.
   findings this session reversed earlier ones.
 - Terminology: **"calibrator" means כייל, a person.** Internal/external calibrator, not
   internal/external calibration.
+- **Nothing is ever deleted from Priority, or because of Priority.** "שיביא אותם במצב INACTIVE זה
+  בסדר. אסור להמחק מהפריוריטי." When a record should stop appearing, carry a flag; do not remove a
+  row on either side.
+- **Never echo a password, and never write one into a document.** Connection secrets live in env
+  files only — not in runbooks, not in tickets, not in terminal output, not in a commit message.
+- **`app/` is front-end work that normally belongs to Dako** — a Jira US plus a `reference/*` branch,
+  not a direct edit. The user does override this and ask for direct fixes; treat the override as
+  covering that request, not as a standing licence.
+- **Deploy a procedure to STAGE *and* PROD, or say plainly that you did not.** Half of the SQL from a
+  session ending up on STAGE only is the single most common way this repo ends up with
+  "works here, missing there" bugs. `Compare-Schema.ps1` will show it; `docs/decisions.md` lists what
+  is currently one-sided.
+- **Change one variable at a time before attributing a hardware fault.** A bit-level corruption was
+  measured on two GPIB instruments and blamed on the shared adapter, with a table of numbers behind
+  it. The numbers were right; the attribution was wrong, because a broken driver had changed at the
+  same time. Only reading the suspect instrument back on a *proven* adapter settled it, and by then
+  the user had been told to replace a working adapter. When two things changed, say so and isolate,
+  rather than presenting the stronger-sounding conclusion.
+- **Settings should follow the instrument, not the other way round.** "אני רוצה שההגדרות יהיו
+  נקיות ולא תלויות במכשיר." Config is not the place to name ports, baud rates and addresses per
+  device; discover what is attached and key everything off the identification reply.
+- **A default that is wrong for a whole class is a bug, not a detail.** Every instrument broadcast
+  `Celsius` because that was the historic default — "בגדול מכשיר שמודד אלקטרוניקה ערך ברירת
+  המחדל צריך להיות וולט." Fixing it required reading what the existing enum members actually meant
+  rather than what they were named — see decision 11.
+- **Explain the mechanism, not just the conclusion.** "לא הבנתי מה אתה רוצה שאני אעשה" and
+  "איך זה קשור ל-USB?" both followed answers that were technically complete and practically useless.
+  When asking for a physical action, name the instrument, the panel, and the button.
+
+- **Finish the walk before reporting.** "אתה צריך לבדוק את כל הטאבים והפופאפים" — a screen that loads
+  is not a screen that works; open every tab and every dialog on it.
 
 ## Small mechanical traps
 

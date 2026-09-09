@@ -176,6 +176,174 @@ real employees behind a customer nobody will open again.
 
 ---
 
+## 9. The calibration station reads from AWS, not from anything on-prem
+
+**Context.** The starting request was "the station should run locally against a local database, not
+against Amazon, to prevent slowness". Taken at face value that means an on-prem copy of the app
+database.
+
+**Measured, before building anything further.** One connection plus **one** query to AWS took
+692 ms. One connection plus **twenty** queries took 688 ms. Per-query latency is effectively zero;
+the whole cost is one connection setup, once, at startup — and the master-correction load is
+explicitly a one-time call. There was no slowness to remove.
+
+**Chosen.** The station connects to `CalibratorProd` on AWS. The user's own correction of the
+premise settles it: the local server *feeds* Priority data toward AWS, and the calibration stations
+read from AWS. AWS is the end of the chain and the only place holding the app schema.
+
+**Rejected — an on-prem `CalibratorLocal` on the PRI instance.** It was built and dropped the same
+day. Five incompatibilities surfaced in order:
+
+| # | What | Cost |
+|---|------|------|
+| 1 | AWS is SQL Server 2022, PRI is 2019 | forced through with `AllowIncompatiblePlatform` |
+| 2 | PRI's `model` sits at **compatibility level 110**, so every new database inherits it and `OPENJSON` is a *syntax* error | create the DB explicitly at 150, publish with `CreateNewDatabase=false` |
+| 3 | PRI's server collation is `Hebrew_BIN`; the AWS database is `Latin1_General_100_CI_AI_SC` | `CREATE DATABASE ... COLLATE` explicitly |
+| 4 | 16 procedures `OPENQUERY` a linked server PRI does not define | a loopback linked server, provider `MSOLEDBSQL` — `SQLNCLI` is not registered there |
+| 5 | **tempdb is case sensitive** (it follows the server collation), and temp-table identifier resolution uses it — two procedures reference a temp column with the wrong case and will not even `CREATE` | would require editing the application's own SQL |
+
+Number 5 ended it. It cannot be worked around without changing the app's procedures, and rebuilding
+the collation of a production Priority server is not on the table — so the copy would have
+permanently diverged from AWS. See also decision 5, which reached the same conclusion from the
+internal/external angle.
+
+**Rejected — LocalDB as the station database.** Verified rather than assumed: Prisma's SQL Server
+connector speaks TCP only. `sqlserver://host:port` parses and fails to *connect*, while both
+`sqlserver://(localdb)\MSSQLLocalDB` and `sqlserver://localhost\MSSQLLocalDB` fail to *parse* —
+P1013 against P1001 is what tells the two apart. LocalDB exposes a named pipe and owns no TCP
+listener; there were zero listeners on the box. The C# ComServer would have worked, the web app
+never could.
+
+**Rejected — `.bacpac` for moving schema plus data.** `sqlpackage /Action:Export` refuses external
+references and 16 procedures reference a linked server (SQL71562). `/Action:Extract` with
+`ExtractAllTableData=true` produces a `.dacpac` with the same content and no such restriction.
+
+---
+
+## 10. NI-488.2 is not in the installer
+
+**Chosen.** Stations that need GPIB get NI-488.2 installed separately. Setup still *detects* it and
+records the outcome in `install.log`, because the symptom of a missing driver is an empty graph:
+expensive to diagnose remotely, cheap to read from a log.
+
+**Rejected — bundling it, which is what v1.6.3 through v1.6.6 actually shipped.** NI's ~9 MB online
+installer downloads several hundred MB while it runs, turning a **3-minute** station install into
+**15 minutes**, on every machine, for hardware most benches do not have. Removed in v1.6.7.
+
+**Rejected — the full offline package (~GB).** Solves the download, makes the installer unshippable
+over the network.
+
+**Rejected — a Select-Tasks checkbox to skip it.** Built, then deleted along with the driver. It
+made the 15 minutes optional rather than absent, and it put a question to the operator that the
+operator cannot answer at install time.
+
+**Worth keeping:** the detection itself was wrong at first and reported the driver missing on a
+machine that had it. `gpib-32.dll` is the 32-bit DLL the ComServer loads, so on x64 it lives under
+SysWOW64 rather than the `sys` constant, and NI registers under `Wow6432Node`, which a 64-bit
+install does not read by default. Both checks were added.
+
+---
+
+## 11. Installer behaviour
+
+**Progress is reported by hand.** The post-install commands are hidden and blocking, so Inno's own
+gauge — already full by then — showed nothing for minutes and read as a hang. It is reset and
+stepped per task with a caption naming the step. No message pump is added because none exists in
+this dialect.
+
+**Autostart is a Startup shortcut, not a service.** *Rejected: running the web app as a second
+Windows service.* The existing service restores the ComServer and the WebSocket only; after a
+reboot the UI is not running until something starts it, and the launcher script is what does that,
+with its logging and its `REMOTE_DATABASE_URL` derivation. A service wrapper would have to
+reimplement both.
+
+**The desktop shortcut is created by default.** Leaving it opt-in meant a default or silent install
+put no icon anywhere except the Start menu.
+
+**A previous installation found in another folder is removed.** *Rejected: allowing side-by-side
+installs.* There is one AppId, one service name and one set of shortcuts, so a second install is
+never a second working station — only an orphan that no longer appears in Add/Remove Programs and
+whose ComServer can still take a COM port or port 3000 from the real one. Seven accumulated on the
+bench in one day. The removal is deliberately narrow: it skips the folder being installed into and
+refuses to touch a folder that no longer contains our launcher or ComServer. `Settings\` is
+preserved by `[InstallDelete]` on purpose — a station's tunnel and device configuration lives there.
+
+**`*.bak` is excluded from the ComServer payload.** A config backup left beside the exe carries the
+previous connection string, password included.
+
+---
+
+## 12. Wizard and device-list fixes
+
+All four were reported by the user one at a time and fixed directly in the app repo, which is the
+exception to the standing rule that front-end work goes to Dako — the user asked for the fixes in
+the moment.
+
+**Secondary category belongs to the device, not to the order.** The wizard chose its flow with
+`.some()` over every device in the order, OR'd with the device's *saved* category, so one sensor
+device anywhere forced the 3-step sensor flow onto all of them and an operator's fresh pick was
+overridden by what was stored. `onDeviceClick` / `moveToNextDevice` had always resolved per device;
+the flow decision now agrees with them. *Rejected: keeping the order-level flow and adding an
+override* — an external-calibration order legitimately carries devices of different categories, so
+there is no correct order-level answer to override.
+
+**Units stay as names on the wire.** The WebSocket payload carries `Units:"Celsius"`. *Rejected:
+converting in the server* — it would break the unit tests and every consumer that treats the value
+as an identifier. The degree-symbol rendering is a client concern.
+
+**Channel auto-fill runs for the whole diagram, not per point.** Each point derives its options from
+the same `points` state, so five points auto-filling in one render all saw an empty taken-set and
+all claimed channel 1.
+
+**The logger's COM port comes from the calibrator's configuration.** `GetAllCalibrationDevices`
+returns a free-text `Connection` ("RS-232", "USB + LAN") that is neither `COM` nor `IP`, so
+normalisation fell through to the first option — IP — and the port defaulted to COM1. The configured
+values live only on `GetLogersConfiguredByCalibrator` (`CommunicationProtocol` /
+`CommunicationDetails`) and were being discarded. `COM` now leads the option list so an unreadable
+protocol falls back to COM/COM1 rather than IP.
+
+---
+
+## 13. Transport rediscovery: a separate 30-second timer
+
+**Context.** MBA-962 item 4. Discovery ran once, at startup. Unplugging a logger and plugging it
+back in therefore ended the session permanently: the pending device is dropped the moment its link
+reports disconnected, and nothing ever looked again. The app's "manual refresh" only redraws the
+client.
+
+**Chosen.** A second timer in `ServerCore`, default 30 s, configurable through
+`VCTSettings.RediscoverIntervalSeconds` (0 disables). Transports already held are passed in as
+claimed; discovery logs its phase so a line reads `[STARTUP]` or `[REDISCOVER]`.
+
+**Rejected — a counter inside the 2-second device tick.** A serial pass physically opens each
+candidate port and waits for `*IDN?`. On the tick thread that stalls every live device for the
+duration — the same starvation an absent GPIB instrument already causes.
+
+**Rejected — rediscovering at tick frequency.** The probe disturbs instruments that may be
+mid-measurement, for no benefit.
+
+**Why claimed transports matter.** For serial it only saves a pointless probe (Windows refuses a
+second open even from the same process). For GPIB and VISA it is load-bearing: enumeration opens
+nothing, so a pass would otherwise add a second tunnel for an address that is already live.
+
+**Not yet built, and it is the larger half of the ticket.** There are three kinds of disconnect and
+this addresses one. See "In flight" below.
+
+---
+
+## 14. Working agreements confirmed this session
+
+- **Front-end work normally goes to Dako** as a Jira US plus a `reference/*` branch; `app/` is its
+  own git repository. Direct edits happen only when asked for explicitly, as they were here.
+- **Do not report a verification you did not perform.** Two claims had to be retracted: "the web app
+  returns HTTP 200" was measuring a `next dev` server that happened to own the same port while the
+  installed app had quietly lost the race and died, and a "PASS" on channel uniqueness was vacuous
+  because the selector matched nothing. Check what the measurement is actually measuring.
+- **One command per message when the user is running things on a station.** A list of steps produced
+  "I do not understand what you want me to do"; a single command per message did not.
+
+---
+
 ## In flight — nothing here is finished
 
 **Deployed to STAGE only; PROD has none of it.** `IsInactiveInSource` and
@@ -217,3 +385,45 @@ was a regex artifact and was retracted, see decision 5.
 it was not worked around. Nothing was created on PRI. Two other scratch scripts sit beside it from the
 STAGE deployment; they print a full verification and are safe to re-read before reuse, but they are
 scratch, not part of the build.
+
+### Station installer and MBA-962 (added later the same day)
+
+**v1.6.9 has not been built, and the rediscovery code has never been compiled.** The `ServerCore`
+rediscovery timer and `VCTSettings.RediscoverIntervalSeconds` (decision 13) are written and
+committed but no build has run over them. Compile before believing any of it. The last installer
+actually built and installed is **1.6.8**, which does *not* contain them.
+
+**MBA-962 is one quarter done.** The user's four answers map to:
+
+1. *Check* — needs the person on the affected station to retest on 1.6.8. Not reproducible here.
+2. *The two-loggers-connected indicator is a UI badge* — client-side, unverified, untouched.
+3. *Units should render as symbols* — client-side (decision 12), untouched.
+4. *Fix the disconnect* — only the **communication** case is addressed.
+
+**Two of the three disconnect kinds are diagnosed and unfixed.** The user named three: power,
+communication, channels.
+
+- **Power.** A power-cycled logger comes back with its scan configuration gone. The link reports
+  connected again, but `DataRestored` never fires and no session re-sends the setup sequence.
+  Rediscovery cannot help: the port is still held, so nothing looks like a new device. This needs
+  re-initialisation on reconnect, which does not exist.
+- **Channels.** `Hydra2DeviceBL.cs` (~line 491) `continue`s silently when a reading is
+  `>= 9000000000`, the sentinel a disconnected channel returns. No alert, no log line, no client
+  message — the calibration proceeds with fewer points than the operator asked for and nothing on
+  screen says so. This is the most dangerous of the three because it is invisible.
+- **Communication** is the case decision 13 covers, and only once it is compiled and shipped.
+
+**The app repo has uncommitted work.** `src/server/api/root.ts` and the paths module are modified to
+wire in an `order-approval` feature whose files are entirely untracked. The committed
+station-related app changes end at the per-device calibration flow, channel auto-fill, device-logger
+and master-device work.
+
+**`correction.log` grows without bound** and reached 53 MB on the bench machine. Nothing rotates it.
+
+**`Installer/drivers/` is gitignored.** Harmless while decision 10 stands, but if a driver entry
+ever returns, a fresh clone will fail to build with a missing-file error that does not say why.
+
+**Remote diagnostics for a customer station exist but are ad hoc.** `assets/publish-logs.ps1` ships
+logs to a per-machine folder on the share at every launch, and the scratch verification scripts
+written for the remote station are scratch — they were pasted one command at a time, not packaged.
+If station support becomes routine, that packaging is the missing piece.
