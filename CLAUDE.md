@@ -969,6 +969,10 @@ usually names the exact identifier.
   before believing the server is at fault.
 - A heredoc in the Bash tool eats backslash escapes; write files containing `'\'` with the Write
   tool instead.
+- **PowerShell here-string syntax (`@'...'@`) in the Bash tool is not parsed** — the `@` and the
+  newline are passed through as literal text. Handed to `git commit -m`, it ships a subject reading
+  `@ docs: ...`. Use a real heredoc (`-F - <<'MSG'`) for any multi-line string, and remember the two
+  tools take different syntax even in the same session.
 - Several `.config` files in this repo carry plaintext database passwords. Don't add more, don't echo
   them into terminal output, and don't paste them into commit messages or docs.
 

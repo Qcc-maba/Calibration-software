@@ -1,6 +1,6 @@
 ---
 name: committing-work
-description: Commit and push work in the Calibration-software and app repositories. Use when landing uncommitted changes, choosing a branch to push to, deciding what must never be committed, or getting a commit past the app repo's pre-commit hook.
+description: Commit and push work in the Calibration-software and app repositories. Use when landing uncommitted changes, choosing a branch to push to, deciding what must never be committed, or getting a commit past the app repo's pre-commit hook. Also use when work seems to have vanished - a staged diff that came back empty, a file changing under you, or a commit you did not make carrying your changes - because another agent session edits this tree at the same time.
 ---
 
 # Committing work in these two repositories
@@ -63,6 +63,32 @@ Before reporting "committed", check `git log -3` and confirm a commit you recogn
 If it was swept in, say so and name the commits that carry it rather than claiming the commit as
 yours. If you must be sure the work lands under its own message, commit it before starting the next
 file rather than staging everything and committing at the end.
+
+Three further symptoms of the same thing, all measured in one session:
+
+- **A staged diff can evaporate between two commands.** `git add` on two files reported 268
+  insertions; minutes later `git diff --cached` on the same paths returned *nothing*, because the
+  other session had committed them in between and the index now matched HEAD. An empty staged diff
+  after a successful `git add` means HEAD moved — check `git log` before re-editing anything.
+- **Append; do not restructure.** An edit appended to the end of a file survived five HEAD moves in
+  twenty minutes. A structural insert into the middle of the same file would have collided with
+  every one of them. When a file may be held by another session, add at the end and leave reordering
+  to whoever finds the file quiet.
+- **The tool warning is the signal.** "the file had been modified on disk since you last read it",
+  on an edit that still applied cleanly, means exactly this situation. Do not re-read and re-apply —
+  confirm your own section is present by name (`grep -c`) and move on.
+
+Two ways to be wrong about it. Reading a file once and trusting the line count later: one file went
+429 → 851 → 1,019 → 1,330 lines inside a single session. And shipping a claim about a shared file
+that has since stopped being true — a note added at 12:50 saying the section numbering was duplicated
+was false by 12:53, because a parallel session had de-duplicated it. Re-check before you ship.
+
+## Multi-line commit messages: the Bash tool is not PowerShell
+
+`git commit -m @'...'@` is PowerShell here-string syntax. The Bash tool does not parse it, so the `@`
+and the newline become part of the message and the subject ships as `@ docs: ...`. Use a real
+heredoc — `git commit -F - <<'MSG'` — for anything multi-line. Amending an unpushed commit to fix a
+mangled subject is the right call and is not the "prefer a new commit over amending" case.
 
 ## Grouping
 

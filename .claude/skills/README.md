@@ -8,7 +8,7 @@ reference files it points at. The description is what decides whether a skill ge
 |---|---|
 | [bringing-up-an-instrument](bringing-up-an-instrument/SKILL.md) | adding or verifying an instrument on the VCT server, or one that is connected but not identified, returns corrupted replies, or measures nothing |
 | [changing-a-database](changing-a-database/SKILL.md) | a task needs a schema change, a new stored procedure or a one-off data fix on Calibrator/CalibratorProd |
-| [committing-work](committing-work/SKILL.md) | landing uncommitted changes, choosing where to push, deciding what must never be committed, or fighting the app repo's pre-commit hook |
+| [committing-work](committing-work/SKILL.md) | landing uncommitted changes, choosing where to push, deciding what must never be committed, fighting the app repo's pre-commit hook, or work that seems to have vanished because another session is committing the same tree |
 | [diagnosing-a-station](diagnosing-a-station/SKILL.md) | a station is reported broken, blank or "no internet", or a logger stops recording, and you cannot sit at the machine |
 | [exposing-a-service-publicly](exposing-a-service-publicly/SKILL.md) | a service has to answer a public hostname over TLS, a reverse-proxy rule returns 404 or 500, or a new hostname is served the wrong certificate |
 | [installing-a-windows-service](installing-a-windows-service/SKILL.md) | installing, moving or re-pointing one of the net10 services on a MABA server, or one starts and answers nothing, or installing one appears to break an unrelated project |
