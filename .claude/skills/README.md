@@ -6,6 +6,7 @@ reference files it points at. The description is what decides whether a skill ge
 
 | Skill | Use it when |
 |---|---|
+| [changing-a-database](changing-a-database/SKILL.md) | a task needs a schema change, a new stored procedure or a one-off data fix on Calibrator/CalibratorProd |
 | [committing-work](committing-work/SKILL.md) | landing uncommitted changes, choosing where to push, deciding what must never be committed, or fighting the app repo's pre-commit hook |
 | [diagnosing-a-station](diagnosing-a-station/SKILL.md) | a station is reported broken, blank or "no internet", or a logger stops recording, and you cannot sit at the machine |
 | [merging-stale-branches](merging-stale-branches/SKILL.md) | a merge reports dozens of conflicts between branches that are really independent imports of the same code |

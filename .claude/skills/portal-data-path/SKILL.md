@@ -63,6 +63,20 @@ A contact that disappears from Priority is marked **inactive**, never removed.
 screen behave is not an option, in either direction. The user's rule, verbatim:
 *"שיביא אותם במצב INACTIVE זה בסדר. אסור להמחק מהפריוריטי."*
 
+**The same is true of customers, and that path was missing entirely until 2026-09-09.** A retired
+customer is `CUSTOMERS.CUSTSTAT = -5`, resolved through **`CUSTSTATS.INACTIVE = 'Y'`** (-2 פעיל,
+-3 אזהרת חסימה, -4 מוגבל, -5 לא פעיל). `COMPSTATUS` and `STATUSFLAG` are useless — `COMPSTATUS` is
+blank on all 10,515 rows. `stg.stg_Customers` has **no status column at all**, so the flag was gone
+before `stg.MergeCustomersData` ran and 1,535 of 10,505 customers read as alive.
+`dbo.Customers.IsInactiveInSource` now carries it, filled by
+`dbo.RefreshCustomerStatusFromPriority` reading Priority directly. **On STAGE only so far.**
+
+**`CUSTDES` is not unique.** Priority keeps a company's retired record beside its live one under the
+same name, and both arrive with `IsDeleted = 0` — 226 name groups covering 465 rows. So any screen or
+procedure that picks a customer by *name* can land on either. `GetWorkPlanData` still does
+(`AND c.CustomerName LIKE N'%' + @ClientName + '%'`). Prefer the code; if you must match on name, also
+filter `IsInactiveInSource = 0` once that column exists on the server you are querying.
+
 ## Reading Priority through the linked server
 
 - **Push the whole statement into `OPENQUERY`.** A join written with four-part names issues one

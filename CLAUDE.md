@@ -746,6 +746,19 @@ and friends are identities and differ between STAGE and PROD — the same fourte
 is stable everywhere. A hardcoded id list written against one environment will hit unrelated rows in
 the other.
 
+**`stg` is a schema, not a name prefix.** `stg.stg_Customers`, `stg.MergeCustomersData`. The
+consequence bites when you go looking: `OBJECT_DEFINITION(OBJECT_ID('dbo.MergeCustomersData'))`
+returns **empty**, not an error, because the object is not in `dbo`. Resolve objects through
+`sys.objects` joined to `sys.schemas` rather than assuming a schema.
+
+**Two "inactive" flags that mean different things.** `IsDeleted` is *this system's* soft delete, set
+by our users. `dbo.Customers.IsInactiveInSource` is the *source system's* opinion — Priority's
+`CUSTSTAT = -5` via `CUSTSTATS.INACTIVE` — and is owned by `dbo.RefreshCustomerStatusFromPriority`;
+do not set it by hand. Overloading one for the other makes a Priority status change
+indistinguishable from a deliberate delete. A new status column should be `NOT NULL DEFAULT 0`
+meaning active, so nothing disappears from a screen between the column landing and the first refresh.
+*(Deployed on STAGE only as of 2026-09-09 — see `docs/session3-decisions.md`.)*
+
 **STAGE and PROD are not interchangeable, and the differences are silent:**
 
 - **User ids differ between them.** The web app stores the signed-in user in `localStorage` as a
