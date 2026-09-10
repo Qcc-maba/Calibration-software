@@ -1,5 +1,5 @@
 ﻿#define AppName "Calibration Software"
-#define AppVersion "1.6.10"
+#define AppVersion "1.6.11"
 #define AppPublisher "MBA"
 #define AppURL "http://localhost:3000"
 #define ServiceName "MabaCalibrationServer"
@@ -95,6 +95,7 @@ Type: files; Name: "{app}\consolehost\*.pdb"
 Type: files; Name: "{app}\assets\*.ps1"
 Type: files; Name: "{app}\assets\*.bat"
 Type: files; Name: "{app}\assets\*.vbs"
+Type: files; Name: "{app}\assets\*.html"
 
 ; Wipe previous run logs (upgrade / reinstall over same folder)
 Type: filesandordirs; Name: "{app}\logs"
@@ -145,6 +146,10 @@ Source: "assets\start-webapp.ps1";          DestDir: "{app}\assets";           F
 ; Copies this station's logs to \\maba-srv\maba2000\Eliran\<folder>\<COMPUTERNAME> so a problem on
 ; a customer machine can be investigated without going there. Called by start-webapp.ps1.
 Source: "assets\publish-logs.ps1";          DestDir: "{app}\assets";           Flags: ignoreversion
+; Shown the instant the operator clicks the shortcut, and it replaces itself with the app once the
+; app answers. Without it the screen stays empty for the whole cold start and the station reads as
+; dead - see the comment at step 3 of start-all.bat.
+Source: "assets\starting.html";             DestDir: "{app}\assets";           Flags: ignoreversion
 
 ; NI-488.2 is deliberately NOT shipped or installed here - see Installer\DRIVERS.md. Bundling NI's
 ; online installer added 7 MB and, far worse, several hundred MB of download that turned a 3-minute

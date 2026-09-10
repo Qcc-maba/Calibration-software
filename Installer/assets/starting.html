@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>מערכת הכיול — עולה</title>
+<!--
+  Shown the instant the operator clicks the shortcut, and it replaces itself with the application
+  the moment the application answers.
+
+  Why it exists: the launcher used to open the browser after a fixed six seconds, which produced
+  "this site cannot be reached" while the station was still starting. Waiting for the port instead
+  fixed that and created a worse problem - the operator clicked the icon and the screen stayed
+  empty for up to two minutes, with nothing to say the machine had heard the click.
+
+  The probe is an <img> against the application's favicon rather than fetch(): this page is opened
+  from file://, so a fetch to http://localhost is cross-origin, while an image's load/error events
+  are not restricted and report exactly what we need - does something answer on 3000.
+-->
+<style>
+  :root { color-scheme: light; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #f4f6f8; color: #1f2933;
+    font-family: "Segoe UI", Arial, sans-serif;
+  }
+  .card {
+    background: #fff; border-radius: 14px; padding: 40px 48px; min-width: 380px;
+    box-shadow: 0 10px 30px rgba(16, 24, 40, .10); text-align: center;
+  }
+  h1 { font-size: 21px; margin: 0 0 6px; font-weight: 600; }
+  p  { margin: 0; color: #52606d; font-size: 15px; }
+  .spinner {
+    width: 44px; height: 44px; margin: 0 auto 22px; border-radius: 50%;
+    border: 4px solid #dde3e9; border-top-color: #1f6feb; animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .elapsed { margin-top: 22px; font-size: 13px; color: #7b8794; }
+  .slow { margin-top: 18px; font-size: 14px; color: #8a5a00; background: #fff8e6;
+          border: 1px solid #f0d9a8; border-radius: 8px; padding: 12px 14px; display: none; }
+  .failed { margin-top: 18px; font-size: 14px; color: #8a1c1c; background: #fdecec;
+            border: 1px solid #f2c1c1; border-radius: 8px; padding: 12px 14px; display: none;
+            text-align: right; line-height: 1.6; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner" id="spinner"></div>
+    <h1>מערכת הכיול עולה</h1>
+    <p>הדף ייפתח מעצמו ברגע שהמערכת מוכנה. אין צורך לרענן.</p>
+    <div class="elapsed" id="elapsed">ממתין…</div>
+    <div class="slow" id="slow">
+      ההפעלה נמשכת יותר מהרגיל. זה קורה בהפעלה הראשונה אחרי התקנה — המתן עוד מעט.
+    </div>
+    <div class="failed" id="failed">
+      המערכת לא ענתה. הפעל שוב את הקיצור דרך, ואם זה חוזר — הרץ את
+      <b>START-HERE.txt</b> מתיקיית השיתוף ושלח את הקובץ שנוצר.
+    </div>
+  </div>
+
+<script>
+  var APP = 'http://localhost:3000';
+  var started = Date.now();
+  var done = false;
+
+  function seconds() { return Math.round((Date.now() - started) / 1000); }
+
+  function tick() {
+    if (done) return;
+    var s = seconds();
+    document.getElementById('elapsed').textContent = 'ממתין ' + s + ' שניות';
+    if (s >= 25) document.getElementById('slow').style.display = 'block';
+    if (s >= 150) {
+      done = true;
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('slow').style.display = 'none';
+      document.getElementById('failed').style.display = 'block';
+      document.getElementById('elapsed').textContent = 'עצר אחרי ' + s + ' שניות';
+      return;
+    }
+    probe();
+    setTimeout(tick, 1000);
+  }
+
+  // An image load is not subject to CORS, so this reports reachability from a file:// page.
+  // Cache-busted, or the browser would answer from cache after the first success.
+  function probe() {
+    var img = new Image();
+    img.onload = function () { go(); };
+    img.src = APP + '/favicon.ico?probe=' + Date.now();
+  }
+
+  function go() {
+    if (done) return;
+    done = true;
+    window.location.replace(APP);
+  }
+
+  tick();
+</script>
+</body>
+</html>
