@@ -6,6 +6,13 @@ Documentation and UI strings are Hebrew-first (RTL) — preserve Hebrew text ver
 `README.md` and `docs/architecture.md` are both in Hebrew and are the primary references for the
 VCT server; **read `docs/architecture.md` before changing anything under `Systems/`**.
 
+Procedures that repeat - committing and pushing across the two repositories, merging a stale
+default branch, diagnosing the portal's path to its data, verifying UI work - are written up as
+skills under `.claude/skills/`. This file is the durable facts; the per-session files
+`docs/session<n>-decisions.md` are why each call was made, including what was tried and rejected.
+Decision numbers run continuously across those files, so a reference to one means a single thing;
+read `.claude/skills/README.md` for the current skill set.
+
 ## What lives here
 
 This repo holds several independently deployed systems that share a domain (MABA calibration), not
@@ -560,7 +567,7 @@ payload check in one pass and restores `App.config` to its committed default aft
 `Priority → on-prem (priority_kyul / kyulan on the PRI instance, via SQL Agent jobs) → AWS (which
 *pulls* over a linked server) → calibration station`. **The station reads from AWS.** Do not point
 it at the on-prem `Calibrator` database: that is a frozen legacy carcass with none of the app's
-tables. See `docs/decisions.md`.
+tables. See `docs/session1-decisions.md`.
 
 **`App.config` in the repo points at STAGE on purpose.** The build script rewrites it to PROD for
 the duration of the compile and puts STAGE back. Never commit it pointing at PROD.
@@ -588,7 +595,7 @@ Things that cost a day each and will not be obvious:
 - **A silent install does not start the web app.** The `[Run]` entry is `postinstall skipifsilent`,
   so `/VERYSILENT` leaves only the Windows service running. Interactive installs offer a "Launch
   now" checkbox; from v1.6.7 a Startup shortcut also brings the station up after a reboot.
-- **NI-488.2 is deliberately not bundled** — see `Installer/DRIVERS.md` and `docs/decisions.md`.
+- **NI-488.2 is deliberately not bundled** — see `Installer/DRIVERS.md` and `docs/session1-decisions.md`.
 
 ### "The station does not work" usually means "not yet"
 
@@ -741,6 +748,19 @@ and friends are identities and differ between STAGE and PROD — the same fourte
 is stable everywhere. A hardcoded id list written against one environment will hit unrelated rows in
 the other.
 
+**`stg` is a schema, not a name prefix.** `stg.stg_Customers`, `stg.MergeCustomersData`. The
+consequence bites when you go looking: `OBJECT_DEFINITION(OBJECT_ID('dbo.MergeCustomersData'))`
+returns **empty**, not an error, because the object is not in `dbo`. Resolve objects through
+`sys.objects` joined to `sys.schemas` rather than assuming a schema.
+
+**Two "inactive" flags that mean different things.** `IsDeleted` is *this system's* soft delete, set
+by our users. `dbo.Customers.IsInactiveInSource` is the *source system's* opinion — Priority's
+`CUSTSTAT = -5` via `CUSTSTATS.INACTIVE` — and is owned by `dbo.RefreshCustomerStatusFromPriority`;
+do not set it by hand. Overloading one for the other makes a Priority status change
+indistinguishable from a deliberate delete. A new status column should be `NOT NULL DEFAULT 0`
+meaning active, so nothing disappears from a screen between the column landing and the first refresh.
+*(Deployed on STAGE only as of 2026-09-09 — see `docs/session3-decisions.md`.)*
+
 **STAGE and PROD are not interchangeable, and the differences are silent:**
 
 - **User ids differ between them.** The web app stores the signed-in user in `localStorage` as a
@@ -805,6 +825,14 @@ Priority.
 - When handing someone a command to paste, remember **the console prompt is not part of it**.
   Copying `PS C:\...> powershell -File ...` runs `PS`, which is an alias for `Get-Process`, and the
   error message names `Get-Process` rather than anything you recognise.
+- **This repository lives in OneDrive, and OneDrive can hand you a stale copy of a file you are in
+  the middle of editing.** `docs/decisions.md` measured 219 lines and held 8 sections while the real
+  file was 1,331 lines with 52 — a merge was built on the short copy and would have destroyed the
+  rest. What caught it was the commit's own numbers: `git diff --cached --numstat` reported
+  `210 insertions, 0 deletions` when a genuine truncation would have shown ~900 deletions. **After
+  rewriting a whole file, read the staged numstat before trusting the result** — an edit that only
+  adds must show zero deletions, and a large unexplained deletion count means you merged onto a
+  partial copy. `wc -l` on its own will happily confirm the wrong number.
 - **`hostname` before anything else, every time you believe you are on a server.** Two full rounds of
   IIS commands were run on the workstation instead of `MbaCustWeb` and failed with
   `Get-WebBinding is not recognized` — the correct answer for a machine with no IIS. What hid it: a
@@ -891,7 +919,7 @@ usually names the exact identifier.
   cause. Say which evidence supports which claim.
 - **Deploy a procedure to STAGE *and* PROD, or say plainly that you did not.** Half of the SQL from a
   session ending up on STAGE only is the single most common way this repo ends up with
-  "works here, missing there" bugs. `Compare-Schema.ps1` will show it; `docs/decisions.md` lists what
+  "works here, missing there" bugs. `Compare-Schema.ps1` will show it; `docs/session1-decisions.md` lists what
   is currently one-sided.
 - **Change one variable at a time before attributing a hardware fault.** A bit-level corruption was
   measured on two GPIB instruments and blamed on the shared adapter, with a table of numbers behind
@@ -941,6 +969,10 @@ usually names the exact identifier.
   before believing the server is at fault.
 - A heredoc in the Bash tool eats backslash escapes; write files containing `'\'` with the Write
   tool instead.
+- **PowerShell here-string syntax (`@'...'@`) in the Bash tool is not parsed** — the `@` and the
+  newline are passed through as literal text. Handed to `git commit -m`, it ships a subject reading
+  `@ docs: ...`. Use a real heredoc (`-F - <<'MSG'`) for any multi-line string, and remember the two
+  tools take different syntax even in the same session.
 - Several `.config` files in this repo carry plaintext database passwords. Don't add more, don't echo
   them into terminal output, and don't paste them into commit messages or docs.
 
@@ -1024,3 +1056,69 @@ procedure owner's call, not a bug to fix in passing.
 procedure, read the exception, `rollback()`. Only a faithful payload reproduces — a guessed one
 "succeeds" and proves nothing. This is what produced the real text behind two "Internal server
 error"s in one afternoon.
+
+## Git across these two repositories
+
+There are two repositories and they are worked differently. Getting this wrong is how work ends up
+somewhere nobody looks.
+
+| | this repo (`Calibration-software`) | the web app (`app/`) |
+|---|---|---|
+| Remote | `Qcc-maba/Calibration-software` | `Qcc-maba/app` |
+| Where work happens | branch **`Eliran`** | a **`reference/*`** branch |
+| Default branch | `master` | `main` (deployments come off `stg`) |
+
+**`Eliran` is the branch that matters here.** `master` sat untouched from 2025-04-07 until it was
+brought level on 2026-09-09; treat `Eliran` as the trunk, and expect the default branch to lag.
+
+**Front-end work goes to Dako as a Jira US plus a `reference/*` branch**, never as a `feature/*`
+branch that could be merged by mistake. Name the branch after what is in it, not after the local
+branch it happened to be committed on — a local branch called `feature/customer-portal-otp-login`
+was carrying order-approval and master-device work by the time it was pushed.
+
+### What must never be committed here
+
+All of these are in `.gitignore`; the reasons are worth knowing before someone "tidies" them out.
+
+- **`app/`** is its own git repository cloned inside this one. Committing it embeds one repo in
+  another. It is not a submodule and should not become one.
+- **`tmpsetup-watch/`** is installer payload left behind by a build — 267 MB.
+- **`customer-analysis/data/`** is written at runtime. `customer-overrides.json` is every match
+  correction a user has ever confirmed, and `pricelist.xlsx` is the customer price list.
+- **`customer-analysis/deploy/env-additions.txt`** carries a live dashboard password.
+- **`Installer/assets/.env.station`** and the `appsettings.Development.json` files carry real
+  connection strings.
+- Scratch probes under `customer-analysis/local-scripts/` are named with a leading `_`.
+
+When a folder in the VS Code explorer is coloured but `git status` is clean, the folder holds only
+**ignored** changes — `bin/`, `obj/`, `publish/`, a service's own log. Check with
+`git status --ignored --porcelain <path>` before believing there is uncommitted work.
+
+### Committing in the app repo: the pre-commit hook
+
+`pnpm install && lint-staged && tsc --noEmit` runs on every commit, and `lint-staged` **reverts the
+whole commit** when eslint fails. There is no `--no-verify` here; fix the finding. The rules that
+bite new files, all hit in one sitting:
+
+- **`playwright/no-standalone-expect` is enabled repo-wide, not only under `e2e/`, and it recognises
+  `test()` but not `it()`.** A vitest unit test written with `it()` plus `expect()` fails with
+  "Expect must be inside of a test block". Existing tests using `it()` pass because they assert with
+  `node:assert/strict` instead. Either style works — pick one and be consistent inside the file.
+- `jsdoc/require-param` and `require-returns` want a **description**, not just the tag. `eslint --fix`
+  inserts the bare tag and then fails on the missing text.
+- `unicorn` wants `node:fs`, `node:path`, `Number.parseInt`, `String.raw`, and a `Set` for a
+  membership test.
+- **`react/jsx-filename-extension`**: a component that returns `null` contains no JSX, so it must be
+  `.ts`. Renaming it then trips **`check-file/filename-naming-convention`**, which wants kebab-case —
+  `BackgroundDataProcessor.tsx` ends up as `background-data-processor.ts`.
+- A stale `.next/types/validator.ts` referencing routes that no longer exist fails `tsc`. Delete the
+  file, not the route.
+
+Run `npx eslint <the files you added>` before attempting the commit; it is much faster than driving
+the hook.
+
+### Commit hygiene the user expects
+
+Group by intent, not by directory: a session that touched thirty files produces five or six commits
+whose messages say **why**, with the measured numbers. A single "wip" commit over the whole tree is
+not acceptable here, and neither is a message that only restates the diff.
