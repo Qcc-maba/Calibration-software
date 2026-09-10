@@ -76,6 +76,15 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         #region overridden from CommonBL.BaseBLDevice
 
+        /// <summary>
+        /// A Hydra reading thermocouples never returns the same number twice - the ADC noise moves
+        /// the last digits and the correction curve moves them further - so an identical reading is
+        /// the same log entry being read again, not a stable bath. That is precisely what a
+        /// communication interruption leaves behind: on a station, <c>1,20.9917353964817</c> was
+        /// re-broadcast unchanged every 34 seconds while the watchdog counted it as a healthy device.
+        /// </summary>
+        protected override bool DetectsStaleData { get { return true; } }
+
         protected override CommonBL.SingleState[] OnCreateStates()
         {
             // Also the re-init entry point (HardwareDeviceHost.ReinitializeBL after a power cycle).

@@ -391,15 +391,13 @@ namespace Maba.VCT.Core
                 {
                     if (device == null) continue;
 
-                    switch (EvaluateDataWatchdog(device.IsConnected, device.LastMeasurementUtc,
+                    switch (EvaluateDataWatchdog(device.IsConnected, device.WatchdogMeasurementUtc,
                                                  device.DataTimedOut, nowUtc, DataTimeout_TimeSpan))
                     {
                         case DataWatchdogAction.Timeout:
                             device.DataTimedOut = true;
                             BroadcastAlertToWebSockets(device, "DataTimeout",
-                                string.Format(CultureInfo.InvariantCulture,
-                                              "No data received for {0} seconds",
-                                              (int)DataTimeout_TimeSpan.TotalSeconds));
+                                DescribeDataFault(device, DataTimeout_TimeSpan, nowUtc));
                             break;
 
                         case DataWatchdogAction.Restored:
@@ -463,6 +461,29 @@ namespace Maba.VCT.Core
             if (lastAttemptUtc == null) return true;
 
             return nowUtc - lastAttemptUtc.Value >= retryInterval;
+        }
+
+        /// <summary>
+        /// MBA-962: the two faults that stop a calibration look identical in the alert type - the app
+        /// only knows DataTimeout - so the difference has to be carried by the words the operator
+        /// reads. "No data" means the instrument went quiet; "the same reading" means it is still
+        /// answering and repeating itself, which is what a communication interruption produced on a
+        /// station: the values were live-looking and had not moved for minutes.
+        /// </summary>
+        internal static string DescribeDataFault(Device.HardwareDeviceHost device, TimeSpan limit, DateTime nowUtc)
+        {
+            var seconds = (int)limit.TotalSeconds;
+
+            if (device != null && device.StaleDataDetectionEnabled &&
+                device.LastMeasurementUtc.HasValue &&
+                nowUtc - device.LastMeasurementUtc.Value <= limit)
+            {
+                return string.Format(CultureInfo.InvariantCulture,
+                    "The logger is still answering but has repeated the same reading for {0} seconds - the scan has stalled",
+                    seconds);
+            }
+
+            return string.Format(CultureInfo.InvariantCulture, "No data received for {0} seconds", seconds);
         }
 
         /// <summary>What the data watchdog decided for one device on one tick.</summary>

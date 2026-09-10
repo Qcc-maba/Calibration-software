@@ -388,6 +388,43 @@ namespace Maba.VCT.Core.Device
         /// <summary>Guards against a double disconnect alert when both the self-disconnect and comm-loss paths fire (MBA-485 AC5).</summary>
         public bool DisconnectAlerted { get; set; }
 
+        /// <summary>
+        /// MBA-962: UTC of the last measurement whose values actually <em>differed</em> from the one
+        /// before it. Null until the device has produced two distinct readings.
+        /// <para>
+        /// This exists because of what a station log showed during a communication interruption. The
+        /// link never dropped - the serial port stayed open - and the server went on reading the
+        /// instrument's log buffer and broadcasting the same entries over and over:
+        /// <c>1,20.9917353964817</c> identical to thirteen decimal places, every 34 seconds, for
+        /// minutes. To the operator the readings had stopped; to the watchdog, which only asked
+        /// whether a broadcast had happened, the device looked perfectly healthy, so DataTimeout
+        /// never fired and the recovery that would have fixed it never ran.
+        /// </para>
+        /// </summary>
+        public DateTime? LastDistinctMeasurementUtc { get; private set; }
+
+        /// <summary>
+        /// Whether repeated identical readings should count as a fault on this device. Off by
+        /// default and switched on by the BL, because it is only true for an instrument that
+        /// measures: a source reports the setpoint it was told to produce, and that value is
+        /// supposed to stay exactly the same for as long as the operator leaves it alone.
+        /// </summary>
+        public bool StaleDataDetectionEnabled { get; set; }
+
+        /// <summary>The values behind the previous broadcast, for comparison. Not a hash: the packet
+        /// is short, and a collision here would hide the very fault this is looking for.</summary>
+        private string _lastMeasurementSignature;
+
+        /// <summary>
+        /// What the watchdog should judge this device by. A device that repeats itself is only a
+        /// fault where <see cref="StaleDataDetectionEnabled"/> says so; everywhere else this is the
+        /// plain "did anything arrive" timestamp it has always been.
+        /// </summary>
+        public DateTime? WatchdogMeasurementUtc
+        {
+            get { return StaleDataDetectionEnabled ? LastDistinctMeasurementUtc : LastMeasurementUtc; }
+        }
+
         /// <summary>MBA-962: UTC of the last power-cycle recovery attempt; null while the device is producing data.</summary>
         public DateTime? LastRecoveryAttemptUtc { get; set; }
 
@@ -464,6 +501,16 @@ namespace Maba.VCT.Core.Device
                 sb.AppendFormat(System.Globalization.CultureInfo.InvariantCulture, ",{0},{1}", channels[i], values[i]);
             }
             var rawPacket = sb.ToString();
+
+            // The packet already is the reading, channel by channel, so it is the signature. Compared
+            // before the broadcast, and the broadcast still happens either way: a repeated value is a
+            // fault to be reported, not a reason to starve the screen of the last thing we know.
+            if (!string.Equals(rawPacket, _lastMeasurementSignature, StringComparison.Ordinal))
+            {
+                _lastMeasurementSignature = rawPacket;
+                LastDistinctMeasurementUtc = DateTime.UtcNow;
+            }
+
             Libs.Trace.Tracer.Info("[BroadcastAllMeasurements] SN={0}, {1} channels, raw packet: {2}", SN, channels.Count, rawPacket);
             var packet = new HardwarePacket(rawPacket, false);
             IncomingEvents(packet);
@@ -522,6 +569,12 @@ namespace Maba.VCT.Core.Device
             // from firing DataTimeout off a stale pre-disconnect timestamp the moment it comes back.
             LastMeasurementUtc = null;
             DataTimedOut = false;
+
+            // The same reasoning for the repeated-reading check, plus one of its own: the first
+            // reading after a reconnect will often equal the last one before it, and that is a
+            // stable temperature, not a stuck buffer.
+            LastDistinctMeasurementUtc = null;
+            _lastMeasurementSignature = null;
 
             // MBA-962: a device that has just reconnected gets its full recovery budget back. Without
             // this a device that used up its five attempts before being unplugged would come back
