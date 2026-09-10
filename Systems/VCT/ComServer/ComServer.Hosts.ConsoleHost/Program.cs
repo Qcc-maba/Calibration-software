@@ -28,6 +28,50 @@ namespace Maba.VCT.CommServer.Hosts.ConsoleHost
         /// In service mode, writes only to file since there is no console.</summary>
         private static StreamWriter _logWriter;
 
+        /// <summary>The point at which server.log is moved aside. Two files, so the most a station
+        /// keeps is twice this, and the most publish-logs copies to the share in one go is this.</summary>
+        internal const long MAX_SERVER_LOG_BYTES = 5L * 1024 * 1024;
+
+        /// <summary>
+        /// Keeps server.log bounded by moving a large one to server.prev.log, replacing whatever was
+        /// there. The file is opened with append:true and nothing has ever trimmed it - a station had
+        /// one approaching a megabyte from a single month, and the device tick now polls four times
+        /// as often, which multiplies the same problem. It is also the file that gets copied to the
+        /// share on every launch, so its size is somebody's network transfer, not just disk.
+        /// <para>
+        /// Rotating at start-up is enough in practice because the launcher stops and restarts the
+        /// ConsoleHost every time the operator opens the software; a station that runs for weeks
+        /// untouched is the case this does not cover, and is worth revisiting if one appears.
+        /// </para>
+        /// <para>
+        /// Every failure is swallowed on purpose. This runs before the logger it is preparing exists,
+        /// so a fault here has nowhere to be reported and must never be the reason a station does not
+        /// start - the same rule start-webapp.ps1 learned the hard way.
+        /// </para>
+        /// </summary>
+        internal static void RotateIfTooLarge(string logPath, long maxBytes = MAX_SERVER_LOG_BYTES)
+        {
+            try
+            {
+                var current = new FileInfo(logPath);
+                if (!current.Exists || current.Length <= maxBytes)
+                    return;
+
+                var previous = Path.Combine(
+                    Path.GetDirectoryName(logPath) ?? string.Empty,
+                    Path.GetFileNameWithoutExtension(logPath) + ".prev" + Path.GetExtension(logPath));
+
+                if (File.Exists(previous))
+                    File.Delete(previous);
+
+                File.Move(logPath, previous);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[SetupLogging] Log rotation skipped: " + ex.Message);
+            }
+        }
+
         internal static void SetupLogging()
         {
             // Avoid double-init (Main calls this, then OnStart calls it again)
@@ -46,6 +90,13 @@ namespace Maba.VCT.CommServer.Hosts.ConsoleHost
                     logsDir = baseDir;
                 }
                 var logPath = Path.Combine(logsDir, "server.log");
+                RotateIfTooLarge(logPath);
+
+                // SerialRxLogger bounds its own file, but only when bytes are arriving - it checks on
+                // write. A station whose instrument is unplugged, or a workstation that has not seen
+                // serial traffic in months, would keep whatever it last grew to; one here sat at
+                // 9.87 MB. Its cap is smaller because it records every received byte.
+                RotateIfTooLarge(Path.Combine(logsDir, "serial-rx.log"), 2L * 1024 * 1024);
                 _logWriter = new StreamWriter(logPath, append: true, System.Text.Encoding.UTF8) { AutoFlush = true };
 
                 // Write a session separator

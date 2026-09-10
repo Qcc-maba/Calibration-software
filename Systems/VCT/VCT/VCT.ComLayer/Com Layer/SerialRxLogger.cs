@@ -59,6 +59,53 @@ namespace Maba.VCT.ComLayer
             return hex + " | " + printable + suffix;
         }
 
+        /// <summary>Cap for the raw-traffic log. Smaller than server.log's because this records every
+        /// byte that arrives, and the most recent couple of megabytes is what a diagnosis needs.</summary>
+        internal const long MAX_SERIAL_RX_BYTES = 2L * 1024 * 1024;
+
+        /// <summary>How often the size is actually checked. Calling FileInfo on every received packet
+        /// would put a stat call in the serial path; once every few hundred writes bounds the file to
+        /// the cap plus a little, which is all that matters.</summary>
+        private const int SIZE_CHECK_EVERY = 200;
+
+        /// <summary>Starts at the limit so the very first write checks: a station that comes up with an
+        /// already-oversized file should not have to produce another 200 lines before it is trimmed.</summary>
+        private static int _writesSinceSizeCheck = SIZE_CHECK_EVERY;
+
+        /// <summary>
+        /// Keeps the raw log bounded by moving a large one aside, exactly as the ConsoleHost does for
+        /// server.log (see Program.RotateIfTooLarge - deliberately duplicated rather than shared,
+        /// because these are different assemblies and this one must not gain a reference for it).
+        /// <para>
+        /// This file records every byte received on every serial port and is on by default; nothing
+        /// has ever trimmed it, one reached 9.87 MB on a development machine, and publish-logs copies
+        /// *.log to the share on every launch - so its size is somebody's network transfer too. The
+        /// device tick now polls four times as often, which multiplies all of that.
+        /// </para>
+        /// </summary>
+        private static void RotateIfTooLarge(string path)
+        {
+            if (++_writesSinceSizeCheck < SIZE_CHECK_EVERY) return;
+            _writesSinceSizeCheck = 0;
+
+            try
+            {
+                var current = new FileInfo(path);
+                if (!current.Exists || current.Length <= MAX_SERIAL_RX_BYTES) return;
+
+                var previous = Path.Combine(
+                    Path.GetDirectoryName(path) ?? string.Empty,
+                    Path.GetFileNameWithoutExtension(path) + ".prev" + Path.GetExtension(path));
+
+                if (File.Exists(previous)) File.Delete(previous);
+                File.Move(path, previous);
+            }
+            catch
+            {
+                // Same rule as the caller: never break the serial path over a log file.
+            }
+        }
+
         public static void Append(string portName, byte[] buffer, int offset, int count)
         {
             if (!IsEnabled() || count <= 0 || buffer == null) return;
@@ -68,6 +115,7 @@ namespace Maba.VCT.ComLayer
                 lock (FileLock)
                 {
                     var path = Path.Combine(GetLogsDirectory(), "serial-rx.log");
+                    RotateIfTooLarge(path);
                     File.AppendAllText(path, line + Environment.NewLine, Encoding.UTF8);
                 }
             }
