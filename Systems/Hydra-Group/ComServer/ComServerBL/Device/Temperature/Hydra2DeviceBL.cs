@@ -29,6 +29,10 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// </summary>
         public const double DISCONNECTED_CHANNEL_READING = 9000000000;
 
+        /// <summary>This BL's key in <see cref="HardwareBL_Settings"/> - it must match the name used by
+        /// that class's family list, since that is how the operator's configuration is routed here.</summary>
+        public const string SETTINGS_FAMILY = "Hydra2";
+
 
 
         public CommonBL.SingleState StateMachine_InitSystem { get; private set; }
@@ -78,6 +82,12 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             // The channel state has to go with it: the device is about to be set up from scratch, and
             // a channel remembered as disconnected would never announce its recovery.
             _disconnectedChannels.Clear();
+
+            // Says "a Hydra 2625A is the thing being driven here", so the operator's channel list can
+            // be routed to this family even when the logger's MABA id is not in the settings file's
+            // Masters list - which is the normal case on any station but the one the file was
+            // written for. See HardwareBL_Settings.ApplyWebSocketConfig.
+            HardwareBL_Settings.RegisterActiveFamily(SETTINGS_FAMILY);
 
             HC.Init(settings.Hydra2type.Masters).GetAwaiter().GetResult();
 

@@ -443,6 +443,37 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         #region WebSocket-driven config (MBA-485)
 
         /// <summary>All per-family buckets paired with a display name, for routing WS config.</summary>
+        #region live families
+
+        /*  Which settings family a connected instrument is actually being driven by. A BL registers
+            itself when it starts, and that is the only thing in the process that knows the answer -
+            the settings file describes every family we support, not the one plugged in today.  */
+        private static readonly HashSet<string> _activeFamilies =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly object _activeFamiliesLock = new object();
+
+        /// <summary>Called by a device BL as it starts, and again on every re-initialisation. Idempotent.</summary>
+        public static void RegisterActiveFamily(string familyName)
+        {
+            if (string.IsNullOrWhiteSpace(familyName)) return;
+            lock (_activeFamiliesLock) { _activeFamilies.Add(familyName.Trim()); }
+        }
+
+        /// <summary>Called when a device's BL stops driving it, so a family that is gone stops being a candidate.</summary>
+        public static void UnregisterActiveFamily(string familyName)
+        {
+            if (string.IsNullOrWhiteSpace(familyName)) return;
+            lock (_activeFamiliesLock) { _activeFamilies.Remove(familyName.Trim()); }
+        }
+
+        /// <summary>A snapshot, so callers never enumerate the set while a device connects.</summary>
+        public static List<string> ActiveFamilies()
+        {
+            lock (_activeFamiliesLock) { return _activeFamilies.ToList(); }
+        }
+
+        #endregion
+
         private IEnumerable<KeyValuePair<string, HardwareBL_DeviceType>> Families()
         {
             yield return new KeyValuePair<string, HardwareBL_DeviceType>("Hydra2", Hydra2type);
@@ -532,6 +563,36 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
                     break;
                 }
             }
+
+            /*  The operator's screen is authoritative about which logger is on the bench, and the
+                app sends that logger's MABA id. Requiring the id to appear in a Masters list written
+                into HydraBL_Settings.json by hand meant that on every station whose logger was not
+                the one the file happened to name, the whole message was dropped and the device kept
+                the file's default of twenty channels - which is also what made start-up take about a
+                minute, at two seconds per channel (MBA-962).
+
+                So when the id is unknown, fall back to the family a live device is actually driving.
+                Only when exactly one is live: with two loggers connected there is no honest way to
+                decide which one the message is about, and guessing would configure the wrong
+                instrument. Masters is deliberately NOT extended here - it selects correction curves,
+                and a channel list must not quietly change which corrections a reading gets.  */
+            if (target == null)
+            {
+                var live = ActiveFamilies();
+                if (live.Count == 1)
+                {
+                    foreach (var fam in Families())
+                    {
+                        if (string.Equals(fam.Key, live[0], StringComparison.OrdinalIgnoreCase))
+                        {
+                            target = fam.Value;
+                            targetName = fam.Key + " (matched by the live device, not by Masters)";
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (target == null) return null;
 
             var applied = new List<string>();
