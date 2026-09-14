@@ -519,9 +519,9 @@ CONCAT(
 		   A phone of ''0'' is a placeholder in these columns and is not someone you can call. */
 		CAST(CASE WHEN EXISTS (
 			SELECT 1 FROM [dbo].[CustomerContacts] AS ccx
-			WHERE ccx.CustomerId = wp.CustomerId
-			  AND (NULLIF(LTRIM(RTRIM(ISNULL(ccx.Email,''''))),'''') IS NOT NULL
-			    OR NULLIF(LTRIM(RTRIM(ISNULL(ccx.PhoneNumber,''''))),'''') NOT IN ('''',''0''))
+			WHERE ccx.CustomerId = wp.CustomerId AND ISNULL(ccx.IsDeleted,0) = 0
+			  AND (NULLIF(LTRIM(RTRIM(ISNULL(ccx.CustomerContactEmail,''''))),'''') IS NOT NULL
+			    OR NULLIF(LTRIM(RTRIM(ISNULL(ccx.CustomerContactPhone,''''))),'''') NOT IN ('''',''0''))
 		) THEN 1 ELSE 0 END AS BIT) as HasContactInfo,
 		/* MBA-902: the delivery note. Priority calls it ShippingDoc and it is what the packing
 		   screen means by its order-number column - the values are D26009347, D26009342 and the
