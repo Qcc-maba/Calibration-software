@@ -513,6 +513,16 @@ CONCAT(
 		MAX(itm.ExpectedReturnDate) as ExpectedReturnDate,
 		MAX(itm.ActualReturnDate) as ActualReturnDate,
 		(SELECT MIN(i9.MbaReportNumber) FROM [dbo].[OrderDetailsItems] as i9 JOIN [dbo].[OrderDetails] as od9 ON od9.OrderDetailId = i9.OrderDetailId WHERE od9.OrderWorkPlanId = wp.[OrderWorkPlanId] AND ISNULL(od9.IsDeleted,0) = 0 AND ISNULL(i9.IsDeleted,0) = 0 AND i9.MbaReportNumber LIKE ''[0-9][0-9][0-9][0-9][0-9][0-9][0-9]/%'') as CalibratorMabaNumber, 
+		/* Whether this customer has anyone worth calling, so the card can say so without opening
+		   the tab. An EXISTS rather than a join: dbo.GetMabaContactInfoByOrder cross-joins
+		   OrderDetails with CustomerContacts and returns 188 rows for a 4-line order.
+		   A phone of ''0'' is a placeholder in these columns and is not someone you can call. */
+		CAST(CASE WHEN EXISTS (
+			SELECT 1 FROM [dbo].[CustomerContacts] AS ccx
+			WHERE ccx.CustomerId = wp.CustomerId
+			  AND (NULLIF(LTRIM(RTRIM(ISNULL(ccx.Email,''''))),'''') IS NOT NULL
+			    OR NULLIF(LTRIM(RTRIM(ISNULL(ccx.PhoneNumber,''''))),'''') NOT IN ('''',''0''))
+		) THEN 1 ELSE 0 END AS BIT) as HasContactInfo,
 		/* MBA-902: the delivery note. Priority calls it ShippingDoc and it is what the packing
 		   screen means by its order-number column - the values are D26009347, D26009342 and the
 		   like. 2,353 of the 3,838 items carry one and every single one starts with D. An order can
