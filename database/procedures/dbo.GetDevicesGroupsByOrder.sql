@@ -79,6 +79,42 @@ SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceModels) as v
 --
 -- SERN is an INT column (verified: zero non-numeric values in OrderDetailsItems), so the list is
 -- built from integers and cannot carry anything else into the remote statement.
+-- MBA 15/09: the catalogue texts, fetched once for the whole order.
+--
+-- PARTTEXT used to be read inside the OUTER APPLY below, correlated on pt.PART = od.PART, which
+-- is one remote call per order line. Measured on STAGE by running the procedure with that read
+-- neutralised: LA26102992 took 5,220 ms with it and 559 ms without, so it alone was 4,661 ms -
+-- about 89% of what was left after the SERNUMBERSTEXT fix. LA26103650: 2,399 ms against 529 ms.
+--
+-- PART is an INT column (zero non-numeric values in OrderDetails), so the list carries integers
+-- only. An order with no parts makes no remote call.
+DROP TABLE IF EXISTS #OrderParts
+SELECT DISTINCT od.PART
+INTO #OrderParts
+FROM [dbo].[OrderWorkPlans] AS op
+JOIN [dbo].[OrderDetails] AS od ON od.OrderWorkPlanId = op.OrderWorkPlanId
+WHERE op.OrderNumber = TRIM(@OrderNumber) AND od.PART IS NOT NULL
+
+DROP TABLE IF EXISTS #RemotePartText
+CREATE TABLE #RemotePartText (PART INT NOT NULL, TEXTORD INT NULL, TEXTLINE INT NULL, [TEXT] NVARCHAR(MAX) NULL)
+
+DECLARE @PartList NVARCHAR(MAX) = (SELECT STRING_AGG(CAST(PART AS NVARCHAR(20)), ',') FROM #OrderParts)
+
+IF @PartList IS NOT NULL
+BEGIN
+    DECLARE @PartSql NVARCHAR(MAX) = N'
+        INSERT #RemotePartText (PART, TEXTORD, TEXTLINE, [TEXT])
+        SELECT PART, TEXTORD, TEXTLINE, [TEXT]
+        FROM OPENQUERY([31.168.173.93], ''
+            SELECT pt.PART, pt.TEXTORD, pt.TEXTLINE, pt.TEXT
+            FROM amaba.dbo.PARTTEXT pt
+            WHERE pt.PART IN (' + @PartList + N')
+        '')'
+    EXEC sp_executesql @PartSql
+END
+
+CREATE CLUSTERED INDEX IDX_RemotePartText ON #RemotePartText(PART)
+
 DROP TABLE IF EXISTS #OrderSerns
 SELECT DISTINCT odt.SERN
 INTO #OrderSerns
@@ -232,7 +268,7 @@ OUTER APPLY
                         N''</STRONG>'', N''''),
                         N''</strong>'', N'''')
                 ))
-        FROM [31.168.173.93].[amaba].[dbo].[PARTTEXT] AS pt
+        FROM #RemotePartText AS pt
         WHERE pt.PART = od.PART
     ) x
     WHERE x.CleanText <> N''''
