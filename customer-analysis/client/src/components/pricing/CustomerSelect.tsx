@@ -53,11 +53,19 @@ export default function CustomerSelect({ value, onChange, disabled }: Props) {
   };
 
   const typed = value.trim().toLowerCase();
-  const known = useMemo(
-    () => customers.find(c => c.label.trim().toLowerCase() === typed)
-       ?? customers.find(c => c.name.trim().toLowerCase() === typed),
+  // שם חשוף שמתאים לכמה רשומות אינו מזהה לקוח, ולכן הוא לא נחשב "מזוהה":
+  // הצגת תג של אחת מהן הייתה אומרת למשתמש שנבחר לקוח מסוים בזמן שלשרת נשלח
+  // טקסט עמום, והשרת (findCustomerId) לא יטען ממנו מכשירים כלל.
+  const sameName = useMemo(
+    () => (typed ? customers.filter(c => c.name.trim().toLowerCase() === typed) : []),
     [customers, typed],
   );
+  const known = useMemo(
+    () => customers.find(c => c.label.trim().toLowerCase() === typed)
+       ?? (sameName.length === 1 ? sameName[0] : undefined),
+    [customers, typed, sameName],
+  );
+  const ambiguous = !known && sameName.length > 1;
   // הוקלד קוד לקוח ולא שם - מזהים אותו ומציגים מיהו הלקוח
   const byCode = useMemo(
     () => (!known && typed ? customers.find(c => (c.code ?? "").trim().toLowerCase() === typed) : undefined),
@@ -65,9 +73,12 @@ export default function CustomerSelect({ value, onChange, disabled }: Props) {
   );
   const learnedFrom = known && known.source !== "priority" ? known : undefined;
 
-  // המרה אוטומטית של קוד ל-label ברגע שברור שהמשתמש סיים להקליד
-  const applyCode = () => {
-    if (byCode) { setQuery(byCode.label); onChange(byCode.label); }
+  // המרה אוטומטית ל-label ברגע שברור שהמשתמש סיים להקליד: גם מקוד, וגם משם
+  // מלא שהודבק/הוקלד ומזהה רשומה אחת. שם כפול נשאר כפי שהוא - אין ממה לגזור
+  // את הקוד - ובמקומו מוצגת אזהרה שמבקשת לבחור מהרשימה.
+  const applyTyped = () => {
+    const resolved = byCode ?? known;
+    if (resolved && resolved.label !== value) { setQuery(resolved.label); onChange(resolved.label); }
   };
 
   // נשלח ה-label ולא השם: לשני לקוחות יכול להיות אותו שם בדיוק, וללא הקוד
@@ -85,7 +96,11 @@ export default function CustomerSelect({ value, onChange, disabled }: Props) {
         <span className="flex items-center gap-1 text-xs font-bold text-gray-600">
           <User className="w-3.5 h-3.5" /> לקוח
         </span>
-        {byCode ? (
+        {ambiguous ? (
+          <span className="px-2 py-0.5 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+            {sameName.length} לקוחות בשם הזה — בחר מהרשימה לפי הקוד, אחרת לא ייטענו מכשירים
+          </span>
+        ) : byCode ? (
           <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold">
             קוד {byCode.code} = {byCode.name}
           </span>
@@ -111,9 +126,9 @@ export default function CustomerSelect({ value, onChange, disabled }: Props) {
         value={query}
         onChange={e => handleSearch(e.target.value)}
         onFocus={() => setOpen(true)}
-        onBlur={applyCode}
+        onBlur={applyTyped}
         onKeyDown={e => {
-          if (e.key === "Enter") { applyCode(); setOpen(false); }
+          if (e.key === "Enter") { applyTyped(); setOpen(false); }
           if (e.key === "Escape") setOpen(false);
         }}
         disabled={disabled}
@@ -140,17 +155,26 @@ export default function CustomerSelect({ value, onChange, disabled }: Props) {
                   <span className="text-gray-400 text-[11px] mr-1.5" dir="ltr">({c.name})</span>
                 )}
               </span>
-              <span
-                className={cn(
-                  "shrink-0 px-1.5 py-0.5 rounded text-[11px] font-semibold border",
-                  c.source === "priority"
-                    ? "bg-gray-50 border-gray-200 text-gray-500"
-                    : c.overrides > 0
-                      ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                      : "bg-gray-50 border-gray-200 text-gray-500",
+              <span className="shrink-0 flex items-center gap-1">
+                {/* פריוריטי לא מוחק לקוחות. בלי הסימון הזה שתי רשומות עם אותו
+                    שם נראות זהות, ואי-אפשר לדעת איזו מהן היסטורית. */}
+                {c.inactive && (
+                  <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold border bg-red-50 border-red-200 text-red-600">
+                    לא פעיל
+                  </span>
                 )}
-              >
-                {c.source === "priority" ? (c.code || "פריוריטי") : `${c.overrides} התאמות`}
+                <span
+                  className={cn(
+                    "px-1.5 py-0.5 rounded text-[11px] font-semibold border",
+                    c.source === "priority"
+                      ? "bg-gray-50 border-gray-200 text-gray-500"
+                      : c.overrides > 0
+                        ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                        : "bg-gray-50 border-gray-200 text-gray-500",
+                  )}
+                >
+                  {c.source === "priority" ? (c.code || "פריוריטי") : `${c.overrides} התאמות`}
+                </span>
               </span>
             </button>
           ))}

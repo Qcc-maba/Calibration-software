@@ -159,10 +159,13 @@ export async function loadCustomerNames(): Promise<PriorityCustomer[]> {
     nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
   }
 
+  // CUST משמש כשאין קוד. כרגע אין אף רשומה בלי CUSTNAME, אבל הנחת הייחודיות
+  // של ה-label היא מה שמחזיק את כל המנגנון: שני labels זהים היו מחזירים בדיוק
+  // את ההסתרה שהתיקון הזה בא למנוע, והפעם דווקא ברשומות החסרות נתונים.
   return rows.map(r => ({
     ...r,
-    label: (nameCounts.get(r.name.toLowerCase()) ?? 0) > 1 && r.code
-      ? `${r.name} (${r.code})`
+    label: (nameCounts.get(r.name.toLowerCase()) ?? 0) > 1
+      ? `${r.name} (${r.code || `#${r.cust}`})`
       : r.name,
   }));
 }
@@ -301,11 +304,18 @@ export async function findCustomerId(nameOrLabel: string): Promise<number | null
   const target = String(nameOrLabel || '').trim().toLowerCase();
   if (!target) return null;
   const rows = await getCustomerNamesCached();
-  const hit =
+
+  // שם חשוף שמתאים ליותר מרשומה אחת אינו מזהה לקוח. בחירה שרירותית כאן היא
+  // בדיוק התקלה שהתיקון בא למנוע - רק בלי הדה-דופ שהסתיר אותה: המכשירים
+  // שייטענו יהיו של לקוח אחר. עדיף בלי לקוח מאשר עם הלקוח הלא נכון.
+  const exact =
     rows.find(c => c.label.toLowerCase() === target)
-    ?? rows.find(c => c.code.toLowerCase() === target)
-    ?? rows.find(c => c.name.toLowerCase() === target);
-  return hit && hit.cust > 0 ? hit.cust : null;
+    ?? rows.find(c => c.code.toLowerCase() === target);
+  if (exact) return exact.cust > 0 ? exact.cust : null;
+
+  const sameName = rows.filter(c => c.name.toLowerCase() === target);
+  if (sameName.length !== 1) return null;
+  return sameName[0].cust > 0 ? sameName[0].cust : null;
 }
 
 export async function closePool(): Promise<void> {

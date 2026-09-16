@@ -132,24 +132,39 @@ router.get('/customers', async (req: Request, res: Response) => {
   // המפתח הוא ה-label: לשם ייחודי הוא השם עצמו, ולשם כפול הוא השם עם הקוד.
   // כך לקוח שנלמד ממנו נקשר לרשומת הפריוריטי הנכונה גם כששני לקוחות חולקים שם.
   const byLabel = new Map(priorityRows.map(c => [c.label.toLowerCase(), c]));
+  // שמות שנשמרו מקומית לפני השינוי הם השם החשוף. לשם ייחודי הוא זהה ל-label
+  // וה-map למעלה מוצא אותו; לשם כפול אין רשומה אחת שאפשר לקשור אליה, ולכן הוא
+  // נשאר בלי קוד - והמשתמש יבחר מהרשימה את הרשומה הנכונה.
+  const byName = new Map<string, typeof priorityRows>();
+  for (const c of priorityRows) {
+    const key = c.name.toLowerCase();
+    const list = byName.get(key);
+    if (list) list.push(c); else byName.set(key, [c]);
+  }
 
   // לקוח שכבר נלמד ממנו מקבל את קוד הפריוריטי שלו, אחרת אי אפשר לחפש אותו
   // לפי הקוד ("10251") ברגע שהוא נרשם מקומית
   const local = listCustomers().map(c => {
-    const hit = byLabel.get(c.name.trim().toLowerCase());
+    const key = c.name.trim().toLowerCase();
+    const sameName = byName.get(key);
+    const hit = byLabel.get(key) ?? (sameName?.length === 1 ? sameName[0] : undefined);
     return {
-      label: c.name,
+      label: hit?.label ?? c.name,
       name: hit?.name ?? c.name,
       overrides: c.overrides,
       source: 'local' as const,
       code: hit?.code,
+      inactive: hit?.inactive ?? false,
     };
   });
   const localLabels = new Set(local.map(c => c.label.trim().toLowerCase()));
 
   const priority = priorityRows
     .filter(c => !localLabels.has(c.label.toLowerCase()))
-    .map(c => ({ label: c.label, name: c.name, overrides: 0, source: 'priority' as const, code: c.code }));
+    .map(c => ({
+      label: c.label, name: c.name, overrides: 0, source: 'priority' as const,
+      code: c.code, inactive: c.inactive,
+    }));
 
   const match = (name: string, code?: string) => {
     if (!q) return true;

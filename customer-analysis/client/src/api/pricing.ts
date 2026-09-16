@@ -64,6 +64,9 @@ export interface CustomerRef {
   overrides: number;          // כמה התאמות נלמדו מהלקוח הזה
   source?: 'local' | 'priority';
   code?: string;              // קוד הלקוח בפריוריטי
+  // הרשומה סומנה בפריוריטי כ"לא פעיל". פריוריטי לא מוחק לקוחות, ולכן משתי
+  // רשומות עם אותו שם אחת היא לא פעם היסטורית - וצריך לראות את זה ברשימה.
+  inactive?: boolean;
 }
 
 export interface UploadResponse {
