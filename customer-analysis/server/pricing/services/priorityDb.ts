@@ -108,10 +108,11 @@ export interface PriorityCustomer {
   cust: number;   // מפתח פנימי בפריוריטי - דרוש לשליפת המכשירים של הלקוח
   code: string;   // CUSTNAME - קוד הלקוח כפי שמופיע במסכים
   name: string;
+  city: string;       // CUSTOMERS.STATE - העיר. מבדילה בין סניפים באותו שם
   inactive: boolean;  // CUSTSTATS.INACTIVE - הרשומה סומנה בפריוריטי כ"לא פעיל"
   /**
-   * המזהה שמשמש בכל המערכת: השם, ולשמות שחוזרים על עצמם - השם עם הקוד
-   * ("אלביט מערכות - חטיבת מערכי מל"ט (396)").
+   * המזהה שמשמש בכל המערכת: השם, ולשמות שחוזרים על עצמם - השם עם מה שמבדיל
+   * ביניהם ("אלביט מערכות - חטיבת מערכי מל"ט (מודיעין)").
    *
    * לשם ייחודי label === name, ולכן מפתחות הלמידה הקיימים (customer-overrides.json)
    * ומטמון הסידוריים ממשיכים לעבוד בדיוק כשהיו. רק לשמות הכפולים נוסף הקוד -
@@ -127,6 +128,7 @@ export async function loadCustomerNames(): Promise<PriorityCustomer[]> {
   const p = await getPool();
   const result = await p.request().query(`
     SELECT C.CUST AS cust, C.CUSTNAME AS code, C.CUSTDES AS name,
+           LTRIM(RTRIM(ISNULL(C.STATE, ''))) AS city,
            CASE WHEN S.INACTIVE = 'Y' THEN 1 ELSE 0 END AS inactive
     FROM CUSTOMERS C
     LEFT JOIN CUSTSTATS S ON S.CUSTSTAT = C.CUSTSTAT
@@ -137,11 +139,12 @@ export async function loadCustomerNames(): Promise<PriorityCustomer[]> {
     ORDER BY C.CUSTDES, inactive, C.CUST DESC
   `);
 
-  const rows = (result.recordset as Array<{ cust: unknown; code: unknown; name: unknown; inactive: unknown }>)
+  const rows = (result.recordset as Array<{ cust: unknown; code: unknown; name: unknown; city: unknown; inactive: unknown }>)
     .map(r => ({
       cust: Number(r.cust) || 0,
       code: String(r.code ?? '').trim(),
       name: String(r.name ?? '').trim(),
+      city: String(r.city ?? '').trim(),
       inactive: Number(r.inactive) === 1,
     }))
     .filter(r => r.name);
@@ -154,20 +157,27 @@ export async function loadCustomerNames(): Promise<PriorityCustomer[]> {
   // מערכות - חטיבת מערכי מל"ט" נבחרה רשומה עם 4 מכשירים במקום זו עם 6,050.
   // לכן כל הרשומות מוחזרות, ומי שחולקת שם עם אחרת מזוהה בנוסף לפי הקוד.
   const nameCounts = new Map<string, number>();
+  const cityCounts = new Map<string, number>();
   for (const r of rows) {
     const key = r.name.toLowerCase();
     nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+    if (r.city) {
+      const ck = `${key}|${r.city.toLowerCase()}`;
+      cityCounts.set(ck, (cityCounts.get(ck) ?? 0) + 1);
+    }
   }
 
-  // CUST משמש כשאין קוד. כרגע אין אף רשומה בלי CUSTNAME, אבל הנחת הייחודיות
-  // של ה-label היא מה שמחזיק את כל המנגנון: שני labels זהים היו מחזירים בדיוק
-  // את ההסתרה שהתיקון הזה בא למנוע, והפעם דווקא ברשומות החסרות נתונים.
-  return rows.map(r => ({
-    ...r,
-    label: (nameCounts.get(r.name.toLowerCase()) ?? 0) > 1
-      ? `${r.name} (${r.code || `#${r.cust}`})`
-      : r.name,
-  }));
+  // מה שמבדיל בין שתי הרשומות הוא העיר, לא הקוד: שתי רשומות "חטיבת מערכי מל"ט"
+  // הן זו שבמודיעין וזו שבחיפה, וכך גם קוראים להן. קוד פריוריטי לא אומר דבר
+  // למי שבוחר לקוח, ולכן העיר קודמת - ב-54 מתוך 108 קבוצות כפולות היא לבדה
+  // מפרידה ביניהן. הקוד (ואחריו CUST) נשארים כגיבוי, כי הייחודיות של ה-label
+  // היא מה שמחזיק את המנגנון: שני labels זהים היו מחזירים את ההסתרה עצמה.
+  return rows.map(r => {
+    const key = r.name.toLowerCase();
+    if ((nameCounts.get(key) ?? 0) <= 1) return { ...r, label: r.name };
+    const cityIsUnique = r.city && cityCounts.get(`${key}|${r.city.toLowerCase()}`) === 1;
+    return { ...r, label: `${r.name} (${cityIsUnique ? r.city : r.code || `#${r.cust}`})` };
+  });
 }
 
 /**
