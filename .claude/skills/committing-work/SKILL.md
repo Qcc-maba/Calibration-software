@@ -1,6 +1,6 @@
 ---
 name: committing-work
-description: Commit and push work in the Calibration-software and app repositories. Use when landing uncommitted changes, choosing a branch to push to, deciding what must never be committed, or getting a commit past the app repo's pre-commit hook. Also use when work seems to have vanished - a staged diff that came back empty, a file changing under you, or a commit you did not make carrying your changes - because another agent session edits this tree at the same time.
+description: Commit, push and open pull requests for work in the Calibration-software and app repositories. Use when landing uncommitted changes, choosing a branch or a PR target, deciding what must never be committed, or getting a commit past the app repo's pre-commit hook. Also use when work seems to have vanished - a staged diff that came back empty, a file changing under you, or a commit you did not make carrying your changes - because another agent session edits this tree at the same time.
 ---
 
 # Committing work in these two repositories
@@ -10,12 +10,30 @@ There are two repositories with different rules. Getting this wrong puts work wh
 | | `Calibration-software` | `app/` (the web app) |
 |---|---|---|
 | Remote | `Qcc-maba/Calibration-software` | `Qcc-maba/app` |
-| Work on | branch **`Eliran`** | a **`reference/*`** branch |
-| Default branch | `master` — lags, treat `Eliran` as trunk | `main` — **and it is Vercel's Production branch** |
+| Work on | an **`MBA-<num>-<slug>`** feature branch off `develop`, merged by PR | a **`reference/*`** branch |
+| Integration branch | **`develop`** — every PR targets it. GitHub's default is `master`, which lags and is not moved by the PR flow | `main` — **and it is Vercel's Production branch** |
 | Pre-commit hook | none | `pnpm install` + `lint-staged` + `tsc --noEmit` |
 
-`app/` is its own git repository cloned inside this one. Never commit it into the parent, and never
-turn it into a submodule.
+`app` is its own git repository, normally cloned beside this one; `/app/` is gitignored in case it is
+cloned inside. Never commit it into the parent, and never turn it into a submodule.
+
+## Ticket, branch, commits, PR
+
+In `Calibration-software` every change follows the same path, and the root `CLAUDE.md` states it:
+
+1. A Jira ticket in project **MBA** — `Bug` for a fix, `Story` for new functionality.
+2. A branch off a freshly pulled `develop`, named `MBA-<num>-<kebab-case-slug>`.
+3. Commits on that branch whose subjects start **`MBA-<num>: `**.
+4. A PR into `develop` titled `MBA-<num>: <summary>`, linking the ticket — pushed and opened only when
+   asked.
+
+Never commit directly to `develop`, `master` or `main`. The `Eliran` branch belonged to a developer
+who has left: do not branch from it or commit to it.
+
+**Read the PR's state before pushing to its branch.** A commit pushed after the PR merged does not
+reopen or extend it — it lands on a branch nothing will merge again, while the PR page goes on
+showing only what it merged. Put that commit on a new branch off `develop` and open a new PR. Before
+deleting a merged branch, confirm `git diff origin/develop <branch>` is empty.
 
 **Pushing to `main` in the app repo deploys to `cal.qcc.co.il`.** `stg` builds `stg.qcc.co.il`;
 production comes off `main`. Merging one into the other is a release, not a branch tidy-up — see
@@ -48,10 +66,12 @@ Two things went wrong this way in one session, and both are cheap to prevent:
 
 ## Check the numbers, not the file, after a whole-file rewrite
 
-This repository lives in OneDrive, which can hand you a **stale, shorter copy** of a file you are
-editing. A merge was built on a 219-line copy of `docs/decisions.md` whose real length was 1,331
-lines. What caught it was `git diff --cached --numstat`: an edit that only adds must report **0
-deletions**. `wc -l` will happily confirm the wrong number; the staged diff will not.
+A file can come back as a **stale, shorter copy** of itself — OneDrive sync did this when a checkout
+of this repository lived there, and a parallel session editing the same tree does the same. A merge
+was built on a 219-line copy of `docs/decisions.md` whose real length was 1,331 lines. What caught it was `git diff --cached --numstat`, which reported `210 insertions, 0 deletions`
+when a genuine truncation would have shown ~900 deletions: an edit that only adds must report **0
+deletions**, and a large unexplained deletion count means you merged onto a partial copy. `wc -l`
+will happily confirm the wrong number; the staged diff will not.
 
 ## Someone else may be committing the same tree while you work
 

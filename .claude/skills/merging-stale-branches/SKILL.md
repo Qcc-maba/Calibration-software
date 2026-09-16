@@ -12,6 +12,11 @@ was **91 conflicting paths**.
 
 Resolving those one by one is the wrong instinct. Measure first, then decide once.
 
+`Eliran` was the working branch then, and belonged to a developer who has since left. Work now
+integrates on **`develop`** through feature branches and PRs (see `committing-work`), so read the
+branch names below as a worked example. The procedure applies to any long-diverged pair — including
+`Eliran` itself, which held commits never merged into `develop` when it was retired.
+
 ## Measure before you merge
 
 ```bash
