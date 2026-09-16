@@ -108,10 +108,17 @@ export interface PriorityCustomer {
   cust: number;   // מפתח פנימי בפריוריטי - דרוש לשליפת המכשירים של הלקוח
   code: string;   // CUSTNAME - קוד הלקוח כפי שמופיע במסכים
   name: string;
+  city: string;       // CUSTOMERS.STATE - העיר. מבדילה בין סניפים באותו שם
   inactive: boolean;  // CUSTSTATS.INACTIVE - הרשומה סומנה בפריוריטי כ"לא פעיל"
-  // קודים של רשומות כפולות באותו שם שנוקו בדה-דופ. נשמרים כדי שחיפוש לפי
-  // הקוד הישן ימשיך למצוא את הלקוח ולא יחזיר "אין תוצאות".
-  altCodes: string[];
+  /**
+   * המזהה שמשמש בכל המערכת: השם, ולשמות שחוזרים על עצמם - השם עם מה שמבדיל
+   * ביניהם ("אלביט מערכות - חטיבת מערכי מל"ט (מודיעין)").
+   *
+   * לשם ייחודי label === name, ולכן מפתחות הלמידה הקיימים (customer-overrides.json)
+   * ומטמון הסידוריים ממשיכים לעבוד בדיוק כשהיו. רק לשמות הכפולים נוסף הקוד -
+   * ובלעדיו אי-אפשר היה להבדיל ביניהם בכלל.
+   */
+  label: string;
 }
 
 let customerCache: { at: number; rows: PriorityCustomer[] } | null = null;
@@ -121,6 +128,7 @@ export async function loadCustomerNames(): Promise<PriorityCustomer[]> {
   const p = await getPool();
   const result = await p.request().query(`
     SELECT C.CUST AS cust, C.CUSTNAME AS code, C.CUSTDES AS name,
+           LTRIM(RTRIM(ISNULL(C.STATE, ''))) AS city,
            CASE WHEN S.INACTIVE = 'Y' THEN 1 ELSE 0 END AS inactive
     FROM CUSTOMERS C
     LEFT JOIN CUSTSTATS S ON S.CUSTSTAT = C.CUSTSTAT
@@ -128,33 +136,48 @@ export async function loadCustomerNames(): Promise<PriorityCustomer[]> {
       AND LTRIM(RTRIM(C.CUSTDES)) <> ''
       -- רשומות שסומנו בפריוריטי כלא בשימוש לא מוצעות בהשלמה
       AND C.CUSTDES NOT LIKE N'%לא בשימוש%'
-    -- הפעיל ראשון בתוך כל שם: הדה-דופ למטה שומר את הרשומה הראשונה, וללקוח
-    -- שיש לו גם רשומה היסטורית "לא פעיל" זה מה שקובע איזה קוד ישרוד.
     ORDER BY C.CUSTDES, inactive, C.CUST DESC
   `);
-  // כמה רשומות בפריוריטי חולקות שם זהה (סניפים / כפילויות היסטוריות).
-  // להשלמה האוטומטית שם אחד מספיק, וכפילות גם שוברת את מפתחות הרשימה בממשק.
-  const byName = new Map<string, PriorityCustomer>();
-  for (const r of result.recordset as Array<{ cust: unknown; code: unknown; name: unknown; inactive: unknown }>) {
-    const name = String(r.name ?? '').trim();
-    if (!name) continue;
-    const key = name.toLowerCase();
-    const code = String(r.code ?? '').trim();
-    const existing = byName.get(key);
-    if (existing) {
-      // הקוד של הכפילות עדיין חייב להיות ניתן לחיפוש
-      if (code && code !== existing.code && !existing.altCodes.includes(code)) existing.altCodes.push(code);
-      continue;
-    }
-    byName.set(key, {
+
+  const rows = (result.recordset as Array<{ cust: unknown; code: unknown; name: unknown; city: unknown; inactive: unknown }>)
+    .map(r => ({
       cust: Number(r.cust) || 0,
-      code,
-      name,
+      code: String(r.code ?? '').trim(),
+      name: String(r.name ?? '').trim(),
+      city: String(r.city ?? '').trim(),
       inactive: Number(r.inactive) === 1,
-      altCodes: [],
-    });
+    }))
+    .filter(r => r.name);
+
+  // כמה רשומות בפריוריטי חולקות שם זהה (סניפים / כפילויות היסטוריות). קודם
+  // נשמרה רשומה אחת לכל שם והשאר נזרקו, והמנצחת נקבעה לפי CUST DESC - כלומר
+  // הרשומה *החדשה* ביותר. אבל CUST הוא identity, ולכן היסטוריית הכיולים נצברת
+  // דווקא על הישנה: מתוך 108 קבוצות כפולות, ב-46 הרשומה ששרדה החזיקה פחות
+  // מכשירים מזו שנזרקה, ובסך הכול 30,946 מכשירים לא היו נגישים כלל. ב"אלביט
+  // מערכות - חטיבת מערכי מל"ט" נבחרה רשומה עם 4 מכשירים במקום זו עם 6,050.
+  // לכן כל הרשומות מוחזרות, ומי שחולקת שם עם אחרת מזוהה בנוסף לפי הקוד.
+  const nameCounts = new Map<string, number>();
+  const cityCounts = new Map<string, number>();
+  for (const r of rows) {
+    const key = r.name.toLowerCase();
+    nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+    if (r.city) {
+      const ck = `${key}|${r.city.toLowerCase()}`;
+      cityCounts.set(ck, (cityCounts.get(ck) ?? 0) + 1);
+    }
   }
-  return [...byName.values()];
+
+  // מה שמבדיל בין שתי הרשומות הוא העיר, לא הקוד: שתי רשומות "חטיבת מערכי מל"ט"
+  // הן זו שבמודיעין וזו שבחיפה, וכך גם קוראים להן. קוד פריוריטי לא אומר דבר
+  // למי שבוחר לקוח, ולכן העיר קודמת - ב-54 מתוך 108 קבוצות כפולות היא לבדה
+  // מפרידה ביניהן. הקוד (ואחריו CUST) נשארים כגיבוי, כי הייחודיות של ה-label
+  // היא מה שמחזיק את המנגנון: שני labels זהים היו מחזירים את ההסתרה עצמה.
+  return rows.map(r => {
+    const key = r.name.toLowerCase();
+    if ((nameCounts.get(key) ?? 0) <= 1) return { ...r, label: r.name };
+    const cityIsUnique = r.city && cityCounts.get(`${key}|${r.city.toLowerCase()}`) === 1;
+    return { ...r, label: `${r.name} (${cityIsUnique ? r.city : r.code || `#${r.cust}`})` };
+  });
 }
 
 /**
@@ -270,18 +293,39 @@ export async function resolveCustomerName(input: string): Promise<string> {
   if (!raw) return raw;
   const rows = await getCustomerNamesCached();
   const lower = raw.toLowerCase();
-  if (rows.some(c => c.name.trim().toLowerCase() === lower)) return raw; // כבר שם
-  const byCode = rows.find(c => c.code.trim().toLowerCase() === lower);
-  return byCode ? byCode.name : raw;
+
+  const byLabel = rows.find(c => c.label.toLowerCase() === lower);
+  if (byLabel) return byLabel.label;
+
+  const byCode = rows.find(c => c.code.toLowerCase() === lower);
+  if (byCode) return byCode.label;
+
+  // שם ייחודי -> ה-label שווה לו ממילא. שם שחוזר על עצמו בלי קוד אינו מזהה
+  // לקוח אחד, ולכן הוא נשאר כפי שהוקלד במקום לנחש רשומה.
+  const sameName = rows.filter(c => c.name.toLowerCase() === lower);
+  return sameName.length === 1 ? sameName[0].label : raw;
 }
 
-/** מציאת מפתח הלקוח בפריוריטי לפי שם (מהרשימה שכבר במטמון) */
-export async function findCustomerId(name: string): Promise<number | null> {
-  const target = String(name || '').trim().toLowerCase();
+/**
+ * מציאת מפתח הלקוח בפריוריטי (מהרשימה שכבר במטמון).
+ * מקבל label, קוד או שם - בסדר הזה, כי רק בשניים הראשונים ההתאמה חד-משמעית.
+ */
+export async function findCustomerId(nameOrLabel: string): Promise<number | null> {
+  const target = String(nameOrLabel || '').trim().toLowerCase();
   if (!target) return null;
   const rows = await getCustomerNamesCached();
-  const hit = rows.find(c => c.name.trim().toLowerCase() === target);
-  return hit && hit.cust > 0 ? hit.cust : null;
+
+  // שם חשוף שמתאים ליותר מרשומה אחת אינו מזהה לקוח. בחירה שרירותית כאן היא
+  // בדיוק התקלה שהתיקון בא למנוע - רק בלי הדה-דופ שהסתיר אותה: המכשירים
+  // שייטענו יהיו של לקוח אחר. עדיף בלי לקוח מאשר עם הלקוח הלא נכון.
+  const exact =
+    rows.find(c => c.label.toLowerCase() === target)
+    ?? rows.find(c => c.code.toLowerCase() === target);
+  if (exact) return exact.cust > 0 ? exact.cust : null;
+
+  const sameName = rows.filter(c => c.name.toLowerCase() === target);
+  if (sameName.length !== 1) return null;
+  return sameName[0].cust > 0 ? sameName[0].cust : null;
 }
 
 export async function closePool(): Promise<void> {

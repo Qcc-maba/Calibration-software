@@ -56,11 +56,17 @@ export interface UploadProgress {
 }
 
 export interface CustomerRef {
-  name: string;               // השם כפי שהוא בפריוריטי - זה גם מפתח הלמידה
+  name: string;               // השם כפי שהוא בפריוריטי
+  // המזהה שנשלח חזרה לשרת וזה גם מפתח הלמידה: השם, ולשמות שחוזרים על עצמם
+  // השם עם הקוד ("אלביט מערכות - חטיבת מערכי מל"ט (396)").
+  label: string;
   display?: string;           // אותו שם קריא, לשמות לטיניים ששמורים הפוך
   overrides: number;          // כמה התאמות נלמדו מהלקוח הזה
   source?: 'local' | 'priority';
   code?: string;              // קוד הלקוח בפריוריטי
+  // הרשומה סומנה בפריוריטי כ"לא פעיל". פריוריטי לא מוחק לקוחות, ולכן משתי
+  // רשומות עם אותו שם אחת היא לא פעם היסטורית - וצריך לראות את זה ברשימה.
+  inactive?: boolean;
 }
 
 export interface UploadResponse {
