@@ -129,52 +129,52 @@ router.get('/customers', async (req: Request, res: Response) => {
   const limit = Math.min(parseInt(String(req.query.limit ?? '20'), 10) || 20, 100);
 
   const priorityRows = await getCustomerNamesCached();
-  const byName = new Map(priorityRows.map(c => [c.name.trim().toLowerCase(), c]));
+  // המפתח הוא ה-label: לשם ייחודי הוא השם עצמו, ולשם כפול הוא השם עם הקוד.
+  // כך לקוח שנלמד ממנו נקשר לרשומת הפריוריטי הנכונה גם כששני לקוחות חולקים שם.
+  const byLabel = new Map(priorityRows.map(c => [c.label.toLowerCase(), c]));
 
   // לקוח שכבר נלמד ממנו מקבל את קוד הפריוריטי שלו, אחרת אי אפשר לחפש אותו
   // לפי הקוד ("10251") ברגע שהוא נרשם מקומית
   const local = listCustomers().map(c => {
-    const hit = byName.get(c.name.trim().toLowerCase());
+    const hit = byLabel.get(c.name.trim().toLowerCase());
     return {
-      name: c.name,
+      label: c.name,
+      name: hit?.name ?? c.name,
       overrides: c.overrides,
       source: 'local' as const,
       code: hit?.code,
-      altCodes: hit?.altCodes ?? [],
     };
   });
-  const localNames = new Set(local.map(c => c.name.trim().toLowerCase()));
+  const localLabels = new Set(local.map(c => c.label.trim().toLowerCase()));
 
   const priority = priorityRows
-    .filter(c => !localNames.has(c.name.trim().toLowerCase()))
-    .map(c => ({ name: c.name, overrides: 0, source: 'priority' as const, code: c.code, altCodes: c.altCodes }));
+    .filter(c => !localLabels.has(c.label.toLowerCase()))
+    .map(c => ({ label: c.label, name: c.name, overrides: 0, source: 'priority' as const, code: c.code }));
 
-  const match = (name: string, code?: string, altCodes: string[] = []) => {
+  const match = (name: string, code?: string) => {
     if (!q) return true;
     const readable = readableName(name);
     return name.toLowerCase().includes(q)
       || (readable ?? '').toLowerCase().includes(q)
-      || (code ?? '').toLowerCase().includes(q)
-      || altCodes.some(a => a.toLowerCase().includes(q));
+      || (code ?? '').toLowerCase().includes(q);
   };
 
   // דירוג: התאמה מדויקת לקוד קודמת, אחריה שם שמתחיל בחיפוש, ואז השאר
-  const rank = (c: { name: string; code?: string; altCodes?: string[] }) => {
+  const rank = (c: { name: string; code?: string }) => {
     const name = c.name.toLowerCase();
     const readable = (readableName(c.name) ?? '').toLowerCase();
     const code = (c.code ?? '').toLowerCase();
-    const alts = (c.altCodes ?? []).map(a => a.toLowerCase());
-    if (q && (code === q || alts.includes(q))) return 0;
+    if (q && code === q) return 0;
     if (q && (name.startsWith(q) || readable.startsWith(q))) return 1;
-    if (q && (code.startsWith(q) || alts.some(a => a.startsWith(q)))) return 2;
+    if (q && code.startsWith(q)) return 2;
     return 3;
   };
 
   const customers = [...local, ...priority]
-    .filter(c => match(c.name, c.code, c.altCodes))
+    .filter(c => match(c.name, c.code))
     .sort((a, b) => rank(a) - rank(b))
     .slice(0, limit)
-    // display בלבד. name נשאר הערך הקנוני של פריוריטי - הוא המפתח של מאגר
+    // display בלבד. label הוא הערך הקנוני שנשלח חזרה - הוא המפתח של מאגר
     // הלמידה ושל חיפוש המכשירים, ושינוי שלו היה מנתק אותם.
     .map(c => ({ ...c, display: readableName(c.name) ?? undefined }));
 

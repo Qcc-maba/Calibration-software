@@ -54,7 +54,8 @@ export default function CustomerSelect({ value, onChange, disabled }: Props) {
 
   const typed = value.trim().toLowerCase();
   const known = useMemo(
-    () => customers.find(c => c.name.trim().toLowerCase() === typed),
+    () => customers.find(c => c.label.trim().toLowerCase() === typed)
+       ?? customers.find(c => c.name.trim().toLowerCase() === typed),
     [customers, typed],
   );
   // הוקלד קוד לקוח ולא שם - מזהים אותו ומציגים מיהו הלקוח
@@ -64,14 +65,17 @@ export default function CustomerSelect({ value, onChange, disabled }: Props) {
   );
   const learnedFrom = known && known.source !== "priority" ? known : undefined;
 
-  // המרה אוטומטית של קוד לשם ברגע שברור שהמשתמש סיים להקליד
+  // המרה אוטומטית של קוד ל-label ברגע שברור שהמשתמש סיים להקליד
   const applyCode = () => {
-    if (byCode) { setQuery(byCode.name); onChange(byCode.name); }
+    if (byCode) { setQuery(byCode.label); onChange(byCode.label); }
   };
 
-  const select = (name: string) => {
-    setQuery(name);
-    onChange(name);
+  // נשלח ה-label ולא השם: לשני לקוחות יכול להיות אותו שם בדיוק, וללא הקוד
+  // השרת לא יכול לדעת באיזה מהם מדובר - וכך נבחרה רשומה עם 4 מכשירים
+  // במקום זו שעליה 6,050.
+  const select = (label: string) => {
+    setQuery(label);
+    onChange(label);
     setOpen(false);
   };
 
@@ -122,10 +126,10 @@ export default function CustomerSelect({ value, onChange, disabled }: Props) {
         <div className="absolute z-40 mt-1 w-full max-h-72 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
           {customers.map(c => (
             <button
-              key={`${c.source}-${c.code ?? ""}-${c.name}`}
+              key={`${c.source}-${c.label}`}
               type="button"
               onMouseDown={e => e.preventDefault()}
-              onClick={() => select(c.name)}
+              onClick={() => select(c.label)}
               className="w-full flex items-center justify-between gap-3 px-3 py-1.5 text-sm text-right hover:bg-indigo-50 transition"
             >
               <span className="truncate">
