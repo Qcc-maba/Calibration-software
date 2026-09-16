@@ -1,0 +1,282 @@
+{
+  "info": {
+    "name": "QCC Analytics - post-deploy check",
+    "description": "Verifies a QCC Analytics deploy from a workstation instead of from the server console. Run the whole collection after publishing a build and applying it on maba-dc2.\n\nSet the collection variables first: baseUrl, user, password, expectedBuild (the build id you just published).\n\nRequests 1-4 are GETs. Request 5 is a POST, which the server allows remotely because /api/pricing/price is on the REMOTE_WRITABLE_PATHS allowlist; it only reads, it stores nothing.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "basic",
+    "basic": [
+      { "key": "username", "value": "{{user}}", "type": "string" },
+      { "key": "password", "value": "{{password}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://maba-dc2:5000", "type": "string" },
+    { "key": "user", "value": "mba", "type": "string" },
+    { "key": "password", "value": "", "type": "string" },
+    { "key": "expectedBuild", "value": "", "type": "string" },
+    { "key": "expectedItems", "value": "875", "type": "string" },
+    { "key": "minModels", "value": "40000", "type": "string" },
+    { "key": "requireFreshRestart", "value": "false", "type": "string" },
+    { "key": "serialCustomerCode", "value": "10251", "type": "string" },
+    { "key": "serialCheckSerial", "value": "MY63001093", "type": "string" },
+    { "key": "serialCustomerName", "value": "", "type": "string" },
+    { "key": "serialCustomerNameJson", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Version - did the new build actually start",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/version", "host": ["{{baseUrl}}"], "path": ["api", "version"] },
+        "description": "The most important check. HTML instead of JSON means the endpoint does not exist in the running process - the OLD build is still serving from memory even though new files are on disk. That is the documented trap that has bitten this deploy twice."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "",
+              "pm.test('answers JSON, not HTML (HTML means the old build is still running)', () => {",
+              "  pm.expect(pm.response.headers.get('Content-Type') || '').to.include('application/json');",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "",
+              "pm.test('reports a build id', () => {",
+              "  pm.expect(body.build, 'build').to.be.a('string').and.to.have.length.above(0);",
+              "});",
+              "",
+              "const expected = (pm.variables.get('expectedBuild') || '').trim();",
+              "if (expected) {",
+              "  pm.test('build is the one just published: ' + expected, () => {",
+              "    pm.expect(body.build).to.eql(expected);",
+              "  });",
+              "} else {",
+              "  console.log('expectedBuild not set - build id reported, not compared');",
+              "}",
+              "",
+              "// Only meaningful right after a deploy. Set requireFreshRestart=true then; on a",
+              "// baseline run against a server that has been up for days, leave it false.",
+              "if ((pm.variables.get('requireFreshRestart') || '') === 'true') {",
+              "  pm.test('process restarted recently (uptime under 1 hour)', () => {",
+              "    pm.expect(body.uptimeSeconds, 'uptimeSeconds').to.be.below(3600);",
+              "  });",
+              "} else {",
+              "  console.log('requireFreshRestart is not true - uptime reported, not asserted');",
+              "}",
+              "",
+              "console.log('build:', body.build, '| started:', body.startedAt, '| uptime(s):', body.uptimeSeconds);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Pricing health - price list loaded",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/pricing/health", "host": ["{{baseUrl}}"], "path": ["api", "pricing", "health"] },
+        "description": "itemsLoaded should be 875 - the curated price list. A much larger number (5,400+) means the full Priority PART table got loaded instead."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "",
+              "const body = pm.response.json();",
+              "",
+              "pm.test('price list is loaded', () => {",
+              "  pm.expect(body.itemsLoaded, 'itemsLoaded').to.be.above(0);",
+              "});",
+              "",
+              "const expected = Number(pm.variables.get('expectedItems'));",
+              "pm.test('loaded the curated list of ' + expected + ' items', () => {",
+              "  pm.expect(body.itemsLoaded).to.eql(expected);",
+              "});",
+              "",
+              "console.log('itemsLoaded:', body.itemsLoaded);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Source status - Priority connected",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/pricing/source-status", "host": ["{{baseUrl}}"], "path": ["api", "pricing", "source-status"] },
+        "description": "Stop the deploy if priorityConnected is false. Without Priority there are no MABA numbers, which is the entire point of the pricing screen. modelsInIndex should be around 44,700."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "",
+              "const body = pm.response.json();",
+              "",
+              "pm.test('BLOCKER: Priority is connected', () => {",
+              "  pm.expect(body.priorityConnected, 'priorityConnected').to.eql(true);",
+              "});",
+              "",
+              "pm.test('excel price list is loaded', () => {",
+              "  pm.expect(body.excelLoaded, 'excelLoaded').to.eql(true);",
+              "});",
+              "",
+              "const minModels = Number(pm.variables.get('minModels'));",
+              "pm.test('model index populated (over ' + minModels + ')', () => {",
+              "  pm.expect(body.modelsInIndex, 'modelsInIndex').to.be.above(minModels);",
+              "});",
+              "",
+              "console.log('priorityConnected:', body.priorityConnected, '| modelsInIndex:', body.modelsInIndex, '| itemsInIndex:', body.itemsInIndex);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Customer search - 'given' finds GIVEN IMAGING",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/pricing/customers?q=given&limit=3",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pricing", "customers"],
+          "query": [
+            { "key": "q", "value": "given" },
+            { "key": "limit", "value": "3" }
+          ]
+        },
+        "description": "An empty result here means the old build is running - the documented symptom."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "",
+              "const body = pm.response.json();",
+              "const customers = body.customers || [];",
+              "",
+              "pm.test('search returns results (empty means the old build is running)', () => {",
+              "  pm.expect(customers).to.be.an('array').that.is.not.empty;",
+              "});",
+              "",
+              "pm.test('GIVEN IMAGING is among them', () => {",
+              "  const names = customers.map(c => c.display || c.name);",
+              "  const hit = customers.some(c => ((c.name || '') + ' ' + (c.display || '')).toUpperCase().indexOf('GIVEN IMAGING') !== -1);",
+              "  pm.expect(hit, 'GIVEN IMAGING in ' + JSON.stringify(names)).to.eql(true);",
+              "});",
+              "",
+              "pm.test('Priority rows reached the search', () => {",
+              "  pm.expect(body.priorityAvailable, 'priorityAvailable').to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Serial regression - MY63001093 gets the right MABA number",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customerDescription\": \"post-deploy check\",\n  \"customerSerial\": \"{{serialCheckSerial}}\",\n  \"customerName\": \"{{serialCustomerNameJson}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/api/pricing/price", "host": ["{{baseUrl}}"], "path": ["api", "pricing", "price"] },
+        "description": "The specific bug this build fixes: two Priority records share this serial and the old code chose arbitrarily. Expect mbaNumber 2512750/22 and lastChargedPart 170312-7. The wrong answer is 2505548/13.\n\ncustomerName is mandatory, not optional: lookupSerial() in serialIndex.ts returns null without it, because the serial index is scoped per customer. Omit it and the request silently falls through to fuzzy description matching and reports no MABA number - which looks exactly like the bug it is meant to detect. The pre-request script resolves the name from serialCustomerCode (10251 = Mobileye) so the collection does not carry a hardcoded Hebrew customer name.\n\nRead-only despite being a POST - it prices one item and stores nothing."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Resolve the canonical customer name the serial index is keyed by.",
+              "const code = pm.variables.get('serialCustomerCode') || '10251';",
+              "",
+              "pm.sendRequest({",
+              "  url: pm.variables.get('baseUrl') + '/api/pricing/customers?q=' + code + '&limit=1',",
+              "  method: 'GET',",
+              "  header: { Accept: 'application/json' },",
+              "  auth: {",
+              "    type: 'basic',",
+              "    basic: [",
+              "      { key: 'username', value: pm.variables.get('user') },",
+              "      { key: 'password', value: pm.variables.get('password') }",
+              "    ]",
+              "  }",
+              "}, (err, res) => {",
+              "  if (err) { console.log('customer lookup failed:', err); return; }",
+              "  const c = ((res.json() || {}).customers || [])[0];",
+              "  if (!c) { console.log('no customer found for code ' + code); return; }",
+              "  // label is the canonical key when present; name is what this endpoint returns today.",
+              "  const name = c.label || c.name;",
+              "  pm.collectionVariables.set('serialCustomerName', name);",
+              "  // Customer names here contain a literal double quote (בע\"מ). Substituted raw into",
+              "  // the JSON body it breaks the body, express parses nothing, and the server answers",
+              "  // 400 'missing customerDescription'. So the body uses this JSON-escaped copy.",
+              "  pm.collectionVariables.set('serialCustomerNameJson', JSON.stringify(name).slice(1, -1));",
+              "  console.log('serial check customer:', name);",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "",
+              "const body = pm.response.json();",
+              "",
+              "pm.test('the pre-request script resolved a customer name', () => {",
+              "  pm.expect(pm.variables.get('serialCustomerName') || '', 'serialCustomerName').to.have.length.above(0);",
+              "});",
+              "",
+              "pm.test('matched by serial number', () => {",
+              "  pm.expect(body.matchSource, 'matchSource').to.eql('serial');",
+              "});",
+              "",
+              "pm.test('MABA number is 2512750/22', () => {",
+              "  pm.expect(body.mbaNumber, 'mbaNumber').to.eql('2512750/22');",
+              "});",
+              "",
+              "pm.test('not the wrong record 2505548/13', () => {",
+              "  pm.expect(body.mbaNumber).to.not.eql('2505548/13');",
+              "});",
+              "",
+              "pm.test('last charged part is 170312-7', () => {",
+              "  pm.expect(body.lastChargedPart, 'lastChargedPart').to.eql('170312-7');",
+              "});",
+              "",
+              "console.log('mbaNumber:', body.mbaNumber, '| lastChargedPart:', body.lastChargedPart, '| matchSource:', body.matchSource, '| note:', body.matchNote);"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
