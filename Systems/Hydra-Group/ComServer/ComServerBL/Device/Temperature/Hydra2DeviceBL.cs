@@ -29,6 +29,10 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// </summary>
         public const double DISCONNECTED_CHANNEL_READING = 9000000000;
 
+        /// <summary>This BL's key in <see cref="HardwareBL_Settings"/> - it must match the name used by
+        /// that class's family list, since that is how the operator's configuration is routed here.</summary>
+        public const string SETTINGS_FAMILY = "Hydra2";
+
 
 
         public CommonBL.SingleState StateMachine_InitSystem { get; private set; }
@@ -72,12 +76,27 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         #region overridden from CommonBL.BaseBLDevice
 
+        /// <summary>
+        /// A Hydra reading thermocouples never returns the same number twice - the ADC noise moves
+        /// the last digits and the correction curve moves them further - so an identical reading is
+        /// the same log entry being read again, not a stable bath. That is precisely what a
+        /// communication interruption leaves behind: on a station, <c>1,20.9917353964817</c> was
+        /// re-broadcast unchanged every 34 seconds while the watchdog counted it as a healthy device.
+        /// </summary>
+        protected override bool DetectsStaleData { get { return true; } }
+
         protected override CommonBL.SingleState[] OnCreateStates()
         {
             // Also the re-init entry point (HardwareDeviceHost.ReinitializeBL after a power cycle).
             // The channel state has to go with it: the device is about to be set up from scratch, and
             // a channel remembered as disconnected would never announce its recovery.
             _disconnectedChannels.Clear();
+
+            // Says "a Hydra 2625A is the thing being driven here", so the operator's channel list can
+            // be routed to this family even when the logger's MABA id is not in the settings file's
+            // Masters list - which is the normal case on any station but the one the file was
+            // written for. See HardwareBL_Settings.ApplyWebSocketConfig.
+            HardwareBL_Settings.RegisterActiveFamily(SETTINGS_FAMILY);
 
             HC.Init(settings.Hydra2type.Masters).GetAwaiter().GetResult();
 

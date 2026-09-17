@@ -68,6 +68,83 @@ SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceModels) as v
 -- These used to be read inside the row-by-row OUTER APPLY below, which asked the amaba linked
 -- server for SERNUMBERSTEXT again for every row: a single order took over three minutes. One
 -- remote round trip per call, filtered by the order, brings it back to seconds.
+-- MBA 15/09: the device texts are pulled from amaba in ONE remote round trip.
+--
+-- The join above used to be a four-part name:
+--     JOIN [31.168.173.93].[amaba].[dbo].[SERNUMBERSTEXT] AS st ON st.SERN = odt.SERN
+-- which is a DISTRIBUTED join - SQL Server decides how to satisfy it across the link, and for a
+-- large order it decides badly. Measured on PROD for LA26102992 (137 devices): that join alone
+-- took 8,184 ms of the procedure's 13,454 ms, and returned 12 text rows. Asking the remote server
+-- the same question once, with the order's serial numbers in the filter, takes 611 ms.
+--
+-- SERN is an INT column (verified: zero non-numeric values in OrderDetailsItems), so the list is
+-- built from integers and cannot carry anything else into the remote statement.
+-- MBA 15/09: the catalogue texts, fetched once for the whole order.
+--
+-- PARTTEXT used to be read inside the OUTER APPLY below, correlated on pt.PART = od.PART, which
+-- is one remote call per order line. Measured on STAGE by running the procedure with that read
+-- neutralised: LA26102992 took 5,220 ms with it and 559 ms without, so it alone was 4,661 ms -
+-- about 89% of what was left after the SERNUMBERSTEXT fix. LA26103650: 2,399 ms against 529 ms.
+--
+-- PART is an INT column (zero non-numeric values in OrderDetails), so the list carries integers
+-- only. An order with no parts makes no remote call.
+DROP TABLE IF EXISTS #OrderParts
+SELECT DISTINCT od.PART
+INTO #OrderParts
+FROM [dbo].[OrderWorkPlans] AS op
+JOIN [dbo].[OrderDetails] AS od ON od.OrderWorkPlanId = op.OrderWorkPlanId
+WHERE op.OrderNumber = TRIM(@OrderNumber) AND od.PART IS NOT NULL
+
+DROP TABLE IF EXISTS #RemotePartText
+CREATE TABLE #RemotePartText (PART INT NOT NULL, TEXTORD INT NULL, TEXTLINE INT NULL, [TEXT] NVARCHAR(MAX) NULL)
+
+DECLARE @PartList NVARCHAR(MAX) = (SELECT STRING_AGG(CAST(PART AS NVARCHAR(20)), ',') FROM #OrderParts)
+
+IF @PartList IS NOT NULL
+BEGIN
+    DECLARE @PartSql NVARCHAR(MAX) = N'
+        INSERT #RemotePartText (PART, TEXTORD, TEXTLINE, [TEXT])
+        SELECT PART, TEXTORD, TEXTLINE, [TEXT]
+        FROM OPENQUERY([31.168.173.93], ''
+            SELECT pt.PART, pt.TEXTORD, pt.TEXTLINE, pt.TEXT
+            FROM amaba.dbo.PARTTEXT pt
+            WHERE pt.PART IN (' + @PartList + N')
+        '')'
+    EXEC sp_executesql @PartSql
+END
+
+CREATE CLUSTERED INDEX IDX_RemotePartText ON #RemotePartText(PART)
+
+DROP TABLE IF EXISTS #OrderSerns
+SELECT DISTINCT odt.SERN
+INTO #OrderSerns
+FROM [dbo].[OrderWorkPlans] AS op
+JOIN [dbo].[OrderDetails] AS od ON od.OrderWorkPlanId = op.OrderWorkPlanId
+JOIN [dbo].[OrderDetailsItems] AS odt ON odt.OrderDetailId = od.OrderDetailId
+     AND ISNULL(odt.IsDeleted, 0) = 0 AND odt.SERN IS NOT NULL
+WHERE op.OrderNumber = TRIM(@OrderNumber)
+
+DROP TABLE IF EXISTS #RemoteDeviceText
+CREATE TABLE #RemoteDeviceText (SERN INT NOT NULL, TEXTORD INT NULL, TEXTLINE INT NULL, [TEXT] NVARCHAR(MAX) NULL)
+
+DECLARE @SernList NVARCHAR(MAX) = (SELECT STRING_AGG(CAST(SERN AS NVARCHAR(20)), ',') FROM #OrderSerns)
+
+-- An order with no registered serials needs no remote call at all.
+IF @SernList IS NOT NULL
+BEGIN
+    DECLARE @TextSql NVARCHAR(MAX) = N'
+        INSERT #RemoteDeviceText (SERN, TEXTORD, TEXTLINE, [TEXT])
+        SELECT SERN, TEXTORD, TEXTLINE, [TEXT]
+        FROM OPENQUERY([31.168.173.93], ''
+            SELECT st.SERN, st.TEXTORD, st.TEXTLINE, st.TEXT
+            FROM amaba.dbo.SERNUMBERSTEXT st
+            WHERE st.SERN IN (' + @SernList + N')
+        '')'
+    EXEC sp_executesql @TextSql
+END
+
+CREATE CLUSTERED INDEX IDX_RemoteDeviceText ON #RemoteDeviceText(SERN)
+
 DROP TABLE IF EXISTS #DeviceTexts
 CREATE TABLE #DeviceTexts
 (
@@ -108,7 +185,7 @@ FROM [dbo].[OrderWorkPlans] AS op
 JOIN [dbo].[OrderDetails] AS od ON od.OrderWorkPlanId = op.OrderWorkPlanId
 JOIN [dbo].[OrderDetailsItems] AS odt ON odt.OrderDetailId = od.OrderDetailId
      AND ISNULL(odt.IsDeleted, 0) = 0 AND odt.SERN IS NOT NULL
-JOIN [31.168.173.93].[amaba].[dbo].[SERNUMBERSTEXT] AS st ON st.SERN = odt.SERN
+JOIN #RemoteDeviceText AS st ON st.SERN = odt.SERN
 WHERE op.OrderNumber = TRIM(@OrderNumber)
 
 CREATE CLUSTERED INDEX IDX_DeviceTexts ON #DeviceTexts(OrderDetailId, OrderDetailsItemId)
@@ -191,7 +268,7 @@ OUTER APPLY
                         N''</STRONG>'', N''''),
                         N''</strong>'', N'''')
                 ))
-        FROM [31.168.173.93].[amaba].[dbo].[PARTTEXT] AS pt
+        FROM #RemotePartText AS pt
         WHERE pt.PART = od.PART
     ) x
     WHERE x.CleanText <> N''''
