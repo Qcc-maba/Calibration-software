@@ -5,7 +5,7 @@ you know it is not.
 
 | Path | Why it is excluded |
 |---|---|
-| `app/` | its own git repository, cloned inside this one; committing it embeds one repo in another |
+| `/app/` | its own git repository, normally cloned beside this one; ignored in case it is cloned inside, since committing it embeds one repo in another |
 | `tmpsetup-watch/` | installer payload left by a build — 267 MB |
 | `customer-analysis/data/` | written at runtime: `customer-overrides.json` is every match correction a user has ever confirmed, `pricelist.xlsx` is the customer price list |
 | `customer-analysis/deploy/env-additions.txt` | carries a live dashboard password |

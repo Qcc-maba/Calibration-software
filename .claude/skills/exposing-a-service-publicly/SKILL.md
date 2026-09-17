@@ -52,6 +52,10 @@ The `--%` is required — without it PowerShell parses `/+` and the brackets as 
 `appcmd`'s *"Cannot add duplicate collection entry"* is a **success from a previous run**, not a
 failure.
 
+**The IIS PowerShell provider caches configuration per process.** After `web.config` is written by
+anything other than the provider, `Add-WebConfiguration` fails with *"Cannot commit configuration
+changes because the file has changed on disk"*. Use `appcmd.exe`, or a fresh PowerShell session.
+
 ## `TrustedProxies`, or the rate limiter collapses
 
 `CustomerPortalApi` only calls `UseForwardedHeaders` when `CustomerPortal:TrustedProxies` is

@@ -84,7 +84,8 @@ filter `IsInactiveInSource = 0` once that column exists on the server you are qu
   `OPENQUERY`.
 - **`dbo.fnUnreverseVisualText` is for display text, not identifiers.** Priority stores Hebrew in
   visual order, so names must be un-reversed — but running it over a *path* reverses the ASCII path
-  too and nothing opens. Return the ASCII **directory** and pick the file inside it by size.
+  too and nothing opens. Return the ASCII **directory** and pick the file inside it by size — which is
+what `GetCustomerInvoicesFromPriority` does.
 - Cross-server joins need an explicit **`COLLATE Hebrew_BIN`**, or they fail with
   `Cannot resolve the collation conflict between Latin1_General_100_CI_AI_SC and Hebrew_BIN`.
 - Invoice numbers starting with **`K`** are receipts (קבלה) and correctly have no document. The type

@@ -16,8 +16,13 @@ reference files it points at. The description is what decides whether a skill ge
 | [portal-data-path](portal-data-path/SKILL.md) | portal screens are empty, sign-in shows the wrong customer, mail does not arrive, or a Priority query is slow or comes back reversed |
 | [shipping-a-station-installer](shipping-a-station-installer/SKILL.md) | building a new station version, or putting a build in front of an operator |
 | [verifying-ui-work](verifying-ui-work/SKILL.md) | after any change to the web app's screens, routes or data wiring |
+| [working-on-the-app-repo](working-on-the-app-repo/SKILL.md) | a task touches the separate `app` repo — a portal or internal screen, Next.js, tRPC, Vercel, or its `stg`/`main` branches |
 
-These are operational procedure. The durable facts live in `CLAUDE.md`, and the reasoning behind
+The app `customer-analysis/` has its own skills under `customer-analysis/.claude/skills/`:
+`run-customer-analysis` and `deploying-customer-analysis`.
+
+These are operational procedure. The durable facts live in `CLAUDE.md` files — the root one for what
+every task needs, and a nested one beside the code of each area — and the reasoning behind
 each decision — including the approaches that were tried and rejected — lives in the per-session
 files `docs/session<n>-decisions.md`, one per session and never appended to after the fact.
 Read those first when the question is "why is it like this"; reach for a skill when the question is
