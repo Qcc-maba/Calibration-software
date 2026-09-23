@@ -262,6 +262,80 @@ namespace Maba.VCT.Core.Tests
 
         #endregion
 
+        #region BatchChannels Comma-in-Quoted-Value Tests (MBA-970 regression)
+
+        /*  MBA-970: MessageData.Split(',') had no quote awareness, so a multi-channel
+            BatchChannels:"1,3,5,11,15" broke into "BatchChannels:\"1", "3", "5", "11", "15\"" -
+            only the first token still had a ':' and survived, silently dropping every channel
+            past the first. These pin down that a comma-delimited channel list inside quotes
+            survives intact, in both message shapes the web app actually sends, and that fields
+            following it in the message are not lost either. */
+
+        [TestMethod]
+        public void ParseSensorsAssociation_QuotedBatchChannelsWithCommas_AsSentFromWebApp()
+        {
+            // exact shape of use-socket.ts's sendSensorsAssociation template
+            var message = "CMD:\"SensorsAssociation\", DeviceID:\"D1\", LoggerID:\"Logger1\", "
+                         + "BatchID:\"Batch1\", BatchChannels:\"1,3,5,11,15\", Units:\"Celsius\", "
+                         + "Resolution:\"0.1\", SendData:\"true\"";
+
+            _parser.OnData(message);
+
+            Assert.IsNotNull(_parsedPacket);
+            var assoc = (SensorsAssociationMessage)_parsedPacket;
+            Assert.AreEqual("1,3,5,11,15", assoc.BatchChannels);
+            // fields after BatchChannels must still parse - they were the ones silently dropped
+            Assert.AreEqual("Celsius", assoc.Units);
+            Assert.AreEqual("0.1", assoc.Resolution);
+            Assert.IsTrue(assoc.SendData);
+        }
+
+        [TestMethod]
+        public void ParseLoggerConfiguration_QuotedBatchChannelsWithCommas_ParsesFullList()
+        {
+            var message = "CMD:LoggerConfiguration,LoggerID:L1,IP:192.168.1.1,Rate:100,Interval:1000,"
+                         + "BatchID:B1,BatchChannels:\"1,3,5,11,15\"";
+
+            _parser.OnData(message);
+
+            var config = (LoggerConfigurationMessage)_parsedPacket;
+            Assert.AreEqual(1, config.Loggers.Count);
+            Assert.AreEqual("1,3,5,11,15", config.Loggers[0].BatchChannels);
+        }
+
+        [TestMethod]
+        public void ParseLoggerConfiguration_MultipleLoggersWithQuotedCommaBatchChannels_ParsesBothIndependently()
+        {
+            // the true regression case: a comma inside one logger's quoted BatchChannels must not be
+            // confused with the comma that separates it from the next LoggerID field
+            var message = "CMD:LoggerConfiguration,"
+                         + "LoggerID:L1,IP:10.0.0.1,Rate:50,Interval:500,BatchID:B1,BatchChannels:\"1,3,5\","
+                         + "LoggerID:L2,IP:10.0.0.2,Rate:100,Interval:1000,BatchID:B2,BatchChannels:\"2,4,6\"";
+
+            _parser.OnData(message);
+
+            var config = (LoggerConfigurationMessage)_parsedPacket;
+            Assert.AreEqual(2, config.Loggers.Count);
+            Assert.AreEqual("L1", config.Loggers[0].LoggerId);
+            Assert.AreEqual("1,3,5", config.Loggers[0].BatchChannels);
+            Assert.AreEqual("L2", config.Loggers[1].LoggerId);
+            Assert.AreEqual("2,4,6", config.Loggers[1].BatchChannels);
+        }
+
+        [TestMethod]
+        public void ParseSensorsAssociation_QuotedSingleChannelNoComma_StillWorks()
+        {
+            // sanity check: the quote-aware split must not regress the no-comma case
+            var message = "CMD:SensorsAssociation,LoggerID:L1,DeviceID:D1,BatchID:B1,BatchChannels:\"7\"";
+
+            _parser.OnData(message);
+
+            var assoc = (SensorsAssociationMessage)_parsedPacket;
+            Assert.AreEqual("7", assoc.BatchChannels);
+        }
+
+        #endregion
+
         #region CreateReport Tests
 
         [TestMethod]
