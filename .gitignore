@@ -411,5 +411,9 @@ customer-analysis/local-scripts/_*.mjs
 # Per-machine Claude Code permissions.
 .claude/settings.local.json
 
+# Shared test-environment logins, kept out of git so they are rotatable without a history rewrite.
+# starting-a-test-environment/SKILL.md points at this file; create it from the template beside it.
+.claude/skills/**/credentials.local.md
+
 # Byte-identical stray copy of docs/DATABASES.en.pdf, which is itself generated.
 /DATABASES.en.pdf

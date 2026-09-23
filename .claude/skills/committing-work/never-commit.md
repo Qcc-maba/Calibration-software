@@ -14,6 +14,7 @@ you know it is not.
 | `Systems/*/appsettings.Development.json` | real connection strings |
 | `Installer/drivers/` | third-party driver package |
 | `.claude/settings.local.json` | per-machine permissions |
+| `.claude/skills/**/credentials.local.md` | the shared test-environment logins the `starting-a-test-environment` skill needs; kept out of git so rotating one is not a history rewrite. A `credentials.local.example.md` template sits beside it and is committed |
 | root `DATABASES.en.pdf` | byte-identical duplicate of the generated `docs/` copy |
 | `dist/`, `bin/`, `obj/`, `publish/`, `packages/`, `TestResults/` | build output |
 
