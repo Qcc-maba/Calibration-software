@@ -15,6 +15,7 @@ reference files it points at. The description is what decides whether a skill ge
 | [merging-stale-branches](merging-stale-branches/SKILL.md) | a merge reports dozens of conflicts between branches that are really independent imports of the same code |
 | [portal-data-path](portal-data-path/SKILL.md) | portal screens are empty, sign-in shows the wrong customer, mail does not arrive, or a Priority query is slow or comes back reversed |
 | [shipping-a-station-installer](shipping-a-station-installer/SKILL.md) | building a new station version, or putting a build in front of an operator |
+| [starting-a-test-environment](starting-a-test-environment/SKILL.md) | testing a branch or PR in a browser rather than by reading the diff, or someone needs the whole system running on their machine — and taking it back down afterwards |
 | [verifying-ui-work](verifying-ui-work/SKILL.md) | after any change to the web app's screens, routes or data wiring |
 | [working-on-the-app-repo](working-on-the-app-repo/SKILL.md) | a task touches the separate `app` repo — a portal or internal screen, Next.js, tRPC, Vercel, or its `stg`/`main` branches |
 
