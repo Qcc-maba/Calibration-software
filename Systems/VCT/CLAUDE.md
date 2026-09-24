@@ -8,7 +8,7 @@ loggers, the M-142 — are in `Systems/Hydra-Group/CLAUDE.md`. Build and test co
 ## Running and testing it
 
 App on `http://localhost:3000`, WebSocket on `ws://localhost:5001/ws/` (must match
-`NEXT_PUBLIC_WEBSOCKET_URL` in `app\.env.local`).
+`NEXT_PUBLIC_WEBSOCKET_URL` in `app\.env`).
 
 `Run-VCT-Core-Coverage.ps1` gates on **line *and* branch** at 95%. Branch coverage sits at ~93% on
 `master`, so the script exits non-zero even when every test passes — check the "Passed!" line before
