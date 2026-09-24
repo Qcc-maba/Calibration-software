@@ -17,6 +17,53 @@ correct: the topology is `Priority → on-prem → AWS → station`, and the sta
 
 The output lands in `Installer\` as `CalibrationSoftware-Setup-v<version>.exe`.
 
+## Before the first build on a machine
+
+The script needs two tools, and it checks for them before changing anything:
+
+- **MSBuild from Visual Studio 18, any edition.** The Community path is tried first, then `vswhere`
+  restricted to version 18. The restriction matters: SSMS 22 registers its own MSBuild with
+  `vswhere`, and an unrestricted `-latest` picks that one. BuildTools is enough to find MSBuild.
+  Whether it has every targeting pack the ComServer needs has not been confirmed yet.
+- **Inno Setup 6** at `C:\Program Files (x86)\Inno Setup 6\ISCC.exe`:
+  `winget install JRSoftware.InnoSetup`.
+
+1.6.12 and earlier were built on a machine with VS 18 Community and Inno Setup already installed.
+The first attempt on another machine (1.6.13, 2026-09-24) found Inno Setup missing altogether.
+
+## The order that works
+
+1. **Server code from `develop`**, on an `MBA-<n>` branch that bumps `AppVersion`. A feature branch
+   with unmerged commits ships that work to operators, so do not build from one.
+2. **UI from app `stg`**, freshly cloned into `C:\tmp\maba-app` (the `-WebAppRoot` default). Then
+   run `pnpm install --frozen-lockfile` and the standalone build below.
+3. **The clone needs a `.env` before `next build`.** Copy `app\.env` from the dev checkout. Without it
+   `NEXT_PUBLIC_S3_BUCKET_DOMAIN` is empty, the images hostname in `next.config.js` becomes `''`, and
+   the build compiles and then dies at "Finalizing page optimization" with
+   `TypeError: Expected a non-empty string`.
+   `NEXT_PUBLIC_*` values are baked into the bundle, so check two of them before building:
+   `NEXT_PUBLIC_CALIBRATION_USE_MOCK="false"` and
+   `NEXT_PUBLIC_WEBSOCKET_URL="ws://localhost:5001/ws"`, which is the station's own server.
+4. **Delete `.next\standalone\.env` after the build.** Next copies `.env` into the standalone
+   output, and `setup.iss` packs `standalone\*` with no excludes. The station ends up with
+   `.env.station`, because it is installed over the dev file. But the dev file (staging passwords,
+   SQL admin connection string) is still compressed inside the exe, where anyone can extract it.
+   Earlier installers very likely carry it. The lasting fix, `Excludes: ".env"` on the webapp line
+   of `setup.iss`, is not in yet.
+5. **The DB password** is the `password=` part of `REMOTE_DATABASE_URL_PROD` in `app\.env`, the
+   `app_prod` login. `REMOTE_DATABASE_URL_STAGE` is a different login (`app_stage` on `Calibrator`)
+   and does not work with the script's defaults. Claude's auto mode refuses to read that password
+   and pass it on, so the user runs the build in a real PowerShell terminal. A `!` line typed into
+   the VS Code chat box arrives as a chat message and runs nothing:
+
+   ```powershell
+   $l = Select-String -Path 'C:\Users\skulas\dev\GIT_ROOT\app\.env' -Pattern '^REMOTE_DATABASE_URL_PROD=' | Select-Object -First 1; $pw = [regex]::Match($l.Line,'password=([^;"]+)').Groups[1].Value; cd C:\Users\skulas\dev\GIT_ROOT\Calibration-software; .\scripts\Build-Station-Installer.ps1 -DbPassword $pw 2>&1 | % { $_.ToString().Replace($pw,'***') }
+   ```
+
+The repo root of app also carries committed scratch scripts, `sp_*.sql` and a few `.xlsx` files,
+which the standalone tracer copies into the bundle. They are harmless to run but do not belong on
+customer machines. Cleaning them up belongs in the app repo.
+
 ## Four things that decide whether the build is any good
 
 **Bump the version for every build you hand to anyone.** `#define AppVersion` at the top of
@@ -77,6 +124,7 @@ over `Systems/` and `Installer/`, and commit anything the build consumed.
 `Installer\assets\.env.station` is generated and **gitignored** — it holds the production database
 password. Never stage it, never paste its contents anywhere.
 
+The shared folder's path is not written down anywhere yet, so ask for it and then record it here.
 Copy to the shared folder and verify the copy, then name the exact filename when you tell anyone
 about it — several versions accumulate there and the newest is not the first one listed:
 
