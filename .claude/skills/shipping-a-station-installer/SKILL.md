@@ -33,6 +33,10 @@ The scripts also once assumed the app repo sat inside this one (`Calibration-sof
 `New-StationEnv.ps1` also looks for the dev `.env` in the sibling `GIT_ROOT\app`. `setup.iss` takes
 `.env.example` from `-WebAppRoot` through `/DWebAppEnvExample`.
 
+Step 3 builds `CalibrationLauncher` as well as the ComServer. Until 1.6.13 it did not, and the
+script relied on a `CalibrationLauncher.exe` left over from an earlier build. On a fresh machine
+ISCC then failed at `setup.iss` line 143, "Source file ... does not exist".
+
 If the build fails after step 1, check `git status` for `App.config`. The script now restores it
 in a `finally` block. Before that fix, an early failure left the production password in a tracked
 file.

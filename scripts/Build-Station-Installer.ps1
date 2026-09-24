@@ -95,6 +95,13 @@ try {
     if ((Get-Content $builtConfig -Raw) -notmatch [regex]::Escape("Database=$DbName")) {
         throw 'Built .exe.config does not carry the target database - App.config edit did not propagate.'
     }
+
+    # setup.iss ships the launcher too. Build-Installer.ps1 always built it; this script used to rely
+    # on a copy left in bin\Release by an earlier build, which a fresh machine does not have.
+    Write-Host "      MSBuild CalibrationLauncher (Release)"
+    & $msbuild (Join-Path $root 'Installer\CalibrationLauncher\CalibrationLauncher.csproj') `
+        -restore -p:Configuration=Release -t:Build -v:minimal -nologo
+    if ($LASTEXITCODE -ne 0) { throw "CalibrationLauncher MSBuild failed ($LASTEXITCODE)" }
 }
 finally {
     # The build has what it needs in bin\Release; put the developer default back in the source tree.
