@@ -72,30 +72,35 @@ $enc = if ($Encrypt) { 'True' } else { 'False' }
 $node.connectionString = "Server=$DbServer,$DbPort;Database=$DbName;User Id=$DbUser;Password=$DbPassword;Encrypt=$enc;TrustServerCertificate=True;"
 $xml.Save($appConfig)
 
-# ---------------------------------------------------------------------------
-# 2. Station .env
-# ---------------------------------------------------------------------------
-Write-Host "[2/5] Installer\assets\.env.station"
-$encLower = if ($Encrypt) { 'true' } else { 'false' }
-$prismaUrl = "sqlserver://${DbServer}:${DbPort};database=$DbName;user=$DbUser;password=$DbPassword;encrypt=$encLower;trustServerCertificate=true"
-& (Join-Path $PSScriptRoot 'New-StationEnv.ps1') -DatabaseUrl $prismaUrl
+# From here until the restore, App.config holds the target password in a tracked file. Restore it
+# on failure too - an early throw used to leave the production password sitting in the work tree.
+try {
+    # -----------------------------------------------------------------------
+    # 2. Station .env
+    # -----------------------------------------------------------------------
+    Write-Host "[2/5] Installer\assets\.env.station"
+    $encLower = if ($Encrypt) { 'true' } else { 'false' }
+    $prismaUrl = "sqlserver://${DbServer}:${DbPort};database=$DbName;user=$DbUser;password=$DbPassword;encrypt=$encLower;trustServerCertificate=true"
+    & (Join-Path $PSScriptRoot 'New-StationEnv.ps1') -DatabaseUrl $prismaUrl
 
-# ---------------------------------------------------------------------------
-# 3. ComServer build
-# ---------------------------------------------------------------------------
-Write-Host "[3/5] MSBuild ComServer.Hosts.ConsoleHost (Release)"
-& $msbuild (Join-Path $root 'Systems\VCT\ComServer\ComServer.Hosts.ConsoleHost\ComServer.Hosts.ConsoleHost.csproj') `
-    -restore -p:Configuration=Release -t:Build -v:minimal -nologo
-if ($LASTEXITCODE -ne 0) { throw "MSBuild failed ($LASTEXITCODE)" }
+    # -----------------------------------------------------------------------
+    # 3. ComServer build
+    # -----------------------------------------------------------------------
+    Write-Host "[3/5] MSBuild ComServer.Hosts.ConsoleHost (Release)"
+    & $msbuild (Join-Path $root 'Systems\VCT\ComServer\ComServer.Hosts.ConsoleHost\ComServer.Hosts.ConsoleHost.csproj') `
+        -restore -p:Configuration=Release -t:Build -v:minimal -nologo
+    if ($LASTEXITCODE -ne 0) { throw "MSBuild failed ($LASTEXITCODE)" }
 
-$builtConfig = Join-Path $root 'Systems\VCT\ComServer\ComServer.Hosts.ConsoleHost\bin\Release\Maba.VCT.CommServer.Hosts.ConsoleHost.exe.config'
-if ((Get-Content $builtConfig -Raw) -notmatch [regex]::Escape("Database=$DbName")) {
-    throw 'Built .exe.config does not carry the target database - App.config edit did not propagate.'
+    $builtConfig = Join-Path $root 'Systems\VCT\ComServer\ComServer.Hosts.ConsoleHost\bin\Release\Maba.VCT.CommServer.Hosts.ConsoleHost.exe.config'
+    if ((Get-Content $builtConfig -Raw) -notmatch [regex]::Escape("Database=$DbName")) {
+        throw 'Built .exe.config does not carry the target database - App.config edit did not propagate.'
+    }
 }
-
-# The build has what it needs in bin\Release; put the developer default back in the source tree.
-Set-Content -Path $appConfig -Value $appConfigOriginal -Encoding utf8 -NoNewline
-Write-Host "      App.config restored to its committed (STAGE) default"
+finally {
+    # The build has what it needs in bin\Release; put the developer default back in the source tree.
+    Set-Content -Path $appConfig -Value $appConfigOriginal -Encoding utf8 -NoNewline
+    Write-Host "      App.config restored to its committed (STAGE) default"
+}
 
 # ---------------------------------------------------------------------------
 # 4. Installer
@@ -105,7 +110,7 @@ $iss = Join-Path $root 'Installer\setup.iss'
 $version = (Select-String -Path $iss -Pattern '^#define AppVersion "([^"]+)"').Matches[0].Groups[1].Value
 Push-Location (Join-Path $root 'Installer')
 try {
-    & $iscc $iss "/DWebAppStandalone=$standalone" "/DWebAppStatic=$static" "/DWebAppPublic=$public" | Tee-Object -Variable isccOut | Out-Null
+    & $iscc $iss "/DWebAppStandalone=$standalone" "/DWebAppStatic=$static" "/DWebAppPublic=$public" "/DWebAppEnvExample=$(Join-Path $WebAppRoot '.env.example')" | Tee-Object -Variable isccOut | Out-Null
     if ($LASTEXITCODE -ne 0) {
         $isccOut | Select-Object -Last 15
         throw "ISCC failed ($LASTEXITCODE)"

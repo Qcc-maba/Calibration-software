@@ -25,6 +25,10 @@
 #ifndef WebAppPublic
   #define WebAppPublic "..\app\public"
 #endif
+; Build-Station-Installer.ps1 passes the one from the same checkout the web app was built from.
+#ifndef WebAppEnvExample
+  #define WebAppEnvExample "..\app\.env.example"
+#endif
 
 [Setup]
 AppId={{8F3A2C1D-4B5E-4F6A-9D2E-1C3B5A7F8E9D}
@@ -166,7 +170,7 @@ Source: "..\scripts\run-project.ps1";       DestDir: "{app}";                  F
 ; app\.env verbatim put the staging database password, the SQL admin connection string,
 ; the SMTP password and seven test accounts onto every customer machine.
 Source: "assets\.env.station";             DestDir: "{app}\webapp";           DestName: ".env"; Flags: ignoreversion
-Source: "..\app\.env.example";              DestDir: "{app}\webapp";           DestName: ".env.example"; Flags: ignoreversion
+Source: "{#WebAppEnvExample}";             DestDir: "{app}\webapp";           DestName: ".env.example"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}";                 Filename: "{app}\CalibrationLauncher.exe"; WorkingDir: "{app}"

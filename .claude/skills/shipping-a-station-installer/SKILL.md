@@ -29,6 +29,14 @@ The script needs two tools, and it checks for them before changing anything:
   per user under `%LOCALAPPDATA%\Programs\Inno Setup 6`, not `Program Files (x86)`. The script
   looks in both places.
 
+The scripts also once assumed the app repo sat inside this one (`Calibration-software\app`). Now
+`New-StationEnv.ps1` also looks for the dev `.env` in the sibling `GIT_ROOT\app`. `setup.iss` takes
+`.env.example` from `-WebAppRoot` through `/DWebAppEnvExample`.
+
+If the build fails after step 1, check `git status` for `App.config`. The script now restores it
+in a `finally` block. Before that fix, an early failure left the production password in a tracked
+file.
+
 1.6.12 and earlier were built on a machine with VS 18 Community and Inno Setup already installed.
 The first attempt on another machine (1.6.13, 2026-09-24) found Inno Setup missing altogether.
 
