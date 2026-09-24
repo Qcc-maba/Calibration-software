@@ -43,6 +43,9 @@ if (-not (Test-Path $msbuild) -and (Test-Path $vswhere)) {
     if ($found) { $msbuild = $found }
 }
 $iscc    = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+# `winget install JRSoftware.InnoSetup` without admin rights installs per user, under LocalAppData.
+$isccUser = Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'
+if (-not (Test-Path $iscc) -and (Test-Path $isccUser)) { $iscc = $isccUser }
 foreach ($tool in @($msbuild, $iscc)) {
     if (-not (Test-Path $tool)) { throw "Missing tool: $tool" }
 }

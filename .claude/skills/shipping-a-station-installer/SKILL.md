@@ -25,8 +25,9 @@ The script needs two tools, and it checks for them before changing anything:
   restricted to version 18. The restriction matters: SSMS 22 registers its own MSBuild with
   `vswhere`, and an unrestricted `-latest` picks that one. BuildTools is enough to find MSBuild.
   Whether it has every targeting pack the ComServer needs has not been confirmed yet.
-- **Inno Setup 6** at `C:\Program Files (x86)\Inno Setup 6\ISCC.exe`:
-  `winget install JRSoftware.InnoSetup`.
+- **Inno Setup 6**: `winget install JRSoftware.InnoSetup`. Without admin rights, winget installs it
+  per user under `%LOCALAPPDATA%\Programs\Inno Setup 6`, not `Program Files (x86)`. The script
+  looks in both places.
 
 1.6.12 and earlier were built on a machine with VS 18 Community and Inno Setup already installed.
 The first attempt on another machine (1.6.13, 2026-09-24) found Inno Setup missing altogether.
