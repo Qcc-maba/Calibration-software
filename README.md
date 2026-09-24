@@ -39,7 +39,7 @@
 ```powershell
 .\scripts\Start-Calibration-Stack.ps1 -BuildServer   # בונה ומריץ שרת + ממשק
 # ממשק:    http://localhost:3000
-# WebSocket: ws://localhost:5001/ws/   (תואם NEXT_PUBLIC_WEBSOCKET_URL ב-app\.env.local)
+# WebSocket: ws://localhost:5001/ws/   (תואם NEXT_PUBLIC_WEBSOCKET_URL ב-app\.env)
 ```
 
 > הערה: `packages/` ו-`bin/`/`obj/` אינם ב-git ונמחקים בניקוי — לפני בנייה ראשונה הרץ `nuget restore`
