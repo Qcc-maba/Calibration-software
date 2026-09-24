@@ -20,18 +20,27 @@
     finding the range that contains it and evaluating that row's Equation. Saving the points as
     rows would reproduce the exact fault MBA-811 fixed on 31-98.
 
-    So N points, sorted by reading, become N-1 ranges, one per neighbouring pair (r1,d1)-(r2,d2):
+    So N points, sorted by reference value, become N-1 ranges, one per neighbouring pair
+    (x1,d1)-(x2,d2):
 
-        slope = (d2 - d1) / (r2 - r1)        const = d1 - slope * r1
-        Value1 = r1,  Value2 = r2,  Deviation = d1   (the line evaluated at Value1, as on every
+        slope = (d2 - d1) / (x2 - x1)        const = d1 - slope * x1
+        Value1 = x1,  Value2 = x2,  Deviation = d1   (the line evaluated at Value1, as on every
                                                       existing row)
 
-    Value1 is the master's READING, not the nominal point - the function looks ranges up by the
-    raw reading, and the live certificates agree: 702's ranges start at 0.040, 100.109, 249.959.
+    Each point is stored as its REFERENCE value and the deviation there (Nofar, MBA-816, 24/09).
+    The live certificates cannot tell this apart from storing the reading - 702's ranges start at
+    0.040, 100.109, 249.959, and a measured reference is no rounder than a reading - so it is the
+    lab's definition that decides it, not the data.
 
-    Deviation = Reading - Reference. The function returns Reading - Deviation as the corrected
-    value, so at every calibrated point that gives back the reference exactly. The sign is decided
-    here, once, rather than by each caller.
+    Deviation = Reading - Reference, computed here once rather than sent by each caller: the wizard
+    already shows a column called Deviation that means something else (MasterValue - NominalValue),
+    and the function returns Reading - Deviation as the corrected value, so a flipped sign would
+    double every error instead of removing it.
+
+    The function looks a range up by the raw READING while the certificate is laid out over the
+    reference. The two differ by the deviation itself, so a correction applied at a reading is off
+    by slope x deviation - about 1e-4 for these certificates, far below their resolution. The legacy
+    system has always worked this way.
 
     Versions
     --------
@@ -48,25 +57,30 @@
 
     Parameters
     ----------
-    @Data   JSON array of points, e.g. [{"Reading":0.04,"Reference":0.039}, ...]. At least two,
-            no repeated reading, no NULLs.
+    @MabaID the master's MabaID - how the lab identifies it (Nofar, 24/09). Give this or
+            @MeasurementDevicesId. A MabaID held by more than one live device is refused rather
+            than guessed - STAGE has three such, all test records.
+    @Data   JSON array of points, e.g. [{"Reference":0.039,"Reading":0.04}, ...]. At least two,
+            no repeated reference, no NULLs. Reading = what the master being calibrated showed.
     @Apply  0 (default) returns the ranges that WOULD be written and touches nothing - the screen
             can show that before the calibrator confirms. 1 writes them.
 
     One result set: one row per range with Outcome (WouldSave | Saved | NoChange), the CorVersion
     it belongs to, and Source (new | carried forward).
 
-    Not guarded here, yet: that the master belongs to the QCC customer. The item-to-master link and
-    QCC's Priority CUST code are both still open on MBA-816.
+    Deliberately NOT restricted to QCC's devices. Showing the button for QCC only is the screen's
+    rule for now, and saving for customer devices is expected later (Nofar, 24/09) - a guard here
+    would have to be taken out again.
 */
 CREATE OR ALTER PROCEDURE dbo.SaveMasterSensorCorrectionsBatch
     @LoggedInUserEmail    NVARCHAR(255),
-    @MeasurementDevicesId INT,
+    @MeasurementDevicesId INT,          /* this, or @MabaID */
     @Data                 NVARCHAR(MAX),
     @MeasurementId        INT = NULL,   /* NULL = the device's own MeasurementId */
     @UnitID               INT = NULL,
     @OrderDetailsItemId   INT = NULL,   /* the calibration this came from, kept in Note */
-    @Apply                BIT = 0
+    @Apply                BIT = 0,
+    @MabaID               NVARCHAR(50) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -75,13 +89,26 @@ BEGIN
     DECLARE @UserId INT = (SELECT ID FROM dbo.Users WHERE Email = @LoggedInUserEmail);
     DECLARE @MainCategoryId INT;
 
+    IF @MeasurementDevicesId IS NULL AND NULLIF(LTRIM(RTRIM(@MabaID)), N'') IS NOT NULL
+    BEGIN
+        DECLARE @Matches INT;
+        SELECT @Matches = COUNT(*), @MeasurementDevicesId = MIN(md.ID)
+        FROM dbo.MeasurementDevices AS md
+        WHERE LTRIM(RTRIM(md.MabaID)) = LTRIM(RTRIM(@MabaID)) AND md.IsDeleted = 0;
+
+        IF @Matches = 0
+            THROW 51000, 'No live master carries that MabaID.', 1;
+        IF @Matches > 1
+            THROW 51000, 'That MabaID is held by more than one live device - pass MeasurementDevicesId.', 1;
+    END;
+
     SELECT @MainCategoryId = md.MainCategoryId,
            @MeasurementId  = COALESCE(@MeasurementId, md.MeasurementId)
     FROM dbo.MeasurementDevices AS md
     WHERE md.ID = @MeasurementDevicesId AND md.IsDeleted = 0;
 
     IF @@ROWCOUNT = 0
-        THROW 51000, 'Unknown or deleted MeasurementDevicesId.', 1;
+        THROW 51000, 'Unknown or deleted master - give MeasurementDevicesId or MabaID.', 1;
     IF @MeasurementId IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.Measurements WHERE ID = @MeasurementId)
         THROW 51000, 'MeasurementId is missing or unknown, and the device carries none.', 1;
     IF @UnitID IS NOT NULL
@@ -91,33 +118,33 @@ BEGIN
         THROW 51000, 'Data is not valid JSON.', 1;
 
     DROP TABLE IF EXISTS #Pts;
-    SELECT Seq = ROW_NUMBER() OVER (ORDER BY p.Reading),
-           p.Reading,
+    SELECT Seq = ROW_NUMBER() OVER (ORDER BY p.Reference),
+           Ref = p.Reference,
            Dev = p.Reading - p.Reference
     INTO #Pts
     FROM OPENJSON(@Data)
-    WITH (Reading DECIMAL(25,15) '$.Reading', Reference DECIMAL(25,15) '$.Reference') AS p;
+    WITH (Reference DECIMAL(25,15) '$.Reference', Reading DECIMAL(25,15) '$.Reading') AS p;
 
-    IF EXISTS (SELECT 1 FROM #Pts WHERE Reading IS NULL OR Dev IS NULL)
-        THROW 51000, 'Every point needs both Reading and Reference.', 1;
+    IF EXISTS (SELECT 1 FROM #Pts WHERE Ref IS NULL OR Dev IS NULL)
+        THROW 51000, 'Every point needs both Reference and Reading.', 1;
     IF (SELECT COUNT(*) FROM #Pts) < 2
         THROW 51000, 'At least two points are needed to form a range.', 1;
-    IF (SELECT COUNT(DISTINCT Reading) FROM #Pts) <> (SELECT COUNT(*) FROM #Pts)
-        THROW 51000, 'Two points share a reading, so the range between them has no width.', 1;
+    IF (SELECT COUNT(DISTINCT Ref) FROM #Pts) <> (SELECT COUNT(*) FROM #Pts)
+        THROW 51000, 'Two points share a reference value, so the range between them has no width.', 1;
 
     /* one straight line per neighbouring pair; the arithmetic is FLOAT, the stored ends are exact */
     DROP TABLE IF EXISTS #New;
     SELECT a.Seq,
-           Value1    = a.Reading,
-           Value2    = b.Reading,
+           Value1    = a.Ref,
+           Value2    = b.Ref,
            Deviation = a.Dev,
            l.Slope,
-           Const     = CAST(a.Dev AS FLOAT) - l.Slope * CAST(a.Reading AS FLOAT)
+           Const     = CAST(a.Dev AS FLOAT) - l.Slope * CAST(a.Ref AS FLOAT)
     INTO #New
     FROM #Pts AS a
     JOIN #Pts AS b ON b.Seq = a.Seq + 1
     CROSS APPLY (SELECT Slope = CAST(b.Dev - a.Dev AS FLOAT)
-                              / CAST(b.Reading - a.Reading AS FLOAT)) AS l;
+                              / CAST(b.Ref - a.Ref AS FLOAT)) AS l;
 
     /* the text the function parses: 'x * (N)  + N' / 'x * (N)  - N', the shape of 30,283 of the
        30,548 live rows. Twelve decimals, trailing zeros dropped. */

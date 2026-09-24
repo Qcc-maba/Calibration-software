@@ -7,19 +7,25 @@
 
     The procedure is judged by the READER, not by itself. What matters is not which rows it writes
     but what dbo.fnMasterValueAfterCorrection answers afterwards - that function is what the wizard
-    and the logger compensate with. So each save is followed by readings through the function, and
-    the expectations are literals worked by hand, not derived the way the procedure derives them:
+    and the logger compensate with. So each save is followed by questions to the function, and the
+    expectations are literals worked by hand, not derived the way the procedure derives them:
 
-        points   reading -40.02 -> reference -40.00      deviation  -0.02
-                 reading   0.03 -> reference   0.00      deviation   0.03
-                 reading 100.10 -> reference 100.00      deviation   0.10
-                 reading 250.05 -> reference 250.00      deviation   0.05
+        points   reference -40 <- reading -40.02         deviation  -0.02
+                 reference   0 <- reading   0.03         deviation   0.03
+                 reference 100 <- reading 100.10         deviation   0.10
+                 reference 250 <- reading 250.05         deviation   0.05
 
-        at each point the corrected value must be the reference itself.
+    The certificate is laid out over the REFERENCE (Nofar, 24/09), so:
 
-        between points, 50.065 sits exactly halfway from 0.03 to 100.10 (100.07 / 2 = 50.035),
-        so its deviation is halfway from 0.03 to 0.10 = 0.065, and the corrected value is 50.000.
-        A procedure that stored points instead of ranges, or got the sign backwards, fails here.
+      * asked at a reference value, the function's Deviation is that point's deviation exactly.
+        50 sits halfway between 0 and 100, so its deviation is halfway from 0.03 to 0.10 = 0.065.
+      * asked at the READING, the corrected value lands within 1e-4 of the reference, not exactly
+        on it: the lookup is by reading, so the line is evaluated a deviation's width away from its
+        own point. At 100.10: range 100..250 has slope -0.05/150, deviation 0.10 - 0.10/3000 =
+        0.0999667, corrected 100.0000333.
+
+    A procedure that stored points instead of ranges, laid them over the reading, or got the sign
+    backwards, fails here.
 */
 SET NOCOUNT ON;
 
@@ -32,8 +38,8 @@ CREATE TABLE #R (Outcome NVARCHAR(10), CorVersion INT, Source NVARCHAR(20), Meas
                  Equation NVARCHAR(300));
 
 DECLARE @Email NVARCHAR(255) = (SELECT TOP (1) Email FROM dbo.Users WHERE Email IS NOT NULL ORDER BY ID);
-DECLARE @Points NVARCHAR(MAX) = N'[{"Reading":100.10,"Reference":100.00},{"Reading":-40.02,"Reference":-40.00},
-                                   {"Reading":250.05,"Reference":250.00},{"Reading":0.03,"Reference":0.00}]';
+DECLARE @Points NVARCHAR(MAX) = N'[{"Reference":100,"Reading":100.10},{"Reference":-40,"Reading":-40.02},
+                                   {"Reference":250,"Reading":250.05},{"Reference":0,"Reading":0.03}]';
 
 /* a master whose newest certificate carries one quantity, and one whose newest carries two */
 DECLARE @D1 INT, @M1 INT, @D2 INT, @M2 INT, @Other INT;
@@ -81,6 +87,10 @@ INSERT @Out SELECT N'1 dry run', N'four points plan three ranges, outcome WouldS
        CASE WHEN COUNT(*) = 3 AND MIN(Outcome) = N'WouldSave' AND MAX(Outcome) = N'WouldSave'
             THEN N'PASS' ELSE N'FAIL' END
 FROM #R;
+INSERT @Out SELECT N'1 dry run', N'ranges start at the reference values, not the readings',
+       N'-40 / 0 / 100', CONCAT(CAST(MIN(Value1) AS DECIMAL(9,2)), N' .. ', CAST(MAX(Value1) AS DECIMAL(9,2))),
+       CASE WHEN (SELECT COUNT(*) FROM #R WHERE Value1 IN (-40, 0, 100)) = 3 THEN N'PASS' ELSE N'FAIL' END
+FROM #R;
 
 
 /* =============================================================================================
@@ -105,18 +115,26 @@ INSERT @Out SELECT N'2 save', N'earlier versions are left untouched',
        CAST(@OldRows AS NVARCHAR(40)), CAST(@OldRowsAfter AS NVARCHAR(40)),
        CASE WHEN @OldRows = @OldRowsAfter THEN N'PASS' ELSE N'FAIL' END;
 
+/* at each reference value the certificate gives that point's deviation - exact */
 INSERT @Out
-SELECT N'2 read back', CONCAT(N'reading ', v.Reading, N' corrects to its reference'),
-       CAST(v.Expected AS NVARCHAR(40)), CAST(f.CorrectedExact AS NVARCHAR(40)),
-       CASE WHEN ABS(f.CorrectedExact - v.Expected) < 0.000001 THEN N'PASS' ELSE N'FAIL' END
-FROM (VALUES (-40.02, -40.000), (0.03, 0.000), (100.10, 100.000), (250.05, 250.000),
-             (50.065, 50.000)) AS v (Reading, Expected)
+SELECT N'2 at ref', CONCAT(N'deviation at reference ', v.Ref),
+       CAST(v.Expected AS NVARCHAR(40)), CAST(f.Deviation AS NVARCHAR(40)),
+       CASE WHEN ABS(f.Deviation - v.Expected) < 0.000001 THEN N'PASS' ELSE N'FAIL' END
+FROM (VALUES (-40, -0.02), (0, 0.03), (100, 0.10), (250, 0.05), (50, 0.065)) AS v (Ref, Expected)
+CROSS APPLY dbo.fnMasterValueAfterCorrection(@D1, v.Ref, @M1) AS f;
+
+/* a real reading corrects to its reference, to within slope x deviation (see the header) */
+INSERT @Out
+SELECT N'2 reading', CONCAT(N'reading ', v.Reading, N' corrects to ', v.Ref, N' within 1e-4'),
+       CAST(v.Ref AS NVARCHAR(40)), CAST(f.CorrectedExact AS NVARCHAR(40)),
+       CASE WHEN ABS(f.CorrectedExact - v.Ref) < 0.0001 THEN N'PASS' ELSE N'FAIL' END
+FROM (VALUES (-40.02, -40), (0.03, 0), (100.10, 100), (250.05, 250)) AS v (Reading, Ref)
 CROSS APPLY dbo.fnMasterValueAfterCorrection(@D1, v.Reading, @M1) AS f;
 
-INSERT @Out SELECT N'2 read back', N'the top point is inside the certificate, not beyond it',
+INSERT @Out SELECT N'2 at ref', N'the top reference is inside the certificate, not beyond it',
        N'0', ISNULL(CAST(f.OutOfRange AS NVARCHAR(40)), N'NULL'),
        CASE WHEN f.OutOfRange = 0 THEN N'PASS' ELSE N'FAIL' END
-FROM dbo.fnMasterValueAfterCorrection(@D1, 250.05, @M1) AS f;
+FROM dbo.fnMasterValueAfterCorrection(@D1, 250, @M1) AS f;
 
 /* the same points again: nothing to write */
 DELETE #R;
@@ -160,9 +178,9 @@ BEGIN
     OUTER APPLY dbo.fnMasterValueAfterCorrection(@D2, @Probe + 0.5, @Other) AS f;
 
     INSERT @Out SELECT N'3 carry', N'the saved quantity reads the new certificate',
-           N'50.000000', ISNULL(CAST(f.CorrectedExact AS NVARCHAR(40)), N'NULL'),
-           CASE WHEN ABS(f.CorrectedExact - 50) < 0.000001 THEN N'PASS' ELSE N'FAIL' END
-    FROM dbo.fnMasterValueAfterCorrection(@D2, 50.065, @M2) AS f;
+           N'0.065000', ISNULL(CAST(f.Deviation AS NVARCHAR(40)), N'NULL'),
+           CASE WHEN ABS(f.Deviation - 0.065) < 0.000001 THEN N'PASS' ELSE N'FAIL' END
+    FROM dbo.fnMasterValueAfterCorrection(@D2, 50, @M2) AS f;
     ROLLBACK TRANSACTION;
 END
 ELSE
@@ -170,32 +188,63 @@ ELSE
 
 
 /* =============================================================================================
-   Section 4 - input the procedure must refuse, before it writes anything
+   Section 4 - naming the master by MabaID, as the lab does
    ============================================================================================= */
-DECLARE @Bad TABLE (Test NVARCHAR(80), Data NVARCHAR(MAX));
-INSERT @Bad VALUES
- (N'refuses a single point',            N'[{"Reading":1,"Reference":1}]'),
- (N'refuses two points at one reading', N'[{"Reading":1,"Reference":1},{"Reading":1,"Reference":2}]'),
- (N'refuses a point with no reference', N'[{"Reading":1,"Reference":1},{"Reading":2}]'),
- (N'refuses text that is not JSON',     N'not json');
+DECLARE @Maba1 NVARCHAR(50) = (SELECT LTRIM(RTRIM(MabaID)) FROM dbo.MeasurementDevices WHERE ID = @D1);
 
-DECLARE @T NVARCHAR(80), @J NVARCHAR(MAX), @Err NVARCHAR(400);
-DECLARE b CURSOR LOCAL FAST_FORWARD FOR SELECT Test, Data FROM @Bad;
-OPEN b; FETCH b INTO @T, @J;
+IF (SELECT COUNT(*) FROM dbo.MeasurementDevices
+    WHERE IsDeleted = 0 AND LTRIM(RTRIM(MabaID)) = @Maba1) = 1
+BEGIN
+    DELETE #R;
+    INSERT #R EXEC dbo.SaveMasterSensorCorrectionsBatch
+        @LoggedInUserEmail = @Email, @MeasurementDevicesId = NULL, @Data = @Points,
+        @MeasurementId = @M1, @Apply = 0, @MabaID = @Maba1;
+    INSERT @Out SELECT N'4 MabaID', CONCAT(N'MabaID ', @Maba1, N' plans the same three ranges'),
+           N'3 WouldSave', CONCAT(COUNT(*), N' ', MIN(Outcome)),
+           CASE WHEN COUNT(*) = 3 AND MIN(Outcome) = N'WouldSave' THEN N'PASS' ELSE N'FAIL' END
+    FROM #R;
+END
+ELSE
+    INSERT @Out VALUES (N'4 MabaID', N'device 1 has no unique MabaID here', N'-', N'-', N'SKIPPED');
+
+
+/* =============================================================================================
+   Section 5 - input the procedure must refuse, before it writes anything
+   ============================================================================================= */
+DECLARE @DupMaba NVARCHAR(50) =
+    (SELECT TOP (1) LTRIM(RTRIM(MabaID)) FROM dbo.MeasurementDevices WHERE IsDeleted = 0
+     GROUP BY LTRIM(RTRIM(MabaID)) HAVING COUNT(*) > 1);
+
+DECLARE @Bad TABLE (Test NVARCHAR(80), DeviceId INT, MabaID NVARCHAR(50), Data NVARCHAR(MAX));
+INSERT @Bad VALUES
+ (N'refuses a single point',                  @D1, NULL, N'[{"Reference":1,"Reading":1}]'),
+ (N'refuses two points at one reference',     @D1, NULL, N'[{"Reference":1,"Reading":1},{"Reference":1,"Reading":2}]'),
+ (N'refuses a point with no reading',         @D1, NULL, N'[{"Reference":1,"Reading":1},{"Reference":2}]'),
+ (N'refuses text that is not JSON',           @D1, NULL, N'not json'),
+ (N'refuses a MabaID no master carries',      NULL, N'no-such-maba-id', @Points),
+ (N'refuses neither id nor MabaID',           NULL, NULL, @Points);
+IF @DupMaba IS NOT NULL
+    INSERT @Bad VALUES (N'refuses a MabaID held by two live devices', NULL, @DupMaba, @Points);
+
+DECLARE @T NVARCHAR(80), @Dv INT, @Mb NVARCHAR(50), @J NVARCHAR(MAX), @Err NVARCHAR(400);
+DECLARE b CURSOR LOCAL FAST_FORWARD FOR SELECT Test, DeviceId, MabaID, Data FROM @Bad;
+OPEN b; FETCH b INTO @T, @Dv, @Mb, @J;
 WHILE @@FETCH_STATUS = 0
 BEGIN
     SET @Err = NULL;
     BEGIN TRY
         DELETE #R;
-        INSERT #R EXEC dbo.SaveMasterSensorCorrectionsBatch @Email, @D1, @J, @M1, NULL, NULL, 1;
+        INSERT #R EXEC dbo.SaveMasterSensorCorrectionsBatch
+            @LoggedInUserEmail = @Email, @MeasurementDevicesId = @Dv, @Data = @J,
+            @MeasurementId = @M1, @Apply = 1, @MabaID = @Mb;
     END TRY
     BEGIN CATCH
         SET @Err = ERROR_MESSAGE();
         IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
     END CATCH;
-    INSERT @Out SELECT N'4 refuse', @T, N'an error', ISNULL(LEFT(@Err, 40), N'accepted'),
+    INSERT @Out SELECT N'5 refuse', @T, N'an error', ISNULL(LEFT(@Err, 40), N'accepted'),
            CASE WHEN @Err IS NOT NULL THEN N'PASS' ELSE N'FAIL' END;
-    FETCH b INTO @T, @J;
+    FETCH b INTO @T, @Dv, @Mb, @J;
 END;
 CLOSE b; DEALLOCATE b;
 
