@@ -36,9 +36,7 @@ namespace Maba.VCT.Common.Protocol_Parser
         public void ParsePackets()
         {
             BaseMessage baseMessage = null;
-            var parts = MessageData.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                           .Select(p => p.Trim())
-                           .ToList();
+            var parts = SplitFields(MessageData);
             var keyValue = parts[0].Split(new[] { ':' }, 2);
             var key = keyValue[0].Trim().Replace("\"", "");
             var value = keyValue[1].Trim().Replace("\"", "");
@@ -76,6 +74,41 @@ namespace Maba.VCT.Common.Protocol_Parser
         #region Private Methods
 
         /// <summary>
+        /// Splits a message into top-level fields, treating a comma inside a double-quoted value as
+        /// part of that value rather than a field separator. MBA-970: a plain Split(',') chopped
+        /// BatchChannels:"1,3,5,11,15" into "BatchChannels:\"1", "3", "5", "11", "15\"" - only the
+        /// first token still had a ':' and survived, so every channel past the first was silently
+        /// dropped with no error anywhere.
+        /// </summary>
+        private static List<string> SplitFields(string message)
+        {
+            var fields = new List<string>();
+            if (string.IsNullOrEmpty(message))
+            {
+                return fields;
+            }
+
+            var start = 0;
+            var inQuotes = false;
+            for (var i = 0; i < message.Length; i++)
+            {
+                var c = message[i];
+                if (c == '"')
+                {
+                    inQuotes = !inQuotes;
+                }
+                else if (c == ',' && !inQuotes)
+                {
+                    fields.Add(message.Substring(start, i - start).Trim());
+                    start = i + 1;
+                }
+            }
+            fields.Add(message.Substring(start).Trim());
+
+            return fields.Where(f => f.Length > 0).ToList();
+        }
+
+        /// <summary>
         /// Reads one "Key":"Value" pair out of the raw message, for fields that are not specific to
         /// a single message type. Returns null when the field is absent.
         /// </summary>
@@ -86,8 +119,7 @@ namespace Maba.VCT.Common.Protocol_Parser
                 return null;
             }
 
-            var parts = MessageData.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                           .Select(p => p.Trim());
+            var parts = SplitFields(MessageData);
 
             foreach (var part in parts)
             {
@@ -114,9 +146,7 @@ namespace Maba.VCT.Common.Protocol_Parser
             var currentConfig = new CreateReportMessage();
 
             // Split the string by commas
-            var parts = MessageData.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                           .Select(p => p.Trim())
-                           .ToList();
+            var parts = SplitFields(MessageData);
 
             foreach (var part in parts)
             {
@@ -143,9 +173,7 @@ namespace Maba.VCT.Common.Protocol_Parser
             var currentConfig = new SensorsAssociationMessage();
 
             // Split the string by commas
-            var parts = MessageData.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                           .Select(p => p.Trim())
-                           .ToList();
+            var parts = SplitFields(MessageData);
 
             foreach (var part in parts)
             {
@@ -205,9 +233,7 @@ namespace Maba.VCT.Common.Protocol_Parser
             var currentConfig = new LoggerConfig();
 
             // Split the string by commas
-            var parts = MessageData.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                           .Select(p => p.Trim())
-                           .ToList();
+            var parts = SplitFields(MessageData);
 
             foreach (var part in parts)
             {
@@ -261,9 +287,7 @@ namespace Maba.VCT.Common.Protocol_Parser
         private BaseMessage StatusParser()
         {
             var msg = new StatusMessage();
-            var parts = MessageData.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                           .Select(p => p.Trim())
-                           .ToList();
+            var parts = SplitFields(MessageData);
             foreach (var part in parts)
             {
                 if (part.Contains(":"))
