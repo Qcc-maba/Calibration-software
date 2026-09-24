@@ -35,6 +35,13 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 
 $msbuild = 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe'
+# Not every build machine has Community: ask vswhere for any VS 18 edition (BuildTools included).
+# Pinned to 18 because SSMS registers its own MSBuild with vswhere, and -latest would pick it.
+$vswhere = 'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe'
+if (-not (Test-Path $msbuild) -and (Test-Path $vswhere)) {
+    $found = & $vswhere -version '[18.0,19.0)' -products '*' -requires Microsoft.Component.MSBuild -latest -find 'MSBuild\Current\Bin\MSBuild.exe' | Select-Object -First 1
+    if ($found) { $msbuild = $found }
+}
 $iscc    = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
 foreach ($tool in @($msbuild, $iscc)) {
     if (-not (Test-Path $tool)) { throw "Missing tool: $tool" }
