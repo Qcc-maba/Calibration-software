@@ -53,6 +53,26 @@ foreach ($tool in @($msbuild, $iscc)) {
 $standalone = Join-Path $WebAppRoot '.next\standalone'
 $static     = Join-Path $WebAppRoot '.next\static'
 $public     = Join-Path $WebAppRoot 'public'
+# Files that exist only to make a build and carry secrets. Deleted once ISCC has packed what it needs,
+# or as soon as the build fails - they are all gitignored, so nothing else would ever flag them.
+$builtConfigPath = Join-Path $root 'Systems\VCT\ComServer\ComServer.Hosts.ConsoleHost\bin\Release\Maba.VCT.CommServer.Hosts.ConsoleHost.exe.config'
+function Remove-BuildSecrets {
+    $paths = @(
+        (Join-Path $root 'Installer\assets\.env.station'),   # production DB password
+        $builtConfigPath                                      # production DB password
+    )
+    # The web app's .env is only a build-time copy in a throwaway clone. Never delete it from a
+    # developer's own checkout, in case -WebAppRoot points at one.
+    $webAppRootFull = [IO.Path]::GetFullPath($WebAppRoot).TrimEnd('\')
+    $devCheckouts = @((Join-Path $root 'app'), (Join-Path (Split-Path -Parent $root) 'app')) |
+        ForEach-Object { [IO.Path]::GetFullPath($_).TrimEnd('\') }
+    if ($devCheckouts -notcontains $webAppRootFull) { $paths += Join-Path $WebAppRoot '.env' }
+
+    foreach ($p in $paths) {
+        if (Test-Path $p) { Remove-Item $p -Force; Write-Host "      removed $p" }
+    }
+}
+
 if (-not (Test-Path (Join-Path $standalone 'server.js'))) {
     throw "No standalone webapp build at $standalone - run BUILD_STANDALONE=true SKIP_ENV_VALIDATION=1 npx next build there first."
 }
@@ -102,12 +122,19 @@ try {
     & $msbuild (Join-Path $root 'Installer\CalibrationLauncher\CalibrationLauncher.csproj') `
         -restore -p:Configuration=Release -t:Build -v:minimal -nologo
     if ($LASTEXITCODE -ne 0) { throw "CalibrationLauncher MSBuild failed ($LASTEXITCODE)" }
+    $binariesBuilt = $true
 }
 finally {
     # The build has what it needs in bin\Release; put the developer default back in the source tree.
     Set-Content -Path $appConfig -Value $appConfigOriginal -Encoding utf8 -NoNewline
     Write-Host "      App.config restored to its committed (STAGE) default"
+    if (-not $binariesBuilt) { Remove-BuildSecrets }
 }
+
+# Next copies the web app's .env into the standalone output, and setup.iss packs standalone\* - so
+# without this the developer .env (staging passwords, SQL admin string) rides inside the installer.
+$standaloneEnv = Join-Path $standalone '.env'
+if (Test-Path $standaloneEnv) { Remove-Item $standaloneEnv -Force; Write-Host "      removed $standaloneEnv" }
 
 # ---------------------------------------------------------------------------
 # 4. Installer
@@ -123,7 +150,11 @@ try {
         throw "ISCC failed ($LASTEXITCODE)"
     }
 }
-finally { Pop-Location }
+finally {
+    Pop-Location
+    # Packed or failed, nothing needs these any more; the next build regenerates them.
+    Remove-BuildSecrets
+}
 
 # ---------------------------------------------------------------------------
 # 5. Payload sanity
