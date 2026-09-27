@@ -788,6 +788,37 @@ namespace Maba.VCT.Core.Tests
         }
 
         #endregion
+
+        #region MBA-974: Pending Reconfigure Tests
+
+        [TestMethod]
+        public void TakePendingReconfigureReason_NothingMarked_ReturnsNull()
+        {
+            Assert.IsNull(_host.TakePendingReconfigureReason());
+        }
+
+        [TestMethod]
+        public void MarkPendingReconfigure_ThenTake_ReturnsTheReasonAndClearsIt()
+        {
+            _host.MarkPendingReconfigure("channel change from web app");
+
+            Assert.AreEqual("channel change from web app", _host.TakePendingReconfigureReason());
+            Assert.IsNull(_host.TakePendingReconfigureReason(), "a second take must find nothing left to act on");
+        }
+
+        [TestMethod]
+        public void MarkPendingReconfigure_CalledTwiceBeforeATake_KeepsOnlyTheLatestReason()
+        {
+            // Two live config messages arriving before the next tick must coalesce into one pending
+            // re-init, not queue two - the second reason is what the single take sees.
+            _host.MarkPendingReconfigure("LoggerConfiguration change from web app");
+            _host.MarkPendingReconfigure("SensorsAssociation channel change from web app");
+
+            Assert.AreEqual("SensorsAssociation channel change from web app", _host.TakePendingReconfigureReason());
+            Assert.IsNull(_host.TakePendingReconfigureReason());
+        }
+
+        #endregion
     }
 
     /// <summary>
@@ -798,6 +829,7 @@ namespace Maba.VCT.Core.Tests
         public bool StartCalled { get; set; }
         public bool OnTimerCalled { get; set; }
         public bool OnConnectionCalled { get; set; }
+        public int OnConnectionCallCount { get; set; }
         public bool LastConnectionState { get; set; }
         public DeviceEventArgs LastEvent { get; set; }
         public string SettingsFamily { get; set; }
@@ -807,6 +839,7 @@ namespace Maba.VCT.Core.Tests
         public bool OnConnection(bool state)
         {
             OnConnectionCalled = true;
+            OnConnectionCallCount++;
             LastConnectionState = state;
             return true;
         }

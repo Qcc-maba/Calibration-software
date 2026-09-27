@@ -114,8 +114,12 @@ namespace Maba.VCT.Core
         /// MBA-974: a live SensorsAssociation/LoggerConfiguration message changed a device's
         /// channels/rate/interval in HardwareBL_Settings, but that alone never reaches the physical
         /// instrument - it is only ever told its scan configuration once, at connect time. Whichever
-        /// live device is actually driving the affected family gets re-initialized (the same recovery
-        /// path MBA-962 uses for a power-cycled logger) so the hardware matches what was just applied.
+        /// live device is actually driving the affected family needs its BL re-initialized so the
+        /// hardware matches what was just applied - but not from here. This runs on the WebSocket
+        /// receive thread, and re-initializing inline would race BL.OnTimer on the device tick thread
+        /// and block behind a live SQL read while holding DeviceHost_Slim's read lock. So this only
+        /// marks the device; CheckDataTimeouts takes the mark and performs the actual re-init on the
+        /// tick thread, the same way MBA-962's power-cycle recovery already does safely.
         /// </summary>
         private void MainEventsBus_LiveHardwareReconfigured(object o, Events.LiveHardwareReconfiguredEventArgs e)
         {
@@ -125,17 +129,8 @@ namespace Maba.VCT.Core
             {
                 foreach (var dev in list.Values)
                 {
-                    if (!string.Equals(dev.BL?.SettingsFamily, e.FamilyKey, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    try
-                    {
-                        dev.ReinitializeBL(e.Reason);
-                    }
-                    catch (Exception ex)
-                    {
-                        Libs.Trace.Tracer.Info("[ServerCore] Error re-initializing device SN={0} for live reconfiguration: {1}", dev.SN, ex.Message);
-                    }
+                    if (string.Equals(dev.BL?.SettingsFamily, e.FamilyKey, StringComparison.OrdinalIgnoreCase))
+                        dev.MarkPendingReconfigure(e.Reason);
                 }
             });
         }
@@ -414,13 +409,23 @@ namespace Maba.VCT.Core
             // MBA-962: devices to restart are collected under the lock and restarted after it is
             // released. ReinitializeBL runs the BL's OnCreateStates, which re-reads the master
             // corrections from SQL - holding the device read lock across that would stall the tick.
-            var toRecover = new System.Collections.Generic.List<Device.HardwareDeviceHost>();
+            // MBA-974: also carries the reason, since a device can land in this list either for going
+            // silent (below) or for a live WS reconfiguration (TakePendingReconfigureReason) - each
+            // needs its own message, and two live reconfigurations arriving before this tick coalesce
+            // into the single reason the second one left, i.e. one re-init instead of two.
+            var toRecover = new System.Collections.Generic.List<(Device.HardwareDeviceHost Device, string Reason)>();
 
             DeviceHost_Slim.MyReadLock(list =>
             {
                 foreach (var device in list.Values)
                 {
                     if (device == null) continue;
+
+                    var pendingReconfigureReason = device.TakePendingReconfigureReason();
+                    if (pendingReconfigureReason != null && device.IsConnected)
+                    {
+                        toRecover.Add((device, pendingReconfigureReason));
+                    }
 
                     switch (EvaluateDataWatchdog(device.IsConnected, device.WatchdogMeasurementUtc,
                                                  device.DataTimedOut, nowUtc, DataTimeout_TimeSpan))
@@ -445,18 +450,18 @@ namespace Maba.VCT.Core
                     {
                         device.RecoveryAttempts++;
                         device.LastRecoveryAttemptUtc = nowUtc;
-                        toRecover.Add(device);
+                        toRecover.Add((device, string.Format(CultureInfo.InvariantCulture,
+                            "silent for over {0}s - power-cycle recovery attempt {1}/{2}",
+                            (int)DataTimeout_TimeSpan.TotalSeconds, device.RecoveryAttempts, Recovery_MaxAttempts)));
                     }
                 }
             });
 
-            foreach (var device in toRecover)
+            foreach (var (device, reason) in toRecover)
             {
                 try
                 {
-                    device.ReinitializeBL(string.Format(CultureInfo.InvariantCulture,
-                        "silent for over {0}s - power-cycle recovery attempt {1}/{2}",
-                        (int)DataTimeout_TimeSpan.TotalSeconds, device.RecoveryAttempts, Recovery_MaxAttempts));
+                    device.ReinitializeBL(reason);
                 }
                 catch (Exception ex)
                 {

@@ -400,11 +400,20 @@ namespace Maba.VCT.Core.Tests
 
         /*  A live SensorsAssociation/LoggerConfiguration change updates HardwareBL_Settings but never
             reached the physical instrument on its own - it was only ever told its scan configuration
-            once, at connect time. LiveHardwareReconfigured is the seam that re-initializes whichever
-            live device is actually driving the affected family. */
+            once, at connect time. LiveHardwareReconfigured is the seam that marks whichever live
+            device is actually driving the affected family; only CheckDataTimeouts, on the tick thread,
+            actually re-initializes it - never inline on the WebSocket receive thread, where it would
+            race BL.OnTimer and block behind OnCreateStates' SQL read while holding the device lock. */
+
+        private static void InvokeCheckDataTimeouts(ServerCore server, DateTime nowUtc)
+        {
+            var m = typeof(ServerCore).GetMethod("CheckDataTimeouts", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(m);
+            m.Invoke(server, new object[] { nowUtc });
+        }
 
         [TestMethod]
-        public void LiveHardwareReconfigured_MatchingFamily_ReinitializesTheDevice()
+        public void LiveHardwareReconfigured_MatchingFamily_MarksTheDeviceWithoutReinitializingInline()
         {
             var server = new ServerCore();
             var com = new MockComLayer();
@@ -419,12 +428,35 @@ namespace Maba.VCT.Core.Tests
             server.MainEventsBus.Fire_LiveHardwareReconfigured(host,
                 new LiveHardwareReconfiguredEventArgs("Hydra2", "test reconfiguration"));
 
-            Assert.IsTrue(bl.OnConnectionCalled, "ReinitializeBL should have called BL.OnConnection(true)");
+            Assert.IsFalse(bl.OnConnectionCalled,
+                "the event handler runs on the WS receive thread and must only mark the device, never reinitialize inline");
+        }
+
+        [TestMethod]
+        public void LiveHardwareReconfigured_MarkedDevice_ReinitializesOnTheNextTickNotInline()
+        {
+            var server = new ServerCore();
+            var com = new MockComLayer();
+            var host = new HardwareDeviceHost(server.MainEventsBus, com, new DeviceSettings());
+            var idBytes = System.Text.Encoding.ASCII.GetBytes("FLUKE,2625A\r\n");
+            com.SimulateDataReceived(idBytes, 0, idBytes.Length);
+
+            var bl = new MockDeviceBL { SettingsFamily = "Hydra2" };
+            host.BL = bl;
+            GetDeviceHostSlim(server).MyWriteLock(d => d.TryAdd(host.SN, host));
+
+            server.MainEventsBus.Fire_LiveHardwareReconfigured(host,
+                new LiveHardwareReconfiguredEventArgs("Hydra2", "test reconfiguration"));
+            Assert.IsFalse(bl.OnConnectionCalled, "must not reinitialize before the tick runs");
+
+            InvokeCheckDataTimeouts(server, DateTime.UtcNow);
+
+            Assert.IsTrue(bl.OnConnectionCalled, "the tick thread should reinitialize a device marked pending");
             Assert.IsTrue(bl.LastConnectionState);
         }
 
         [TestMethod]
-        public void LiveHardwareReconfigured_NonMatchingFamily_DoesNotReinitialize()
+        public void LiveHardwareReconfigured_NonMatchingFamily_NeverMarkedOrReinitialized()
         {
             var server = new ServerCore();
             var com = new MockComLayer();
@@ -438,8 +470,34 @@ namespace Maba.VCT.Core.Tests
 
             server.MainEventsBus.Fire_LiveHardwareReconfigured(host,
                 new LiveHardwareReconfiguredEventArgs("Hydra3", "a different family changed"));
+            InvokeCheckDataTimeouts(server, DateTime.UtcNow);
 
             Assert.IsFalse(bl.OnConnectionCalled, "a device driving a different family must not be reinitialized");
+        }
+
+        [TestMethod]
+        public void LiveHardwareReconfigured_TwoMarksBeforeTheNextTick_CoalesceIntoOneReinit()
+        {
+            // A SensorsAssociation and a LoggerConfiguration arriving back to back must not restart
+            // each other mid-sequence - both marks before the next tick collapse into a single re-init.
+            var server = new ServerCore();
+            var com = new MockComLayer();
+            var host = new HardwareDeviceHost(server.MainEventsBus, com, new DeviceSettings());
+            var idBytes = System.Text.Encoding.ASCII.GetBytes("FLUKE,2625A\r\n");
+            com.SimulateDataReceived(idBytes, 0, idBytes.Length);
+
+            var bl = new MockDeviceBL { SettingsFamily = "Hydra2" };
+            host.BL = bl;
+            GetDeviceHostSlim(server).MyWriteLock(d => d.TryAdd(host.SN, host));
+
+            server.MainEventsBus.Fire_LiveHardwareReconfigured(host,
+                new LiveHardwareReconfiguredEventArgs("Hydra2", "LoggerConfiguration change from web app"));
+            server.MainEventsBus.Fire_LiveHardwareReconfigured(host,
+                new LiveHardwareReconfiguredEventArgs("Hydra2", "SensorsAssociation channel change from web app"));
+
+            InvokeCheckDataTimeouts(server, DateTime.UtcNow);
+
+            Assert.AreEqual(1, bl.OnConnectionCallCount, "two marks before the next tick must produce exactly one re-init");
         }
 
         [TestMethod]
