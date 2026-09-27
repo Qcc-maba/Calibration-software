@@ -7,6 +7,10 @@
 # each entry says whether it touches what the installer ships - a skill or a database procedure
 # does not reach a station. Everything in app ships, since the station runs the whole web app.
 #
+# At the end it lists the Jira tickets those shipped changes name (MBA-n in the PR title, branch or
+# commit message; the MABA- misspelling counts too) - the tickets that get this release as their
+# Fix version - and the shipped changes that name no ticket at all.
+#
 # Console output is ASCII: Windows Server consoles render Hebrew as mojibake.
 
 param(
@@ -38,6 +42,10 @@ function Test-ReachesStation([string]$Path) {
     foreach ($p in $stationPaths) { if ($Path.StartsWith($p)) { return $true } }
     return $false
 }
+
+# Filled by Show-Changes from the entries that reach a station: ticket key -> the changes naming it.
+$tickets = [ordered]@{}
+$noTicket = New-Object System.Collections.Generic.List[string]
 
 function Show-Changes([string]$Name, [string]$Repo, [string]$Ref, [string]$Since, [string]$GitHubRepo, [bool]$ClassifyPaths) {
     git -C $Repo fetch --quiet --tags origin
@@ -76,13 +84,25 @@ function Show-Changes([string]$Name, [string]$Repo, [string]$Ref, [string]$Since
         }
 
         $where = ''
+        $ships = $true
         if ($ClassifyPaths) {
             # A merge's own change is its diff against the first parent.
             $files = @(git -C $Repo diff --name-only "$hash^1" $hash)
-            $touches = @($files | Where-Object { Test-ReachesStation $_ })
-            $where = if ($touches.Count -gt 0) { 'station ' } else { '-       ' }
+            $ships = @($files | Where-Object { Test-ReachesStation $_ }).Count -gt 0
+            $where = if ($ships) { 'station ' } else { '-       ' }
         }
         Write-Host ("    {0} {1} {2}{3}" -f $date, $hash.Substring(0, 7), $where, $label)
+
+        if ($ships) {
+            $entry = "$Name $($hash.Substring(0, 7)) $label"
+            $keys = @([regex]::Matches("$subject`n$body", '(?i)\bMA?BA-(\d+)\b') |
+                ForEach-Object { "MBA-$($_.Groups[1].Value)" } | Select-Object -Unique)
+            if ($keys.Count -eq 0) { $noTicket.Add($entry) }
+            foreach ($k in $keys) {
+                if (-not $tickets.Contains($k)) { $tickets[$k] = New-Object System.Collections.Generic.List[string] }
+                $tickets[$k].Add($entry)
+            }
+        }
     }
 }
 
@@ -90,3 +110,15 @@ Show-Changes 'Calibration-software' $root $ServerRef $ServerSince 'Qcc-maba/Cali
 Show-Changes 'app' $AppRepo $AppRef $AppSince 'Qcc-maba/app' $false
 Write-Host ""
 Write-Host "For Calibration-software, 'station' marks changes to what the installer ships; '-' ones stay off the stations."
+
+Write-Host ""
+Write-Host "=== Jira tickets shipped in this release (set its Fix version on these)"
+if ($tickets.Count -eq 0) { Write-Host "    none" }
+foreach ($k in $tickets.Keys) {
+    Write-Host "    $k"
+    foreach ($e in $tickets[$k]) { Write-Host "        $e" }
+}
+Write-Host ""
+Write-Host "=== Shipped changes that name no ticket"
+if ($noTicket.Count -eq 0) { Write-Host "    none" }
+foreach ($e in $noTicket) { Write-Host "    $e" }

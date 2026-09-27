@@ -244,3 +244,28 @@ no tag, because 1.6.12's web app came from an uncommitted checkout and no commit
    ships (the ComServer code, `Installer/` apart from Markdown, and the three scripts `setup.iss`
    copies). Everything in app ships. Read the `station` PRs and all the app PRs, and write
    START-HERE from them.
+
+   It ends with two lists: the Jira tickets those shipped changes name, and the shipped changes
+   that name none. It finds ticket keys in PR titles, branch names and commit messages, including
+   the `MABA-` misspelling. It can't see a PR's description, which git does not store: #141 (app)
+   names MBA-960 only there, so it lands in the second list. Look up the ticket for each entry in
+   that list by opening the PR.
+4. **A Jira release per shipped version.** Project MBA has a release named exactly like the tag
+   (`station-v1.6.13` was the first). Once the installer is handed over and tagged:
+   - Create the release, marked released and dated the handover day. Put in its description the
+     exe's file name and SHA-256, both commits, and the share, and link both repos' trees at the
+     tag as related work.
+   - Set it as the **Fix version** of every ticket in the two lists, including the ones you found
+     by hand. **Add, never replace.** The edit sets the whole field, so read the ticket's
+     existing Fix versions and send them all back with the new one. A ticket whose work spans
+     two builds (MBA-970 had a server half and an app half) carries both; the earliest one is
+     the build that first shipped it.
+   - Never change a ticket's status as part of this. A Fix version records what shipped, and
+     closing the ticket stays with its owner. Tickets from the app team get the release too;
+     they see the change, and nothing else about their tickets moves.
+
+   Then `fixVersion = "station-v1.6.13"` in Jira answers "what did this installer contain?", and a
+   ticket's Fix version answers "which installer first had this?".
+
+   Direct commits with no PR or ticket (the app got a batch on 14 Sep) can't be traced this way.
+   Mention them in START-HERE if they reach operators, and leave them out of Jira.
