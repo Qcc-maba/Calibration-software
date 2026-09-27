@@ -5,6 +5,9 @@
 # 2026-09-07 and abandoned - nothing fed it and nothing read it back.
 #
 # What it does, in order (each step stops the script if it fails):
+#   0. Records the Calibration-software and web app commits, and refuses to build from a checkout
+#      with uncommitted changes (-AllowDirty overrides it and marks the build dirty) - a recorded
+#      commit only describes the build if nothing else went into it.
 #   1. Points the ComServer's App.config at the database (the .exe.config in bin\Release is
 #      regenerated from it by the build, so editing the built copy would not survive).
 #   2. Regenerates Installer\assets\.env.station with the matching Prisma URL.
@@ -12,6 +15,11 @@
 #   4. Compiles the installer with ISCC, taking the webapp from the standalone build.
 #   5. Checks the payload size: a good build compresses ~2,400+ files; ~18 means the webapp
 #      silently did not make it in.
+#
+# The commits go into {app}\build-info.json on the station, and into
+# Installer\CalibrationSoftware-Setup-v<version>.build-info.json beside the exe, together with its
+# SHA-256. scripts\Tag-StationRelease.ps1 tags a shipped release from that file, and
+# scripts\Get-StationReleaseChanges.ps1 lists what was merged since the last tag.
 #
 # The webapp itself is NOT built here - it cannot be built under OneDrive (see
 # scripts\Build-Installer.ps1 for why) and is expected to be already built in -WebAppRoot.
@@ -28,7 +36,10 @@ param(
     [string]$DbUser     = 'app_prod',
     # AWS presents a certificate the station must encrypt to; a LAN server without one needs $false.
     [bool]$Encrypt      = $true,
-    [string]$WebAppRoot = 'C:\tmp\maba-app'
+    [string]$WebAppRoot = 'C:\tmp\maba-app',
+    # Build from checkouts with uncommitted changes anyway. The build is marked dirty, and
+    # Tag-StationRelease.ps1 refuses to tag it: for trying something out, never for shipping.
+    [switch]$AllowDirty
 )
 
 $ErrorActionPreference = 'Stop'
@@ -75,6 +86,52 @@ function Remove-BuildSecrets {
 
 if (-not (Test-Path (Join-Path $standalone 'server.js'))) {
     throw "No standalone webapp build at $standalone - run BUILD_STANDALONE=true SKIP_ENV_VALIDATION=1 npx next build there first."
+}
+
+$iss = Join-Path $root 'Installer\setup.iss'
+$version = (Select-String -Path $iss -Pattern '^#define AppVersion "([^"]+)"').Matches[0].Groups[1].Value
+
+# ---------------------------------------------------------------------------
+# 0. Where the build comes from
+# ---------------------------------------------------------------------------
+# $Paths limits the check to what the build consumes; $Ignore lists files the build itself rewrites.
+function Get-SourceState([string]$Repo, [string[]]$Paths, [string[]]$Ignore = @()) {
+    if (-not (Test-Path (Join-Path $Repo '.git'))) {
+        return [ordered]@{ commit = $null; branch = $null; dirty = $true; changes = @("$Repo is not a git checkout") }
+    }
+    $commit = git -C $Repo rev-parse HEAD
+    $branch = git -C $Repo rev-parse --abbrev-ref HEAD
+    $status = @(git -C $Repo status --porcelain --untracked-files=all -- @Paths)
+    if ($LASTEXITCODE -ne 0) { throw "git status failed in $Repo" }
+    $changes = @($status | Where-Object { $_ } | Where-Object { $Ignore -notcontains $_.Substring(3) })
+    return [ordered]@{ commit = $commit; branch = $branch; dirty = ($changes.Count -gt 0); changes = $changes }
+}
+
+Write-Host "[0/5] source commits"
+# The server side is whatever the installer compiles or copies; other folders do not reach a station.
+$serverSource = Get-SourceState $root @('Systems', 'Libraries', 'Installer', 'scripts')
+# `next build` rewrites next-env.d.ts in place, so it is always modified after a build.
+$appSource = Get-SourceState $WebAppRoot @('.') @('next-env.d.ts')
+foreach ($s in @(@('Calibration-software', $serverSource), @('web app', $appSource))) {
+    Write-Host ("      {0,-20} {1} ({2})" -f $s[0], $s[1].commit, $s[1].branch)
+    foreach ($c in $s[1].changes) { Write-Host "        uncommitted: $c" }
+}
+$dirty = $serverSource.dirty -or $appSource.dirty
+if ($dirty -and -not $AllowDirty) {
+    throw 'Uncommitted changes (listed above) would go into this build, so its commits would not describe it. Commit them, or pass -AllowDirty for a build that will not be shipped.'
+}
+
+$buildInfo = [ordered]@{
+    version             = $version
+    builtAt             = (Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')
+    builtOn             = $env:COMPUTERNAME
+    database            = "$DbServer,$DbPort/$DbName"
+    dirty               = $dirty
+    calibrationSoftware = [ordered]@{ commit = $serverSource.commit; branch = $serverSource.branch }
+    app                 = [ordered]@{ commit = $appSource.commit; branch = $appSource.branch }
+}
+function Write-Json([string]$Path, $Object) {
+    [IO.File]::WriteAllText($Path, ($Object | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding $false))
 }
 
 # ---------------------------------------------------------------------------
@@ -140,8 +197,9 @@ if (Test-Path $standaloneEnv) { Remove-Item $standaloneEnv -Force; Write-Host " 
 # 4. Installer
 # ---------------------------------------------------------------------------
 Write-Host "[4/5] ISCC"
-$iss = Join-Path $root 'Installer\setup.iss'
-$version = (Select-String -Path $iss -Pattern '^#define AppVersion "([^"]+)"').Matches[0].Groups[1].Value
+# Packed as {app}\build-info.json, so an installed station can say which commits it runs.
+$packedInfo = Join-Path $root 'Installer\assets\build-info.json'
+Write-Json $packedInfo $buildInfo
 Push-Location (Join-Path $root 'Installer')
 try {
     & $iscc $iss "/DWebAppStandalone=$standalone" "/DWebAppStatic=$static" "/DWebAppPublic=$public" "/DWebAppEnvExample=$(Join-Path $WebAppRoot '.env.example')" | Tee-Object -Variable isccOut | Out-Null
@@ -154,6 +212,8 @@ finally {
     Pop-Location
     # Packed or failed, nothing needs these any more; the next build regenerates them.
     Remove-BuildSecrets
+    # Not a secret, but a stale copy would be packed by a later hand-run ISCC and misname its commits.
+    Remove-Item $packedInfo -Force -ErrorAction SilentlyContinue
 }
 
 # ---------------------------------------------------------------------------
@@ -171,4 +231,16 @@ Write-Host "Payload: $compressed file(s) compressed"
 if ($compressed -lt 2000) {
     throw "Only $compressed files in the payload - the webapp did not make it in. Do not ship this."
 }
+
+# Beside the exe: what Tag-StationRelease.ps1 tags from, and what to copy to the share with it.
+$buildInfo.installer = [ordered]@{
+    file         = Split-Path $exe -Leaf
+    sha256       = (Get-FileHash $exe -Algorithm SHA256).Hash
+    sizeBytes    = (Get-Item $exe).Length
+    payloadFiles = $compressed
+}
+$infoFile = [IO.Path]::ChangeExtension($exe, '.build-info.json')
+Write-Json $infoFile $buildInfo
+Write-Host "Info   : $infoFile"
+if ($dirty) { Write-Host "DIRTY  : built with uncommitted changes (-AllowDirty) - not for shipping" }
 Write-Host "OK"

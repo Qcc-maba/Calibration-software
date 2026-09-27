@@ -172,6 +172,12 @@ Source: "..\scripts\run-project.ps1";       DestDir: "{app}";                  F
 Source: "assets\.env.station";             DestDir: "{app}\webapp";           DestName: ".env"; Flags: ignoreversion
 Source: "{#WebAppEnvExample}";             DestDir: "{app}\webapp";           DestName: ".env.example"; Flags: ignoreversion
 
+; --- Build identity ---
+; Written by scripts\Build-Station-Installer.ps1: the version plus the Calibration-software and app
+; commits this installer was built from, so an installed station can say exactly what it runs.
+; Skipped when ISCC is run by hand without the script.
+Source: "assets\build-info.json";          DestDir: "{app}";                  Flags: ignoreversion skipifsourcedoesntexist
+
 [Icons]
 Name: "{group}\{#AppName}";                 Filename: "{app}\CalibrationLauncher.exe"; WorkingDir: "{app}"
 Name: "{group}\Uninstall {#AppName}";       Filename: "{uninstallexe}"

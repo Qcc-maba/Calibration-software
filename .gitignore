@@ -314,6 +314,9 @@ paket-files/
 
 # Built installers — large binaries, rebuild with scripts/Build-Installer.ps1
 Installer/CalibrationSoftware-Setup-*.exe
+# Written by scripts/Build-Station-Installer.ps1 - which commits a build came from. Regenerated per build.
+Installer/CalibrationSoftware-Setup-*.build-info.json
+Installer/assets/build-info.json
 
 # DBA secrets — never commit connection strings / passwords
 DBA/.env
