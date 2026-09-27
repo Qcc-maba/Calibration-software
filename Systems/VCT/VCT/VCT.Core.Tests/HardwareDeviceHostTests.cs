@@ -800,6 +800,7 @@ namespace Maba.VCT.Core.Tests
         public bool OnConnectionCalled { get; set; }
         public bool LastConnectionState { get; set; }
         public DeviceEventArgs LastEvent { get; set; }
+        public string SettingsFamily { get; set; }
 
         public void Start(IDeviceHost device) { StartCalled = true; }
         public void OnTimer() { OnTimerCalled = true; }

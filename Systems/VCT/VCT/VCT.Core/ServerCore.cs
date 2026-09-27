@@ -95,6 +95,7 @@ namespace Maba.VCT.Core
             this.MainEventsBus.DeviceOnIncomingEvent += MainEventsBus_DeviceOnIncomingEvent;
             this.MainEventsBus.DeviceConnnection += MainEventsBus_DeviceConnectionForAlerts;
             this.MainEventsBus.DeviceAlert += MainEventsBus_DeviceAlert;
+            this.MainEventsBus.LiveHardwareReconfigured += MainEventsBus_LiveHardwareReconfigured;
             CurrentServerSettings = new Settings.VCTSettings();
         }
 
@@ -107,6 +108,36 @@ namespace Maba.VCT.Core
             if (e?.Device == null || string.IsNullOrEmpty(e.AlertType)) return;
 
             BroadcastAlertToWebSockets(e.Device, e.AlertType, e.Message, e.Channel);
+        }
+
+        /// <summary>
+        /// MBA-974: a live SensorsAssociation/LoggerConfiguration message changed a device's
+        /// channels/rate/interval in HardwareBL_Settings, but that alone never reaches the physical
+        /// instrument - it is only ever told its scan configuration once, at connect time. Whichever
+        /// live device is actually driving the affected family gets re-initialized (the same recovery
+        /// path MBA-962 uses for a power-cycled logger) so the hardware matches what was just applied.
+        /// </summary>
+        private void MainEventsBus_LiveHardwareReconfigured(object o, Events.LiveHardwareReconfiguredEventArgs e)
+        {
+            if (e == null || string.IsNullOrWhiteSpace(e.FamilyKey)) return;
+
+            DeviceHost_Slim.MyReadLock(list =>
+            {
+                foreach (var dev in list.Values)
+                {
+                    if (!string.Equals(dev.BL?.SettingsFamily, e.FamilyKey, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    try
+                    {
+                        dev.ReinitializeBL(e.Reason);
+                    }
+                    catch (Exception ex)
+                    {
+                        Libs.Trace.Tracer.Info("[ServerCore] Error re-initializing device SN={0} for live reconfiguration: {1}", dev.SN, ex.Message);
+                    }
+                }
+            });
         }
 
         /// <summary>

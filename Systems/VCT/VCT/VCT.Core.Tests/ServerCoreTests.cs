@@ -396,6 +396,69 @@ namespace Maba.VCT.Core.Tests
 
         #endregion
 
+        #region MBA-974: LiveHardwareReconfigured Tests
+
+        /*  A live SensorsAssociation/LoggerConfiguration change updates HardwareBL_Settings but never
+            reached the physical instrument on its own - it was only ever told its scan configuration
+            once, at connect time. LiveHardwareReconfigured is the seam that re-initializes whichever
+            live device is actually driving the affected family. */
+
+        [TestMethod]
+        public void LiveHardwareReconfigured_MatchingFamily_ReinitializesTheDevice()
+        {
+            var server = new ServerCore();
+            var com = new MockComLayer();
+            var host = new HardwareDeviceHost(server.MainEventsBus, com, new DeviceSettings());
+            var idBytes = System.Text.Encoding.ASCII.GetBytes("FLUKE,2625A\r\n");
+            com.SimulateDataReceived(idBytes, 0, idBytes.Length);
+
+            var bl = new MockDeviceBL { SettingsFamily = "Hydra2" };
+            host.BL = bl;
+            GetDeviceHostSlim(server).MyWriteLock(d => d.TryAdd(host.SN, host));
+
+            server.MainEventsBus.Fire_LiveHardwareReconfigured(host,
+                new LiveHardwareReconfiguredEventArgs("Hydra2", "test reconfiguration"));
+
+            Assert.IsTrue(bl.OnConnectionCalled, "ReinitializeBL should have called BL.OnConnection(true)");
+            Assert.IsTrue(bl.LastConnectionState);
+        }
+
+        [TestMethod]
+        public void LiveHardwareReconfigured_NonMatchingFamily_DoesNotReinitialize()
+        {
+            var server = new ServerCore();
+            var com = new MockComLayer();
+            var host = new HardwareDeviceHost(server.MainEventsBus, com, new DeviceSettings());
+            var idBytes = System.Text.Encoding.ASCII.GetBytes("FLUKE,2625A\r\n");
+            com.SimulateDataReceived(idBytes, 0, idBytes.Length);
+
+            var bl = new MockDeviceBL { SettingsFamily = "Hydra2" };
+            host.BL = bl;
+            GetDeviceHostSlim(server).MyWriteLock(d => d.TryAdd(host.SN, host));
+
+            server.MainEventsBus.Fire_LiveHardwareReconfigured(host,
+                new LiveHardwareReconfiguredEventArgs("Hydra3", "a different family changed"));
+
+            Assert.IsFalse(bl.OnConnectionCalled, "a device driving a different family must not be reinitialized");
+        }
+
+        [TestMethod]
+        public void LiveHardwareReconfigured_NullFamilyKey_DoesNotThrow()
+        {
+            var server = new ServerCore();
+            server.MainEventsBus.Fire_LiveHardwareReconfigured(server, new LiveHardwareReconfiguredEventArgs(null, "no family resolved"));
+        }
+
+        [TestMethod]
+        public void LiveHardwareReconfigured_NoRegisteredHardware_DoesNotThrow()
+        {
+            var server = new ServerCore();
+            server.MainEventsBus.Fire_LiveHardwareReconfigured(server,
+                new LiveHardwareReconfiguredEventArgs("Hydra2", "nothing connected yet"));
+        }
+
+        #endregion
+
         #region ResolveDbSectionName Tests
 
         /*  VCT.json asks for "KyulanSyncDB" while the station's .exe.config ships the entry as
