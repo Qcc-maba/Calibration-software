@@ -595,18 +595,54 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
 
             if (target == null) return null;
 
+            /*  MBA-974: only report a field as applied when it actually differs from what target
+                already holds. Before this, resending the same rate/interval/channels (e.g. the app
+                re-sending SensorsAssociation because an unrelated field like units changed) always
+                reported "applied", even though nothing was new - which would make a live-hardware
+                reinitialization triggered on "applied != null" fire on every no-op resend instead of
+                only on a genuine change. */
             var applied = new List<string>();
 
             var r = ParseRate(rate);
-            if (r.HasValue) { target.MeasurementRate = r.Value; applied.Add("rate=" + r.Value); }
+            if (r.HasValue && target.MeasurementRate != r.Value) { target.MeasurementRate = r.Value; applied.Add("rate=" + r.Value); }
 
-            if (int.TryParse((interval ?? "").Trim(), out var iv) && iv > 0) { target.Interval = iv; applied.Add("interval=" + iv); }
+            if (int.TryParse((interval ?? "").Trim(), out var iv) && iv > 0 && target.Interval != iv) { target.Interval = iv; applied.Add("interval=" + iv); }
 
             var chans = ParseChannels(channelsCsv);
-            if (chans.Count > 0) { target.Channels = chans; applied.Add("channels=[" + string.Join(",", chans) + "]"); }
+            if (chans.Count > 0 && !chans.SequenceEqual(target.Channels ?? new List<int>()))
+            {
+                target.Channels = chans;
+                applied.Add("channels=[" + string.Join(",", chans) + "]");
+            }
 
             if (applied.Count == 0) return null;
             return string.Format("{0} (master {1}): {2}", targetName, id, string.Join(", ", applied));
+        }
+
+        /// <summary>
+        /// MBA-974: resolves which settings family a LoggerID's config would apply to, without
+        /// mutating anything - the exact same routing rule as <see cref="ApplyWebSocketConfig"/>
+        /// (Masters match, else the single live family). Kept as a small, deliberately duplicated
+        /// sibling rather than refactored out of that already-proven-correct method, so a live
+        /// reconfiguration's hardware re-init target is resolved the same way the settings write was,
+        /// without risking a change to the routing logic actually driving connected instruments today.
+        /// </summary>
+        public string ResolveLiveFamilyKey(string loggerId)
+        {
+            if (string.IsNullOrWhiteSpace(loggerId)) return null;
+            var id = loggerId.Trim();
+
+            foreach (var fam in Families())
+            {
+                if (fam.Value?.Masters != null &&
+                    fam.Value.Masters.Any(m => string.Equals((m ?? "").Trim(), id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return fam.Key;
+                }
+            }
+
+            var live = ActiveFamilies();
+            return live.Count == 1 ? live[0] : null;
         }
 
         #endregion

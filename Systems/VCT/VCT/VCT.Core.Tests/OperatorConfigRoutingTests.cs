@@ -105,6 +105,83 @@ namespace Maba.VCT.Core.Tests
             Assert.AreEqual(1, HardwareBL_Settings.ActiveFamilies().Count,
                             "a second registration would look like a second logger and disable the fallback");
         }
+
+        #region MBA-974: change detection and live family resolution
+
+        [TestMethod]
+        public void ResendingIdenticalChannelsReportsNoChange()
+        {
+            // First send actually changes something.
+            var first = _settings.ApplyWebSocketConfig("21-449", null, null, "3,4");
+            Assert.IsNotNull(first);
+
+            // A second, identical send (e.g. triggered by an unrelated field like units changing)
+            // must NOT be reported as a change - a live-hardware reinit keyed on "was something
+            // applied" would otherwise fire on every no-op resend, not just genuine changes.
+            var second = _settings.ApplyWebSocketConfig("21-449", null, null, "3,4");
+            Assert.IsNull(second, "resending the same channels must not be reported as a change");
+            CollectionAssert.AreEqual(new[] { 3, 4 }, _settings.Hydra2type.Channels.ToArray());
+        }
+
+        [TestMethod]
+        public void ResendingDifferentChannelsStillReportsChange()
+        {
+            _settings.ApplyWebSocketConfig("21-449", null, null, "3,4");
+
+            var summary = _settings.ApplyWebSocketConfig("21-449", null, null, "3,4,5,11,15");
+
+            Assert.IsNotNull(summary);
+            CollectionAssert.AreEqual(new[] { 3, 4, 5, 11, 15 }, _settings.Hydra2type.Channels.ToArray());
+        }
+
+        [TestMethod]
+        public void ResendingIdenticalRateAndIntervalReportsNoChange()
+        {
+            // Defaults are already SLOW/30 - use FAST/60 so the first send is a genuine change.
+            var first = _settings.ApplyWebSocketConfig("21-449", "מהיר", "60", null);
+            Assert.IsNotNull(first);
+
+            var second = _settings.ApplyWebSocketConfig("21-449", "מהיר", "60", null);
+            Assert.IsNull(second, "resending the same rate/interval must not be reported as a change");
+        }
+
+        [TestMethod]
+        public void ResolveLiveFamilyKey_MastersMatch_ReturnsFamily()
+        {
+            Assert.AreEqual("Hydra2", _settings.ResolveLiveFamilyKey("21-449"));
+        }
+
+        [TestMethod]
+        public void ResolveLiveFamilyKey_UnknownLoggerSingleLiveFamily_ReturnsThatFamily()
+        {
+            HardwareBL_Settings.RegisterActiveFamily("Hydra2");
+
+            Assert.AreEqual("Hydra2", _settings.ResolveLiveFamilyKey("21-701"));
+        }
+
+        [TestMethod]
+        public void ResolveLiveFamilyKey_UnknownLoggerNoLiveFamily_ReturnsNull()
+        {
+            Assert.IsNull(_settings.ResolveLiveFamilyKey("21-701"));
+        }
+
+        [TestMethod]
+        public void ResolveLiveFamilyKey_UnknownLoggerTwoLiveFamilies_ReturnsNull()
+        {
+            HardwareBL_Settings.RegisterActiveFamily("Hydra2");
+            HardwareBL_Settings.RegisterActiveFamily("Hydra3");
+
+            Assert.IsNull(_settings.ResolveLiveFamilyKey("21-701"));
+        }
+
+        [TestMethod]
+        public void ResolveLiveFamilyKey_BlankLoggerId_ReturnsNull()
+        {
+            Assert.IsNull(_settings.ResolveLiveFamilyKey(""));
+            Assert.IsNull(_settings.ResolveLiveFamilyKey(null));
+        }
+
+        #endregion
     }
 
     /// <summary>

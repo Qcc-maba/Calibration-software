@@ -23,6 +23,20 @@ namespace Maba.VCT.Core.Tests
             _bus = new EventsBus();
             _comLayer = new MockComLayer();
             _host = new WebSocketDeviceHost(_bus, _comLayer, "TestSN");
+
+            // MBA-974: HardwareBL_Settings is a process-wide static singleton - start each test from
+            // known state so ApplyWebSocketConfig/ResolveLiveFamilyKey routing is deterministic.
+            foreach (var f in Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings.ActiveFamilies())
+                Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings.UnregisterActiveFamily(f);
+            Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings._settings = null;
+        }
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            foreach (var f in Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings.ActiveFamilies())
+                Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings.UnregisterActiveFamily(f);
+            Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings._settings = null;
         }
 
         #region Constructor Tests
@@ -929,6 +943,70 @@ namespace Maba.VCT.Core.Tests
             Assert.AreEqual(typeof(SensorsAssociationMessage), receivedTypes[0]);
             Assert.AreEqual(typeof(LoggerConfigurationMessage), receivedTypes[1]);
             Assert.AreEqual(typeof(CreateReportMessage), receivedTypes[2]);
+        }
+
+        #endregion
+
+        #region MBA-974: LiveHardwareReconfigured Tests
+
+        /*  ApplyWebSocketConfig only ever updates the in-memory settings - handlePacket must
+            additionally fire LiveHardwareReconfigured so ServerCore can push a genuine change down to
+            the live instrument, and must NOT fire it for a no-op resend (e.g. the app re-sending
+            SensorsAssociation because only Units changed), or every resend would trigger a hardware
+            reinit even when nothing the operator configured actually changed. */
+
+        [TestMethod]
+        public void SensorsAssociation_GenuineChannelChange_FiresLiveHardwareReconfigured()
+        {
+            Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings.RegisterActiveFamily("Hydra2");
+            LiveHardwareReconfiguredEventArgs fired = null;
+            _bus.LiveHardwareReconfigured += (s, e) => fired = e;
+
+            _comLayer.SimulateStringDataReceived("CMD:SensorsAssociation,LoggerID:L1,DeviceID:D1,BatchID:B1,BatchChannels:1 3 5");
+
+            Assert.IsNotNull(fired, "a genuine channel change must fire LiveHardwareReconfigured");
+            Assert.AreEqual("Hydra2", fired.FamilyKey);
+        }
+
+        [TestMethod]
+        public void SensorsAssociation_ResentIdenticalChannels_DoesNotFireLiveHardwareReconfigured()
+        {
+            Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings.RegisterActiveFamily("Hydra2");
+            _comLayer.SimulateStringDataReceived("CMD:SensorsAssociation,LoggerID:L1,DeviceID:D1,BatchID:B1,BatchChannels:1 3 5");
+
+            var fireCount = 0;
+            _bus.LiveHardwareReconfigured += (s, e) => fireCount++;
+
+            // Same channels again - as happens today when Units resolves after Channels already did.
+            _comLayer.SimulateStringDataReceived("CMD:SensorsAssociation,LoggerID:L1,DeviceID:D1,BatchID:B1,BatchChannels:1 3 5");
+
+            Assert.AreEqual(0, fireCount, "resending identical channels must not trigger a hardware reinit");
+        }
+
+        [TestMethod]
+        public void SensorsAssociation_NoLiveFamilyMatch_DoesNotFireLiveHardwareReconfigured()
+        {
+            // No family registered as active and no Masters configured - ApplyWebSocketConfig itself
+            // has nothing to apply to, so there is nothing to reinitialize either.
+            var fireCount = 0;
+            _bus.LiveHardwareReconfigured += (s, e) => fireCount++;
+
+            _comLayer.SimulateStringDataReceived("CMD:SensorsAssociation,LoggerID:L1,DeviceID:D1,BatchID:B1,BatchChannels:1 3 5");
+
+            Assert.AreEqual(0, fireCount);
+        }
+
+        [TestMethod]
+        public void LoggerConfiguration_GenuineChannelChange_FiresLiveHardwareReconfigured()
+        {
+            Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings.RegisterActiveFamily("Hydra2");
+            LiveHardwareReconfiguredEventArgs fired = null;
+            _bus.LiveHardwareReconfigured += (s, e) => fired = e;
+
+            _comLayer.SimulateStringDataReceived("CMD:LoggerConfiguration,LoggerID:L1,IP:1.2.3.4,Rate:100,Interval:1000,BatchID:B1,BatchChannels:1 3 5");
+
+            Assert.IsNotNull(fired);
+            Assert.AreEqual("Hydra2", fired.FamilyKey);
         }
 
         #endregion

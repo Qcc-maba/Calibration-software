@@ -79,6 +79,15 @@ linked server are the **`portal-data-path`** skill.
   point it at the per-user `ms-playwright` cache or you get "Executable doesn't exist".
 - The pre-commit hook and the lint rules that reject new files are in the **`committing-work`** skill
   and its `app-lint-traps.md`.
+- **A "send once per X" ref guard racing an async load silently drops the real value (MBA-970).**
+  `GraphDashboard`'s effect that registers a device over the WebSocket (`sendSensorsAssociation`)
+  keyed its "already sent" guard on `deviceId` alone. `cycles` (so the real channel list) load
+  asynchronously via a tRPC query, and `isConnected` is usually already `true` when a device is
+  selected — the socket normally stays connected across a device switch. So the effect fired once
+  with an empty/placeholder value before the real data arrived, marked that device "sent", and never
+  sent the real value once it did. Any effect that "sends once per key" while depending on data that
+  loads after the key is already set has this bug; key the guard on what was actually sent
+  (`` `${key}:${value}` ``), not just the identity, so a later change re-sends.
 
 ## Who owns the work
 

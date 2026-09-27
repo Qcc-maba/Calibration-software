@@ -87,9 +87,18 @@ namespace Maba.VCT.Core.Device
                 // MBA-485: the sensor association also carries the channel list — apply it live.
                 if (!string.IsNullOrEmpty(association.BatchChannels))
                 {
-                    var summary = HardwareBL_Settings.Read().ApplyWebSocketConfig(association.LoggerId, null, null, association.BatchChannels);
+                    var settings = HardwareBL_Settings.Read();
+                    var summary = settings.ApplyWebSocketConfig(association.LoggerId, null, null, association.BatchChannels);
                     if (summary != null)
+                    {
                         Libs.Trace.Tracer.Info("[WS->HW] Applied channels from SensorsAssociation: {0}", summary);
+                        // MBA-974: the line above only updated in-memory settings - push it to the
+                        // live instrument too, or it keeps scanning whatever it was told at connect.
+                        MainEventsBus.Fire_LiveHardwareReconfigured(this,
+                            new Events.LiveHardwareReconfiguredEventArgs(
+                                settings.ResolveLiveFamilyKey(association.LoggerId),
+                                "SensorsAssociation channel change from web app"));
+                    }
                 }
             }
 
@@ -103,7 +112,14 @@ namespace Maba.VCT.Core.Device
                 {
                     var summary = settings.ApplyWebSocketConfig(cfg.LoggerId, cfg.Rate, cfg.Interval, cfg.BatchChannels);
                     if (summary != null)
+                    {
                         Libs.Trace.Tracer.Info("[WS->HW] Applied logger configuration from web app: {0}", summary);
+                        // MBA-974: same as SensorsAssociation above - push the change to the live instrument.
+                        MainEventsBus.Fire_LiveHardwareReconfigured(this,
+                            new Events.LiveHardwareReconfiguredEventArgs(
+                                settings.ResolveLiveFamilyKey(cfg.LoggerId),
+                                "LoggerConfiguration change from web app"));
+                    }
                     else
                         Libs.Trace.Tracer.Info("[WS->HW] LoggerConfiguration for '{0}': no matching family (local Masters) or nothing to apply; kept current settings.", cfg.LoggerId);
                 }

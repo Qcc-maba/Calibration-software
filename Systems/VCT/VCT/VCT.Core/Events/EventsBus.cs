@@ -31,6 +31,10 @@ namespace Maba.VCT.Core.Events
         /// <summary>MBA-962: raised by a device's BL for a fault only the BL can see (see DeviceAlertEventArgs).</summary>
         public event DeviceAlertDelegate DeviceAlert;
 
+        public delegate void LiveHardwareReconfiguredDelegate(object o, Events.LiveHardwareReconfiguredEventArgs e);
+        /// <summary>MBA-974: raised when a live WS config message actually changed a device's channels/rate/interval.</summary>
+        public event LiveHardwareReconfiguredDelegate LiveHardwareReconfigured;
+
         #endregion
 
         #region Firing events methods
@@ -95,6 +99,20 @@ namespace Maba.VCT.Core.Events
             if (DeviceUnIdentifyConnnection != null)
             {
                 DeviceUnIdentifyConnnection(o, e);
+            }
+        }
+
+        /// <summary>
+        /// MBA-974. Deliberately does nothing when no one is listening, matching Fire_DeviceAlert -
+        /// a WebSocketDeviceHost with no ServerCore attached (tests) must not throw here.
+        /// </summary>
+        public void Fire_LiveHardwareReconfigured(object o, LiveHardwareReconfiguredEventArgs e)
+        {
+            if (e == null || string.IsNullOrWhiteSpace(e.FamilyKey)) return;
+
+            if (LiveHardwareReconfigured != null)
+            {
+                LiveHardwareReconfigured(o, e);
             }
         }
 

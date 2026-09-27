@@ -121,3 +121,47 @@ treatment.
 `Value = "Start}"` and the server ignores it. When sending WS commands by hand, put a throwaway
 field last (`,"DeviceID":"0"`). Note the misspelled class name; it is spelled that way in the code.
 
+**`Status:"Stop"` is momentary, not a persistent "stay off" state (MBA-974).** It calls
+`dev.Disconnect()` once on every live hardware device; it does not touch discovery. A configured or
+auto-discovered serial port stays claimed either way (`ServerCore.cs` — RediscoverTransports treats
+the currently-held transports as claimed, same as a static tunnel), so the next 30s rediscovery pass
+reopens the port, re-probes `*IDN?`, and the device reconnects on its own within seconds if it is
+still physically plugged in and powered. There is no code path that makes a device *stay* disconnected
+short of unplugging it, stopping the whole ComServer process, or removing its tunnel entry from
+settings and restarting.
+
+## Live reconfiguration (MBA-974) and why `ReinitializeBL` has one safe caller
+
+A `SensorsAssociation`/`LoggerConfiguration` message arriving while a device is already connected
+updates `HardwareBL_Settings`'s in-memory `Channels`/`MeasurementRate`/`Interval` — nothing more. The
+BL only ever reads that settings object once, during its init state machine (InitSystem → DateSync →
+Rate → InitChannels → Logs), which runs to completion once per connect and is never ticked again
+(`BaseBLDevice.Step__Start_Work` sends `CurrentStep` to `Close` once all states finish). So a channel
+added while connected is silently never scanned until the device happens to reconnect while that
+channel count is the current one in memory — which is a race, not a guarantee. Confirmed live against
+a real Fluke 2625A: `HardwareBL_Settings.ApplyWebSocketConfig` logged `Applied channels ...
+channels=[1,2,3,5,11,15]` while `[HYDRA HandleLogData] Received LogsResponse: Measurements.Count=4,
+Configured Channels.Count=6` kept firing on every poll.
+
+The fix is to re-run the BL's init sequence (`HardwareDeviceHost.ReinitializeBL`, the same MBA-962
+power-cycle-recovery entry point) whenever a live change lands — but **`ReinitializeBL` has exactly
+one safe caller: `ServerCore.CheckDataTimeouts`, on the device tick thread, after `DeviceHost_Slim`'s
+read lock is released.** Two reasons, both real and both only show up on real hardware, never in a
+test:
+
+- `ReinitializeBL` → `BL.OnConnection(true)` resets `CurrentStep`/`States_CurrentIndex` and every
+  state. `BL.OnTimer()` (`Step__Start_Work`) runs on the device tick and can be mid-`DoWork` on that
+  same state array at any moment. Calling `ReinitializeBL` from anywhere else races the tick.
+- `OnCreateStates()` does a blocking SQL read (`HC.Init(...).GetAwaiter().GetResult()`). Calling
+  `ReinitializeBL` while holding `DeviceHost_Slim`'s lock — e.g. inline from a WebSocket message
+  handler — blocks that thread for the read's duration and stalls anything waiting on the write lock.
+
+So a live-reconfiguration trigger (`ServerCore.MainEventsBus_LiveHardwareReconfigured`, the WS event
+handler) must never call `ReinitializeBL` itself. It marks the device instead
+(`HardwareDeviceHost.MarkPendingReconfigure`/`TakePendingReconfigureReason`, `Interlocked` so a mark
+from the WS thread and a take from the tick thread never race) and `CheckDataTimeouts` folds marked
+devices into the same `toRecover` list it already uses for power-cycle recovery. Two marks before the
+next tick coalesce into one re-init rather than the second restarting the first mid-sequence — this
+is exactly what happens if a `SensorsAssociation` and a `LoggerConfiguration` for the same change
+arrive back to back, which they normally do.
+

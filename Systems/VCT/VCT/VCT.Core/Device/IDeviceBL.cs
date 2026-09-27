@@ -18,5 +18,12 @@ namespace Maba.VCT.Core.Device
         bool OnConnection(bool state);
         void OnEvent(Events.DeviceEventArgs e);
 
+        /// <summary>
+        /// MBA-974: the <c>HardwareBL_Settings</c> family this BL drives (e.g. "Hydra2"), or null
+        /// when the BL has none - lets a live settings change be routed back to the one BL instance
+        /// actually driving that family, without every BL needing to know about settings routing
+        /// itself. See <c>HardwareBL_Settings.ResolveLiveFamilyKey</c>.
+        /// </summary>
+        string SettingsFamily { get; }
     }
 }

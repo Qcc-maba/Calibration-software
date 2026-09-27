@@ -432,6 +432,31 @@ namespace Maba.VCT.Core.Device
         public int RecoveryAttempts { get; set; }
 
         /// <summary>
+        /// MBA-974: set when a live WS config change wants this device's BL re-initialized. Must not
+        /// be acted on inline on the WebSocket receive thread - that would race BL.OnTimer on the
+        /// device tick thread (OnConnection(true) resets the state machine's step/index while a tick
+        /// may be mid-DoWork) and, since OnCreateStates does a blocking SQL read, would also block the
+        /// receive loop and stall anything waiting on DeviceHost_Slim's write lock. Mark here; the tick
+        /// thread (ServerCore.CheckDataTimeouts) takes and acts on it between ticks instead, the same
+        /// way MBA-962's power-cycle recovery already does. Interlocked so a mark from the WS thread
+        /// and a take from the tick thread never race, and two marks before the next tick coalesce
+        /// into a single re-init instead of one racing the other mid-sequence.
+        /// </summary>
+        private string _pendingReconfigureReason;
+
+        /// <summary>Records that this device's BL should be re-initialized on the next tick.</summary>
+        public void MarkPendingReconfigure(string reason)
+        {
+            System.Threading.Interlocked.Exchange(ref _pendingReconfigureReason, reason ?? "live reconfiguration from web app");
+        }
+
+        /// <summary>Atomically reads and clears the pending reconfigure reason, or null when none is set.</summary>
+        public string TakePendingReconfigureReason()
+        {
+            return System.Threading.Interlocked.Exchange(ref _pendingReconfigureReason, null);
+        }
+
+        /// <summary>
         /// MBA-962: the BL's way to report a fault it alone can see, as a WS alert about this device.
         /// <paramref name="channel"/> is the channel number as text, or "ALL" for a device-wide alert.
         /// </summary>

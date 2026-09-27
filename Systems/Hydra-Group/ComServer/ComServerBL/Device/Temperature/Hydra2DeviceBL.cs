@@ -33,6 +33,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// that class's family list, since that is how the operator's configuration is routed here.</summary>
         public const string SETTINGS_FAMILY = "Hydra2";
 
+        public override string SettingsFamily => SETTINGS_FAMILY;
+
 
 
         public CommonBL.SingleState StateMachine_InitSystem { get; private set; }

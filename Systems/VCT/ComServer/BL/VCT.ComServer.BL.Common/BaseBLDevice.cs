@@ -43,6 +43,9 @@ namespace Maba.VCT.CommServer.CommonBL
         public Core.Device.HardwareDeviceHost HW_Device { get; private set; }
         public Core.Device.WebSocketDeviceHost WS_Device { get; private set; }
         public DeviceSteps CurrentStep { get; private set; } = DeviceSteps.Start;
+
+        /// <summary>MBA-974: no settings family by default; a BL that registers one (e.g. Hydra2DeviceBL) overrides this.</summary>
+        public virtual string SettingsFamily => null;
         #endregion
 
         #region ctor
