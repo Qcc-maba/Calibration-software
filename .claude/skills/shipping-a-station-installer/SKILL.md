@@ -185,7 +185,11 @@ password. Never stage it, never paste its contents anywhere.
 The shared folder is `F:\Eliran\Nofar`, which holds every installer since 1.6.7. The operators'
 instructions are in `START-HERE.txt` there, and it names one installer to run ("INSTALL THIS: ...").
 Copying a new exe into the folder changes nothing for them until that file names it. Updating
-`START-HERE.txt` is operator communication, so agree the wording with the user first.
+`START-HERE.txt` is operator communication, so agree the wording with the user first. Build the note
+from the PRs merged since the last version, and include only what reaches a station. If an earlier
+note promised a fix that turned out incomplete, say so plainly. Before replacing it, keep the old
+file as `START-HERE.<old version>.txt`. Write the new one as UTF-8 with a BOM and CRLF line endings,
+like the original.
 Copy to the shared folder and verify the copy, then name the exact filename when you tell anyone
 about it — several versions accumulate there and the newest is not the first one listed:
 
