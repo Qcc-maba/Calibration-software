@@ -1,6 +1,6 @@
 ---
 name: shipping-a-station-installer
-description: Build and hand over a calibration-station installer - the build script, the version rule, the payload check that catches a missing web app, and getting it onto the shared folder. Use when asked to produce a new station version, to put a build in front of an operator, or when a station needs the latest server or UI changes.
+description: Build, hand over and tag a calibration-station installer - the build script, the version rule, the payload check that catches a missing web app, the shared folder and its START-HERE note, and the station-v tags that let the next release list its changes. Use when asked to produce a new station version, to put a build in front of an operator, to write release notes for one, or when a station needs the latest server or UI changes.
 ---
 
 # Shipping a station installer
@@ -174,8 +174,13 @@ derives it from `REMOTE_DATABASE_URL_PROD`.
 A binary handed to someone else must be reproducible from the branch. Two failures this session came
 straight from ignoring that: rediscovery code sat uncommitted and **had never once been compiled**
 (it had a syntax error), and the Release build pulled in four other uncommitted instrument files that
-had to be committed afterwards so 1.6.9 could be rebuilt at all. Build, then `git status --porcelain`
-over `Systems/` and `Installer/`, and commit anything the build consumed.
+had to be committed afterwards so 1.6.9 could be rebuilt at all.
+
+The build script enforces this now. Step 0 records both commits, and it refuses to build when
+`Systems/`, `Libraries/`, `Installer/` or `scripts/` in this repo, or anything in the web app clone,
+has uncommitted or untracked changes. The one exception is `next-env.d.ts`, which `next build`
+rewrites itself. `-AllowDirty` builds anyway and marks the build dirty, which is fine for trying
+something out. A dirty build can never be tagged, so it can never be shipped as a release.
 
 ## Handing it over
 
@@ -186,12 +191,14 @@ The shared folder is `F:\Eliran\Nofar`, which holds every installer since 1.6.7.
 instructions are in `START-HERE.txt` there, and it names one installer to run ("INSTALL THIS: ...").
 Copying a new exe into the folder changes nothing for them until that file names it. Updating
 `START-HERE.txt` is operator communication, so agree the wording with the user first. Build the note
-from the PRs merged since the last version, and include only what reaches a station. If an earlier
+from the PRs merged since the last version (see "Releases are tagged" below), and include only what
+reaches a station. If an earlier
 note promised a fix that turned out incomplete, say so plainly. Before replacing it, keep the old
 file as `START-HERE.<old version>.txt`. Write the new one as UTF-8 with a BOM and CRLF line endings,
 like the original.
-Copy to the shared folder and verify the copy, then name the exact filename when you tell anyone
-about it — several versions accumulate there and the newest is not the first one listed:
+Copy the exe and its `.build-info.json` to the shared folder and verify the copy, then name the exact
+filename when you tell anyone about it — several versions accumulate there and the newest is not
+the first one listed:
 
 ```powershell
 Copy-Item $src $dst -Force
@@ -199,3 +206,41 @@ Copy-Item $src $dst -Force
 ```
 
 Deleting the older installers from a shared folder is the user's call, not yours — ask.
+
+## Releases are tagged, so the next one knows what changed
+
+Each shipped version is tagged `station-v<version>` in **both** repositories, on the exact commits
+it was built from. The next release's change list is then everything merged since those tags.
+Tagging started at 1.6.13: Calibration-software `7fb987a`, app `a382b80`. 1.6.12 and earlier have
+no tag, because 1.6.12's web app came from an uncommitted checkout and no commit describes it.
+
+1. **Every build records its commits.** The build writes
+   `Installer\CalibrationSoftware-Setup-v<version>.build-info.json` beside the exe. It holds the
+   version, both commits and branches, the database it targets, whether the build was dirty, and the
+   exe's SHA-256 and payload count. The same information, minus the hash, is installed as
+   `{app}\build-info.json`, so an installed station can say what it runs.
+2. **Tag once the installer is handed over**, not after every build. A tag means "this is what the
+   stations got":
+
+   ```powershell
+   .\scripts\Tag-StationRelease.ps1 -Version 1.6.14 -WhatIf   # check first
+   .\scripts\Tag-StationRelease.ps1 -Version 1.6.14
+   ```
+
+   The script reads the build-info file and refuses a dirty build, an existing tag, a commit that is
+   not on any branch on GitHub, and a server commit whose `setup.iss` carries a different version.
+   Push the release branch before tagging. The tag stays valid after the PR merges only because
+   PRs here are merged with a merge commit, never squashed. A squash would leave the tagged commit
+   outside `develop`, and the next change list would be wrong.
+3. **The next release starts from the change list:**
+
+   ```powershell
+   .\scripts\Get-StationReleaseChanges.ps1
+   ```
+
+   It prints one line per PR merged into `develop` and `stg` since the latest `station-v*` tag,
+   with GitHub compare links. It also shows commits that arrived without a PR, and squash-merged app
+   PRs by their `(#N)` suffix. Server entries are marked `station` when they touch what the installer
+   ships (the ComServer code, `Installer/` apart from Markdown, and the three scripts `setup.iss`
+   copies). Everything in app ships. Read the `station` PRs and all the app PRs, and write
+   START-HERE from them.
