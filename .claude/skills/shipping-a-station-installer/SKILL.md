@@ -106,6 +106,18 @@ The first attempt on another machine (1.6.13, 2026-09-24) found Inno Setup missi
    `Installer\` or `bin\Release`, is a leftover. Apart from those files, the installer should be the
    only place the password remains.
 
+Two checks from Eliran's handover ("Calibration Estate", section 30A) that the script does not make:
+
+- **The ComServer host must be 32-bit.** An earlier installer shipped a 64-bit host, which cannot
+  load the 32-bit GPIB library, so every GPIB master was dead on installed stations while working
+  on the dev machine. The csproj sets `Prefer32Bit` for Release as well as Debug. Confirm it on the
+  built exe: `32BITREQUIRED` and `32BITPREFERRED` must both be set. The 1.6.13 build passed.
+- **The standalone output contains symlinks.** Turbopack writes
+  `.next\node_modules\<package>-<hash>` links with absolute targets in the build clone
+  (`@aws-sdk/client-s3`, `@prisma/client` and `@react-pdf/renderer`, about 490 files).
+  ISCC follows them and packs the real files; the 1.6.13 payload count only adds up with them
+  included. So the clone must still exist when ISCC runs. Never delete or move it before step 4.
+
 The repo root of app also carries committed scratch scripts, `sp_*.sql` and a few `.xlsx` files,
 which the standalone tracer copies into the bundle. They are harmless to run but do not belong on
 customer machines. Cleaning them up belongs in the app repo.
