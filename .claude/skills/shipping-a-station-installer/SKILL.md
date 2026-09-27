@@ -106,8 +106,8 @@ decide with the owner whether to set it to manual start or remove it, and do not
 against an old build. The symptom that gives it away is a dev server logging that the WebSocket
 prefix "conflicts with an existing registration on the machine".
 
-**Read the payload count the script prints.** A healthy build is thousands of files (4,523 for the
-1.6.10 build; ~2,600 before the portal screens landed). Around 18 means the web app silently did not
+**Read the payload count the script prints.** A healthy build is thousands of files (4,730 for
+1.6.13, 23.4 MB; 4,523 for 1.6.10; ~2,600 before the portal screens landed). Around 18 means the web app silently did not
 make it in. The script fails below 2,000 for that reason — do not raise or bypass that floor.
 
 **Every required env var must be on the whitelist.** `scripts\New-StationEnv.ps1` keeps `$keep`,
