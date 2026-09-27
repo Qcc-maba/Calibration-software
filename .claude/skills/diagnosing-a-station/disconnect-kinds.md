@@ -51,7 +51,15 @@ Now edge-detected per channel: `ChannelDisconnected` naming the channel on the w
 
 **Not covered:** a channel that stops appearing in the scan output altogether. The loop pairs
 measurements to configured channels by index and stops at the shorter of the two, so a short reply is
-just a short reply. Whether the Hydra can produce one has not been observed.
+just a short reply.
+
+**Now observed, and it is transient, not a Hydra fault (MBA-974).** Right after a live channel-count
+change is pushed to an already-connected device (see `Systems/VCT/CLAUDE.md`'s "Live reconfiguration"
+section), the very next log poll or two can still return the *old*, shorter measurement count — a
+straggler entry the instrument queued before the re-init took effect. It self-resolves within one or
+two 30s polls once the new scan configuration is actually running. Don't diagnose a genuinely missing
+channel from a single short poll right after a reconfiguration; wait for the next one or two cycles
+first.
 
 **Bench check:** pull one thermocouple mid-scan. Expect an alert naming that channel and that
 channel's trace shaded in the UI; plug it back and expect the shading to close.
