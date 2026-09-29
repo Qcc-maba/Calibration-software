@@ -8,8 +8,8 @@
 
       - QCC only for now (Nofar, 24/09). QCC is Priority customer 1 (Nofar, 29/09).
         @CustomerCodes is the list of Priority customer codes allowed, comma-separated,
-        default '1'. NULL allows every customer - the day saving is opened to customer devices,
-        that is the whole change.
+        default '1'. The save procedures apply the same rule with the same default, so an item the
+        button is not shown for cannot be saved by calling them directly either.
       - Masters only. Belonging to QCC is not enough: of QCC's 4,615 registered serial numbers,
         2,378 are other internal equipment that is no master (see dbo.fnMasterForOrderItem).
       - Unambiguous only. A MabaID held by two live devices returns nothing rather than a guess.
@@ -24,10 +24,8 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    /* the customer rule is applied inside the function, the same way the save procedures get it */
     SELECT m.OrderDetailsItemId, m.SerialNumber, m.CustomerCode, m.MabaID, m.MeasurementDevicesId
-    FROM dbo.fnMasterForOrderItem(@OrderDetailsItemId) AS m
-    WHERE m.Matches = 1
-      AND (@CustomerCodes IS NULL
-           OR m.CustomerCode COLLATE DATABASE_DEFAULT IN
-              (SELECT LTRIM(RTRIM(value)) COLLATE DATABASE_DEFAULT FROM STRING_SPLIT(@CustomerCodes, N',')));
+    FROM dbo.fnMasterForOrderItem(@OrderDetailsItemId, @CustomerCodes) AS m
+    WHERE m.Matches = 1;
 END;

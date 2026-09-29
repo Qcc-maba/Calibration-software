@@ -22,13 +22,32 @@
     file refuses to run if rows have appeared, rather than inventing one.
 
     Replayable on either server: every step checks whether it has already been done.
+
+    The guards below stop the WHOLE file, not just their own batch. A THROW ends only the batch it
+    is in; SSMS, and sqlcmd without -b, carry on after GO - so the file could add OrderDetailsItemId
+    and then fail on MeasurementDevicesId, leaving the table half-changed. SET NOEXEC ON makes every
+    later batch compile but not run, whichever tool runs the file. The last line turns it off again.
 */
 SET NOCOUNT ON;
-SET XACT_ABORT ON;
 
+/* rows have appeared: a required sensor column cannot be invented for them */
 IF COL_LENGTH('dbo.ConversionParameters', 'MeasurementDevicesId') IS NULL
    AND EXISTS (SELECT 1 FROM dbo.ConversionParameters)
-    THROW 51000, 'dbo.ConversionParameters has rows but no MeasurementDevicesId - each row needs its sensor assigned by hand before this can run.', 1;
+BEGIN
+    RAISERROR('dbo.ConversionParameters has rows but no MeasurementDevicesId - each row needs its sensor assigned by hand before this can run. Nothing was changed.', 16, 1);
+    SET NOEXEC ON;
+END;
+
+/* the ALTER COLUMNs below restate the type as DECIMAL(35,15) - true on STAGE and PROD (checked
+   29/09). If a server declares them differently, stop rather than silently change the type. */
+IF EXISTS (SELECT 1 FROM sys.columns
+           WHERE object_id = OBJECT_ID('dbo.ConversionParameters')
+             AND name IN ('RTP', 'A4', 'B4', 'A7', 'B7', 'C7')
+             AND NOT (TYPE_NAME(user_type_id) = 'decimal' AND precision = 35 AND scale = 15))
+BEGIN
+    RAISERROR('A dbo.ConversionParameters coefficient column is not DECIMAL(35,15) here - check the type before running this. Nothing was changed.', 16, 1);
+    SET NOEXEC ON;
+END;
 GO
 
 IF COL_LENGTH('dbo.ConversionParameters', 'MeasurementDevicesId') IS NULL
@@ -51,4 +70,7 @@ BEGIN
     ALTER TABLE dbo.ConversionParameters ALTER COLUMN B7  DECIMAL(35,15) NOT NULL;
     ALTER TABLE dbo.ConversionParameters ALTER COLUMN C7  DECIMAL(35,15) NOT NULL;
 END;
+GO
+
+SET NOEXEC OFF;
 GO

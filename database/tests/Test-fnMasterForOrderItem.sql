@@ -63,6 +63,7 @@ DECLARE @DupCount INT = (SELECT COUNT(*) FROM dbo.MeasurementDevices
 DECLARE @Points NVARCHAR(MAX) = N'[{"Reference":0,"Reading":0.03},{"Reference":100,"Reading":100.10}]';
 
 /* the fixture, as a reusable batch of inserts */
+DECLARE @Id INT;
 DECLARE @WpQ INT, @WpO INT, @OdQ INT, @OdO INT;
 DECLARE @Items TABLE (Label NVARCHAR(20) PRIMARY KEY, Serial NVARCHAR(100), Cust NVARCHAR(5), ItemId INT);
 INSERT @Items (Label, Serial, Cust) VALUES
@@ -110,23 +111,29 @@ SELECT N'1 resolve', CONCAT(N'''', i.Serial, N''' -> ', e.Expect),
        e.Expect,
        ISNULL((SELECT CASE WHEN COUNT(*) > 1 THEN CONCAT(COUNT(*), N' devices')
                            ELSE MAX(m.MabaID) END
-               FROM dbo.fnMasterForOrderItem(i.ItemId) AS m HAVING COUNT(*) > 0), N'no master'),
+               FROM dbo.fnMasterForOrderItem(i.ItemId, N'1') AS m HAVING COUNT(*) > 0), N'no master'),
        CASE WHEN ISNULL((SELECT CASE WHEN COUNT(*) > 1 THEN CONCAT(COUNT(*), N' devices')
                                      ELSE MAX(m.MabaID) END
-                         FROM dbo.fnMasterForOrderItem(i.ItemId) AS m HAVING COUNT(*) > 0), N'no master')
+                         FROM dbo.fnMasterForOrderItem(i.ItemId, N'1') AS m HAVING COUNT(*) > 0), N'no master')
                  = e.Expect THEN N'PASS' ELSE N'FAIL' END
 FROM @Items AS i
 CROSS APPLY (SELECT Expect = CASE i.Label
                  WHEN N'plain'     THEN @M1
                  WHEN N'dot'       THEN @M1
                  WHEN N'dotspace'  THEN @M1
-                 WHEN N'other'     THEN @M1          /* customer-agnostic: its own code's prefix */
+                 WHEN N'other'     THEN N'no master' /* not QCC's: a customer's asset number is never a lab MabaID */
                  WHEN N'shared'    THEN CASE WHEN @DupMaba IS NULL THEN N'no master' ELSE CONCAT(@DupCount, N' devices') END
                  ELSE N'no master' END) AS e      /* noprefix, longer ('11-' is not '1-'), equipment */
 WHERE i.Label <> N'shared' OR @DupMaba IS NOT NULL;
 
+/* the customer list is the gate: opened on purpose, the other customer's item resolves */
+SELECT @Id = ItemId FROM @Items WHERE Label = N'other';
+INSERT @Out SELECT N'1 resolve', N'...the other customer''s item resolves only when the list is opened (NULL)',
+       @M1, ISNULL((SELECT MAX(m.MabaID) FROM dbo.fnMasterForOrderItem(@Id, NULL) AS m), N'no master'),
+       CASE WHEN (SELECT MAX(m.MabaID) FROM dbo.fnMasterForOrderItem(@Id, NULL) AS m) = @M1
+            THEN N'PASS' ELSE N'FAIL' END;
+
 /* the button: QCC and exactly one master only */
-DECLARE @Id INT;
 SELECT @Id = ItemId FROM @Items WHERE Label = N'dot';
 DELETE #M; INSERT #M EXEC dbo.GetMasterForOrderItem @OrderDetailsItemId = @Id;
 INSERT @Out SELECT N'2 button', N'QCC master (with a stray dot): one row, the right device',
@@ -236,6 +243,52 @@ INSERT @Out SELECT N'4 refuse', N'ranges by an item that is no master: refused',
        N'an error', ISNULL(LEFT(@Err, 50), N'accepted'), CASE WHEN @Err IS NOT NULL THEN N'PASS' ELSE N'FAIL' END;
 
 IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+
+
+/* a non-QCC item whose serial matches a lab MabaID once its prefix is removed: the save must
+   refuse it exactly as the button hides it - otherwise the customer's calibration lands on the
+   lab's master (PR #18 review). One fixture per refusal, since each refusal dooms its transaction. */
+DECLARE @Proc NVARCHAR(40);
+DECLARE r CURSOR LOCAL FAST_FORWARD FOR SELECT p FROM (VALUES (N'coefficients'), (N'ranges')) AS v (p);
+OPEN r; FETCH r INTO @Proc;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    BEGIN TRANSACTION;
+    INSERT dbo.OrderWorkPlans (CustomerId, OrderNumber, WorkPlanOpenDate, CreatedDate, IsCancelled)
+    VALUES (@OtherCust, N'TEST-MBA-816-OTHER', GETDATE(), GETDATE(), 0);
+    SET @WpO = SCOPE_IDENTITY();
+    INSERT dbo.OrderDetails (OrderWorkPlanId, CreatedDate, IsDeleted, IsCancelled) VALUES (@WpO, GETDATE(), 0, 0);
+    SET @OdO = SCOPE_IDENTITY();
+    INSERT dbo.OrderDetailsItems (OrderDetailId, SerialNumber, CreatedDate, IsDeleted, IsCancelled, IsManuallyAdded)
+    VALUES (@OdO, @OtherCode + N'-' + @M1, GETDATE(), 0, 0, 0);
+    SET @Id = SCOPE_IDENTITY();
+
+    SET @Err = NULL;
+    BEGIN TRY
+        IF @Proc = N'coefficients'
+        BEGIN
+            DELETE #C;
+            INSERT #C EXEC dbo.SaveSensorCoefficients @LoggedInUserEmail = @Email, @OrderDetailsItemId = @Id,
+                @RTP = 100, @A4 = 0, @B4 = 0, @A7 = 0, @B7 = 0, @C7 = 0, @Apply = 1;
+        END
+        ELSE
+        BEGIN
+            DELETE #R;
+            INSERT #R EXEC dbo.SaveMasterSensorCorrectionsBatch @LoggedInUserEmail = @Email, @Data = @Points,
+                @MeasurementId = @Meas, @OrderDetailsItemId = @Id, @Apply = 1;
+        END
+    END TRY
+    BEGIN CATCH
+        SET @Err = ERROR_MESSAGE();
+        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+    END CATCH;
+    IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+
+    INSERT @Out SELECT N'4 refuse', CONCAT(@Proc, N' by customer ', @OtherCode, N'''s item ''', @OtherCode, N'-', @M1, N''': refused'),
+           N'an error', ISNULL(LEFT(@Err, 50), N'accepted'), CASE WHEN @Err IS NOT NULL THEN N'PASS' ELSE N'FAIL' END;
+    FETCH r INTO @Proc;
+END;
+CLOSE r; DEALLOCATE r;
 
 
 /* ============================================================================================= */

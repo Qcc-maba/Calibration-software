@@ -7,9 +7,10 @@
     The serial number is the MabaID, but not as-is
     ----------------------------------------------
     OrderDetailsItems.SerialNumber is Priority's SERNUMBERS.SERNUM, copied unchanged (300 of 300
-    recent PROD items compared, 29/09). Priority registers every device under its customer's code,
-    so QCC's master 21-214 is '1-21-214' - customer 1, a dash, then the MabaID. All 4,615 of QCC's
-    serial numbers have that shape.
+    recent PROD items compared, 29/09). QCC registers its own devices under its customer code, so
+    master 21-214 is '1-21-214' - customer 1, a dash, then the MabaID. All 4,615 of QCC's serial
+    numbers have that shape. Other customers' do not: 0 of 8,962 PROD items of other customers start
+    with their own customer code (29/09).
 
     Taking the prefix off is not always enough. Some records carry a stray trailing dot - 21-214 has
     both '1-21-214' and '1-21-214.' in Priority, and either can be on an order. Of QCC's 4,615:
@@ -19,21 +20,27 @@
         2,378  match no master - QCC registers other internal equipment too (#001, 0130-4, ...)
 
     So: remove "<the order's customer code>-", then any trailing dots and spaces, then look the
-    result up. The prefix is the ORDER'S customer code, not a fixed '1-', so the day saving is
-    opened to customer devices (Nofar, 24/09) this keeps working. A serial number without its
-    customer's prefix matches nothing - it is not a registered device.
+    result up. A serial number without that prefix matches nothing.
+
+    Only the lab's own devices can be lab masters
+    ---------------------------------------------
+    dbo.MeasurementDevices holds the LAB's masters. For another customer's item, the part after its
+    customer code would be that customer's own asset number, and matching it against the lab's
+    MabaIDs would attach a customer's calibration to a lab master. A device is a lab master because
+    it belongs to QCC (Nofar, 08/09), so the customer is checked here, in the one place every caller
+    goes through: @CustomerCodes is the list of allowed Priority customer codes, comma-separated.
+    Every caller passes N'1' (QCC); NULL allows any customer. (No such false match exists in PROD
+    today - see above - so this closes a door rather than fixing a live case.)
 
     Returns one row per live master that carries the resulting MabaID: none when the item is not a
-    master, two or more when a MabaID is shared (STAGE has three such, all test records). Callers
-    decide what to do with more than one - the save procedures refuse, dbo.GetMasterForOrderItem
-    returns nothing.
-
-    Deliberately customer-agnostic. Which customers the button is shown for is
-    dbo.GetMasterForOrderItem's rule, not this function's.
+    master or not an allowed customer's, two or more when a MabaID is shared (STAGE has three such,
+    all test records). Callers decide what to do with more than one - the save procedures refuse,
+    dbo.GetMasterForOrderItem returns nothing.
 */
 CREATE OR ALTER FUNCTION dbo.fnMasterForOrderItem
 (
-    @OrderDetailsItemId INT
+    @OrderDetailsItemId INT,
+    @CustomerCodes      NVARCHAR(200)   /* allowed Priority customer codes, e.g. N'1'; NULL = any */
 )
 RETURNS TABLE
 AS
@@ -50,6 +57,9 @@ RETURN
         JOIN dbo.OrderWorkPlans    AS wp ON wp.OrderWorkPlanId = od.OrderWorkPlanId
         JOIN dbo.Customers         AS c  ON c.CustomerId       = wp.CustomerId
         WHERE i.OrderDetailsItemId = @OrderDetailsItemId
+          AND (@CustomerCodes IS NULL
+               OR CAST(c.CustomerIdFromSource AS NVARCHAR(20)) COLLATE DATABASE_DEFAULT IN
+                  (SELECT LTRIM(RTRIM(value)) COLLATE DATABASE_DEFAULT FROM STRING_SPLIT(@CustomerCodes, N',')))
     ),
     Stripped AS
     (

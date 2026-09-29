@@ -231,6 +231,18 @@ BEGIN
 END;
 CLOSE b; DEALLOCATE b;
 
+/* reading with a MabaID and a device id that disagree: an error, as the save raises - an empty
+   result would read as "no coefficients on file" (PR #18 review) */
+SET @Err = NULL;
+BEGIN TRY
+    DELETE #G;
+    INSERT #G EXEC dbo.GetSensorCoefficients @MabaID = @M1, @MeasurementDevicesId = @D2;
+END TRY
+BEGIN CATCH SET @Err = ERROR_MESSAGE(); END CATCH;
+INSERT @Out SELECT N'4 refuse', N'reading with MabaID and device id naming two devices is refused',
+       N'an error', ISNULL(LEFT(@Err, 40), N'accepted'),
+       CASE WHEN @Err IS NOT NULL THEN N'PASS' ELSE N'FAIL' END;
+
 /* the same ambiguous MabaID is accepted once the device id says which one is meant */
 IF @DupMaba IS NOT NULL
 BEGIN

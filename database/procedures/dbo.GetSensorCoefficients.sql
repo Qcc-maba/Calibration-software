@@ -31,6 +31,13 @@ BEGIN
             WHERE LTRIM(RTRIM(MabaID)) = @Maba AND IsDeleted = 0) > 1
         THROW 51000, 'That MabaID is held by more than one live device - pass MeasurementDevicesId too.', 1;
 
+    /* both given and naming different devices: an error, as dbo.SaveSensorCoefficients raises - an
+       empty result would read as "no coefficients on file", which is a different answer */
+    IF @Maba IS NOT NULL AND @MeasurementDevicesId IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM dbo.MeasurementDevices
+                       WHERE ID = @MeasurementDevicesId AND LTRIM(RTRIM(MabaID)) = @Maba)
+        THROW 51000, 'MabaID and MeasurementDevicesId name different devices.', 1;
+
     WITH Sets AS
     (
         SELECT cp.ConversionParameterId, cp.MeasurementDevicesId,

@@ -41,7 +41,8 @@
 
     Or neither: pass only @OrderDetailsItemId and the sensor is worked out from that item's serial
     number by dbo.fnMasterForOrderItem ('1-21-214' -> 21-214) - so the screen can pass the item it
-    is on and nothing else.
+    is on and nothing else. Only items of @CustomerCodes (default '1', QCC) are resolved: a lab
+    master is a QCC device, and the rule matches the one the button is shown by.
 
     @Apply  0 (default) returns what WOULD be saved and writes nothing. 1 saves.
 
@@ -59,7 +60,8 @@ CREATE OR ALTER PROCEDURE dbo.SaveSensorCoefficients
     @B7                   DECIMAL(35,15)  = NULL,
     @C7                   DECIMAL(35,15)  = NULL,
     @OrderDetailsItemId   INT             = NULL,   /* the calibration these came from, if any */
-    @Apply                BIT             = 0
+    @Apply                BIT             = 0,
+    @CustomerCodes        NVARCHAR(200)   = N'1'    /* customers whose items may be resolved to a lab master - QCC */
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -75,10 +77,10 @@ BEGIN
     BEGIN
         DECLARE @ItemMatches INT;
         SELECT @ItemMatches = COUNT(*), @MeasurementDevicesId = MIN(m.MeasurementDevicesId)
-        FROM dbo.fnMasterForOrderItem(@OrderDetailsItemId) AS m;
+        FROM dbo.fnMasterForOrderItem(@OrderDetailsItemId, @CustomerCodes) AS m;
 
         IF @ItemMatches = 0
-            THROW 51000, 'That order item''s serial number does not name a live sensor.', 1;
+            THROW 51000, 'That order item is not a lab master: its serial number names no live master, or it is not a QCC item.', 1;
         IF @ItemMatches > 1
             THROW 51000, 'That order item''s serial number names more than one live device - pass MeasurementDevicesId.', 1;
     END;
