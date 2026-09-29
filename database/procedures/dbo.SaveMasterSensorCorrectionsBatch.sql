@@ -60,6 +60,12 @@
     @MabaID the master's MabaID - how the lab identifies it (Nofar, 24/09). Give this or
             @MeasurementDevicesId. A MabaID held by more than one live device is refused rather
             than guessed - STAGE has three such, all test records.
+    @OrderDetailsItemId  the calibration this came from, kept in Note. When neither @MabaID nor
+            @MeasurementDevicesId is given, the master is worked out from this item's serial
+            number by dbo.fnMasterForOrderItem ('1-21-214' -> 21-214) - so the screen can pass
+            the item it is on and nothing else. Only items of @CustomerCodes (default '1', QCC)
+            are resolved: a lab master is a QCC device, and the rule matches the one the button
+            is shown by (dbo.GetMasterForOrderItem).
     @Data   JSON array of points, e.g. [{"Reference":0.039,"Reading":0.04}, ...]. At least two,
             no repeated reference, no NULLs. Reading = what the master being calibrated showed.
     @Apply  0 (default) returns the ranges that WOULD be written and touches nothing - the screen
@@ -74,13 +80,14 @@
 */
 CREATE OR ALTER PROCEDURE dbo.SaveMasterSensorCorrectionsBatch
     @LoggedInUserEmail    NVARCHAR(255),
-    @MeasurementDevicesId INT,          /* this, or @MabaID */
+    @MeasurementDevicesId INT = NULL,   /* this, or @MabaID, or @OrderDetailsItemId alone */
     @Data                 NVARCHAR(MAX),
     @MeasurementId        INT = NULL,   /* NULL = the device's own MeasurementId */
     @UnitID               INT = NULL,
     @OrderDetailsItemId   INT = NULL,   /* the calibration this came from, kept in Note */
     @Apply                BIT = 0,
-    @MabaID               NVARCHAR(50) = NULL
+    @MabaID               NVARCHAR(50) = NULL,
+    @CustomerCodes        NVARCHAR(200) = N'1'  /* customers whose items may be resolved to a lab master - QCC */
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -88,6 +95,20 @@ BEGIN
 
     DECLARE @UserId INT = (SELECT ID FROM dbo.Users WHERE Email = @LoggedInUserEmail);
     DECLARE @MainCategoryId INT;
+
+    /* only the order item: the master is whatever its serial number names */
+    IF @MeasurementDevicesId IS NULL AND NULLIF(LTRIM(RTRIM(@MabaID)), N'') IS NULL
+       AND @OrderDetailsItemId IS NOT NULL
+    BEGIN
+        DECLARE @ItemMatches INT;
+        SELECT @ItemMatches = COUNT(*), @MeasurementDevicesId = MIN(m.MeasurementDevicesId)
+        FROM dbo.fnMasterForOrderItem(@OrderDetailsItemId, @CustomerCodes) AS m;
+
+        IF @ItemMatches = 0
+            THROW 51000, 'That order item is not a lab master: its serial number names no live master, or it is not a QCC item.', 1;
+        IF @ItemMatches > 1
+            THROW 51000, 'That order item''s serial number names more than one live device - pass MeasurementDevicesId.', 1;
+    END;
 
     IF @MeasurementDevicesId IS NULL AND NULLIF(LTRIM(RTRIM(@MabaID)), N'') IS NOT NULL
     BEGIN
