@@ -39,6 +39,10 @@
     guessed; pass @MeasurementDevicesId alongside it to say which one is meant. @MeasurementDevicesId
     alone also works. If both are given they must name the same device.
 
+    Or neither: pass only @OrderDetailsItemId and the sensor is worked out from that item's serial
+    number by dbo.fnMasterForOrderItem ('1-21-214' -> 21-214) - so the screen can pass the item it
+    is on and nothing else.
+
     @Apply  0 (default) returns what WOULD be saved and writes nothing. 1 saves.
 
     One result row: Outcome (WouldSave | Saved | NoChange), the set, and ConversionParameterId -
@@ -65,6 +69,20 @@ BEGIN
     DECLARE @Maba NVARCHAR(50) = NULLIF(LTRIM(RTRIM(@MabaID)), N'');
 
     /* ---- which sensor ---- */
+
+    /* only the order item: the sensor is whatever its serial number names ('1-21-214' -> 21-214) */
+    IF @Maba IS NULL AND @MeasurementDevicesId IS NULL AND @OrderDetailsItemId IS NOT NULL
+    BEGIN
+        DECLARE @ItemMatches INT;
+        SELECT @ItemMatches = COUNT(*), @MeasurementDevicesId = MIN(m.MeasurementDevicesId)
+        FROM dbo.fnMasterForOrderItem(@OrderDetailsItemId) AS m;
+
+        IF @ItemMatches = 0
+            THROW 51000, 'That order item''s serial number does not name a live sensor.', 1;
+        IF @ItemMatches > 1
+            THROW 51000, 'That order item''s serial number names more than one live device - pass MeasurementDevicesId.', 1;
+    END;
+
     IF @Maba IS NOT NULL
     BEGIN
         DECLARE @Matches INT, @OnlyMatch INT, @IdMatches BIT;
