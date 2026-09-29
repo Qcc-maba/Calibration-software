@@ -276,6 +276,10 @@ no tag, because 1.6.12's web app came from an uncommitted checkout and no commit
      `fixVersion = "station-v<version>"`. A ticket whose work spans
      two builds (MBA-970 had a server half and an app half) carries both; the earliest one is
      the build that first shipped it.
+   - A ticket whose change reaches the station gets the release even when operators will never
+     notice it, and even when it was merged as part of the previous release's PR. MBA-973 got
+     `station-v1.6.14` for the `build-info.json` the installer now puts in `{app}`. START-HERE
+     leaves such changes out, but Jira records them.
    - Never change a ticket's status as part of this. A Fix version records what shipped, and
      closing the ticket stays with its owner. Tickets from the app team get the release too;
      they see the change, and nothing else about their tickets moves.
