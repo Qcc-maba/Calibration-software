@@ -151,8 +151,8 @@ decide with the owner whether to set it to manual start or remove it, and do not
 against an old build. The symptom that gives it away is a dev server logging that the WebSocket
 prefix "conflicts with an existing registration on the machine".
 
-**Read the payload count the script prints.** A healthy build is thousands of files (4,730 for
-1.6.13, 23.4 MB; 4,523 for 1.6.10; ~2,600 before the portal screens landed). Around 18 means the web app silently did not
+**Read the payload count the script prints.** A healthy build is thousands of files (4,740 for
+1.6.14 and 4,730 for 1.6.13, both 23.4 MB; 4,523 for 1.6.10; ~2,600 before the portal screens landed). Around 18 means the web app silently did not
 make it in. The script fails below 2,000 for that reason — do not raise or bypass that floor.
 
 **Every required env var must be on the whitelist.** `scripts\New-StationEnv.ps1` keeps `$keep`,
@@ -196,7 +196,10 @@ reaches a station. If an earlier
 note promised a fix that turned out incomplete, say so plainly. Before replacing it, keep the old
 file as `START-HERE.<old version>.txt`. Write the new one as UTF-8 with a BOM and CRLF line endings,
 like the original.
-Copy the exe and its `.build-info.json` to the shared folder and verify the copy, then name the exact
+Copy the exe and its `.build-info.json` to the shared folder and verify the copy. Explorer hides
+the extension, so the second file shows up as `CalibrationSoftware-Setup-v<version>.build-info`.
+It holds the commits, the database host and name (no password) and the exe's SHA-256, and is
+safe to leave beside the exe; operators do not need it. Then name the exact
 filename when you tell anyone about it — several versions accumulate there and the newest is not
 the first one listed:
 
@@ -250,6 +253,14 @@ no tag, because 1.6.12's web app came from an uncommitted checkout and no commit
    the `MABA-` misspelling. It can't see a PR's description, which git does not store: #141 (app)
    names MBA-960 only there, so it lands in the second list. Look up the ticket for each entry in
    that list by opening the PR.
+
+   The first entries after a tag are usually the previous release's own PRs. The tag sits on the
+   commit the installer was built from, and the release branch goes on collecting commits until it
+   merges: the build script's cleanup, skill notes, tooling. After 1.6.13, #12 and #13 were listed
+   as `station` because they touched `Installer/` and `setup.iss` after the build. See what they
+   really added with `git log station-v<previous>..<merge>^2`. Nearly all of it is build tooling
+   that operators never see, so leave it out of START-HERE. The exception is a change to what the
+   installer puts on a station: #13's `build-info.json` in `{app}` first shipped in 1.6.14.
 4. **A Jira release per shipped version.** Project MBA has a release named exactly like the tag
    (`station-v1.6.13` was the first). Once the installer is handed over and tagged:
    - Create the release, marked released and dated the handover day. Put in its description the
@@ -257,7 +268,12 @@ no tag, because 1.6.12's web app came from an uncommitted checkout and no commit
      tag as related work.
    - Set it as the **Fix version** of every ticket in the two lists, including the ones you found
      by hand. **Add, never replace.** The edit sets the whole field, so read the ticket's
-     existing Fix versions and send them all back with the new one. A ticket whose work spans
+     existing Fix versions and send them all back with the new one. Through the Atlassian MCP
+     tools, `getJiraIssue` with `fields: ["fixVersions"]` comes back with an empty `fields`
+     object even when the ticket has Fix versions, so it looks as if there are none. Read them
+     with `searchJiraIssuesUsingJql` instead, with `view: "full"` and `fields: ["fixVersions"]`
+     (for example `key in (...) AND fixVersion is not EMPTY`). Afterwards, check with
+     `fixVersion = "station-v<version>"`. A ticket whose work spans
      two builds (MBA-970 had a server half and an app half) carries both; the earliest one is
      the build that first shipped it.
    - Never change a ticket's status as part of this. A Fix version records what shipped, and
