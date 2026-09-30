@@ -1,3 +1,4 @@
+/* STAGE definition of dbo.DuplicateCustomerDevice captured 2026-09-30 before the MBA-903 customer-set change. Re-run to roll back. */
 /*
     dbo.DuplicateCustomerDevice                                                         MBA-903
     ---------------------------------------------------------------------------------------------
@@ -23,21 +24,6 @@
 
     @Copies makes several at once for the bulk case. Serial numbers must then be supplied as a
     comma-separated list of the same length, since only the customer knows them.
-
-    2026-09-30 - MBA-903: ownership against the caller's customer SET.
-    ---------------------------------------------------------------------------------------------
-    The caller was resolved with SELECT TOP (1) ... ORDER BY CustomerContactId, the rule MBA-943
-    removed from every read screen. A contact of several customers could copy only devices of the
-    lowest-id one, which is often a customer holding no devices at all - 236 addresses on STAGE.
-    The source device now has to belong to a customer in dbo.GetPortalCustomerIds, and the copy,
-    the serial-number clash check and the result all use THAT device's customer: a copy stays with
-    the customer that owns the original.
-
-    @CustomerSiteId, when given, must be a live site of that same customer (52025). It used to be
-    written unchecked, which let a copy point at another customer's site.
-
-    It also never ran: #Serials had tempdb's collation and every call died on a collation conflict
-    against CustomerDevices.SerialNumber. Found by database/tests/Test-CustomerPortalRequest.sql.
 */
 CREATE OR ALTER PROCEDURE dbo.DuplicateCustomerDevice
     @LoggedInUserEmail    NVARCHAR(100),
@@ -51,35 +37,25 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    DECLARE @Email NVARCHAR(100) = LOWER(LTRIM(RTRIM(@LoggedInUserEmail)));
-    DECLARE @CustomerId INT;
+    DECLARE @CustomerId INT, @UserId INT;
 
-    IF NOT EXISTS (SELECT 1 FROM dbo.GetPortalCustomerIds(@Email))
-        THROW 52021, 'The calling address does not belong to any customer contact.', 1;
-
-    /* The customer that owns the source device - provided it is one of the caller's. */
-    SELECT @CustomerId = d.CustomerId
-    FROM dbo.CustomerDevices AS d
-    INNER JOIN dbo.GetPortalCustomerIds(@Email) AS mine ON mine.CustomerId = d.CustomerId
-    WHERE d.CustomerDeviceID = @CustomerDeviceId
-      AND d.IsDeleted = 0;
+    SELECT TOP (1) @CustomerId = cc.CustomerId
+    FROM dbo.CustomerContacts AS cc
+    WHERE cc.IsDeleted = 0
+      AND LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))) = LOWER(LTRIM(RTRIM(@LoggedInUserEmail)))
+    ORDER BY cc.CustomerContactId ASC;
 
     IF @CustomerId IS NULL
+        THROW 52021, 'The calling address does not belong to any customer contact.', 1;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.CustomerDevices AS d
+                   WHERE d.CustomerDeviceID = @CustomerDeviceId
+                     AND d.CustomerId = @CustomerId
+                     AND d.IsDeleted = 0)
         THROW 52022, 'The device to copy does not belong to the caller.', 1;
 
-    IF @CustomerSiteId IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM dbo.CustomerSites AS cs
-                       WHERE cs.CustomerSiteId = @CustomerSiteId
-                         AND cs.CustomerId = @CustomerId
-                         AND ISNULL(cs.IsDeleted, 0) = 0)
-        THROW 52025, 'The site does not belong to the customer that owns the device.', 1;
-
-    /* Blanks dropped rather than becoming empty serials - same care as MBA-902.
-       COLLATE DATABASE_DEFAULT: a temp table takes tempdb's collation (Latin1_General), and the
-       clash check and the final SELECT compare it with CustomerDevices.SerialNumber (Hebrew_CI_AS).
-       Without it every call failed with a collation conflict - unnoticed because CustomerDevices
-       is empty on STAGE, so nothing had ever been copied. */
-    CREATE TABLE #Serials (SerialNumber NVARCHAR(100) COLLATE DATABASE_DEFAULT PRIMARY KEY);
+    /* Blanks dropped rather than becoming empty serials - same care as MBA-902. */
+    CREATE TABLE #Serials (SerialNumber NVARCHAR(100) PRIMARY KEY);
 
     INSERT INTO #Serials (SerialNumber)
     SELECT DISTINCT LTRIM(RTRIM(value))
