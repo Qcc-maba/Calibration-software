@@ -437,6 +437,8 @@ namespace Maba.VCT.Core
                     if (pendingReconfigureReason != null && device.IsConnected)
                     {
                         toRecover.Add((device, pendingReconfigureReason));
+                        // MBA-967: the re-init restarts the scan; the silence it causes is not a fault.
+                        device.RestartWatchdogClockForReconfiguration(nowUtc);
                     }
 
                     switch (EvaluateDataWatchdog(device.IsConnected, device.WatchdogMeasurementUtc,

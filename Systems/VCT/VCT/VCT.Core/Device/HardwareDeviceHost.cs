@@ -465,6 +465,30 @@ namespace Maba.VCT.Core.Device
         }
 
         /// <summary>
+        /// MBA-967: the operator's reconfiguration restarts the scan, so the watchdog's 60 s start again
+        /// from here instead of from the last reading before it. On the bench a Confirm at 14:50:27,
+        /// 23 s after a reading, put the first new reading at 14:51:07; the watchdog, still counting from
+        /// 14:50:04, fired "No data received for 60 seconds" at 14:51:04, and its power-cycle recovery
+        /// reset a healthy logger a second time - 100 s without data instead of about 40.
+        /// <para>
+        /// Only for a device that is currently fine. One already declared silent keeps its clock, so a
+        /// reconfiguration can neither hide a real fault nor announce a recovery that has not happened
+        /// (the watchdog would read a fresh timestamp as "data resumed"). "Never measured" stays null,
+        /// which the watchdog reads as idle, not silent. Power-cycle recovery does not come through here -
+        /// see <c>RecoveryDoesNotClearTheStallTimestamp</c>.
+        /// </para>
+        /// </summary>
+        /// <returns>True when the clock was restarted.</returns>
+        public bool RestartWatchdogClockForReconfiguration(DateTime nowUtc)
+        {
+            if (DataTimedOut || !LastMeasurementUtc.HasValue) return false;
+
+            LastMeasurementUtc = nowUtc;
+            if (LastDistinctMeasurementUtc.HasValue) LastDistinctMeasurementUtc = nowUtc;
+            return true;
+        }
+
+        /// <summary>
         /// MBA-962: the BL's way to report a fault it alone can see, as a WS alert about this device.
         /// <paramref name="channel"/> is the channel number as text, or "ALL" for a device-wide alert.
         /// </summary>

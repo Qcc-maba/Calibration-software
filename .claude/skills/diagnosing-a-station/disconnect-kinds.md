@@ -34,6 +34,12 @@ identical scans) tripped it. Three false re-inits in one overnight run each cost
 compares the logger's scan time too, so a stall means the same log entry read again, not a quiet
 bath. A power cycle is caught either way: the logger stores nothing, so it is the "No data" branch.
 
+**An operator's reconfiguration restarts the 60 s clock (MBA-967).** A Confirm that changes the
+channels restarts the scan, and the first new reading can come 60 s or more after the last old one.
+Before the fix that tripped "No data received" and a second, needless re-init, costing 100 s of data
+on the bench. `HardwareDeviceHost.RestartWatchdogClockForReconfiguration` now restarts the clock,
+unless the device is already declared silent.
+
 ## Communication
 
 Discovery used to run once, at startup, so unplugging and replugging ended the session for good — the
