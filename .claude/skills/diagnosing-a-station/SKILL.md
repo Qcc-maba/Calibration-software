@@ -1,6 +1,6 @@
 ---
 name: diagnosing-a-station
-description: Work out why a calibration station is not working when you cannot sit at it - a blank page or "no internet" screen, a logger that stops recording, or an operator reporting a version as broken. Use when someone reports a station fault, before changing any code.
+description: Work out why a calibration station is not working when you cannot sit at it - a blank page or "no internet" screen, a logger that stops recording, gaps or uneven timing in an exported Excel, or an operator reporting a version as broken. Use when someone reports a station fault, before changing any code.
 ---
 
 # Diagnosing a station you are not sitting at
@@ -70,9 +70,42 @@ instrument that corrupts its own replies. Use the **bringing-up-an-instrument** 
 `transport-faults.md` for those, and note that its first rule applies here too: decide whether you
 have a transport fault or an instrument fault before editing any BL.
 
-## 5. Say what you measured, not what you infer
+## 5. If the complaint is gaps or uneven timing in an exported Excel, match it to the log first
+
+An operator's Excel export is the best evidence of what the app received, but it has no absolute
+times: "Time elapsed [sec]" starts at 0. Its Configuration sheet's **"Starting time" is really the
+time of the last sample**, because the app overwrites it on every reading. So don't align by time.
+Align by **values**: every `[HYDRA HandleLogData] Broadcasting … values: […]` line in `server.log`
+is one row of the export, in order. `Match-ExcelToServerLog.py` in the user's local scripts does this and
+prints what the log says inside each gap (see the `local-scripts` skill).
+
+- Days roll over: the run you want is often in `*_server.prev.log`, not the newest `server.log`.
+- **Count the rows before blaming a lost reading.** Rows = span / interval + 1 means nothing was
+  dropped, and the gap is in *when* readings arrived, not *whether*. On MBA-967 that one sum
+  overturned a plausible "a scan was cleared unsent" theory.
+- **A 48–49 s gap with `[RECOVERY] … power-cycle recovery` inside it is a re-init**, about 19 s of
+  `*RST` … `SCAN 1`. Read the `DataTimeout` message just before it. "Repeated the same reading" on a
+  build without MBA-967 is often a **false** stall: a settled bath at 0.1 °C gives identical scans.
+- **The logger's own scan time is the ground truth for "was it scanning".** It is the first six
+  fields of every `LOGGED?` reply (`hh,mm,ss,MM,dd,yy`). If it moves on by the interval while the
+  values repeat, the logger was fine.
+- **Scans that vanish, or data only after a restart:** look for `LOGGED? n` answered with `!>`
+  right after a `LOG_CLR`, and count `LOG_COUNT?` lines per 30 s. One polling loop sends about 2.
+  4–7 means several loops left behind by re-inits (fixed in MBA-967), and each `!>` is a lost scan.
+- **A channel missing for minutes with `ChannelDisconnected` / `DataRestored` around it** is a
+  real open circuit, not software. The logger returned `+009.00E+9` for it; on 30/9 channel 1 did
+  this for exactly six minutes while the other channels read normally.
+- **A 1–2 s wobble is the polling**, not the logger, on builds before MBA-967. From MBA-967 on the
+  time is the logger's scan time plus a measured offset, so a wobble there is worth a look. Check the
+  `[HYDRA Clock]` lines for the offset it used.
+
+## 6. Say what you measured, not what you infer
 
 The station's logs, the payload count and the port owner are facts. "It works now" is not a fact
 until something answered. When you have not been able to reproduce a fault — no logger attached, no
 logs from that version — say exactly that, and name the check the operator can run that would settle
 it. Every wrong conclusion in this area came from reporting a hypothesis in the voice of a result.
+
+MBA-967 is the example. The first explanation of the 48 s gaps (the polling missed a scan) fitted the
+spreadsheet's shape but predicted 58 s, not 48. Saying so, and asking for the log, is what found the
+real cause: a `[RECOVERY]` line inside every gap.

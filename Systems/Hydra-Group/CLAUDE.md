@@ -65,6 +65,51 @@ they were separated. Do not treat one as covering another:
    existed, the reading was dropped with a bare `continue` and the calibration carried on with fewer
    points than the operator had asked for, with nothing on screen and nothing in the log.
 
+## The Hydra 2625A is polled, and its readings carry the logger's own time (MBA-967)
+
+The logger scans on its own timer (`INTVL`, 30 s) and keeps each scan in memory; the server polls it
+(`LOG_COUNT?` → `LOGGED? n` → `LOG_CLR`, with a 28 s wait when nothing is stored). So the moment a
+reading reaches the app lags its scan by a varying amount. Until MBA-967 every reading was stamped with
+that send time, and evenly spaced scans showed up 29/30/31 s apart.
+
+- **Each reading's `Time` is the logger's scan time**, moved onto the PC clock:
+  `HardwarePacket.MeasuredAt` → `ServerCore.FormatLoggerDataTime`. The app already plots, tabulates and
+  exports by that field, so no app change was needed. Without a scan time (another instrument, or the
+  clock not read yet) it is the send time, as before.
+- **The logger's clock cannot be set to the second.** `TIME` takes hours and minutes and sets the
+  seconds to 00 (2620A/2625A manual, Table 4-8), so every init leaves it behind by however far into the
+  minute it ran. `TIME_DATE?` does return seconds, so the offset is **measured** at init and re-read
+  every 10 minutes (`Hydra2DeviceBL.LoggerClockRefreshInterval`), and a new reading replaces the offset
+  only when it moves by more than 1.5 s. Whole-second readings disagree by a second on their own, and
+  following them would put back the 29/31 s steps.
+- **A settled bath repeats itself.** The logger reports to 0.1 °C, so identical scans are normal.
+  Judged on values alone, the stale-data check declared a stable overnight run "stalled" three times
+  and reset the logger, costing a 48 s gap each time. The scan time is now part of the comparison
+  (`HardwareDeviceHost.BroadcastAllMeasurements(…, instrumentScanTime, …)`): a new scan time is a new
+  measurement.
+- **Every stored scan is sent**, oldest first by scan time. The old code broadcast only the last entry
+  of a batch, so when two were waiting the older was cleared unsent. The manual does not say which end
+  `LOGGED? 1` is, which is why the order comes from the scan times.
+- **Each scan is sent once.** The batch is cleared (`LOG_CLR`) only after it is sent, and polling goes
+  on when the clear fails, so the next poll reads the same entries again. A scan no newer than the last
+  one sent (`_lastBroadcastScanTime`) is skipped and logged; without that, every failed clear re-sent a
+  growing run of old points with times running backwards. The mark is reset by every init, because
+  `TIME` puts the logger's clock back to the minute. A logger stuck on one entry therefore goes silent
+  and is caught by the 60 s data watchdog rather than by the stale-data check.
+- **A query's reply arrives as the data line, then `=>`.** `GetSetTimeSession` answers on the first
+  complete line and now hands that packet back as `ResponsePacket`. It used to hand back nothing, so
+  the old `TIME_DATE?` check would have thrown a `NullReferenceException` if it had ever run.
+- **Only one polling loop may be live.** Every init starts a loop, and a re-init drops only the
+  request in flight. A loop asleep in its 28 s wait woke up afterwards and polled next to the new
+  one. From three loops up, one loop's `LOG_CLR` landed between another's `LOG_COUNT?` and `LOGGED?`,
+  the logger answered `!>`, and that scan was gone: 1,291 scans in Nofar's logs, cured only by
+  restarting. Each loop now carries a generation (`_pollGeneration`) and stops once a newer one
+  exists. To spot this in a log, count `LOG_COUNT?` per 30 s: one loop sends about 2.
+- **It never ran.** A `SingleState` step that returns `Skip2NextStep` is already advanced by the state
+  machine. Its reply callback must not call `NextStep()` as well, or the next step is skipped. In
+  date sync that skipped `TIME_DATE?` on every init, and the station logs show `DATE`, `TIME`, `RATE`
+  with nothing between.
+
 ## The Meatest M-142 cannot do GPIB — and only the M-142
 
 A bit-level corruption on the GPIB bus was attributed first to one instrument, then to the adapter,
