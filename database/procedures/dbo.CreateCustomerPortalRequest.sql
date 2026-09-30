@@ -83,6 +83,12 @@
         site's customer, else the primary - no longer always the primary.
       - An order, device or quote combined with items of another customer is refused (52010) rather
         than copied onto requests it does not belong to.
+    Re-review (same day):
+      - The report number is written only on the requests whose items carry it. It becomes items, so
+        a split is the right answer for it - unlike an order or device, which name one customer.
+      - On the other requests of a split the site's name comes FIRST in DeviceLocation, so the
+        200-character cut takes the customer's text rather than the only pointer to the site.
+      - A blank site description falls back to the address; a site with neither yields no label.
 */
 CREATE OR ALTER PROCEDURE dbo.CreateCustomerPortalRequest
     @LoggedInUserEmail     NVARCHAR(100),
@@ -129,9 +135,13 @@ BEGIN
     DECLARE @SiteCustomerId INT, @SiteLabel NVARCHAR(200);
     IF @CustomerSiteId IS NOT NULL
     BEGIN
+        /* NULLIF on both parts: a blank description (11 live sites on each server) falls back to
+           the address, and a site with neither name nor code yields NULL rather than ''. */
         SELECT @SiteCustomerId = cs.CustomerId,
-               @SiteLabel      = LEFT(CONCAT(LTRIM(RTRIM(COALESCE(cs.CustomerSiteDescription, cs.CustomerSiteAddress, N''))),
-                                             N' (' + NULLIF(LTRIM(RTRIM(CAST(cs.CustomerSiteCode AS NVARCHAR(50)))), N'') + N')'), 200)
+               @SiteLabel      = NULLIF(LEFT(CONCAT_WS(N' ',
+                                     COALESCE(NULLIF(LTRIM(RTRIM(cs.CustomerSiteDescription)), N''),
+                                              NULLIF(LTRIM(RTRIM(cs.CustomerSiteAddress)), N'')),
+                                     N'(' + NULLIF(LTRIM(RTRIM(CAST(cs.CustomerSiteCode AS NVARCHAR(50)))), N'') + N')'), 200), N'')
         FROM dbo.CustomerSites AS cs
         INNER JOIN #Mine AS m ON m.CustomerId = cs.CustomerId
         WHERE cs.CustomerSiteId = @CustomerSiteId
@@ -281,14 +291,22 @@ BEGIN
                  @OrderWorkPlanId,
                  (SELECT MIN(o.OrderDetailsItemId) FROM #Owned AS o
                   WHERE o.CustomerId = @TargetCustomerId),          /* the single-device shortcut */
-                 @CustomerDeviceId, @MbaReportNumber, @QuoteNumber,
+                 @CustomerDeviceId,
+                 /* a report number names items: only a request holding one of them carries it */
+                 IIF(NULLIF(LTRIM(RTRIM(@MbaReportNumber)), N'') IS NULL
+                     OR EXISTS (SELECT 1 FROM #Owned AS o
+                                WHERE o.CustomerId = @TargetCustomerId
+                                  AND LTRIM(RTRIM(o.MbaReportNumber)) = LTRIM(RTRIM(@MbaReportNumber))),
+                     @MbaReportNumber, NULL),
+                 @QuoteNumber,
                  @RequestedDate, @Reason, @Notes, @ShippingMethod, @ShippingDocument,
                  /* The site only on its own customer's request; the others keep where it is in
                     words, so MBA still knows where to collect - see the header. */
                  IIF(@TargetCustomerId = @SiteCustomerId, @CustomerSiteId, NULL),
                  IIF(@SiteCustomerId IS NULL OR @TargetCustomerId = @SiteCustomerId,
                      @DeviceLocation,
-                     LEFT(CONCAT_WS(N' | ', NULLIF(LTRIM(RTRIM(@DeviceLocation)), N''), @SiteLabel), 200)),
+                     /* the label first: on these requests it is the only pointer to the site */
+                     NULLIF(LEFT(CONCAT_WS(N' | ', @SiteLabel, NULLIF(LTRIM(RTRIM(@DeviceLocation)), N'')), 200), N'')),
                  IIF(@IsSplit = 1,
                      (SELECT COUNT(*) FROM #Owned AS o WHERE o.CustomerId = @TargetCustomerId),
                      @DeviceCount),

@@ -315,10 +315,12 @@ DECLARE @SiteA INT, @SiteALabelPart NVARCHAR(200), @NonPrimarySite INT, @NonPrim
         @OrderB INT, @ForeignOrder INT;
 
 SELECT TOP (1) @SiteA = cs.CustomerSiteId,
-       @SiteALabelPart = LTRIM(RTRIM(COALESCE(cs.CustomerSiteDescription, cs.CustomerSiteAddress, N'')))
+       @SiteALabelPart = COALESCE(NULLIF(LTRIM(RTRIM(cs.CustomerSiteDescription)), N''),
+                                  NULLIF(LTRIM(RTRIM(cs.CustomerSiteAddress)), N''))
 FROM dbo.CustomerSites AS cs
 WHERE cs.CustomerId = @CustA AND ISNULL(cs.IsDeleted, 0) = 0
-  AND LTRIM(RTRIM(COALESCE(cs.CustomerSiteDescription, cs.CustomerSiteAddress, N''))) <> N''
+  AND COALESCE(NULLIF(LTRIM(RTRIM(cs.CustomerSiteDescription)), N''),
+               NULLIF(LTRIM(RTRIM(cs.CustomerSiteAddress)), N'')) IS NOT NULL
 ORDER BY cs.CustomerSiteId;
 
 /* 1i needs its own caller: an address with a site under a NON-primary customer of its set */
@@ -392,8 +394,8 @@ BEGIN
         WHERE q.CustomerId = @CustA AND q.CustomerSiteId = @SiteA AND q.DeviceLocation = N'gate 3';
         SELECT @M = COUNT(*) FROM #R INNER JOIN dbo.CustomerPortalRequest AS q ON q.CustomerPortalRequestId = #R.customerPortalRequestId
         WHERE q.CustomerId = @CustB AND q.CustomerSiteId IS NULL
-          AND q.DeviceLocation LIKE N'gate 3 | %' AND CHARINDEX(@SiteALabelPart, q.DeviceLocation) > 0;
-        INSERT @Out SELECT N'1b review', N'1h A keeps its site; B gets no site id, location names it', N'1/1',
+          AND LEFT(q.DeviceLocation, LEN(@SiteALabelPart)) = @SiteALabelPart AND q.DeviceLocation LIKE N'% | gate 3';
+        INSERT @Out SELECT N'1b review', N'1h A keeps its site; B gets no site id, location starts with it', N'1/1',
                CONCAT(@N, N'/', @M), IIF(@N = 1 AND @M = 1, N'PASS', N'FAIL');
         ROLLBACK;
     END TRY
@@ -535,6 +537,95 @@ BEGIN CATCH
 END CATCH;
 INSERT @Out SELECT N'1b review', N'1o foreign device -> THROW 52009', N'52009',
        ISNULL(CAST(@Err AS NVARCHAR(10)), N'no error'), IIF(@Err = 52009, N'PASS', N'FAIL');
+
+
+/* 1p  a long location cannot push the site's name out of the 200 characters */
+IF @SiteA IS NULL
+    INSERT @Out SELECT N'1b review', N'1p long location', N'-', N'-', N'SKIP - customer A has no named site';
+ELSE
+BEGIN
+    BEGIN TRY
+        BEGIN TRAN;
+        SET @Ids = CONCAT(@ItemA, N',', @ItemB);
+        TRUNCATE TABLE #R;
+        DECLARE @LongLocation NVARCHAR(200) = REPLICATE(N'x', 200);
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi,
+            @RequestType = N'Shipment', @ItemIds = @Ids, @ShippingMethod = N'DHL', @RequestedDate = '2027-01-01',
+            @CustomerSiteId = @SiteA, @DeviceLocation = @LongLocation;
+        SELECT @N = COUNT(*) FROM #R INNER JOIN dbo.CustomerPortalRequest AS q ON q.CustomerPortalRequestId = #R.customerPortalRequestId
+        WHERE q.CustomerId = @CustB AND LEFT(q.DeviceLocation, LEN(@SiteALabelPart)) = @SiteALabelPart AND LEN(q.DeviceLocation) = 200;
+        INSERT @Out SELECT N'1b review', N'1p 200-char location: B''s still starts with the site name', N'1',
+               CAST(@N AS NVARCHAR(10)), IIF(@N = 1, N'PASS', N'FAIL');
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        INSERT @Out SELECT N'1b review', N'1p long location', N'no error', LEFT(ERROR_MESSAGE(), 80), N'FAIL';
+    END CATCH;
+END;
+
+/* 1q  a blank description falls back to the address; a site with neither leaves no '' behind.
+       The case makes its own sites for customer A, inside the transaction it rolls back. */
+BEGIN TRY
+    BEGIN TRAN;
+    DECLARE @BlankSite INT, @BareSite INT;
+    INSERT dbo.CustomerSites (CustomerId, CustomerSiteDescription, CustomerSiteAddress)
+    VALUES (@CustA, N'   ', N'MBA903 test street 1');
+    SET @BlankSite = CAST(SCOPE_IDENTITY() AS INT);
+    INSERT dbo.CustomerSites (CustomerId, CustomerSiteDescription, CustomerSiteAddress)
+    VALUES (@CustA, N'', NULL);
+    SET @BareSite = CAST(SCOPE_IDENTITY() AS INT);
+
+    SET @Ids = CONCAT(@ItemA, N',', @ItemB);
+    TRUNCATE TABLE #R;
+    INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi,
+        @RequestType = N'Shipment', @ItemIds = @Ids, @ShippingMethod = N'DHL', @RequestedDate = '2027-01-01',
+        @CustomerSiteId = @BlankSite;
+    SELECT @N = COUNT(*) FROM #R INNER JOIN dbo.CustomerPortalRequest AS q ON q.CustomerPortalRequestId = #R.customerPortalRequestId
+    WHERE q.CustomerId = @CustB AND q.DeviceLocation = N'MBA903 test street 1';
+
+    TRUNCATE TABLE #R;
+    INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi,
+        @RequestType = N'Shipment', @ItemIds = @Ids, @ShippingMethod = N'DHL', @RequestedDate = '2027-01-01',
+        @CustomerSiteId = @BareSite;
+    SELECT @M = COUNT(*) FROM #R INNER JOIN dbo.CustomerPortalRequest AS q ON q.CustomerPortalRequestId = #R.customerPortalRequestId
+    WHERE q.CustomerId = @CustB AND q.DeviceLocation IS NULL;
+
+    INSERT @Out SELECT N'1b review', N'1q blank description -> address; no name at all -> NULL, not empty',
+           N'1/1', CONCAT(@N, N'/', @M), IIF(@N = 1 AND @M = 1, N'PASS', N'FAIL');
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK;
+    INSERT @Out SELECT N'1b review', N'1q blank description', N'no error', LEFT(ERROR_MESSAGE(), 80), N'FAIL';
+END CATCH;
+
+/* 1r  a report number together with another customer's item: the report number is written only
+       on the request whose item carries it */
+IF @ReportNo IS NULL
+    INSERT @Out SELECT N'1b review', N'1r report number + other item', N'-', N'-', N'SKIP - no single-item report in the set';
+ELSE
+BEGIN
+    BEGIN TRY
+        BEGIN TRAN;
+        DECLARE @OtherItem INT = IIF(@ReportCust = @CustB, @ItemA, @ItemB);
+        SET @Ids = CAST(@OtherItem AS NVARCHAR(12));
+        TRUNCATE TABLE #R;
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi,
+            @RequestType = N'ReportUpdate', @ItemIds = @Ids, @MbaReportNumber = @ReportNo, @Reason = N'MBA-903 test';
+        SELECT @N = COUNT(*) FROM #R INNER JOIN dbo.CustomerPortalRequest AS q ON q.CustomerPortalRequestId = #R.customerPortalRequestId
+        WHERE (q.CustomerId = @ReportCust AND q.MbaReportNumber = @ReportNo)
+           OR (q.CustomerId <> @ReportCust AND q.MbaReportNumber IS NULL);
+        INSERT @Out SELECT N'1b review', N'1r report number only on the request whose item carries it',
+               N'2 rows, 2 right', CONCAT((SELECT COUNT(*) FROM #R), N' rows, ', @N, N' right'),
+               IIF((SELECT COUNT(*) FROM #R) = 2 AND @N = 2, N'PASS', N'FAIL');
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        INSERT @Out SELECT N'1b review', N'1r report number + other item', N'no error', LEFT(ERROR_MESSAGE(), 80), N'FAIL';
+    END CATCH;
+END;
 
 
 /* =============================================================================================
