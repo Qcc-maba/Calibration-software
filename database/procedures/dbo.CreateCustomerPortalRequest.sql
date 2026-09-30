@@ -69,6 +69,20 @@
              @ItemIds is still legitimate, as above; only "sent some, owned none" is refused.
       52005  @CustomerSiteId is not a live site of a customer in the caller's set. The portal checks
              this too; the procedure is the boundary every caller goes through.
+
+    Review of PR #19 (same day) - a split must not carry one customer's objects onto another's request:
+      - The SITE belongs to one customer. In a split it is written only on that customer's request;
+        each other request gets CustomerSiteId NULL and the site's name (and code) appended to
+        DeviceLocation - the devices may well stand at that site, and MBA still needs to know where
+        to collect. 51 of 67 split-capable addresses on STAGE (90 of 133 on PROD) have sites.
+      - @OrderWorkPlanId, @MbaReportNumber and @CustomerDeviceId were never ownership-checked. Each
+        must now resolve to a customer in the set (52008 order, 52007 report, 52009 device). A report
+        number is turned into its items and follows the item rules. @QuoteNumber belongs to the
+        primary customer, because the portal lists only the primary's quotes.
+      - A request with no items is filed under the referenced order/device/quote's customer, else the
+        site's customer, else the primary - no longer always the primary.
+      - An order, device or quote combined with items of another customer is refused (52010) rather
+        than copied onto requests it does not belong to.
 */
 CREATE OR ALTER PROCEDURE dbo.CreateCustomerPortalRequest
     @LoggedInUserEmail     NVARCHAR(100),
@@ -111,12 +125,57 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM #Mine)
         THROW 52003, 'The submitting address does not belong to any customer contact.', 1;
 
+    /* The site, and which of the caller's customers owns it. */
+    DECLARE @SiteCustomerId INT, @SiteLabel NVARCHAR(200);
     IF @CustomerSiteId IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM dbo.CustomerSites AS cs
-                       INNER JOIN #Mine AS m ON m.CustomerId = cs.CustomerId
-                       WHERE cs.CustomerSiteId = @CustomerSiteId
-                         AND ISNULL(cs.IsDeleted, 0) = 0)
-        THROW 52005, 'The site does not belong to the caller.', 1;
+    BEGIN
+        SELECT @SiteCustomerId = cs.CustomerId,
+               @SiteLabel      = LEFT(CONCAT(LTRIM(RTRIM(COALESCE(cs.CustomerSiteDescription, cs.CustomerSiteAddress, N''))),
+                                             N' (' + NULLIF(LTRIM(RTRIM(CAST(cs.CustomerSiteCode AS NVARCHAR(50)))), N'') + N')'), 200)
+        FROM dbo.CustomerSites AS cs
+        INNER JOIN #Mine AS m ON m.CustomerId = cs.CustomerId
+        WHERE cs.CustomerSiteId = @CustomerSiteId
+          AND ISNULL(cs.IsDeleted, 0) = 0;
+
+        IF @SiteCustomerId IS NULL
+            THROW 52005, 'The site does not belong to the caller.', 1;
+    END
+
+    /* The customer each single-object reference belongs to - every one must be in the caller's set.
+       These were never ownership-checked before: any caller could attach another customer's order
+       or device to a request. */
+    DECLARE @Refs TABLE (CustomerId INT NOT NULL);
+
+    IF @OrderWorkPlanId IS NOT NULL
+    BEGIN
+        INSERT INTO @Refs (CustomerId)
+        SELECT wp.CustomerId FROM dbo.OrderWorkPlans AS wp
+        INNER JOIN #Mine AS m ON m.CustomerId = wp.CustomerId
+        WHERE wp.OrderWorkPlanId = @OrderWorkPlanId;
+
+        IF @@ROWCOUNT = 0
+            THROW 52008, 'The order does not belong to the caller.', 1;
+    END
+
+    IF @CustomerDeviceId IS NOT NULL
+    BEGIN
+        INSERT INTO @Refs (CustomerId)
+        SELECT d.CustomerId FROM dbo.CustomerDevices AS d
+        INNER JOIN #Mine AS m ON m.CustomerId = d.CustomerId
+        WHERE d.CustomerDeviceID = @CustomerDeviceId AND d.IsDeleted = 0;
+
+        IF @@ROWCOUNT = 0
+            THROW 52009, 'The device does not belong to the caller.', 1;
+    END
+
+    /* The portal lists quotes of the PRIMARY customer only (dbo.GetCustomerQuotesFromPriority), so a
+       quote number the customer can answer belongs to the primary. */
+    IF NULLIF(LTRIM(RTRIM(@QuoteNumber)), N'') IS NOT NULL
+        INSERT INTO @Refs (CustomerId)
+        SELECT m.CustomerId FROM #Mine AS m WHERE m.IsPrimary = 1;
+
+    IF (SELECT COUNT(DISTINCT CustomerId) FROM @Refs) > 1
+        THROW 52010, 'The order, device and quote passed belong to different customers.', 1;
 
     /* MBA-902 lesson: drop blanks and non-numerics rather than letting them become 0. Longer than
        nine digits cannot be an INT id and would fail the CAST, so it is dropped the same way. */
@@ -128,6 +187,30 @@ BEGIN
     WHERE LTRIM(RTRIM(value)) <> N''
       AND LTRIM(RTRIM(value)) NOT LIKE '%[^0-9]%'
       AND LEN(LTRIM(RTRIM(value))) <= 9;
+
+    /* A report number is a way of naming items: the caller's items carrying it join the list and
+       follow the same ownership, split and customer rules as any other item. */
+    IF NULLIF(LTRIM(RTRIM(@MbaReportNumber)), N'') IS NOT NULL
+    BEGIN
+        INSERT INTO #Ids (OrderDetailsItemId)
+        SELECT it.OrderDetailsItemId
+        FROM dbo.OrderDetailsItems AS it
+        INNER JOIN dbo.OrderDetails   AS od ON od.OrderDetailId   = it.OrderDetailId
+        INNER JOIN dbo.OrderWorkPlans AS wp ON wp.OrderWorkPlanId = od.OrderWorkPlanId
+        INNER JOIN #Mine              AS m  ON m.CustomerId       = wp.CustomerId
+        WHERE LTRIM(RTRIM(it.MbaReportNumber)) = LTRIM(RTRIM(@MbaReportNumber))
+          AND ISNULL(it.IsDeleted, 0) = 0
+          AND ISNULL(od.IsDeleted, 0) = 0
+          AND NOT EXISTS (SELECT 1 FROM #Ids AS x WHERE x.OrderDetailsItemId = it.OrderDetailsItemId);
+
+        IF NOT EXISTS (SELECT 1 FROM #Ids AS x
+                       INNER JOIN dbo.OrderDetailsItems AS it ON it.OrderDetailsItemId = x.OrderDetailsItemId
+                       INNER JOIN dbo.OrderDetails      AS od ON od.OrderDetailId      = it.OrderDetailId
+                       INNER JOIN dbo.OrderWorkPlans    AS wp ON wp.OrderWorkPlanId    = od.OrderWorkPlanId
+                       INNER JOIN #Mine                 AS m  ON m.CustomerId          = wp.CustomerId
+                       WHERE LTRIM(RTRIM(it.MbaReportNumber)) = LTRIM(RTRIM(@MbaReportNumber)))
+            THROW 52007, 'The report number does not belong to the caller.', 1;
+    END
 
     /* Only items that really belong to a customer of this caller survive, each with its owner. */
     SELECT i.OrderDetailsItemId, it.MbaReportNumber, it.SerialNumber, wp.CustomerId
@@ -146,7 +229,16 @@ BEGIN
     IF EXISTS (SELECT 1 FROM #Ids) AND NOT EXISTS (SELECT 1 FROM #Owned)
         THROW 52004, 'None of the selected items belong to the caller.', 1;
 
-    /* One request per owning customer; no items at all -> the primary customer. */
+    /* An order, device or quote names one customer; items of any other customer cannot ride along,
+       or the reference would be copied onto requests it does not belong to. */
+    DECLARE @RefCustomerId INT = (SELECT MIN(CustomerId) FROM @Refs);
+    IF @RefCustomerId IS NOT NULL
+       AND EXISTS (SELECT 1 FROM #Owned AS o WHERE o.CustomerId <> @RefCustomerId)
+        THROW 52010, 'The order, device or quote passed belongs to a different customer than the items.', 1;
+
+    /* Which customer each request is filed under, in order of what the caller told us: the items'
+       owners (one request each), else the referenced order/device/quote's customer, else the
+       site's customer, else the primary. */
     DECLARE @Targets TABLE (Seq INT IDENTITY(1,1) PRIMARY KEY, CustomerId INT NOT NULL,
                             CustomerContactId INT NULL, RequestId BIGINT NULL);
 
@@ -155,7 +247,8 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM @Targets)
         INSERT INTO @Targets (CustomerId)
-        SELECT TOP (1) m.CustomerId FROM #Mine AS m ORDER BY m.IsPrimary DESC, m.CustomerId;
+        SELECT COALESCE(@RefCustomerId, @SiteCustomerId,
+                        (SELECT TOP (1) m.CustomerId FROM #Mine AS m ORDER BY m.IsPrimary DESC, m.CustomerId));
 
     /* This address's own contact row within each customer - active first, lowest id to break a tie. */
     UPDATE t
@@ -189,8 +282,13 @@ BEGIN
                  (SELECT MIN(o.OrderDetailsItemId) FROM #Owned AS o
                   WHERE o.CustomerId = @TargetCustomerId),          /* the single-device shortcut */
                  @CustomerDeviceId, @MbaReportNumber, @QuoteNumber,
-                 @RequestedDate, @Reason, @Notes, @ShippingMethod, @ShippingDocument, @CustomerSiteId,
-                 @DeviceLocation,
+                 @RequestedDate, @Reason, @Notes, @ShippingMethod, @ShippingDocument,
+                 /* The site only on its own customer's request; the others keep where it is in
+                    words, so MBA still knows where to collect - see the header. */
+                 IIF(@TargetCustomerId = @SiteCustomerId, @CustomerSiteId, NULL),
+                 IIF(@SiteCustomerId IS NULL OR @TargetCustomerId = @SiteCustomerId,
+                     @DeviceLocation,
+                     LEFT(CONCAT_WS(N' | ', NULLIF(LTRIM(RTRIM(@DeviceLocation)), N''), @SiteLabel), 200)),
                  IIF(@IsSplit = 1,
                      (SELECT COUNT(*) FROM #Owned AS o WHERE o.CustomerId = @TargetCustomerId),
                      @DeviceCount),

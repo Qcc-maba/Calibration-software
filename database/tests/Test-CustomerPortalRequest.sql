@@ -52,10 +52,13 @@ DECLARE @Multi NVARCHAR(100), @CustA INT, @CustB INT, @ItemA INT, @ItemB INT, @F
 SELECT TOP (1) @Multi = LOWER(LTRIM(RTRIM(cc.CustomerContactEmail)))
 FROM dbo.CustomerContacts AS cc
 INNER JOIN live ON live.CustomerId = cc.CustomerId
+LEFT JOIN (SELECT DISTINCT CustomerId FROM dbo.CustomerSites WHERE ISNULL(IsDeleted, 0) = 0) AS sited
+    ON sited.CustomerId = cc.CustomerId
 WHERE cc.IsDeleted = 0 AND ISNULL(cc.IsActive, 1) = 1 AND cc.CustomerContactEmail LIKE N'%_@_%'
 GROUP BY LOWER(LTRIM(RTRIM(cc.CustomerContactEmail)))
 HAVING COUNT(DISTINCT cc.CustomerId) >= 2
-ORDER BY COUNT(DISTINCT cc.CustomerId), LOWER(LTRIM(RTRIM(cc.CustomerContactEmail)));
+ORDER BY MAX(CASE WHEN sited.CustomerId IS NOT NULL THEN 1 ELSE 0 END) DESC,   /* one of them owns a site */
+         COUNT(DISTINCT cc.CustomerId), LOWER(LTRIM(RTRIM(cc.CustomerContactEmail)));
 
 /* the two customers of @Multi's set that hold live items, and one item of each */
 DECLARE @Pair TABLE (Rn INT IDENTITY, CustomerId INT, ItemId INT);
@@ -68,7 +71,9 @@ CROSS APPLY (SELECT MIN(it.OrderDetailsItemId) AS ItemId
              INNER JOIN dbo.OrderDetailsItems AS it ON it.OrderDetailId   = od.OrderDetailId   AND ISNULL(it.IsDeleted, 0) = 0
              WHERE wp.CustomerId = mine.CustomerId) AS x
 WHERE x.ItemId IS NOT NULL
-ORDER BY mine.CustomerId;
+ORDER BY CASE WHEN EXISTS (SELECT 1 FROM dbo.CustomerSites AS cs
+                           WHERE cs.CustomerId = mine.CustomerId AND ISNULL(cs.IsDeleted, 0) = 0) THEN 0 ELSE 1 END,
+         mine.CustomerId;
 
 SELECT @CustA = CustomerId, @ItemA = ItemId FROM @Pair WHERE Rn = 1;
 SELECT @CustB = CustomerId, @ItemB = ItemId FROM @Pair WHERE Rn = 2;
@@ -208,7 +213,7 @@ BEGIN TRY
     BEGIN TRAN;
     TRUNCATE TABLE #R;
     INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi,
-        @RequestType = N'ReportUpdate', @MbaReportNumber = N'MBA903-TEST', @Reason = N'MBA-903 test';
+        @RequestType = N'ReportUpdate', @Reason = N'MBA-903 test';
     INSERT @Out SELECT N'1 create', N'1d no ids: 1 request, primary customer, 0 items',
            N'1/primary/0', CONCAT(COUNT(*), N'/', IIF(MAX(customerId) = @PrimaryCust, N'primary', N'other'), N'/', MAX(itemCount)),
            IIF(COUNT(*) = 1 AND MAX(customerId) = @PrimaryCust AND MAX(itemCount) = 0, N'PASS', N'FAIL')
@@ -299,6 +304,237 @@ BEGIN
         INSERT @Out SELECT N'1 create', N'1g own site accepted', N'no error', LEFT(ERROR_MESSAGE(), 80), N'FAIL';
     END CATCH;
 END;
+
+
+/* =============================================================================================
+   Section 1b - review of PR #19: a split must not carry one customer's objects onto another's
+   request, and every reference must be the caller's
+   ============================================================================================= */
+DECLARE @SiteA INT, @SiteALabelPart NVARCHAR(200), @NonPrimarySite INT, @NonPrimarySiteCust INT, @SiteCaller NVARCHAR(100),
+        @ReportNo NVARCHAR(100), @ReportItem INT, @ReportCust INT, @ForeignReportNo NVARCHAR(100),
+        @OrderB INT, @ForeignOrder INT;
+
+SELECT TOP (1) @SiteA = cs.CustomerSiteId,
+       @SiteALabelPart = LTRIM(RTRIM(COALESCE(cs.CustomerSiteDescription, cs.CustomerSiteAddress, N'')))
+FROM dbo.CustomerSites AS cs
+WHERE cs.CustomerId = @CustA AND ISNULL(cs.IsDeleted, 0) = 0
+  AND LTRIM(RTRIM(COALESCE(cs.CustomerSiteDescription, cs.CustomerSiteAddress, N''))) <> N''
+ORDER BY cs.CustomerSiteId;
+
+/* 1i needs its own caller: an address with a site under a NON-primary customer of its set */
+;WITH live AS
+(
+    SELECT DISTINCT wp.CustomerId
+    FROM dbo.OrderWorkPlans AS wp
+    INNER JOIN dbo.OrderDetails      AS od ON od.OrderWorkPlanId = wp.OrderWorkPlanId
+    INNER JOIN dbo.OrderDetailsItems AS it ON it.OrderDetailId   = od.OrderDetailId
+),
+multi AS
+(
+    SELECT LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))) AS Email
+    FROM dbo.CustomerContacts AS cc
+    INNER JOIN live ON live.CustomerId = cc.CustomerId
+    WHERE cc.IsDeleted = 0 AND ISNULL(cc.IsActive, 1) = 1 AND cc.CustomerContactEmail LIKE N'%_@_%'
+    GROUP BY LOWER(LTRIM(RTRIM(cc.CustomerContactEmail)))
+    HAVING COUNT(DISTINCT cc.CustomerId) >= 2
+)
+SELECT TOP (1) @SiteCaller = multi.Email, @NonPrimarySite = cs.CustomerSiteId, @NonPrimarySiteCust = cs.CustomerId
+FROM multi
+CROSS APPLY dbo.GetPortalCustomerIds(multi.Email) AS mine
+INNER JOIN dbo.CustomerSites AS cs ON cs.CustomerId = mine.CustomerId AND ISNULL(cs.IsDeleted, 0) = 0
+WHERE mine.IsPrimary = 0
+ORDER BY multi.Email, cs.CustomerSiteId;
+
+/* a report number carried by exactly one live item, of a customer in the set */
+SELECT TOP (1) @ReportNo = LTRIM(RTRIM(it.MbaReportNumber)), @ReportItem = MIN(it.OrderDetailsItemId), @ReportCust = MIN(wp.CustomerId)
+FROM dbo.OrderDetailsItems AS it
+INNER JOIN dbo.OrderDetails   AS od ON od.OrderDetailId   = it.OrderDetailId AND ISNULL(od.IsDeleted, 0) = 0
+INNER JOIN dbo.OrderWorkPlans AS wp ON wp.OrderWorkPlanId = od.OrderWorkPlanId
+WHERE ISNULL(it.IsDeleted, 0) = 0 AND NULLIF(LTRIM(RTRIM(it.MbaReportNumber)), N'') IS NOT NULL
+  AND wp.CustomerId IN (SELECT CustomerId FROM dbo.GetPortalCustomerIds(@Multi))
+GROUP BY LTRIM(RTRIM(it.MbaReportNumber))
+HAVING COUNT(*) = 1
+ORDER BY LTRIM(RTRIM(it.MbaReportNumber));
+
+SELECT TOP (1) @ForeignReportNo = LTRIM(RTRIM(it.MbaReportNumber))
+FROM dbo.OrderDetailsItems AS it
+INNER JOIN dbo.OrderDetails   AS od ON od.OrderDetailId   = it.OrderDetailId
+INNER JOIN dbo.OrderWorkPlans AS wp ON wp.OrderWorkPlanId = od.OrderWorkPlanId
+WHERE NULLIF(LTRIM(RTRIM(it.MbaReportNumber)), N'') IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM dbo.OrderDetailsItems AS i2
+                  INNER JOIN dbo.OrderDetails   AS o2 ON o2.OrderDetailId   = i2.OrderDetailId
+                  INNER JOIN dbo.OrderWorkPlans AS w2 ON w2.OrderWorkPlanId = o2.OrderWorkPlanId
+                  WHERE LTRIM(RTRIM(i2.MbaReportNumber)) = LTRIM(RTRIM(it.MbaReportNumber))
+                    AND w2.CustomerId IN (SELECT CustomerId FROM dbo.GetPortalCustomerIds(@Multi)))
+ORDER BY it.OrderDetailsItemId;
+
+SELECT @OrderB = od.OrderWorkPlanId
+FROM dbo.OrderDetailsItems AS it INNER JOIN dbo.OrderDetails AS od ON od.OrderDetailId = it.OrderDetailId
+WHERE it.OrderDetailsItemId = @ItemB;
+
+SELECT @ForeignOrder = od.OrderWorkPlanId
+FROM dbo.OrderDetailsItems AS it INNER JOIN dbo.OrderDetails AS od ON od.OrderDetailId = it.OrderDetailId
+WHERE it.OrderDetailsItemId = @Foreign;
+
+/* 1h  split + A's site: the site only on A's request; B's request has no site id and names it */
+IF @SiteA IS NULL
+    INSERT @Out SELECT N'1b review', N'1h split with a site', N'-', N'-', N'SKIP - customer A has no named site';
+ELSE
+BEGIN
+    BEGIN TRY
+        BEGIN TRAN;
+        SET @Ids = CONCAT(@ItemA, N',', @ItemB);
+        TRUNCATE TABLE #R;
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi,
+            @RequestType = N'Shipment', @ItemIds = @Ids, @ShippingMethod = N'DHL', @RequestedDate = '2027-01-01',
+            @CustomerSiteId = @SiteA, @DeviceLocation = N'gate 3';
+        SELECT @N = COUNT(*) FROM #R INNER JOIN dbo.CustomerPortalRequest AS q ON q.CustomerPortalRequestId = #R.customerPortalRequestId
+        WHERE q.CustomerId = @CustA AND q.CustomerSiteId = @SiteA AND q.DeviceLocation = N'gate 3';
+        SELECT @M = COUNT(*) FROM #R INNER JOIN dbo.CustomerPortalRequest AS q ON q.CustomerPortalRequestId = #R.customerPortalRequestId
+        WHERE q.CustomerId = @CustB AND q.CustomerSiteId IS NULL
+          AND q.DeviceLocation LIKE N'gate 3 | %' AND CHARINDEX(@SiteALabelPart, q.DeviceLocation) > 0;
+        INSERT @Out SELECT N'1b review', N'1h A keeps its site; B gets no site id, location names it', N'1/1',
+               CONCAT(@N, N'/', @M), IIF(@N = 1 AND @M = 1, N'PASS', N'FAIL');
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        INSERT @Out SELECT N'1b review', N'1h split with a site', N'no error', LEFT(ERROR_MESSAGE(), 80), N'FAIL';
+    END CATCH;
+END;
+
+/* 1i  no items, a non-primary customer's site -> filed under the site's customer */
+IF @NonPrimarySite IS NULL
+    INSERT @Out SELECT N'1b review', N'1i no items + site', N'-', N'-', N'SKIP - no site of a non-primary customer';
+ELSE
+BEGIN
+    BEGIN TRY
+        BEGIN TRAN;
+        TRUNCATE TABLE #R;
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @SiteCaller,
+            @RequestType = N'Quote', @CalibrationLocation = N'customer', @CustomerSiteId = @NonPrimarySite;
+        INSERT @Out SELECT N'1b review', N'1i no items + site -> the site''s customer, not the primary',
+               N'site customer', IIF(MAX(customerId) = @NonPrimarySiteCust, N'site customer', N'other'),
+               IIF(COUNT(*) = 1 AND MAX(customerId) = @NonPrimarySiteCust, N'PASS', N'FAIL')
+        FROM #R;
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        INSERT @Out SELECT N'1b review', N'1i no items + site', N'no error', LEFT(ERROR_MESSAGE(), 80), N'FAIL';
+    END CATCH;
+END;
+
+/* 1j  own report number -> its item, under the item's customer */
+IF @ReportNo IS NULL
+    INSERT @Out SELECT N'1b review', N'1j own report number', N'-', N'-', N'SKIP - no single-item report in the set';
+ELSE
+BEGIN
+    BEGIN TRY
+        BEGIN TRAN;
+        TRUNCATE TABLE #R;
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi,
+            @RequestType = N'ReportUpdate', @MbaReportNumber = @ReportNo, @Reason = N'MBA-903 test';
+        INSERT @Out SELECT N'1b review', N'1j own report number -> 1 item, the item''s customer',
+               N'1/1/owner', CONCAT(COUNT(*), N'/', MAX(itemCount), N'/', IIF(MAX(customerId) = @ReportCust, N'owner', N'other')),
+               IIF(COUNT(*) = 1 AND MAX(itemCount) = 1 AND MAX(customerId) = @ReportCust, N'PASS', N'FAIL')
+        FROM #R;
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        INSERT @Out SELECT N'1b review', N'1j own report number', N'no error', LEFT(ERROR_MESSAGE(), 80), N'FAIL';
+    END CATCH;
+END;
+
+/* 1k  another customer's report number -> 52007 */
+SET @Err = NULL;
+BEGIN TRY
+    BEGIN TRAN;
+    TRUNCATE TABLE #R;
+    INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi,
+        @RequestType = N'ReportUpdate', @MbaReportNumber = @ForeignReportNo, @Reason = N'MBA-903 test';
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    SET @Err = ERROR_NUMBER();
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+INSERT @Out SELECT N'1b review', N'1k foreign report number -> THROW 52007', N'52007',
+       ISNULL(CAST(@Err AS NVARCHAR(10)), N'no error'), IIF(@Err = 52007, N'PASS', N'FAIL');
+
+/* 1l  another customer's order -> 52008 */
+SET @Err = NULL;
+BEGIN TRY
+    BEGIN TRAN;
+    TRUNCATE TABLE #R;
+    INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi,
+        @RequestType = N'Shipment', @OrderWorkPlanId = @ForeignOrder, @ShippingMethod = N'DHL', @RequestedDate = '2027-01-01';
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    SET @Err = ERROR_NUMBER();
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+INSERT @Out SELECT N'1b review', N'1l foreign order -> THROW 52008', N'52008',
+       ISNULL(CAST(@Err AS NVARCHAR(10)), N'no error'), IIF(@Err = 52008, N'PASS', N'FAIL');
+
+/* 1m  own order of B, no items -> filed under B, not the primary */
+BEGIN TRY
+    BEGIN TRAN;
+    TRUNCATE TABLE #R;
+    INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi,
+        @RequestType = N'Shipment', @OrderWorkPlanId = @OrderB, @ShippingMethod = N'DHL', @RequestedDate = '2027-01-01';
+    INSERT @Out SELECT N'1b review', N'1m own order, no items -> the order''s customer',
+           N'B', IIF(MAX(customerId) = @CustB, N'B', N'other'),
+           IIF(COUNT(*) = 1 AND MAX(customerId) = @CustB, N'PASS', N'FAIL')
+    FROM #R;
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK;
+    INSERT @Out SELECT N'1b review', N'1m own order', N'no error', LEFT(ERROR_MESSAGE(), 80), N'FAIL';
+END CATCH;
+
+/* 1n  B's order together with A's item -> 52010, not copied onto A's request */
+SET @Err = NULL;
+BEGIN TRY
+    BEGIN TRAN;
+    SET @Ids = CAST(@ItemA AS NVARCHAR(12));
+    TRUNCATE TABLE #R;
+    INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi,
+        @RequestType = N'Shipment', @ItemIds = @Ids, @OrderWorkPlanId = @OrderB, @ShippingMethod = N'DHL', @RequestedDate = '2027-01-01';
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    SET @Err = ERROR_NUMBER();
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+INSERT @Out SELECT N'1b review', N'1n B''s order + A''s item -> THROW 52010', N'52010',
+       ISNULL(CAST(@Err AS NVARCHAR(10)), N'no error'), IIF(@Err = 52010, N'PASS', N'FAIL');
+
+/* 1o  another customer's device -> 52009 (CustomerDevices is empty, so the case makes its own) */
+SET @Err = NULL;
+BEGIN TRY
+    BEGIN TRAN;
+    INSERT dbo.CustomerDevices (CustomerId, SerialNumber)
+    SELECT wp.CustomerId, N'MBA903-FOREIGN-SRC'
+    FROM dbo.OrderDetailsItems AS it
+    INNER JOIN dbo.OrderDetails   AS od ON od.OrderDetailId   = it.OrderDetailId
+    INNER JOIN dbo.OrderWorkPlans AS wp ON wp.OrderWorkPlanId = od.OrderWorkPlanId
+    WHERE it.OrderDetailsItemId = @Foreign;
+    SET @N = CAST(SCOPE_IDENTITY() AS INT);
+    TRUNCATE TABLE #R;
+    INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi,
+        @RequestType = N'DeviceRemoval', @CustomerDeviceId = @N, @Reason = N'MBA-903 test';
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    SET @Err = ERROR_NUMBER();
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+INSERT @Out SELECT N'1b review', N'1o foreign device -> THROW 52009', N'52009',
+       ISNULL(CAST(@Err AS NVARCHAR(10)), N'no error'), IIF(@Err = 52009, N'PASS', N'FAIL');
 
 
 /* =============================================================================================
