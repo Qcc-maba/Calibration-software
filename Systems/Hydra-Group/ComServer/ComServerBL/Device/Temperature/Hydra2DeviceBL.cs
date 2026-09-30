@@ -146,6 +146,15 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             // written for. See HardwareBL_Settings.ApplyWebSocketConfig.
             HardwareBL_Settings.RegisterActiveFamily(SETTINGS_FAMILY);
 
+            // MBA-967: on the operator's first Confirm the channel list arrives before this BL exists,
+            // and is held. Applying it here, before the InitChannels state reads settings, is what makes
+            // the first init scan the operator's channels instead of the settings file's.
+            var held = settings.ApplyPendingWebSocketConfig(SETTINGS_FAMILY, DateTime.UtcNow);
+            if (held != null)
+            {
+                Libs.Trace.Tracer.Info("[WS->HW] Applied the configuration received before the logger was identified: {0}", held);
+            }
+
             HC.Init(settings.Hydra2type.Masters).GetAwaiter().GetResult();
 
             if (this.StateMachine_InitSystem == null)
@@ -419,11 +428,17 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// <summary>
         /// The logger's scan time moved onto the PC's clock, for the reading's <c>Time</c>. Null - send
         /// time - when the entry carried no scan time or the logger's clock has not been read.
+        /// <para>
+        /// The half second goes back in here too. The offset is measured against the logger's true
+        /// time (reported second + 0.5), so the scan time has to be put on the same footing; without it
+        /// every reading came out half a second early - on the bench the first scan, taken at
+        /// 13:45:18.2 when SCAN was sent, was stamped 13:45:17.
+        /// </para>
         /// </summary>
         internal static DateTime? ScanTimeOnPcClock(DateTime loggerScanTime, TimeSpan? loggerClockOffset)
         {
             if (loggerScanTime == default(DateTime) || !loggerClockOffset.HasValue) return null;
-            return loggerScanTime + loggerClockOffset.Value;
+            return loggerScanTime.AddMilliseconds(500) + loggerClockOffset.Value;
         }
 
         internal static bool LoggerClockDue(DateTime? lastReadUtc, DateTime nowUtc)

@@ -194,7 +194,8 @@ namespace Maba.VCT.Core.Tests
         [TestMethod]
         public void AScanIsMovedOntoThePcClock()
         {
-            Assert.AreEqual(Scan.AddSeconds(78), Hydra2DeviceBL.ScanTimeOnPcClock(Scan, TimeSpan.FromSeconds(78)));
+            // The reported second plus the half second it truncated, plus the offset.
+            Assert.AreEqual(Scan.AddSeconds(78.5), Hydra2DeviceBL.ScanTimeOnPcClock(Scan, TimeSpan.FromSeconds(78)));
         }
 
         [TestMethod]
@@ -306,8 +307,8 @@ namespace Maba.VCT.Core.Tests
                 po.Invoke("HandleLogData", Entry("22,52,14,9,29,26,23.3,23.4,0,0,0\r\n"));
 
                 Assert.AreEqual(2, sent.Count);
-                Assert.AreEqual(Scan.AddSeconds(78), sent[0].MeasuredAt, "oldest first, on the PC clock");
-                Assert.AreEqual(Scan.AddSeconds(108), sent[1].MeasuredAt);
+                Assert.AreEqual(Scan.AddSeconds(78.5), sent[0].MeasuredAt, "oldest first, on the PC clock");
+                Assert.AreEqual(Scan.AddSeconds(108.5), sent[1].MeasuredAt);
             }
             finally
             {
