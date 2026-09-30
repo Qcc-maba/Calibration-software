@@ -61,6 +61,18 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         private readonly List<LogsResponse> _pendingEntries = new List<LogsResponse>();
 
         /// <summary>
+        /// MBA-967: which polling loop is the live one. Every init starts a new loop
+        /// (LOG_CLR -> SCAN -> LOG_COUNT? ...), and a re-init drops only the request in flight - a
+        /// loop that is sleeping through its 28 s wait wakes up afterwards and carries on beside the
+        /// new one. Nofar's logs show the LOG_COUNT? rate climbing from 2 to 7 per 30 s scan as
+        /// app-driven re-inits piled up, and at three or more loops one loop's LOG_CLR landed between
+        /// another's LOG_COUNT? and LOGGED?: the logger answered "!>" and the scan was gone - 1,291
+        /// scans across 14-30 Sep, cured only by restarting the software. Each loop now carries the
+        /// generation it was started with, and stops at its next step once a newer one exists.
+        /// </summary>
+        private int _pollGeneration;
+
+        /// <summary>
         /// MBA-967: how far the logger's clock is behind the PC's (PC minus logger). Null until it has
         /// been read, and then readings go out with the send time, as they always did.
         /// <para>
@@ -139,6 +151,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 _pendingLogEntries = 0;
                 _pendingEntries.Clear();
             }
+            System.Threading.Interlocked.Increment(ref _pollGeneration);
 
             // Says "a Hydra 2625A is the thing being driven here", so the operator's channel list can
             // be routed to this family even when the logger's MABA id is not in the settings file's
@@ -539,17 +552,35 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 case 0:
                     var req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.ClearLogs);
                     req.Packet = Common.HydraProtocolHelper.Build_ClearLogsPacket();
-                    HW_Device.GetLogs(req, LogResponseCallBack);
+                    var generation = System.Threading.Volatile.Read(ref _pollGeneration);
+                    Libs.Trace.Tracer.Info("[HYDRA Poll] Starting polling loop #{0}", generation);
+                    HW_Device.GetLogs(req, r => LogResponseCallBack(r, generation));
 
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
             }
             return CommonBL.SingleState.StepWorkResponses.StateFinished;
         }
 
+        /// <summary>True, and logged, when <paramref name="generation"/> is an outdated polling loop.</summary>
+        private bool IsStalePoll(int generation, string step)
+        {
+            var current = System.Threading.Volatile.Read(ref _pollGeneration);
+            if (generation == current) return false;
+            Libs.Trace.Tracer.Info("[HYDRA Poll] Stopping polling loop #{0} at {1}; loop #{2} is the live one", generation, step, current);
+            return true;
+        }
+
         private void LogResponseCallBack(LogsResponse response)
+        {
+            LogResponseCallBack(response, System.Threading.Volatile.Read(ref _pollGeneration));
+        }
+
+        private void LogResponseCallBack(LogsResponse response, int generation)
         {
             Libs.Trace.Tracer.Info("[HYDRA LogResponseCallBack] Result={0}, LogCommand={1}, LogCount={2}",
                 response.Result, response.LogCommand, response.LogCount);
+
+            if (IsStalePoll(generation, response.LogCommand.ToString())) return;
 
             if (response.Result)
             {
@@ -559,12 +590,12 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                     case LogsRequest.LogCommands.ClearLogs:
                         req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.StartScan);
                         req.Packet = Common.HydraProtocolHelper.Build_ScanLogsPacket(req);
-                        HW_Device.GetLogs(req, LogResponseCallBack);
+                        HW_Device.GetLogs(req, r => LogResponseCallBack(r, generation));
                         break;
                     case LogsRequest.LogCommands.StartScan:
                         req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.LogCount);
                         req.Packet = Common.HydraProtocolHelper.Build_LogCountPacket();
-                        HW_Device.GetLogs(req, LogResponseCallBack);
+                        HW_Device.GetLogs(req, r => LogResponseCallBack(r, generation));
                         break;
                     case LogsRequest.LogCommands.LogCount:
                         if (response.LogCount == 0)
@@ -579,9 +610,11 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                             // Delay polling to ~30 seconds to match device scan interval (INTVL 0,0,30)
                             System.Threading.Tasks.Task.Delay(28000).ContinueWith(_ =>
                             {
+                                // The wait is where an old loop outlives a re-init - check before it polls.
+                                if (IsStalePoll(generation, "the 28 s wait")) return;
                                 var pollReq = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.LogCount);
                                 pollReq.Packet = Common.HydraProtocolHelper.Build_LogCountPacket();
-                                HW_Device.GetLogs(pollReq, LogResponseCallBack);
+                                HW_Device.GetLogs(pollReq, r => LogResponseCallBack(r, generation));
                             });
                         }
                         else
@@ -596,7 +629,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                             {
                                 req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.GetLogs);
                                 req.Packet = Common.HydraProtocolHelper.Build_GetChannelLogPacket(i + 1);
-                                HW_Device.GetLogs(req, HandleLogData);
+                                HW_Device.GetLogs(req, r => HandleLogData(r, generation));
                             }
                             // LOG_CLR is now sent from HandleLogData after the last entry is processed
                         }
@@ -614,17 +647,18 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 // Instead of crashing, retry LOG_COUNT? polling
                 var retryReq = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.LogCount);
                 retryReq.Packet = Common.HydraProtocolHelper.Build_LogCountPacket();
-                HW_Device.GetLogs(retryReq, LogResponseCallBack);
+                HW_Device.GetLogs(retryReq, r => LogResponseCallBack(r, generation));
             }
         }
 
-        private void LogClearAfterReadCallback(LogsResponse response)
+        private void LogClearAfterReadCallback(LogsResponse response, int generation)
         {
             Libs.Trace.Tracer.Info("[HYDRA LogClearAfterRead] Result={0}, resuming LOG_COUNT polling", response.Result);
+            if (IsStalePoll(generation, "LOG_CLR")) return;
             // After clearing, resume LOG_COUNT? polling for new scan data
             var req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.LogCount);
             req.Packet = Common.HydraProtocolHelper.Build_LogCountPacket();
-            HW_Device.GetLogs(req, LogResponseCallBack);
+            HW_Device.GetLogs(req, r => LogResponseCallBack(r, generation));
         }
 
         /// <summary>
@@ -661,6 +695,15 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         private void HandleLogData(LogsResponse response)
         {
+            HandleLogData(response, System.Threading.Volatile.Read(ref _pollGeneration));
+        }
+
+        private void HandleLogData(LogsResponse response, int generation)
+        {
+            // An outdated loop's entry is dropped whole: its batch count belongs to a loop that no longer
+            // exists, and letting it run on would send the LOG_CLR that wipes the live loop's scans.
+            if (IsStalePoll(generation, "LOGGED?")) return;
+
             Libs.Trace.Tracer.Info("[HYDRA HandleLogData] Received LogsResponse: Measurements.Count={0}, Configured Channels.Count={1}, ScanTime={2:HH:mm:ss}",
                 response.Measurements.Count, settings.Hydra2type.Channels.Count, response.LogDate);
 
@@ -701,7 +744,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             // Clear logs AFTER all entries are read and broadcast, then resume polling
             var clearReq = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.ClearLogs);
             clearReq.Packet = Common.HydraProtocolHelper.Build_ClearLogsPacket();
-            HW_Device.GetLogs(clearReq, LogClearAfterReadCallback);
+            HW_Device.GetLogs(clearReq, r => LogClearAfterReadCallback(r, generation));
         }
 
         /// <summary>

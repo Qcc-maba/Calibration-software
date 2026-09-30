@@ -93,6 +93,12 @@ that send time, and evenly spaced scans showed up 29/30/31 s apart.
 - **A query's reply arrives as the data line, then `=>`.** `GetSetTimeSession` answers on the first
   complete line and now hands that packet back as `ResponsePacket`. It used to hand back nothing, so
   the old `TIME_DATE?` check would have thrown a `NullReferenceException` if it had ever run.
+- **Only one polling loop may be live.** Every init starts a loop, and a re-init drops only the
+  request in flight. A loop asleep in its 28 s wait woke up afterwards and polled next to the new
+  one. From three loops up, one loop's `LOG_CLR` landed between another's `LOG_COUNT?` and `LOGGED?`,
+  the logger answered `!>`, and that scan was gone: 1,291 scans in Nofar's logs, cured only by
+  restarting. Each loop now carries a generation (`_pollGeneration`) and stops once a newer one
+  exists. To spot this in a log, count `LOG_COUNT?` per 30 s: one loop sends about 2.
 - **It never ran.** A `SingleState` step that returns `Skip2NextStep` is already advanced by the state
   machine. Its reply callback must not call `NextStep()` as well, or the next step is skipped. In
   date sync that skipped `TIME_DATE?` on every init, and the station logs show `DATE`, `TIME`, `RATE`

@@ -89,6 +89,12 @@ prints what the log says inside each gap (see the `local-scripts` skill).
 - **The logger's own scan time is the ground truth for "was it scanning".** It is the first six
   fields of every `LOGGED?` reply (`hh,mm,ss,MM,dd,yy`). If it moves on by the interval while the
   values repeat, the logger was fine.
+- **Scans that vanish, or data only after a restart:** look for `LOGGED? n` answered with `!>`
+  right after a `LOG_CLR`, and count `LOG_COUNT?` lines per 30 s. One polling loop sends about 2.
+  4–7 means several loops left behind by re-inits (fixed in MBA-967), and each `!>` is a lost scan.
+- **A channel missing for minutes with `ChannelDisconnected` / `DataRestored` around it** is a
+  real open circuit, not software. The logger returned `+009.00E+9` for it; on 30/9 channel 1 did
+  this for exactly six minutes while the other channels read normally.
 - **A 1–2 s wobble is the polling**, not the logger, on builds before MBA-967. From MBA-967 on the
   time is the logger's scan time plus a measured offset, so a wobble there is worth a look. Check the
   `[HYDRA Clock]` lines for the offset it used.
