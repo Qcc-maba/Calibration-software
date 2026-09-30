@@ -65,6 +65,39 @@ they were separated. Do not treat one as covering another:
    existed, the reading was dropped with a bare `continue` and the calibration carried on with fewer
    points than the operator had asked for, with nothing on screen and nothing in the log.
 
+## The Hydra 2625A is polled, and its readings carry the logger's own time (MBA-967)
+
+The logger scans on its own timer (`INTVL`, 30 s) and keeps each scan in memory; the server polls it
+(`LOG_COUNT?` → `LOGGED? n` → `LOG_CLR`, with a 28 s wait when nothing is stored). So the moment a
+reading reaches the app lags its scan by a varying amount. Until MBA-967 every reading was stamped with
+that send time, and evenly spaced scans showed up 29/30/31 s apart.
+
+- **Each reading's `Time` is the logger's scan time**, moved onto the PC clock:
+  `HardwarePacket.MeasuredAt` → `ServerCore.FormatLoggerDataTime`. The app already plots, tabulates and
+  exports by that field, so no app change was needed. Without a scan time (another instrument, or the
+  clock not read yet) it is the send time, as before.
+- **The logger's clock cannot be set to the second.** `TIME` takes hours and minutes and sets the
+  seconds to 00 (2620A/2625A manual, Table 4-8), so every init leaves it behind by however far into the
+  minute it ran. `TIME_DATE?` does return seconds, so the offset is **measured** at init and re-read
+  every 10 minutes (`Hydra2DeviceBL.LoggerClockRefreshInterval`), and a new reading replaces the offset
+  only when it moves by more than 1.5 s. Whole-second readings disagree by a second on their own, and
+  following them would put back the 29/31 s steps.
+- **A settled bath repeats itself.** The logger reports to 0.1 °C, so identical scans are normal.
+  Judged on values alone, the stale-data check declared a stable overnight run "stalled" three times
+  and reset the logger, costing a 48 s gap each time. The scan time is now part of the comparison
+  (`HardwareDeviceHost.BroadcastAllMeasurements(…, instrumentScanTime, …)`): a new scan time is a new
+  measurement, and a re-read entry still repeats because its scan time repeats with it.
+- **Every stored scan is sent**, oldest first by scan time. The old code broadcast only the last entry
+  of a batch, so when two were waiting the older was cleared unsent. The manual does not say which end
+  `LOGGED? 1` is, which is why the order comes from the scan times.
+- **A query's reply arrives as the data line, then `=>`.** `GetSetTimeSession` answers on the first
+  complete line and now hands that packet back as `ResponsePacket`. It used to hand back nothing, so
+  the old `TIME_DATE?` check would have thrown a `NullReferenceException` if it had ever run.
+- **It never ran.** A `SingleState` step that returns `Skip2NextStep` is already advanced by the state
+  machine. Its reply callback must not call `NextStep()` as well, or the next step is skipped. In
+  date sync that skipped `TIME_DATE?` on every init, and the station logs show `DATE`, `TIME`, `RATE`
+  with nothing between.
+
 ## The Meatest M-142 cannot do GPIB — and only the M-142
 
 A bit-level corruption on the GPIB bus was attributed first to one instrument, then to the adapter,

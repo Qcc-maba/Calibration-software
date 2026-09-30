@@ -27,6 +27,13 @@ restart happens **after** the device read lock is released, for the same reason.
 `[RECOVERY] SN=… re-initializing the device BL` in `server.log`, then data resuming and
 `DataRestored`.
 
+**The same recovery also runs on a "stall"**, meaning the logger still answers but its readings stop
+changing. The `DataTimeout` message then reads "repeated the same reading for 60 seconds" instead of
+"No data received". Before MBA-967 this compared values only, and a settled bath (0.1 °C resolution,
+identical scans) tripped it. Three false re-inits in one overnight run each cost a 48 s gap. It now
+compares the logger's scan time too, so a stall means the same log entry read again, not a quiet
+bath. A power cycle is caught either way: the logger stores nothing, so it is the "No data" branch.
+
 ## Communication
 
 Discovery used to run once, at startup, so unplugging and replugging ended the session for good — the
