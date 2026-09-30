@@ -57,6 +57,36 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         private int _pendingLogEntries = 0;
         private readonly object _logLock = new object();
 
+        /// <summary>The log entries of the batch being read, broadcast together once the last arrives.</summary>
+        private readonly List<LogsResponse> _pendingEntries = new List<LogsResponse>();
+
+        /// <summary>
+        /// MBA-967: how far the logger's clock is behind the PC's (PC minus logger). Null until it has
+        /// been read, and then readings go out with the send time, as they always did.
+        /// <para>
+        /// It is never zero, because the logger cannot be set to the second: <c>TIME</c> takes hours
+        /// and minutes only and sets the seconds to 00 (2620A/2625A manual, Table 4-8). So every
+        /// init leaves the logger behind by however far into the minute it ran - 58 s after the
+        /// 19:42:57 re-init on 2026-09-29. <c>TIME_DATE?</c> does return seconds, so the difference
+        /// is measured instead of set.
+        /// </para>
+        /// </summary>
+        private TimeSpan? _loggerClockOffset;
+
+        /// <summary>When the logger's clock was last read (UTC), successfully or not.</summary>
+        private DateTime? _loggerClockReadUtc;
+
+        /// <summary>How often the offset is re-read during a run, so a drifting logger clock cannot accumulate.</summary>
+        internal static readonly TimeSpan LoggerClockRefreshInterval = TimeSpan.FromMinutes(10);
+
+        /// <summary>
+        /// A re-read offset replaces the current one only when it differs by more than this. The logger
+        /// reports whole seconds, so two readings of the same clock differ by up to a second on their
+        /// own; adopting each one would shift every later reading by a second and put back the very
+        /// 29/31 s unevenness the offset exists to remove. Real drift passes this within a refresh or two.
+        /// </summary>
+        internal static readonly TimeSpan LoggerClockDriftTolerance = TimeSpan.FromSeconds(1.5);
+
         /// <summary>
         /// Channels currently reporting an open input, so the alert fires on the transition rather
         /// than on every scan. A logger scanning at the usual rate would otherwise emit an alert per
@@ -79,11 +109,17 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         #region overridden from CommonBL.BaseBLDevice
 
         /// <summary>
-        /// A Hydra reading thermocouples never returns the same number twice - the ADC noise moves
-        /// the last digits and the correction curve moves them further - so an identical reading is
-        /// the same log entry being read again, not a stable bath. That is precisely what a
-        /// communication interruption leaves behind: on a station, <c>1,20.9917353964817</c> was
-        /// re-broadcast unchanged every 34 seconds while the watchdog counted it as a healthy device.
+        /// A communication interruption leaves the same log entry being read again: on a station,
+        /// <c>1,20.9917353964817</c> was re-broadcast unchanged every 34 seconds while the watchdog
+        /// counted it as a healthy device.
+        /// <para>
+        /// This used to say that a Hydra never returns the same number twice, so an identical reading
+        /// had to be a re-read. That is false (MBA-967): the logger reports to 0.1 °C, and a settled
+        /// bath gives identical scans for minutes. Judged on values alone, a stable overnight run was
+        /// declared stalled three times and reset each time. Every reading therefore carries the
+        /// logger's own scan time into the comparison - see <see cref="BroadcastEntry"/> - and a
+        /// re-read entry still repeats because its scan time repeats with it.
+        /// </para>
         /// </summary>
         protected override bool DetectsStaleData { get { return true; } }
 
@@ -93,6 +129,16 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             // The channel state has to go with it: the device is about to be set up from scratch, and
             // a channel remembered as disconnected would never announce its recovery.
             _disconnectedChannels.Clear();
+
+            // The init sets the logger's clock again, so the old offset no longer describes it, and a
+            // batch interrupted by the reset is never going to finish.
+            _loggerClockOffset = null;
+            _loggerClockReadUtc = null;
+            lock (_logLock)
+            {
+                _pendingLogEntries = 0;
+                _pendingEntries.Clear();
+            }
 
             // Says "a Hydra 2625A is the thing being driven here", so the operator's channel list can
             // be routed to this family even when the logger's MABA id is not in the settings file's
@@ -276,6 +322,10 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         #region Date & Time Sync
 
+        // Each step returns Skip2NextStep and nothing else advances the state. The callbacks used to
+        // call NextStep() as well, so the DATE reply moved the state on a second time and step 2 -
+        // the TIME_DATE? read - was skipped on every init: the station logs show DATE, TIME, RATE and
+        // never a TIME_DATE? (MBA-967). The other states already had those calls commented out.
         private CommonBL.SingleState.StepWorkResponses StateWork__Date_Sync(CommonBL.SingleState singleState)
         {
             var request = new GetSetDateRequest();
@@ -286,11 +336,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                     this.HW_Device.SetDate(request,
                         res =>
                         {
-                            if (res.Result)
-                            {
-                                StateMachine_DateSync.NextStep();
-                            }
-                            else
+                            if (!res.Result)
                             {
                                 throw new Exception();
                             }
@@ -302,11 +348,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                     this.HW_Device.SetTime(request,
                         res =>
                         {
-                            if (res.Result)
-                            {
-                                StateMachine_DateSync.NextStep();
-                            }
-                            else
+                            if (!res.Result)
                             {
                                 throw new Exception();
                             }
@@ -314,23 +356,79 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
                 case 2:
-                    request = new GetSetDateRequest();
-                    request.Packet = HydraProtocolHelper.Build_GetFullDate();
-                    this.HW_Device.GetFullDate(request,
-                        res =>
-                        {
-                            if (res.Result && DateTime.Now - HydraProtocolHelper.BuildDateFromData(res.ResponsePacket.Command) < TimeSpan.FromMinutes(2))
-                            {
-                                StateMachine_DateSync.NextStep();
-                            }
-                            else
-                            {
-                                throw new Exception();
-                            }
-                        });
+                    ReadLoggerClock();
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
             }
             return CommonBL.SingleState.StepWorkResponses.StateFinished;
+        }
+
+        /// <summary>
+        /// MBA-967: asks the logger for its clock (<c>TIME_DATE?</c>) to measure how far it is from the
+        /// PC's. A failed read only costs accuracy - readings go out with the send time, as before - so
+        /// it never stops the init, unlike the old check here, which threw.
+        /// </summary>
+        private void ReadLoggerClock()
+        {
+            _loggerClockReadUtc = DateTime.UtcNow;
+            var request = new GetSetDateRequest();
+            request.Packet = HydraProtocolHelper.Build_GetFullDate();
+            this.HW_Device.GetFullDate(request, OnLoggerClockRead);
+        }
+
+        private void OnLoggerClockRead(GetSetDateResponse res)
+        {
+            var pcNow = DateTime.Now;
+            var reply = res != null && res.Result && res.ResponsePacket != null ? res.ResponsePacket.ToString() : null;
+
+            if (!HydraProtocolHelper.TryBuildDateFromData(reply, out var loggerClock))
+            {
+                Libs.Trace.Tracer.Info("[HYDRA Clock] Could not read the logger clock (reply '{0}'); keeping offset {1}",
+                    reply, _loggerClockOffset.HasValue ? _loggerClockOffset.Value.TotalSeconds.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + "s" : "none - readings use the send time");
+                return;
+            }
+
+            var measured = MeasureLoggerClockOffset(pcNow, loggerClock);
+            var adopted = ChooseLoggerClockOffset(_loggerClockOffset, measured);
+            _loggerClockOffset = adopted;
+
+            Libs.Trace.Tracer.Info("[HYDRA Clock] Logger {0:HH:mm:ss}, PC {1:HH:mm:ss.fff}: measured offset {2:F1}s, using {3:F1}s",
+                loggerClock, pcNow, measured.TotalSeconds, adopted.TotalSeconds);
+        }
+
+        /// <summary>
+        /// PC time minus logger time. The logger reports whole seconds and drops the fraction, so its
+        /// true time is on average half a second past what it says; the half second is added back so
+        /// the offset is centred rather than biased late.
+        /// </summary>
+        internal static TimeSpan MeasureLoggerClockOffset(DateTime pcNow, DateTime loggerClock)
+        {
+            return pcNow - loggerClock.AddMilliseconds(500);
+        }
+
+        /// <summary>
+        /// Keeps the current offset unless the new measurement has moved past
+        /// <see cref="LoggerClockDriftTolerance"/>: whole-second readings disagree by up to a second
+        /// on their own, and following them would shift every later reading by that second.
+        /// </summary>
+        internal static TimeSpan ChooseLoggerClockOffset(TimeSpan? current, TimeSpan measured)
+        {
+            if (!current.HasValue) return measured;
+            return (measured - current.Value).Duration() > LoggerClockDriftTolerance ? measured : current.Value;
+        }
+
+        /// <summary>
+        /// The logger's scan time moved onto the PC's clock, for the reading's <c>Time</c>. Null - send
+        /// time - when the entry carried no scan time or the logger's clock has not been read.
+        /// </summary>
+        internal static DateTime? ScanTimeOnPcClock(DateTime loggerScanTime, TimeSpan? loggerClockOffset)
+        {
+            if (loggerScanTime == default(DateTime) || !loggerClockOffset.HasValue) return null;
+            return loggerScanTime + loggerClockOffset.Value;
+        }
+
+        internal static bool LoggerClockDue(DateTime? lastReadUtc, DateTime nowUtc)
+        {
+            return !lastReadUtc.HasValue || nowUtc - lastReadUtc.Value >= LoggerClockRefreshInterval;
         }
 
         #endregion
@@ -456,6 +554,13 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                     case LogsRequest.LogCommands.LogCount:
                         if (response.LogCount == 0)
                         {
+                            // The line is quiet now until the next poll, so this is where the logger's
+                            // clock is re-read; its reply is back long before the poll goes out.
+                            if (LoggerClockDue(_loggerClockReadUtc, DateTime.UtcNow))
+                            {
+                                ReadLoggerClock();
+                            }
+
                             // Delay polling to ~30 seconds to match device scan interval (INTVL 0,0,30)
                             System.Threading.Tasks.Task.Delay(28000).ContinueWith(_ =>
                             {
@@ -466,8 +571,12 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                         }
                         else
                         {
-                            // Track how many log entries we're fetching so we broadcast only once (on the last one)
-                            lock (_logLock) { _pendingLogEntries = response.LogCount; }
+                            // Track how many log entries we're fetching, so the batch is broadcast once the last one is in
+                            lock (_logLock)
+                            {
+                                _pendingLogEntries = response.LogCount;
+                                _pendingEntries.Clear();
+                            }
                             for (var i = 0; i < response.LogCount; i++)
                             {
                                 req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.GetLogs);
@@ -537,8 +646,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         private void HandleLogData(LogsResponse response)
         {
-            Libs.Trace.Tracer.Info("[HYDRA HandleLogData] Received LogsResponse: Measurements.Count={0}, Configured Channels.Count={1}",
-                response.Measurements.Count, settings.Hydra2type.Channels.Count);
+            Libs.Trace.Tracer.Info("[HYDRA HandleLogData] Received LogsResponse: Measurements.Count={0}, Configured Channels.Count={1}, ScanTime={2:HH:mm:ss}",
+                response.Measurements.Count, settings.Hydra2type.Channels.Count, response.LogDate);
 
             for (int m = 0; m < response.Measurements.Count; m++)
             {
@@ -548,59 +657,102 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             // TODO Change to Device ID
             HC.ProcessResults(response, settings.Hydra2type);
 
-            // Only broadcast on the LAST log entry to avoid flooding WS clients
+            // The batch goes out once its last entry is in. It used to broadcast only that last entry,
+            // so when two scans were waiting the older one was cleared from the logger unsent (MBA-967).
+            List<LogsResponse> batch = null;
             int remaining;
-            lock (_logLock) { remaining = --_pendingLogEntries; }
-
-            if (remaining <= 0)
+            lock (_logLock)
             {
-                // Broadcast real channel measurements in a single WebSocket message
-                var channels = new System.Collections.Generic.List<int>();
-                var values = new System.Collections.Generic.List<double>();
-
-                var masterID = settings.Hydra2type.Masters.FirstOrDefault();
-                for (int i = 0; i < response.Measurements.Count && i < settings.Hydra2type.Channels.Count; i++)
+                _pendingEntries.Add(response);
+                remaining = --_pendingLogEntries;
+                if (remaining <= 0)
                 {
-                    int channel = settings.Hydra2type.Channels[i];
-                    double rawValue = response.Measurements[i];
+                    batch = OrderByScanTime(_pendingEntries);
+                    _pendingEntries.Clear();
+                }
+            }
 
-                    if (rawValue >= DISCONNECTED_CHANNEL_READING)
-                    {
-                        NoteChannelDisconnected(channel);
-                        continue;
-                    }
+            if (batch == null)
+            {
+                Libs.Trace.Tracer.Info("[HYDRA HandleLogData] Holding the broadcast, {0} log entries still pending", remaining);
+                return;
+            }
 
-                    NoteChannelRestored(channel);
+            foreach (var entry in batch)
+            {
+                BroadcastEntry(entry);
+            }
 
-                    // Apply deviation correction before broadcasting
-                    var corrected = HC.CalcDeviationForTemperature(rawValue, masterID);
-                    // Tracer.Info goes to logs\server.log, which is the file publish-logs.ps1 ships off
-                    // a customer station. This line used to be written a second time to a bare
-                    // "correction.log" - relative to the working directory, which for the service is
-                    // system32, and never rotated or deleted. It reached 53 MB on the bench machine
-                    // holding nothing that was not already here.
-                    Libs.Trace.Tracer.Info("[HYDRA Correction] CH{0} | Raw={1:F4} | Corrected={2:F4} | Status={3} | MasterID={4}",
-                        channel, rawValue, corrected.Item1, corrected.Item2, masterID);
-                    channels.Add(channel);
-                    values.Add(corrected.Item1);
+            // Clear logs AFTER all entries are read and broadcast, then resume polling
+            var clearReq = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.ClearLogs);
+            clearReq.Packet = Common.HydraProtocolHelper.Build_ClearLogsPacket();
+            HW_Device.GetLogs(clearReq, LogClearAfterReadCallback);
+        }
+
+        /// <summary>
+        /// Oldest scan first. The manual numbers <c>LOGGED? &lt;index&gt;</c> 1..2047 without saying which
+        /// end is 1, and the app appends points in arrival order, so the order is taken from the scan
+        /// times rather than from the indexes. Stable, so entries without a scan time keep their order.
+        /// </summary>
+        internal static List<LogsResponse> OrderByScanTime(IEnumerable<LogsResponse> entries)
+        {
+            return entries.OrderBy(e => e.LogDate).ToList();
+        }
+
+        /// <summary>
+        /// One logged scan to the clients, with its own time: the logger's scan time moved onto the PC
+        /// clock (<see cref="ScanTimeOnPcClock"/>), and the raw scan time for the stale-data check.
+        /// </summary>
+        private void BroadcastEntry(LogsResponse entry)
+        {
+            // A failed read has nothing in it. Broadcasting it would tell the watchdog a scan arrived.
+            if (entry.Measurements.Count == 0)
+            {
+                Libs.Trace.Tracer.Info("[HYDRA HandleLogData] Skipping an entry with no measurements (Result={0})", entry.Result);
+                return;
+            }
+
+            var channels = new System.Collections.Generic.List<int>();
+            var values = new System.Collections.Generic.List<double>();
+
+            var masterID = settings.Hydra2type.Masters.FirstOrDefault();
+            for (int i = 0; i < entry.Measurements.Count && i < settings.Hydra2type.Channels.Count; i++)
+            {
+                int channel = settings.Hydra2type.Channels[i];
+                double rawValue = entry.Measurements[i];
+
+                if (rawValue >= DISCONNECTED_CHANNEL_READING)
+                {
+                    NoteChannelDisconnected(channel);
+                    continue;
                 }
 
-                Libs.Trace.Tracer.Info("[HYDRA HandleLogData] Broadcasting {0} channels (last entry): [{1}] values: [{2}]",
-                    channels.Count,
-                    string.Join(",", channels),
-                    string.Join(",", values.Select(v => v.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+                NoteChannelRestored(channel);
 
-                HW_Device.BroadcastAllMeasurements(channels, values);
+                // Apply deviation correction before broadcasting
+                var corrected = HC.CalcDeviationForTemperature(rawValue, masterID);
+                // Tracer.Info goes to logs\server.log, which is the file publish-logs.ps1 ships off
+                // a customer station. This line used to be written a second time to a bare
+                // "correction.log" - relative to the working directory, which for the service is
+                // system32, and never rotated or deleted. It reached 53 MB on the bench machine
+                // holding nothing that was not already here.
+                Libs.Trace.Tracer.Info("[HYDRA Correction] CH{0} | Raw={1:F4} | Corrected={2:F4} | Status={3} | MasterID={4}",
+                    channel, rawValue, corrected.Item1, corrected.Item2, masterID);
+                channels.Add(channel);
+                values.Add(corrected.Item1);
+            }
 
-                // Clear logs AFTER all entries are read and broadcast, then resume polling
-                var clearReq = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.ClearLogs);
-                clearReq.Packet = Common.HydraProtocolHelper.Build_ClearLogsPacket();
-                HW_Device.GetLogs(clearReq, LogClearAfterReadCallback);
-            }
-            else
-            {
-                Libs.Trace.Tracer.Info("[HYDRA HandleLogData] Skipping broadcast, {0} log entries still pending", remaining);
-            }
+            DateTime? scanTime = entry.LogDate == default(DateTime) ? (DateTime?)null : entry.LogDate;
+            var measuredAt = ScanTimeOnPcClock(entry.LogDate, _loggerClockOffset);
+
+            Libs.Trace.Tracer.Info("[HYDRA HandleLogData] Broadcasting {0} channels, scan {1:HH:mm:ss} logger / {2} PC: [{3}] values: [{4}]",
+                channels.Count,
+                entry.LogDate,
+                measuredAt.HasValue ? measuredAt.Value.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) : "send time",
+                string.Join(",", channels),
+                string.Join(",", values.Select(v => v.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+
+            HW_Device.BroadcastAllMeasurements(channels, values, scanTime, measuredAt);
         }
     }
 

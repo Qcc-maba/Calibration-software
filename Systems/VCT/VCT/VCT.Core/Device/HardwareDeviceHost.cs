@@ -400,6 +400,14 @@ namespace Maba.VCT.Core.Device
         /// whether a broadcast had happened, the device looked perfectly healthy, so DataTimeout
         /// never fired and the recovery that would have fixed it never ran.
         /// </para>
+        /// <para>
+        /// MBA-967: values alone cannot tell those two apart from a stable bath. A Hydra reads to
+        /// 0.1 °C, so a settled bath gives identical scans; on 2026-09-29 this fired three times in
+        /// one night while the logger's own scan time moved on by 30 s on every read, and each time
+        /// the recovery reset the logger and cost a 48 s gap in the data. Where the instrument
+        /// reports when it scanned, that time is part of the comparison: a new scan time is a new
+        /// measurement whatever its values, and a re-read log entry carries its old time.
+        /// </para>
         /// </summary>
         public DateTime? LastDistinctMeasurementUtc { get; private set; }
 
@@ -514,7 +522,13 @@ namespace Maba.VCT.Core.Device
             IncomingEvents(packet);
         }
 
-        public void BroadcastAllMeasurements(System.Collections.Generic.List<int> channels, System.Collections.Generic.List<double> values)
+        /// <param name="instrumentScanTime">The scan time as the instrument's own clock recorded it,
+        /// when it records one. Only compared, never shown: it tells a new scan from a re-read one
+        /// (see <see cref="LastDistinctMeasurementUtc"/>).</param>
+        /// <param name="measuredAt">When the reading was taken, in the PC's local time, for the
+        /// clients. Null sends the time of the broadcast, as before.</param>
+        public void BroadcastAllMeasurements(System.Collections.Generic.List<int> channels, System.Collections.Generic.List<double> values,
+                                             DateTime? instrumentScanTime = null, DateTime? measuredAt = null)
         {
             LastMeasurementUtc = DateTime.UtcNow;
             // Build multi-channel packet: E,SN,ch1,val1,ch2,val2,...
@@ -530,14 +544,19 @@ namespace Maba.VCT.Core.Device
             // The packet already is the reading, channel by channel, so it is the signature. Compared
             // before the broadcast, and the broadcast still happens either way: a repeated value is a
             // fault to be reported, not a reason to starve the screen of the last thing we know.
-            if (!string.Equals(rawPacket, _lastMeasurementSignature, StringComparison.Ordinal))
+            // The scan time joins the signature only when the instrument supplies one, so every other
+            // instrument is judged exactly as before.
+            var signature = instrumentScanTime.HasValue
+                ? rawPacket + "@" + instrumentScanTime.Value.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : rawPacket;
+            if (!string.Equals(signature, _lastMeasurementSignature, StringComparison.Ordinal))
             {
-                _lastMeasurementSignature = rawPacket;
+                _lastMeasurementSignature = signature;
                 LastDistinctMeasurementUtc = DateTime.UtcNow;
             }
 
             Libs.Trace.Tracer.Info("[BroadcastAllMeasurements] SN={0}, {1} channels, raw packet: {2}", SN, channels.Count, rawPacket);
-            var packet = new HardwarePacket(rawPacket, false);
+            var packet = new HardwarePacket(rawPacket, false) { MeasuredAt = measuredAt };
             IncomingEvents(packet);
         }
 

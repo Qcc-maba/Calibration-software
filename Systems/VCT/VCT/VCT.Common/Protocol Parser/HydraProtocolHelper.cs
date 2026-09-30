@@ -220,6 +220,40 @@ namespace Maba.VCT.Common
             return new DateTime(year, month, day, hours, minutes, seconds);
         }
 
+        /// <summary>
+        /// MBA-967: <see cref="BuildDateFromData"/> without the exceptions, for the <c>TIME_DATE?</c>
+        /// reply "hh,mm,ss,MM,dd,yy" (2620A/2625A manual, Table 4-8). A reply that is missing, cut
+        /// short or corrupted on the line returns false, so the caller can carry on without the clock.
+        /// </summary>
+        public static bool TryBuildDateFromData(string reply, out DateTime date)
+        {
+            date = default(DateTime);
+            if (string.IsNullOrWhiteSpace(reply)) return false;
+
+            var parts = reply.Replace("\r", "").Replace("\n", "").Replace("=>", "").Split(',');
+            if (parts.Length < 6) return false;
+
+            var fields = new int[6];
+            for (int i = 0; i < 6; i++)
+            {
+                if (!int.TryParse(parts[i].Trim(), System.Globalization.NumberStyles.Integer,
+                                  System.Globalization.CultureInfo.InvariantCulture, out fields[i]))
+                {
+                    return false;
+                }
+            }
+
+            try
+            {
+                date = new DateTime(fields[5] + 2000, fields[3], fields[4], fields[0], fields[1], fields[2]);
+                return true;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return false;
+            }
+        }
+
         #endregion
 
         #region Hydra 3 Methods
