@@ -33,12 +33,18 @@ changing. The `DataTimeout` message then reads "repeated the same reading for 60
 identical scans) tripped it. Three false re-inits in one overnight run each cost a 48 s gap. It now
 compares the logger's scan time too, so a stall means the same log entry read again, not a quiet
 bath. A power cycle is caught either way: the logger stores nothing, so it is the "No data" branch.
+The Hydra 2625A no longer re-sends an entry it has already sent (a failed `LOG_CLR` leaves it in the
+buffer), so for that logger a stuck entry shows as "No data received", not as a stall.
 
 **An operator's reconfiguration restarts the 60 s clock (MBA-967).** A Confirm that changes the
 channels restarts the scan, and the first new reading can come 60 s or more after the last old one.
 Before the fix that tripped "No data received" and a second, needless re-init, costing 100 s of data
-on the bench. `HardwareDeviceHost.RestartWatchdogClockForReconfiguration` now restarts the clock,
-unless the device is already declared silent.
+on the bench. `HardwareDeviceHost.RestartWatchdogClockForReconfiguration` restarts the clock twice:
+when the re-init is queued, and again when the Hydra's new polling loop starts, i.e. once its channel
+setup has finished. The second one matters with many channels: the setup takes about 2 s per channel
+and the first reading then waits up to another ~28 s, so with 16-20 channels it lands 65-75 s after
+the first restart. Neither restart happens once the device is declared silent, so power-cycle
+recovery still counts from the last real reading.
 
 ## Communication
 

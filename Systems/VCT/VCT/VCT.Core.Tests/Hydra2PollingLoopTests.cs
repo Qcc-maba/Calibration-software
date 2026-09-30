@@ -157,6 +157,51 @@ namespace Maba.VCT.Core.Tests
             }, times);
         }
 
+        private void StartPollingLoop()
+        {
+            var state = new Maba.VCT.CommServer.CommonBL.SingleState(Hydra2DeviceBL.STATE_MACHINE__Logs) { CurrentStep = 0 };
+            _bl.Invoke("StateWork__Logs", state);
+        }
+
+        /// <summary>
+        /// PR #20 review: the clock restarted when the re-init was queued is not enough with many
+        /// channels. The setup takes ~2 s per channel and the first reading then waits up to ~28 s, so
+        /// with 16-20 channels it lands 65-75 s after that restart. The loop start restarts it again.
+        /// </summary>
+        [TestMethod]
+        public void TheWatchdogCountsFromTheEndOfTheChannelSetup()
+        {
+            _host.BroadcastAllMeasurements(new List<int> { 1 }, new List<double> { 23.1 });
+            var queuedAt = DateTime.UtcNow.AddSeconds(-45);   // 20 channels at ~2 s each, and then some
+            _host.RestartWatchdogClockForReconfiguration(queuedAt);
+
+            StartPollingLoop();
+
+            Assert.IsTrue(_host.LastMeasurementUtc > queuedAt.AddSeconds(40), "restarted at " + _host.LastMeasurementUtc);
+        }
+
+        [TestMethod]
+        public void PowerCycleRecoveryKeepsCountingFromTheLastReading()
+        {
+            // Recovery re-inits a device already declared silent; its loop start must not announce data.
+            _host.BroadcastAllMeasurements(new List<int> { 1 }, new List<double> { 23.1 });
+            var lastReading = DateTime.UtcNow.AddSeconds(-90);
+            _host.RestartWatchdogClockForReconfiguration(lastReading);
+            _host.DataTimedOut = true;
+
+            StartPollingLoop();
+
+            Assert.AreEqual(lastReading, _host.LastMeasurementUtc);
+        }
+
+        [TestMethod]
+        public void TheFirstInitLeavesTheWatchdogIdle()
+        {
+            StartPollingLoop();
+
+            Assert.IsNull(_host.LastMeasurementUtc, "never measured is idle, not silent");
+        }
+
         [TestMethod]
         public void AfterAReInitAnEarlierScanTimeIsANewScan()
         {

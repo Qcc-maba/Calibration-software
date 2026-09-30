@@ -577,6 +577,16 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                     req.Packet = Common.HydraProtocolHelper.Build_ClearLogsPacket();
                     var generation = System.Threading.Volatile.Read(ref _pollGeneration);
                     Libs.Trace.Tracer.Info("[HYDRA Poll] Starting polling loop #{0}", generation);
+
+                    // MBA-967: the channel setup that just finished took ~2 s per channel, and the first
+                    // reading is up to ~28 s away yet. Restarting the watchdog only when the re-init was
+                    // queued left 16-20 channels past the 60 s. Guarded in the host: a device already
+                    // declared silent (power-cycle recovery) or never measured keeps its clock.
+                    if (HW_Device.RestartWatchdogClockForReconfiguration(DateTime.UtcNow))
+                    {
+                        Libs.Trace.Tracer.Info("[HYDRA Poll] Channel setup finished; the data watchdog counts from here");
+                    }
+
                     HW_Device.GetLogs(req, r => LogResponseCallBack(r, generation));
 
                     return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;

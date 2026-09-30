@@ -471,6 +471,12 @@ namespace Maba.VCT.Core.Device
         /// 14:50:04, fired "No data received for 60 seconds" at 14:51:04, and its power-cycle recovery
         /// reset a healthy logger a second time - 100 s without data instead of about 40.
         /// <para>
+        /// Called twice per reconfiguration: by <c>ServerCore.CheckDataTimeouts</c> when it takes the
+        /// re-init, and by the Hydra2 BL when its new polling loop starts, after the channel setup. The
+        /// setup takes about 2 s per channel and the first reading then waits up to ~28 s more, so with
+        /// 16-20 channels it lands 65-75 s after the first restart - past the 60 s on its own.
+        /// </para>
+        /// <para>
         /// Only for a device that is currently fine. One already declared silent keeps its clock, so a
         /// reconfiguration can neither hide a real fault nor announce a recovery that has not happened
         /// (the watchdog would read a fresh timestamp as "data resumed"). "Never measured" stays null,

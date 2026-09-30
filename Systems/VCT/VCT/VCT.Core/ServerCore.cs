@@ -438,6 +438,7 @@ namespace Maba.VCT.Core
                     {
                         toRecover.Add((device, pendingReconfigureReason));
                         // MBA-967: the re-init restarts the scan; the silence it causes is not a fault.
+                        // The Hydra2 BL restarts the clock again once its channel setup has finished.
                         device.RestartWatchdogClockForReconfiguration(nowUtc);
                     }
 
