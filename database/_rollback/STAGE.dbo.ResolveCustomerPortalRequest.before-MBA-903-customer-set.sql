@@ -1,3 +1,4 @@
+/* STAGE definition of dbo.ResolveCustomerPortalRequest captured 2026-09-30 before the MBA-903 customer-set change. Re-run to roll back. */
 /*
     dbo.ResolveCustomerPortalRequest                                                    MBA-903
     ---------------------------------------------------------------------------------------------
@@ -15,17 +16,6 @@
 
     Approved / Rejected / Done are terminal and stamp ResolvedDate. Re-resolving an already
     terminal request is refused rather than quietly overwriting who answered it and when.
-
-    2026-09-30 - MBA-903: the customer rule now does what the paragraph above says.
-    ---------------------------------------------------------------------------------------------
-    Two gaps, both on the customer path:
-      - "Only while it is still New" was documented but not enforced: a customer could cancel a
-        request MBA had already moved to InProgress. It now throws 52016.
-      - Ownership was checked against any CustomerContacts row of the request's customer, without
-        IsActive - so a contact Priority had marked INACTIVE could still withdraw requests. It is
-        now "the request's customer is in dbo.GetPortalCustomerIds for this address", the same set
-        dbo.GetCustomerPortalRequestList shows and dbo.CreateCustomerPortalRequest files under: a
-        customer can cancel exactly the requests their list shows them.
 */
 CREATE OR ALTER PROCEDURE dbo.ResolveCustomerPortalRequest
     @LoggedInUserEmail       NVARCHAR(100),
@@ -61,15 +51,14 @@ BEGIN
     IF @MbaUserId IS NULL
     BEGIN
         /* Not MBA staff - then it must be the customer who filed it, cancelling it. */
-        IF NOT EXISTS (SELECT 1 FROM dbo.GetPortalCustomerIds(@Email) AS mine
-                       WHERE mine.CustomerId = @OwnerCustomerId)
+        IF NOT EXISTS (SELECT 1 FROM dbo.CustomerContacts AS cc
+                       WHERE cc.IsDeleted = 0
+                         AND cc.CustomerId = @OwnerCustomerId
+                         AND LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))) = @Email)
             THROW 52014, 'This request does not belong to the caller.', 1;
 
         IF @Status <> N'Cancelled'
             THROW 52015, 'A customer may only cancel their own request.', 1;
-
-        IF @CurrentStatus <> N'New'
-            THROW 52016, 'MBA has already started on this request; it can no longer be cancelled.', 1;
     END
 
     UPDATE dbo.CustomerPortalRequest
