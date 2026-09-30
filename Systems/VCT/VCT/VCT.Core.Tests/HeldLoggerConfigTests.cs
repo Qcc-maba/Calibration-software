@@ -49,7 +49,7 @@ namespace Maba.VCT.Core.Tests
         {
             Assert.IsNull(_settings.ApplyWebSocketConfig(Logger, "slow", "30", "01,03,05,06,07"));
 
-            Assert.AreEqual(Logger, HardwareBL_Settings.PendingWebSocketConfigLoggerId());
+            Assert.IsTrue(HardwareBL_Settings.IsWebSocketConfigHeld(Logger));
             CollectionAssert.AreEqual(new List<int> { 1, 2, 3, 5, 11, 15 }, _settings.Hydra2type.Channels,
                 "nothing is applied until a logger is identified");
         }
@@ -63,7 +63,7 @@ namespace Maba.VCT.Core.Tests
 
             StringAssert.Contains(summary, "channels=[1,3,5,6,7]");
             CollectionAssert.AreEqual(new List<int> { 1, 3, 5, 6, 7 }, _settings.Hydra2type.Channels);
-            Assert.IsNull(HardwareBL_Settings.PendingWebSocketConfigLoggerId(), "applied once, then gone");
+            Assert.IsFalse(HardwareBL_Settings.IsWebSocketConfigHeld(Logger), "applied once, then gone");
         }
 
         [TestMethod]
@@ -94,18 +94,61 @@ namespace Maba.VCT.Core.Tests
         public void ARoutedMessageReplacesTheHeldOne()
         {
             _settings.ApplyWebSocketConfig(Logger, null, null, "01,03");
+            _settings.ApplyWebSocketConfig("21-338", null, null, "02,04");
 
             HardwareBL_Settings.RegisterActiveFamily("Hydra2");
             try
             {
                 Assert.IsNotNull(_settings.ApplyWebSocketConfig(Logger, null, null, "07,08"));
-                Assert.IsNull(HardwareBL_Settings.PendingWebSocketConfigLoggerId(),
+                Assert.IsFalse(HardwareBL_Settings.IsWebSocketConfigHeld(Logger),
                     "the older, held list must not be re-applied at the next init");
+                Assert.IsTrue(HardwareBL_Settings.IsWebSocketConfigHeld("21-338"),
+                    "another logger's held list is not this message's to drop");
             }
             finally
             {
                 HardwareBL_Settings.UnregisterActiveFamily("Hydra2");
             }
+        }
+
+        [TestMethod]
+        public void TwoLoggersConfiguredBeforeEitherIsIdentifiedConfigureNeither()
+        {
+            // The BL knows its logger's serial number, not its MABA id, so it cannot pick its own.
+            // Applying the latest - the old behaviour - would set up logger A with B's channels.
+            _settings.ApplyWebSocketConfig(Logger, "slow", "30", "01,03,05,06,07");
+            _settings.ApplyWebSocketConfig("21-338", "fast", "10", "02,04");
+
+            Assert.IsNull(_settings.ApplyPendingWebSocketConfig("Hydra2", DateTime.UtcNow, out var ambiguous));
+
+            Assert.AreEqual("21-337,21-338", ambiguous);
+            CollectionAssert.AreEqual(new List<int> { 1, 2, 3, 5, 11, 15 }, _settings.Hydra2type.Channels);
+            Assert.IsFalse(HardwareBL_Settings.IsWebSocketConfigHeld(Logger), "dropped, so a later logger cannot take it either");
+            Assert.IsFalse(HardwareBL_Settings.IsWebSocketConfigHeld("21-338"));
+        }
+
+        [TestMethod]
+        public void EachLoggersMessagesMergeIntoItsOwnHeldConfiguration()
+        {
+            // A SensorsAssociation for B must not overwrite A's held channels.
+            _settings.ApplyWebSocketConfig(Logger, "fast", "10", "01,03");
+            _settings.ApplyWebSocketConfig("21-338", null, null, "02,04");
+
+            Assert.IsTrue(HardwareBL_Settings.IsWebSocketConfigHeld(Logger));
+            Assert.IsTrue(HardwareBL_Settings.IsWebSocketConfigHeld("21-338"));
+        }
+
+        [TestMethod]
+        public void AnExpiredConfigurationDoesNotMakeTheLiveOneAmbiguous()
+        {
+            var longAgo = DateTime.UtcNow - HardwareBL_Settings.PendingConfigLifetime - TimeSpan.FromMinutes(1);
+            HardwareBL_Settings.HoldPendingWebSocketConfig("21-338", null, null, "02,04", longAgo);
+            _settings.ApplyWebSocketConfig(Logger, null, null, "01,03");
+
+            var summary = _settings.ApplyPendingWebSocketConfig("Hydra2", DateTime.UtcNow, out var ambiguous);
+
+            Assert.IsNull(ambiguous);
+            StringAssert.Contains(summary, "channels=[1,3]");
         }
 
         [TestMethod]

@@ -599,8 +599,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
                 return null;
             }
 
-            // A routed message supersedes anything held from before the logger was identified.
-            ClearPendingWebSocketConfig();
+            // A routed message supersedes anything held for this logger from before it was identified.
+            ClearPendingWebSocketConfig(id);
 
             return ApplyTo(target, targetName, id, rate, interval, channelsCsv);
         }
@@ -644,9 +644,17 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             FUNC sent for 1,11,15,5,2,3.
 
             So an unroutable message is held, and the BL applies it as it registers - before its
-            channel-setup state runs - so the first init already uses the operator's channels. Only
-            the latest is kept (a later message for the same logger merges into it), and it expires:
-            a list typed long ago must not configure an instrument plugged in much later.  */
+            channel-setup state runs - so the first init already uses the operator's channels. It is
+            held per logger id (a later message for the same logger merges into it), and it expires:
+            a list typed long ago must not configure an instrument plugged in much later.
+
+            The BL cannot tell which held configuration is its own. Identification yields the
+            logger's serial number ("FLUKE,2625A,..."), and nothing on the server maps that to the
+            MABA id the app sends (21-337). So a configuration is applied only when it is the only one
+            held. With two - the app configured loggers A and B before either was identified - applying
+            either could set up A with B's channels, rate and interval; none is applied, both are
+            dropped, and the second Confirm, arriving while the logger is live, configures it by the
+            normal path.  */
 
         private sealed class PendingWebSocketConfig
         {
@@ -657,7 +665,9 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             public DateTime ReceivedUtc;
         }
 
-        private static PendingWebSocketConfig _pendingConfig;
+        /// <summary>Held configurations by logger id. Guarded by <see cref="_activeFamiliesLock"/>.</summary>
+        private static readonly Dictionary<string, PendingWebSocketConfig> _pendingConfigs =
+            new Dictionary<string, PendingWebSocketConfig>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>How long a held configuration waits for a logger to be identified.</summary>
         public static readonly TimeSpan PendingConfigLifetime = TimeSpan.FromMinutes(5);
@@ -666,9 +676,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         {
             lock (_activeFamiliesLock)
             {
-                var p = _pendingConfig;
-                if (p == null || !string.Equals(p.LoggerId, loggerId, StringComparison.OrdinalIgnoreCase)
-                    || nowUtc - p.ReceivedUtc > PendingConfigLifetime)
+                if (!_pendingConfigs.TryGetValue(loggerId, out var p) || nowUtc - p.ReceivedUtc > PendingConfigLifetime)
                 {
                     p = new PendingWebSocketConfig { LoggerId = loggerId };
                 }
@@ -678,37 +686,64 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
                 if (!string.IsNullOrWhiteSpace(interval)) p.Interval = interval;
                 if (!string.IsNullOrWhiteSpace(channelsCsv)) p.Channels = channelsCsv;
                 p.ReceivedUtc = nowUtc;
-                _pendingConfig = p;
+                _pendingConfigs[loggerId] = p;
             }
         }
 
+        /// <summary>Drops every held configuration.</summary>
         public static void ClearPendingWebSocketConfig()
         {
-            lock (_activeFamiliesLock) { _pendingConfig = null; }
+            lock (_activeFamiliesLock) { _pendingConfigs.Clear(); }
         }
 
-        /// <summary>The logger id of a held configuration, or null. For the log line that says so.</summary>
-        public static string PendingWebSocketConfigLoggerId()
+        /// <summary>Drops the held configuration of one logger, when a message for it has been routed.</summary>
+        private static void ClearPendingWebSocketConfig(string loggerId)
         {
-            lock (_activeFamiliesLock) { return _pendingConfig?.LoggerId; }
+            lock (_activeFamiliesLock) { _pendingConfigs.Remove(loggerId); }
+        }
+
+        /// <summary>True when a configuration for <paramref name="loggerId"/> is held. For the log line that says so.</summary>
+        public static bool IsWebSocketConfigHeld(string loggerId)
+        {
+            if (string.IsNullOrWhiteSpace(loggerId)) return false;
+            lock (_activeFamiliesLock) { return _pendingConfigs.ContainsKey(loggerId.Trim()); }
         }
 
         /// <summary>
         /// Called by a BL as it registers its family, before it sets the instrument up: applies and
         /// clears a configuration held because it arrived before any logger was identified. Returns a
-        /// summary of what changed, or null when nothing was held, it expired, or it changed nothing.
+        /// summary of what changed, or null when nothing was held, it expired, it changed nothing, or
+        /// more than one logger's configuration was held.
         /// </summary>
         public string ApplyPendingWebSocketConfig(string familyName, DateTime nowUtc)
         {
-            PendingWebSocketConfig p;
+            return ApplyPendingWebSocketConfig(familyName, nowUtc, out _);
+        }
+
+        /// <param name="familyName">The family of the BL that is registering.</param>
+        /// <param name="nowUtc">Now, for the expiry.</param>
+        /// <param name="ambiguousLoggerIds">
+        /// When configurations for more than one logger were held, their ids, comma-separated - none
+        /// was applied and all were dropped. Otherwise null.
+        /// </param>
+        public string ApplyPendingWebSocketConfig(string familyName, DateTime nowUtc, out string ambiguousLoggerIds)
+        {
+            ambiguousLoggerIds = null;
+            List<PendingWebSocketConfig> live;
             lock (_activeFamiliesLock)
             {
-                p = _pendingConfig;
-                _pendingConfig = null;
+                live = _pendingConfigs.Values.Where(c => nowUtc - c.ReceivedUtc <= PendingConfigLifetime).ToList();
+                _pendingConfigs.Clear();
             }
 
-            if (p == null || nowUtc - p.ReceivedUtc > PendingConfigLifetime) return null;
+            if (live.Count == 0) return null;
+            if (live.Count > 1)
+            {
+                ambiguousLoggerIds = string.Join(",", live.Select(c => c.LoggerId).OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
+                return null;
+            }
 
+            var p = live[0];
             foreach (var fam in Families())
             {
                 if (string.Equals(fam.Key, familyName, StringComparison.OrdinalIgnoreCase))

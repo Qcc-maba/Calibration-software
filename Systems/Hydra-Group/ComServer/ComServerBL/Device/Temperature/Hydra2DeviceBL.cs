@@ -162,10 +162,18 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             // MBA-967: on the operator's first Confirm the channel list arrives before this BL exists,
             // and is held. Applying it here, before the InitChannels state reads settings, is what makes
             // the first init scan the operator's channels instead of the settings file's.
-            var held = settings.ApplyPendingWebSocketConfig(SETTINGS_FAMILY, DateTime.UtcNow);
+            var held = settings.ApplyPendingWebSocketConfig(SETTINGS_FAMILY, DateTime.UtcNow, out var ambiguous);
             if (held != null)
             {
                 Libs.Trace.Tracer.Info("[WS->HW] Applied the configuration received before the logger was identified: {0}", held);
+            }
+            else if (ambiguous != null)
+            {
+                // Identification gives the serial number, not the MABA id, so there is no telling which
+                // of these is this logger's. The next Confirm reaches it through the live path.
+                Libs.Trace.Tracer.Info("[WS->HW] Configurations for loggers {0} were held before any logger was identified; " +
+                                       "cannot tell which is this one, so none was applied and all were dropped. " +
+                                       "Using the current settings until the next Confirm.", ambiguous);
             }
 
             HC.Init(settings.Hydra2type.Masters).GetAwaiter().GetResult();
