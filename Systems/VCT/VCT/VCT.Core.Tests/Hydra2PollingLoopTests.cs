@@ -127,5 +127,52 @@ namespace Maba.VCT.Core.Tests
 
             Assert.AreEqual(1, sent);
         }
+
+        /// <summary>
+        /// PR #20 review: the batch is cleared only after it is sent, and polling carries on when that
+        /// LOG_CLR fails, so the next poll reads the old entries again beside the new one. Each failed
+        /// clear used to re-send them all, with their old times - a growing run of duplicates whose
+        /// times ran backwards in the app.
+        /// </summary>
+        [TestMethod]
+        public void AScanStillInTheLoggerAfterAFailedClearIsNotSentAgain()
+        {
+            _bl.SetField("_loggerClockOffset", (TimeSpan?)TimeSpan.Zero);
+            var times = new List<DateTime?>();
+            _bus.DeviceOnIncomingEvent += (o, e) => times.Add(((HardwarePacket)e.Packet).MeasuredAt);
+
+            _bl.SetField("_pendingLogEntries", 1);
+            _bl.Invoke("HandleLogData", Entry("22,52,14,9,29,26,23.3,23.4,0,0,0\r\n"), Generation);
+            _bl.Invoke("LogClearAfterReadCallback", new LogsResponse(false, LogsRequest.LogCommands.ClearLogs), Generation);
+
+            // The next poll: the uncleared scan, then the new one.
+            _bl.SetField("_pendingLogEntries", 2);
+            _bl.Invoke("HandleLogData", Entry("22,52,14,9,29,26,23.3,23.4,0,0,0\r\n"), Generation);
+            _bl.Invoke("HandleLogData", Entry("22,52,44,9,29,26,23.3,23.4,0,0,0\r\n"), Generation);
+
+            CollectionAssert.AreEqual(new List<DateTime?>
+            {
+                new DateTime(2026, 9, 29, 22, 52, 14, 500),
+                new DateTime(2026, 9, 29, 22, 52, 44, 500),
+            }, times);
+        }
+
+        [TestMethod]
+        public void AfterAReInitAnEarlierScanTimeIsANewScan()
+        {
+            // TIME puts the logger's clock back to the minute, so the first scan after a re-init can
+            // carry an earlier time than the last one sent before it.
+            _bl.SetField("_pendingLogEntries", 1);
+            _bl.Invoke("HandleLogData", Entry("22,52,44,9,29,26,23.3,23.4,0,0,0\r\n"), Generation);
+
+            _host.ReinitializeBL("LoggerConfiguration change from web app");
+            var sent = 0;
+            _bus.DeviceOnIncomingEvent += (o, e) => sent++;
+
+            _bl.SetField("_pendingLogEntries", 1);
+            _bl.Invoke("HandleLogData", Entry("22,52,30,9,29,26,23.3,23.4,0,0,0\r\n"), Generation);
+
+            Assert.AreEqual(1, sent);
+        }
     }
 }

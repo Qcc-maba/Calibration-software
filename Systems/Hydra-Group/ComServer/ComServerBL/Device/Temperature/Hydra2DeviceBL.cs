@@ -73,6 +73,19 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         private int _pollGeneration;
 
         /// <summary>
+        /// MBA-967: the logger scan time of the newest entry sent, so a scan read a second time is not
+        /// sent again. Every entry of a batch is broadcast, and the batch is cleared from the logger
+        /// only afterwards; when that LOG_CLR fails the entries stay in the buffer, and the next poll
+        /// reads them all again together with the new one. Without this, each failed clear re-sent a
+        /// growing run of old points, with times running backwards in the app.
+        /// <para>
+        /// Reset by every init: <c>TIME</c> sets the logger's clock back to the start of the minute, so
+        /// the first scans after a re-init can carry earlier times than the last one sent before it.
+        /// </para>
+        /// </summary>
+        private DateTime? _lastBroadcastScanTime;
+
+        /// <summary>
         /// MBA-967: how far the logger's clock is behind the PC's (PC minus logger). Null until it has
         /// been read, and then readings go out with the send time, as they always did.
         /// <para>
@@ -129,8 +142,9 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// had to be a re-read. That is false (MBA-967): the logger reports to 0.1 °C, and a settled
         /// bath gives identical scans for minutes. Judged on values alone, a stable overnight run was
         /// declared stalled three times and reset each time. Every reading therefore carries the
-        /// logger's own scan time into the comparison - see <see cref="BroadcastEntry"/> - and a
-        /// re-read entry still repeats because its scan time repeats with it.
+        /// logger's own scan time into the comparison - see <see cref="BroadcastEntry"/>. A re-read
+        /// entry is not sent again at all now (its scan time is not newer than the last one sent), so
+        /// a logger stuck on one entry goes silent and the data watchdog, not this check, reports it.
         /// </para>
         /// </summary>
         protected override bool DetectsStaleData { get { return true; } }
@@ -146,6 +160,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             // batch interrupted by the reset is never going to finish.
             _loggerClockOffset = null;
             _loggerClockReadUtc = null;
+            _lastBroadcastScanTime = null;
             lock (_logLock)
             {
                 _pendingLogEntries = 0;
@@ -663,6 +678,13 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         {
             Libs.Trace.Tracer.Info("[HYDRA LogClearAfterRead] Result={0}, resuming LOG_COUNT polling", response.Result);
             if (IsStalePoll(generation, "LOG_CLR")) return;
+            if (!response.Result)
+            {
+                // Polling carries on regardless: the entries stay in the logger and are read again with
+                // the next scan, and BroadcastEntry drops the ones already sent by their scan time.
+                Libs.Trace.Tracer.Info("[HYDRA LogClearAfterRead] LOG_CLR FAILED - the scans just sent are still in the logger; " +
+                                       "the next read skips them (last sent scan {0:HH:mm:ss})", _lastBroadcastScanTime);
+            }
             // After clearing, resume LOG_COUNT? polling for new scan data
             var req = new Common.API.RemoteProtocolService.LogsRequest(LogsRequest.LogCommands.LogCount);
             req.Packet = Common.HydraProtocolHelper.Build_LogCountPacket();
@@ -768,6 +790,11 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// <summary>
         /// One logged scan to the clients, with its own time: the logger's scan time moved onto the PC
         /// clock (<see cref="ScanTimeOnPcClock"/>), and the raw scan time for the stale-data check.
+        /// <para>
+        /// A scan no newer than the last one sent is dropped (<see cref="_lastBroadcastScanTime"/>). A
+        /// logger that keeps returning one old entry therefore sends nothing at all, rather than the
+        /// repeat the stale-data check used to catch, and the 60 s data watchdog reports it instead.
+        /// </para>
         /// </summary>
         private void BroadcastEntry(LogsResponse entry)
         {
@@ -776,6 +803,17 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             {
                 Libs.Trace.Tracer.Info("[HYDRA HandleLogData] Skipping an entry with no measurements (Result={0})", entry.Result);
                 return;
+            }
+
+            if (entry.LogDate != default(DateTime))
+            {
+                if (_lastBroadcastScanTime.HasValue && entry.LogDate <= _lastBroadcastScanTime.Value)
+                {
+                    Libs.Trace.Tracer.Info("[HYDRA HandleLogData] Skipping scan {0:HH:mm:ss}: already sent (last sent {1:HH:mm:ss}) - the previous LOG_CLR did not clear it",
+                        entry.LogDate, _lastBroadcastScanTime.Value);
+                    return;
+                }
+                _lastBroadcastScanTime = entry.LogDate;
             }
 
             var channels = new System.Collections.Generic.List<int>();

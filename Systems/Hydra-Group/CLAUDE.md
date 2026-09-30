@@ -86,10 +86,16 @@ that send time, and evenly spaced scans showed up 29/30/31 s apart.
   Judged on values alone, the stale-data check declared a stable overnight run "stalled" three times
   and reset the logger, costing a 48 s gap each time. The scan time is now part of the comparison
   (`HardwareDeviceHost.BroadcastAllMeasurements(…, instrumentScanTime, …)`): a new scan time is a new
-  measurement, and a re-read entry still repeats because its scan time repeats with it.
+  measurement.
 - **Every stored scan is sent**, oldest first by scan time. The old code broadcast only the last entry
   of a batch, so when two were waiting the older was cleared unsent. The manual does not say which end
   `LOGGED? 1` is, which is why the order comes from the scan times.
+- **Each scan is sent once.** The batch is cleared (`LOG_CLR`) only after it is sent, and polling goes
+  on when the clear fails, so the next poll reads the same entries again. A scan no newer than the last
+  one sent (`_lastBroadcastScanTime`) is skipped and logged; without that, every failed clear re-sent a
+  growing run of old points with times running backwards. The mark is reset by every init, because
+  `TIME` puts the logger's clock back to the minute. A logger stuck on one entry therefore goes silent
+  and is caught by the 60 s data watchdog rather than by the stale-data check.
 - **A query's reply arrives as the data line, then `=>`.** `GetSetTimeSession` answers on the first
   complete line and now hands that packet back as `ResponsePacket`. It used to hand back nothing, so
   the old `TIME_DATE?` check would have thrown a `NullReferenceException` if it had ever run.
