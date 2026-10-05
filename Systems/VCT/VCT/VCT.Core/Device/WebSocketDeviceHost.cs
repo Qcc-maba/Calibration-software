@@ -64,6 +64,34 @@ namespace Maba.VCT.Core.Device
         private readonly object _channelLabelsLock = new object();
         private volatile IReadOnlyDictionary<int, ChannelLabel> _channelLabels = new Dictionary<int, ChannelLabel>();
 
+        /*  MBA-967 (review of #21): the loggers this connection has sent a LoggerConfiguration for.
+            "A SensorsAssociation adds its channels" is only right when a full channel list came first -
+            the logger dialog's Confirm and the calibration graph's saved-setup re-send both do that. A
+            client that sends a SensorsAssociation alone (the graph's fallback when the dialog was never
+            confirmed, the /websocket-test page) relied on it REPLACING the list: with only adding, the
+            default 1-20 could never be narrowed to 1,3,5, and moving from a device on 1-3 to one on 4-6
+            left 1-3 scanned and still labelled with the old device. Per connection, like the labels. */
+        private readonly object _configuredLoggersLock = new object();
+        private readonly HashSet<string> _configuredLoggers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// MBA-967: whether this connection has sent a LoggerConfiguration for <paramref name="loggerId"/>,
+        /// which decides whether its SensorsAssociations add channels or replace the list.
+        /// </summary>
+        public bool HasConfiguredLogger(string loggerId)
+        {
+            var id = (loggerId ?? "").Trim();
+            if (id.Length == 0) return false;
+            lock (_configuredLoggersLock) { return _configuredLoggers.Contains(id); }
+        }
+
+        private void MarkLoggerConfigured(string loggerId)
+        {
+            var id = (loggerId ?? "").Trim();
+            if (id.Length == 0) return;
+            lock (_configuredLoggersLock) { _configuredLoggers.Add(id); }
+        }
+
         /// <summary>
         /// MBA-967: the association each channel was named in, by channel number. A snapshot - never
         /// modified after it is returned. Channels absent from it use the Associated* fields.
@@ -105,14 +133,28 @@ namespace Maba.VCT.Core.Device
                 // MBA-485: the sensor association also carries the channel list — apply it live.
                 if (!string.IsNullOrEmpty(association.BatchChannels))
                 {
+                    var settings = HardwareBL_Settings.Read();
+                    string summary;
+                    if (HasConfiguredLogger(association.LoggerId))
+                    {
+                        // MBA-967: a full channel list came first, so this sensor's channels are added to
+                        // it, not replacing it - with one SensorsAssociation per sensor, replacing left
+                        // only the last sensor's channels scanned.
+                        summary = settings.AddWebSocketSensorChannels(association.LoggerId, association.BatchChannels);
+                    }
+                    else
+                    {
+                        // No full list on this connection: the association IS the channel list, as before
+                        // #21. It replaces the list and the logger's labels, so the scan narrows and a
+                        // device no longer calibrated stops being recorded (see _configuredLoggers).
+                        ClearChannelLabels(association.LoggerId, association.BatchChannels);
+                        summary = settings.ApplyWebSocketConfig(association.LoggerId, null, null, association.BatchChannels);
+                    }
+
                     // MBA-967: these channels are this sensor's - label their readings with it.
                     LabelChannels(association.BatchChannels, new ChannelLabel(
                         AssociatedDeviceId, AssociatedLoggerId, AssociatedBatchId, AssociatedUnits, AssociatedResolution));
 
-                    var settings = HardwareBL_Settings.Read();
-                    // MBA-967: added to the logger's list, not replacing it - with one SensorsAssociation
-                    // per sensor, replacing left only the last sensor's channels scanned.
-                    var summary = settings.AddWebSocketSensorChannels(association.LoggerId, association.BatchChannels);
                     if (summary != null)
                     {
                         Libs.Trace.Tracer.Info("[WS->HW] Applied channels from SensorsAssociation: {0}", summary);
@@ -138,6 +180,7 @@ namespace Maba.VCT.Core.Device
                     // SensorsAssociations, so a sensor removed in the dialog must not keep labelling
                     // its old channels.
                     ClearChannelLabels(cfg.LoggerId, cfg.BatchChannels);
+                    MarkLoggerConfigured(cfg.LoggerId);
 
                     var summary = settings.ApplyWebSocketConfig(cfg.LoggerId, cfg.Rate, cfg.Interval, cfg.BatchChannels);
                     if (summary != null)

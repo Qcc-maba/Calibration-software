@@ -958,11 +958,8 @@ namespace Maba.VCT.Core.Tests
         [TestMethod]
         public void SensorsAssociation_GenuineChannelChange_FiresLiveHardwareReconfigured()
         {
-            // MBA-967: a SensorsAssociation now only ADDS channels, and the default Hydra2 list is
-            // 1-20, which already holds 1,3,5. Start from a list that lacks them so the change is genuine.
-            Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings._settings =
-                Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings.CreateDefaultSettings();
-            Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings._settings.Hydra2type.Channels = new List<int> { 2 };
+            // MBA-967: with no LoggerConfiguration on this connection the association replaces the list,
+            // as before #21, so narrowing the default 1-20 to 1,3,5 is a genuine change.
             Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings.RegisterActiveFamily("Hydra2");
             LiveHardwareReconfiguredEventArgs fired = null;
             _bus.LiveHardwareReconfigured += (s, e) => fired = e;

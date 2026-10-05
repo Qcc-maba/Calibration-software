@@ -86,6 +86,12 @@ and every reading labelled as B's:
 - **`LoggerConfiguration` sets the channel list; a `SensorsAssociation` only adds to it**
   (`HardwareBL_Settings.AddWebSocketSensorChannels` — a union, live and in the held pre-identification
   config). Channels already present change nothing, return null, and so trigger no re-init.
+  **Only once that connection has sent a `LoggerConfiguration` for the logger**
+  (`WebSocketDeviceHost.HasConfiguredLogger`). Until then a `SensorsAssociation` *replaces* the list and
+  that logger's labels, as before: the graph's fallback (dialog never confirmed) and the
+  `/websocket-test` page send associations alone, and with add-only they could never narrow the default
+  1-20 or stop scanning a device no longer calibrated (review of #21). Per connection, so a reconnect
+  must send the full list again - the app's calibration graph does.
 - **Labels are per channel.** `WebSocketDeviceHost.ChannelLabels` maps channel → the association that
   named it; a `LoggerConfiguration` for logger L clears L's labels (a new Confirm starts fresh).
   `ServerCore.BuildLoggerDataLines` sends **one `LoggerData` line per distinct label**, same `Time`, in

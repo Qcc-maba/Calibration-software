@@ -164,6 +164,8 @@ namespace Maba.VCT.Core.Tests
         {
             var (host, com) = NewHost();
 
+            // The dialog's Confirm: the full list first, then one association per sensor.
+            com.SimulateStringDataReceived(Configuration(Logger, "1-6"));
             com.SimulateStringDataReceived(Association("A", "100", "01,02,03"));
             com.SimulateStringDataReceived(Association("B", "200", "04,05,06", "Fahrenheit"));
 
@@ -183,15 +185,62 @@ namespace Maba.VCT.Core.Tests
         [TestMethod]
         public void TwoSensorsThroughTheSocketLeaveTheLoggerScanningBoth()
         {
-            // End to end through handlePacket: the bench case, A on 1-3 then B on 4-6.
+            // End to end through handlePacket: the bench case, A on 1-3 then B on 4-6, after the full list.
             HardwareBL_Settings.RegisterActiveFamily("Hydra2");
             _settings.Hydra2type.Channels = new List<int> { 20 };
             var (_, com) = NewHost();
 
+            com.SimulateStringDataReceived(Configuration(Logger, "1-6"));
             com.SimulateStringDataReceived(Association("A", "100", "01,02,03"));
             com.SimulateStringDataReceived(Association("B", "200", "04,05,06"));
 
-            CollectionAssert.AreEqual(new List<int> { 1, 2, 3, 4, 5, 6, 20 }, _settings.Hydra2type.Channels);
+            CollectionAssert.AreEqual(new List<int> { 1, 2, 3, 4, 5, 6 }, _settings.Hydra2type.Channels,
+                "B's association must not drop A's channels");
+        }
+
+        // Review of #21: without a full list on the connection, an association replaces, as before #21.
+
+        [TestMethod]
+        public void WithoutAFullListAnAssociationStillNarrowsTheScan()
+        {
+            // The graph's fallback (dialog never confirmed) against the settings file's 1-20.
+            HardwareBL_Settings.RegisterActiveFamily("Hydra2");
+            var (_, com) = NewHost();
+
+            com.SimulateStringDataReceived(Association("924", "Batch1", "01,03,05", logger: "Logger1"));
+
+            CollectionAssert.AreEqual(new List<int> { 1, 3, 5 }, _settings.Hydra2type.Channels);
+        }
+
+        [TestMethod]
+        public void WithoutAFullListMovingToAnotherDeviceMovesChannelsAndLabels()
+        {
+            HardwareBL_Settings.RegisterActiveFamily("Hydra2");
+            var (host, com) = NewHost();
+
+            com.SimulateStringDataReceived(Association("X", "Batch1", "01,02,03", logger: "Logger1"));
+            com.SimulateStringDataReceived(Association("Y", "Batch1", "04,05,06", logger: "Logger1"));
+
+            CollectionAssert.AreEqual(new List<int> { 4, 5, 6 }, _settings.Hydra2type.Channels,
+                "device X is no longer calibrated, so its channels stop being scanned");
+            CollectionAssert.AreEquivalent(new[] { 4, 5, 6 }, new List<int>(host.ChannelLabels.Keys));
+            Assert.AreEqual("Y", host.ChannelLabels[4].DeviceId);
+        }
+
+        [TestMethod]
+        public void TheFullListCountsOnlyOnTheConnectionThatSentIt()
+        {
+            // A reconnect is a new connection: until it sends the full list again, associations replace.
+            HardwareBL_Settings.RegisterActiveFamily("Hydra2");
+            var (first, firstCom) = NewHost();
+            firstCom.SimulateStringDataReceived(Configuration(Logger, "1-6"));
+            var (second, secondCom) = NewHost();
+
+            secondCom.SimulateStringDataReceived(Association("A", "100", "01,02"));
+
+            Assert.IsTrue(first.HasConfiguredLogger(Logger));
+            Assert.IsFalse(second.HasConfiguredLogger(Logger));
+            CollectionAssert.AreEqual(new List<int> { 1, 2 }, _settings.Hydra2type.Channels);
         }
 
         [TestMethod]
