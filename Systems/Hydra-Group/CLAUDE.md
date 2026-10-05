@@ -109,6 +109,11 @@ that send time, and evenly spaced scans showed up 29/30/31 s apart.
   machine. Its reply callback must not call `NextStep()` as well, or the next step is skipped. In
   date sync that skipped `TIME_DATE?` on every init, and the station logs show `DATE`, `TIME`, `RATE`
   with nothing between.
+- **Several sensors share one logger.** Each sensor's `SensorsAssociation` used to *replace* the
+  channel list, so sensor A on 1-3 and B on 4-6 left the logger scanning 4-6 only, and every reading
+  went out labelled as B's. A `SensorsAssociation` now adds its channels (union; `LoggerConfiguration`
+  still sets the list), and each `LoggerData` line carries the sensor that owns its channels — one
+  line per sensor. Details in `Systems/VCT/CLAUDE.md`.
 
 ## The Meatest M-142 cannot do GPIB — and only the M-142
 

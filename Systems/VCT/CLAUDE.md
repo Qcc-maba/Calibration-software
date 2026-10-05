@@ -76,6 +76,24 @@ A BL reaches this path through `HardwareDeviceHost.RaiseAlert(type, message, cha
 `EventsBus.DeviceAlert` for ServerCore to broadcast. `AlertMessageFormatTests` and
 `DeviceRecoveryTests` copy the app's regexes verbatim — update them in the same change as the app.
 
+## Several sensors on one logger: channels add up, readings carry their own sensor (MBA-967)
+
+On Confirm the app sends one `LoggerConfiguration` (every channel of the logger), then one
+`SensorsAssociation` **per sensor** (only that sensor's `BatchChannels`), then `Status:"Start"`. Two
+rules follow, both fixed after the bench showed sensor A on 1-3 and B on 4-6 leaving only 4-6 scanned
+and every reading labelled as B's:
+
+- **`LoggerConfiguration` sets the channel list; a `SensorsAssociation` only adds to it**
+  (`HardwareBL_Settings.AddWebSocketSensorChannels` — a union, live and in the held pre-identification
+  config). Channels already present change nothing, return null, and so trigger no re-init.
+- **Labels are per channel.** `WebSocketDeviceHost.ChannelLabels` maps channel → the association that
+  named it; a `LoggerConfiguration` for logger L clears L's labels (a new Confirm starts fresh).
+  `ServerCore.BuildLoggerDataLines` sends **one `LoggerData` line per distinct label**, same `Time`, in
+  the unchanged line format; unlabelled channels go under `Associated*` (the last association) as
+  before. With no labels the output is byte-identical to the old single line. Labels are keyed by
+  channel number only, per socket — with two loggers on one socket using the same channel numbers they
+  would collide (as the single association always did).
+
 ## VCT runtime: discovery, the device tick, and identification
 
 These four are the difference between "the instrument answers `*IDN?` but never appears" being a
