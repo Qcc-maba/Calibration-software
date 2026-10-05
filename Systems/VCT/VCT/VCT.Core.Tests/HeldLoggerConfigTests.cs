@@ -70,12 +70,14 @@ namespace Maba.VCT.Core.Tests
         public void ASensorsAssociationMergesIntoTheHeldConfiguration()
         {
             // SensorsAssociation carries channels only; the rate and interval from LoggerConfiguration stay.
+            // MBA-967: its channels are added to the held list, not substituted for it - one
+            // SensorsAssociation arrives per sensor, and substituting kept only the last sensor's.
             _settings.ApplyWebSocketConfig(Logger, "fast", "10", "01,03,05,06,07");
-            _settings.ApplyWebSocketConfig(Logger, null, null, "02,04");
+            _settings.AddWebSocketSensorChannels(Logger, "02,04");
 
             var summary = _settings.ApplyPendingWebSocketConfig("Hydra2", DateTime.UtcNow);
 
-            StringAssert.Contains(summary, "channels=[2,4]");
+            StringAssert.Contains(summary, "channels=[1,2,3,4,5,6,7]");
             StringAssert.Contains(summary, "interval=10");
             StringAssert.Contains(summary, "rate=FAST");
         }
