@@ -92,7 +92,11 @@ up. Read the one for the area before changing it.
 .\scripts\Build-Installer.ps1 -Version x.y.z         # app + server + Inno Setup installer
 ```
 MSBuild lives at `C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe`
-(.NET 4.8 projects will not build with `dotnet build`). The net10.0 services under `Systems/` do use
+(.NET 4.8 projects will not build with `dotnet build`). **`build.ps1` hardcodes that path and a
+project path on a former developer's machine**, so elsewhere run MSBuild on
+`Systems\VCT\ComServer\ComServer.Hosts.ConsoleHost\ComServer.Hosts.ConsoleHost.csproj` directly
+(Build Tools: `C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\MSBuild\Current\Bin\MSBuild.exe`).
+`VCT.Core.Tests` is SDK-style and does run under `dotnet test`. The net10.0 services under `Systems/` do use
 `dotnet build` / `dotnet test` normally.
 
 ### The order-attachments service (net10)

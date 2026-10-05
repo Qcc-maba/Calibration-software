@@ -52,7 +52,10 @@ namespace Maba.VCT.Core.Device.Sessions
             // Only answer when p.OK=True: Hydra sends "=>" first (p.OK=False), then "\r\n" (p.OK=True)
             if (LastRequest != null && p.OK && LastRequest.GetType() == typeof(Common.API.RemoteProtocolService.GetSetDateRequest))
             {
-                AnswerLastRequest(new GetSetDateResponse(p.OK));
+                // The packet travels with the answer: for TIME_DATE? it is the reply itself (the data
+                // line arrives before the "=>" prompt). Without it a caller reading the logger's clock
+                // got null and nothing to read (MBA-967).
+                AnswerLastRequest(new GetSetDateResponse(p.OK) { ResponsePacket = p });
                 return true;
             }
             return false;

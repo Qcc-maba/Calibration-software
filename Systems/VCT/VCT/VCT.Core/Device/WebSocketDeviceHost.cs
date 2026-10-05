@@ -120,8 +120,10 @@ namespace Maba.VCT.Core.Device
                                 settings.ResolveLiveFamilyKey(cfg.LoggerId),
                                 "LoggerConfiguration change from web app"));
                     }
+                    else if (HardwareBL_Settings.IsWebSocketConfigHeld(cfg.LoggerId))
+                        Libs.Trace.Tracer.Info("[WS->HW] LoggerConfiguration for '{0}': no logger identified yet; held, and applied when it is (MBA-967).", cfg.LoggerId);
                     else
-                        Libs.Trace.Tracer.Info("[WS->HW] LoggerConfiguration for '{0}': no matching family (local Masters) or nothing to apply; kept current settings.", cfg.LoggerId);
+                        Libs.Trace.Tracer.Info("[WS->HW] LoggerConfiguration for '{0}': nothing to apply; kept current settings.", cfg.LoggerId);
                 }
             }
 

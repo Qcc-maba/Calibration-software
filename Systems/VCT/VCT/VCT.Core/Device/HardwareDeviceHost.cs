@@ -400,6 +400,14 @@ namespace Maba.VCT.Core.Device
         /// whether a broadcast had happened, the device looked perfectly healthy, so DataTimeout
         /// never fired and the recovery that would have fixed it never ran.
         /// </para>
+        /// <para>
+        /// MBA-967: values alone cannot tell those two apart from a stable bath. A Hydra reads to
+        /// 0.1 °C, so a settled bath gives identical scans; on 2026-09-29 this fired three times in
+        /// one night while the logger's own scan time moved on by 30 s on every read, and each time
+        /// the recovery reset the logger and cost a 48 s gap in the data. Where the instrument
+        /// reports when it scanned, that time is part of the comparison: a new scan time is a new
+        /// measurement whatever its values, and a re-read log entry carries its old time.
+        /// </para>
         /// </summary>
         public DateTime? LastDistinctMeasurementUtc { get; private set; }
 
@@ -454,6 +462,36 @@ namespace Maba.VCT.Core.Device
         public string TakePendingReconfigureReason()
         {
             return System.Threading.Interlocked.Exchange(ref _pendingReconfigureReason, null);
+        }
+
+        /// <summary>
+        /// MBA-967: the operator's reconfiguration restarts the scan, so the watchdog's 60 s start again
+        /// from here instead of from the last reading before it. On the bench a Confirm at 14:50:27,
+        /// 23 s after a reading, put the first new reading at 14:51:07; the watchdog, still counting from
+        /// 14:50:04, fired "No data received for 60 seconds" at 14:51:04, and its power-cycle recovery
+        /// reset a healthy logger a second time - 100 s without data instead of about 40.
+        /// <para>
+        /// Called twice per reconfiguration: by <c>ServerCore.CheckDataTimeouts</c> when it takes the
+        /// re-init, and by the Hydra2 BL when its new polling loop starts, after the channel setup. The
+        /// setup takes about 2 s per channel and the first reading then waits up to ~28 s more, so with
+        /// 16-20 channels it lands 65-75 s after the first restart - past the 60 s on its own.
+        /// </para>
+        /// <para>
+        /// Only for a device that is currently fine. One already declared silent keeps its clock, so a
+        /// reconfiguration can neither hide a real fault nor announce a recovery that has not happened
+        /// (the watchdog would read a fresh timestamp as "data resumed"). "Never measured" stays null,
+        /// which the watchdog reads as idle, not silent. Power-cycle recovery does not come through here -
+        /// see <c>RecoveryDoesNotClearTheStallTimestamp</c>.
+        /// </para>
+        /// </summary>
+        /// <returns>True when the clock was restarted.</returns>
+        public bool RestartWatchdogClockForReconfiguration(DateTime nowUtc)
+        {
+            if (DataTimedOut || !LastMeasurementUtc.HasValue) return false;
+
+            LastMeasurementUtc = nowUtc;
+            if (LastDistinctMeasurementUtc.HasValue) LastDistinctMeasurementUtc = nowUtc;
+            return true;
         }
 
         /// <summary>
@@ -514,7 +552,13 @@ namespace Maba.VCT.Core.Device
             IncomingEvents(packet);
         }
 
-        public void BroadcastAllMeasurements(System.Collections.Generic.List<int> channels, System.Collections.Generic.List<double> values)
+        /// <param name="instrumentScanTime">The scan time as the instrument's own clock recorded it,
+        /// when it records one. Only compared, never shown: it tells a new scan from a re-read one
+        /// (see <see cref="LastDistinctMeasurementUtc"/>).</param>
+        /// <param name="measuredAt">When the reading was taken, in the PC's local time, for the
+        /// clients. Null sends the time of the broadcast, as before.</param>
+        public void BroadcastAllMeasurements(System.Collections.Generic.List<int> channels, System.Collections.Generic.List<double> values,
+                                             DateTime? instrumentScanTime = null, DateTime? measuredAt = null)
         {
             LastMeasurementUtc = DateTime.UtcNow;
             // Build multi-channel packet: E,SN,ch1,val1,ch2,val2,...
@@ -530,14 +574,19 @@ namespace Maba.VCT.Core.Device
             // The packet already is the reading, channel by channel, so it is the signature. Compared
             // before the broadcast, and the broadcast still happens either way: a repeated value is a
             // fault to be reported, not a reason to starve the screen of the last thing we know.
-            if (!string.Equals(rawPacket, _lastMeasurementSignature, StringComparison.Ordinal))
+            // The scan time joins the signature only when the instrument supplies one, so every other
+            // instrument is judged exactly as before.
+            var signature = instrumentScanTime.HasValue
+                ? rawPacket + "@" + instrumentScanTime.Value.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : rawPacket;
+            if (!string.Equals(signature, _lastMeasurementSignature, StringComparison.Ordinal))
             {
-                _lastMeasurementSignature = rawPacket;
+                _lastMeasurementSignature = signature;
                 LastDistinctMeasurementUtc = DateTime.UtcNow;
             }
 
             Libs.Trace.Tracer.Info("[BroadcastAllMeasurements] SN={0}, {1} channels, raw packet: {2}", SN, channels.Count, rawPacket);
-            var packet = new HardwarePacket(rawPacket, false);
+            var packet = new HardwarePacket(rawPacket, false) { MeasuredAt = measuredAt };
             IncomingEvents(packet);
         }
 

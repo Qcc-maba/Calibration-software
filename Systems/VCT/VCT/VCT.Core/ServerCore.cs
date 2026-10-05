@@ -261,7 +261,9 @@ namespace Maba.VCT.Core
                             channelData, parts.Length, parts.Length / 2);
                         if (parts.Length < 2 || parts.Length % 2 != 0) continue;
 
-                        string timeStr = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss");
+                        // MBA-967: a logger's reading carries its scan time; the app plots, tabulates
+                        // and exports by this field, so the send time made even scans look uneven.
+                        string timeStr = FormatLoggerDataTime((packet as HardwarePacket)?.MeasuredAt, DateTime.Now);
 
                         // Use association data from WebSocket client if available, otherwise fall back to device SN
                         var wsDeviceId = !string.IsNullOrEmpty(wsHost.AssociatedDeviceId) ? wsHost.AssociatedDeviceId : device.SN;
@@ -294,6 +296,16 @@ namespace Maba.VCT.Core
                     }
                 }
             });
+        }
+
+        /// <summary>
+        /// MBA-967: the <c>Time</c> field of a LoggerData line - the reading's own time when the device
+        /// supplied one, otherwise <paramref name="now"/>. Invariant culture because the app splits this
+        /// on '/', ' ' and ':' itself (parse-logger-data-message.ts), whatever the station's locale.
+        /// </summary>
+        internal static string FormatLoggerDataTime(DateTime? measuredAt, DateTime now)
+        {
+            return (measuredAt ?? now).ToString("MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
         }
 
         /// <summary>How long a scanning logger may go silent before a DataTimeout alert (MBA-485 AC5/AC6).</summary>
@@ -425,6 +437,9 @@ namespace Maba.VCT.Core
                     if (pendingReconfigureReason != null && device.IsConnected)
                     {
                         toRecover.Add((device, pendingReconfigureReason));
+                        // MBA-967: the re-init restarts the scan; the silence it causes is not a fault.
+                        // The Hydra2 BL restarts the clock again once its channel setup has finished.
+                        device.RestartWatchdogClockForReconfiguration(nowUtc);
                     }
 
                     switch (EvaluateDataWatchdog(device.IsConnected, device.WatchdogMeasurementUtc,
