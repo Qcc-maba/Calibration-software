@@ -265,30 +265,20 @@ namespace Maba.VCT.Core
                         // and exports by this field, so the send time made even scans look uneven.
                         string timeStr = FormatLoggerDataTime((packet as HardwarePacket)?.MeasuredAt, DateTime.Now);
 
-                        // Use association data from WebSocket client if available, otherwise fall back to device SN
-                        var wsDeviceId = !string.IsNullOrEmpty(wsHost.AssociatedDeviceId) ? wsHost.AssociatedDeviceId : device.SN;
-                        var wsLoggerId = !string.IsNullOrEmpty(wsHost.AssociatedLoggerId) ? wsHost.AssociatedLoggerId : device.SN;
-                        var wsBatchId = !string.IsNullOrEmpty(wsHost.AssociatedBatchId) ? wsHost.AssociatedBatchId : "LIVE";
-
+                        // Use association data from WebSocket client if available, otherwise fall back to device SN.
                         // An association from the app wins; otherwise fall back to what this
                         // instrument actually measures rather than assuming temperature.
-                        var wsUnits = !string.IsNullOrEmpty(wsHost.AssociatedUnits)
-                            ? wsHost.AssociatedUnits
-                            : HardwareBL_Settings.Read().DefaultUnitsForDeviceSN(device.SN);
-                        var wsResolution = !string.IsNullOrEmpty(wsHost.AssociatedResolution) ? wsHost.AssociatedResolution : "2";
+                        var defaults = new ChannelLabel(device.SN, device.SN, "LIVE",
+                            HardwareBL_Settings.Read().DefaultUnitsForDeviceSN(device.SN), "2");
+                        var fallback = new ChannelLabel(wsHost.AssociatedDeviceId, wsHost.AssociatedLoggerId,
+                            wsHost.AssociatedBatchId, wsHost.AssociatedUnits, wsHost.AssociatedResolution);
 
-                        var sb = new System.Text.StringBuilder();
-                        sb.AppendFormat("CMD:\"LoggerData\", DeviceID:\"{0}\", LoggerID:\"{1}\", BatchID:\"{2}\", Time:\"{3}\", Units:\"{4}\", Resolution:\"{5}\"",
-                            wsDeviceId, wsLoggerId, wsBatchId, timeStr, wsUnits, wsResolution);
-
-                        for (int i = 0; i + 1 < parts.Length; i += 2)
+                        // MBA-967: one line per sensor, each labelled with its own association.
+                        foreach (var wsMessage in BuildLoggerDataLines(parts, wsHost.ChannelLabels, fallback, defaults, timeStr))
                         {
-                            sb.AppendFormat(", Channel:\"{0}\", Value:\"{1}\"", parts[i], parts[i + 1]);
+                            com.SendString(wsMessage);
+                            Libs.Trace.Tracer.Info("[WS TX] {0}", wsMessage);
                         }
-
-                        var wsMessage = sb.ToString();
-                        com.SendString(wsMessage);
-                        Libs.Trace.Tracer.Info("[WS TX] {0}", wsMessage);
                     }
                     catch (Exception ex)
                     {
@@ -296,6 +286,65 @@ namespace Maba.VCT.Core
                     }
                 }
             });
+        }
+
+        /// <summary>
+        /// MBA-967: builds the LoggerData lines for one reading, one line per distinct label.
+        ///
+        /// With several sensors on one logger every line used to carry the last SensorsAssociation's
+        /// DeviceID/BatchID/Units - sensor A on 1-3 and B on 4-6 sent all six readings as B's. Each
+        /// channel's pair now goes in the line of the association that named it; channels no
+        /// association named go together under <paramref name="fallback"/> (the client's last
+        /// association), exactly as every channel did before. Groups whose labels resolve to the same
+        /// fields share one line, so with no per-channel labels - or one sensor on every channel - the
+        /// output is the single line it always was, byte for byte. Groups are in the order their first
+        /// channel appears in the reading; channels keep the reading's order; every line has the same
+        /// Time. The line format is the one the app parses field by field - do not change it.
+        /// </summary>
+        /// <param name="parts">The reading's channel,value,channel,value,... tokens; an even count.</param>
+        /// <param name="labels">Per-channel labels (<see cref="WebSocketDeviceHost.ChannelLabels"/>); may be null.</param>
+        /// <param name="fallback">The label for unlabelled channels; empty fields take <paramref name="defaults"/>.</param>
+        /// <param name="defaults">Per-field values used wherever a label leaves a field empty.</param>
+        /// <param name="timeStr">The formatted Time field (<see cref="FormatLoggerDataTime"/>).</param>
+        internal static List<string> BuildLoggerDataLines(IList<string> parts,
+                                                          IReadOnlyDictionary<int, ChannelLabel> labels,
+                                                          ChannelLabel fallback, ChannelLabel defaults, string timeStr)
+        {
+            var groupIndex = new Dictionary<ChannelLabel, int>();
+            var lines = new List<System.Text.StringBuilder>();
+
+            for (int i = 0; i + 1 < parts.Count; i += 2)
+            {
+                ChannelLabel label = null;
+                if (labels != null && int.TryParse((parts[i] ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ch))
+                    labels.TryGetValue(ch, out label);
+
+                var resolved = Resolve(label ?? fallback, defaults);
+                if (!groupIndex.TryGetValue(resolved, out var g))
+                {
+                    var header = new System.Text.StringBuilder();
+                    header.AppendFormat("CMD:\"LoggerData\", DeviceID:\"{0}\", LoggerID:\"{1}\", BatchID:\"{2}\", Time:\"{3}\", Units:\"{4}\", Resolution:\"{5}\"",
+                        resolved.DeviceId, resolved.LoggerId, resolved.BatchId, timeStr, resolved.Units, resolved.Resolution);
+                    g = lines.Count;
+                    lines.Add(header);
+                    groupIndex[resolved] = g;
+                }
+                lines[g].AppendFormat(", Channel:\"{0}\", Value:\"{1}\"", parts[i], parts[i + 1]);
+            }
+
+            return lines.Select(sb => sb.ToString()).ToList();
+        }
+
+        /// <summary>Each field of <paramref name="label"/>, or of <paramref name="defaults"/> where it is empty.</summary>
+        private static ChannelLabel Resolve(ChannelLabel label, ChannelLabel defaults)
+        {
+            string Pick(string own, string dflt) => !string.IsNullOrEmpty(own) ? own : dflt;
+            return new ChannelLabel(
+                Pick(label?.DeviceId, defaults?.DeviceId),
+                Pick(label?.LoggerId, defaults?.LoggerId),
+                Pick(label?.BatchId, defaults?.BatchId),
+                Pick(label?.Units, defaults?.Units),
+                Pick(label?.Resolution, defaults?.Resolution));
         }
 
         /// <summary>

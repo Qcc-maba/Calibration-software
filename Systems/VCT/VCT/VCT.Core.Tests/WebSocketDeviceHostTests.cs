@@ -958,6 +958,8 @@ namespace Maba.VCT.Core.Tests
         [TestMethod]
         public void SensorsAssociation_GenuineChannelChange_FiresLiveHardwareReconfigured()
         {
+            // MBA-967: with no LoggerConfiguration on this connection the association replaces the list,
+            // as before #21, so narrowing the default 1-20 to 1,3,5 is a genuine change.
             Maba.VCT.CommServer.BL.HydraDevices.Settings.HardwareBL_Settings.RegisterActiveFamily("Hydra2");
             LiveHardwareReconfiguredEventArgs fired = null;
             _bus.LiveHardwareReconfigured += (s, e) => fired = e;

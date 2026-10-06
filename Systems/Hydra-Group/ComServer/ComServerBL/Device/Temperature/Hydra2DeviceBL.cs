@@ -101,6 +101,14 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// <summary>When the logger's clock was last read (UTC), successfully or not.</summary>
         private DateTime? _loggerClockReadUtc;
 
+        /// <summary>
+        /// MBA-967: whether that last read gave a usable clock. A failed one is retried at the next poll
+        /// rather than in <see cref="LoggerClockRefreshInterval"/>: until it succeeds every reading goes
+        /// out with the send time, up to half a minute late. On the bench on 2026-10-06 one garbled reply
+        /// left a run on the send time for ten minutes.
+        /// </summary>
+        private bool _loggerClockReadSucceeded;
+
         /// <summary>How often the offset is re-read during a run, so a drifting logger clock cannot accumulate.</summary>
         internal static readonly TimeSpan LoggerClockRefreshInterval = TimeSpan.FromMinutes(10);
 
@@ -160,6 +168,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             // batch interrupted by the reset is never going to finish.
             _loggerClockOffset = null;
             _loggerClockReadUtc = null;
+            _loggerClockReadSucceeded = false;
             _lastBroadcastScanTime = null;
             lock (_logLock)
             {
@@ -294,6 +303,15 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         #region private methods :: StateMachines
 
         #region Init system
+
+        // MBA-967: every setup step waits for the logger's reply before the next command goes out
+        // (Wait4Work, moved on by AdvanceWhenAnswered). Each step used to return Skip2NextStep straight
+        // after queuing its command, so the 500 ms device timer was all that kept two commands apart.
+        // A request is queued on a pool thread, so when the pool is busy - the 30 s instrument rediscovery
+        // on 2026-10-06 - a command is queued late and goes out in the same tick as the next one:
+        // PRINT_TYPE + DATE, PRINT + TIME and TIME_DATE? + RATE 0 went out 1-2 ms apart. RATE 0 landed
+        // while the logger was still answering TIME_DATE?, the reply came back as '11,5,0,10,6,26?>',
+        // and the run fell back to send-time stamps.
         private CommonBL.SingleState.StepWorkResponses StateWork__InitSystem(CommonBL.SingleState singleState)
         {
             var req = new InitSystemRequest();
@@ -302,75 +320,58 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             {
                 case 0:
                     req.Packet = Common.HydraProtocolHelper.Build_ResetPacket(true);
-                    HW_Device.Reset(req,
-                         res =>
-                         {
-                             if (res.Result)
-                             {
-                                 //StateMachine_InitSystem.NextStep();
-                             }
-                             else
-                             {
-                                 throw new Exception();
-                             }
-                         });
-                    return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
+                    HW_Device.Reset(req, AdvanceWhenAnswered(singleState, "*RST"));
+                    return CommonBL.SingleState.StepWorkResponses.Wait4Work;
                 case 1:
                     req.Packet = Common.HydraProtocolHelper.Build_SetFormatPacket();
-                    HW_Device.Format(req,
-                         res =>
-                         {
-                             if (res.Result)
-                             {
-                                 //StateMachine_InitSystem.NextStep();
-                             }
-                             else
-                             {
-                                 throw new Exception();
-                             }
-                         });
-
-                    return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
+                    HW_Device.Format(req, AdvanceWhenAnswered(singleState, "FORMAT"));
+                    return CommonBL.SingleState.StepWorkResponses.Wait4Work;
                 case 2:
                     req.Packet = Common.HydraProtocolHelper.Build_PrintTypePacket();
-                    HW_Device.PrintType(req, res =>
-                    {
-                        if (res.Result)
-                        {
-                            //StateMachine_InitSystem.NextStep();
-                        }
-                        else
-                        {
-                            throw new Exception();
-                        }
-                    });
-                    return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
+                    HW_Device.PrintType(req, AdvanceWhenAnswered(singleState, "PRINT_TYPE"));
+                    return CommonBL.SingleState.StepWorkResponses.Wait4Work;
                 case 3:
                     req.Packet = Common.HydraProtocolHelper.Build_PrintPacket();
-                    HW_Device.Print(req, res =>
-                    {
-                        if (res.Result)
-                        {
-                            //StateMachine_InitSystem.NextStep();
-                        }
-                        else
-                        {
-                            throw new Exception();
-                        }
-                    });
-                    return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
+                    HW_Device.Print(req, AdvanceWhenAnswered(singleState, "PRINT"));
+                    return CommonBL.SingleState.StepWorkResponses.Wait4Work;
             }
             return CommonBL.SingleState.StepWorkResponses.StateFinished;
+        }
+
+        /// <summary>
+        /// MBA-967: the reply callback for one setup command. It moves the state on from the step that
+        /// sent the command, once, when the logger answers.
+        /// <para>
+        /// A failed or expired reply moves it on too, and is logged: the init never stopped on one before
+        /// (each step moved on without looking at the reply, and the callbacks' throws stopped nothing),
+        /// and a step that gets no reply at all still moves on at the state's timeout. A reply from before
+        /// a re-init, or one that arrives after its step timed out, moves nothing.
+        /// </para>
+        /// </summary>
+        internal Action<Common.API.BaseResponse> AdvanceWhenAnswered(CommonBL.SingleState state, string command)
+        {
+            var step = state.CurrentStep;
+            var generation = System.Threading.Volatile.Read(ref _pollGeneration);
+            return res =>
+            {
+                if (res == null || !res.Result)
+                {
+                    Libs.Trace.Tracer.Info("[HYDRA Init] {0} was not acknowledged{1}; carrying on with the setup",
+                        command, res != null && res.Expired ? " (no reply in time)" : "");
+                }
+                if (System.Threading.Volatile.Read(ref _pollGeneration) != generation) return;
+                state.NextStepFrom(step);
+            };
         }
 
         #endregion
 
         #region Date & Time Sync
 
-        // Each step returns Skip2NextStep and nothing else advances the state. The callbacks used to
-        // call NextStep() as well, so the DATE reply moved the state on a second time and step 2 -
-        // the TIME_DATE? read - was skipped on every init: the station logs show DATE, TIME, RATE and
-        // never a TIME_DATE? (MBA-967). The other states already had those calls commented out.
+        // Each step waits for its reply (see StateWork__InitSystem), and the reply is the only thing that
+        // moves the state on. The callbacks used to call NextStep() while the step also returned
+        // Skip2NextStep, so the DATE reply moved the state on a second time and step 2 - the TIME_DATE?
+        // read - was skipped on every init (MBA-967).
         private CommonBL.SingleState.StepWorkResponses StateWork__Date_Sync(CommonBL.SingleState singleState)
         {
             var request = new GetSetDateRequest();
@@ -378,31 +379,16 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             {
                 case 0:
                     request.Packet = HydraProtocolHelper.Build_SetDatePacket();
-                    this.HW_Device.SetDate(request,
-                        res =>
-                        {
-                            if (!res.Result)
-                            {
-                                throw new Exception();
-                            }
-                        });
-                    return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
+                    this.HW_Device.SetDate(request, AdvanceWhenAnswered(singleState, "DATE"));
+                    return CommonBL.SingleState.StepWorkResponses.Wait4Work;
                 case 1:
-                    request = new GetSetDateRequest();
                     request.Packet = HydraProtocolHelper.Build_SetTimePacket();
-                    this.HW_Device.SetTime(request,
-                        res =>
-                        {
-                            if (!res.Result)
-                            {
-                                throw new Exception();
-                            }
-                        });
-
-                    return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
+                    this.HW_Device.SetTime(request, AdvanceWhenAnswered(singleState, "TIME"));
+                    return CommonBL.SingleState.StepWorkResponses.Wait4Work;
                 case 2:
-                    ReadLoggerClock();
-                    return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
+                    var advance = AdvanceWhenAnswered(singleState, "TIME_DATE?");
+                    ReadLoggerClock(res => advance(res));
+                    return CommonBL.SingleState.StepWorkResponses.Wait4Work;
             }
             return CommonBL.SingleState.StepWorkResponses.StateFinished;
         }
@@ -412,12 +398,16 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// PC's. A failed read only costs accuracy - readings go out with the send time, as before - so
         /// it never stops the init, unlike the old check here, which threw.
         /// </summary>
-        private void ReadLoggerClock()
+        private void ReadLoggerClock(Action<GetSetDateResponse> then = null)
         {
             _loggerClockReadUtc = DateTime.UtcNow;
             var request = new GetSetDateRequest();
             request.Packet = HydraProtocolHelper.Build_GetFullDate();
-            this.HW_Device.GetFullDate(request, OnLoggerClockRead);
+            this.HW_Device.GetFullDate(request, res =>
+            {
+                OnLoggerClockRead(res);
+                then?.Invoke(res);
+            });
         }
 
         private void OnLoggerClockRead(GetSetDateResponse res)
@@ -427,11 +417,13 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
             if (!HydraProtocolHelper.TryBuildDateFromData(reply, out var loggerClock))
             {
-                Libs.Trace.Tracer.Info("[HYDRA Clock] Could not read the logger clock (reply '{0}'); keeping offset {1}",
+                _loggerClockReadSucceeded = false;
+                Libs.Trace.Tracer.Info("[HYDRA Clock] Could not read the logger clock (reply '{0}'); keeping offset {1}; reading it again at the next poll",
                     reply, _loggerClockOffset.HasValue ? _loggerClockOffset.Value.TotalSeconds.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + "s" : "none - readings use the send time");
                 return;
             }
 
+            _loggerClockReadSucceeded = true;
             var measured = MeasureLoggerClockOffset(pcNow, loggerClock);
             var adopted = ChooseLoggerClockOffset(_loggerClockOffset, measured);
             _loggerClockOffset = adopted;
@@ -477,9 +469,13 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             return loggerScanTime.AddMilliseconds(500) + loggerClockOffset.Value;
         }
 
-        internal static bool LoggerClockDue(DateTime? lastReadUtc, DateTime nowUtc)
+        /// <summary>
+        /// Whether to read the logger's clock at this poll: it was never read, the last read failed, or
+        /// <see cref="LoggerClockRefreshInterval"/> has passed since then.
+        /// </summary>
+        internal static bool LoggerClockDue(DateTime? lastReadUtc, bool lastReadSucceeded, DateTime nowUtc)
         {
-            return !lastReadUtc.HasValue || nowUtc - lastReadUtc.Value >= LoggerClockRefreshInterval;
+            return !lastReadUtc.HasValue || !lastReadSucceeded || nowUtc - lastReadUtc.Value >= LoggerClockRefreshInterval;
         }
 
         #endregion
@@ -493,37 +489,13 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 case 0:
                     var req = new RateRequest();
                     req.Packet = HydraProtocolHelper.Build_SetRatePacket(settings.Hydra2type.MeasurementRate);
-                    HW_Device.Rate(req,
-                         res =>
-                         {
-                             if (res.Result)
-                             {
-                                 //StateMachine_Rate.NextStep();
-                             }
-                             else
-                             {
-                                 throw new Exception();
-                             }
-                         });
-
-                    return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
+                    HW_Device.Rate(req, AdvanceWhenAnswered(singleState, "RATE"));
+                    return CommonBL.SingleState.StepWorkResponses.Wait4Work;
                 case 1:
                     var req1 = new RateRequest(settings.Hydra2type.Interval);
                     req1.Packet = HydraProtocolHelper.Build_SetIntervalPacket(req1);
-                    HW_Device.SetInterval(req1,
-                         res =>
-                         {
-                             if (res.Result)
-                             {
-                                 //StateMachine_Rate.NextStep();
-                             }
-                             else
-                             {
-                                 throw new Exception();
-                             }
-                         });
-
-                    return CommonBL.SingleState.StepWorkResponses.Skip2NextStep;
+                    HW_Device.SetInterval(req1, AdvanceWhenAnswered(singleState, "INTVL"));
+                    return CommonBL.SingleState.StepWorkResponses.Wait4Work;
             }
 
             return CommonBL.SingleState.StepWorkResponses.StateFinished;
@@ -635,7 +607,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                         {
                             // The line is quiet now until the next poll, so this is where the logger's
                             // clock is re-read; its reply is back long before the poll goes out.
-                            if (LoggerClockDue(_loggerClockReadUtc, DateTime.UtcNow))
+                            if (LoggerClockDue(_loggerClockReadUtc, _loggerClockReadSucceeded, DateTime.UtcNow))
                             {
                                 ReadLoggerClock();
                             }

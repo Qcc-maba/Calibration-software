@@ -509,8 +509,10 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         /// Parses a channel list into a distinct, ordered set. Accepts the web app's format
         /// (space-separated with ranges, e.g. "0-10 11 20-23" or "1-5") as well as comma-separated
         /// (e.g. the DB ChannelList "0,1,2"). Ranges "a-b" are expanded inclusively.
+        /// Public because the WebSocket host labels readings per channel from the same BatchChannels
+        /// text (MBA-967), and two parsers of one field would sooner or later disagree on a channel.
         /// </summary>
-        private static List<int> ParseChannels(string spec)
+        public static List<int> ParseChannels(string spec)
         {
             var set = new SortedSet<int>();
             if (!string.IsNullOrWhiteSpace(spec))
@@ -538,6 +540,14 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             return set.ToList();
         }
 
+        /// <summary>MBA-967: the distinct, ascending union of two channel lists.</summary>
+        private static List<int> UnionChannels(IEnumerable<int> current, IEnumerable<int> added)
+        {
+            var set = new SortedSet<int>(current ?? Enumerable.Empty<int>());
+            set.UnionWith(added ?? Enumerable.Empty<int>());
+            return set.ToList();
+        }
+
         /// <summary>
         /// MBA-485: applies a logger configuration pushed by the web app over WebSocket
         /// (CMD:"LoggerConfiguration") to the in-memory per-family settings, so the BL drives the
@@ -547,6 +557,26 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         /// Mutates in place (the BL holds the same instance), so it takes effect on the next scan setup.
         /// </summary>
         public string ApplyWebSocketConfig(string loggerId, string rate, string interval, string channelsCsv)
+        {
+            return ApplyWebSocketConfig(loggerId, rate, interval, channelsCsv, addChannels: false);
+        }
+
+        /// <summary>
+        /// MBA-967: applies the channels of one sensor (CMD:"SensorsAssociation") by ADDING them to the
+        /// logger's channel list instead of replacing it. One Confirm sends LoggerConfiguration with
+        /// every channel of the logger and then one SensorsAssociation per sensor, each carrying only
+        /// that sensor's channels. When each of those replaced the list, sensor A on 1-3 and sensor B
+        /// on 4-6 left the logger scanning 4-6 only - A's channels were never measured. The list is
+        /// set by LoggerConfiguration; a sensor can only add to it. A sensor whose channels are all
+        /// present already changes nothing and returns null, so it never triggers a re-init.
+        /// Held (unidentified-logger) configurations get the same union.
+        /// </summary>
+        public string AddWebSocketSensorChannels(string loggerId, string channelsCsv)
+        {
+            return ApplyWebSocketConfig(loggerId, null, null, channelsCsv, addChannels: true);
+        }
+
+        private string ApplyWebSocketConfig(string loggerId, string rate, string interval, string channelsCsv, bool addChannels)
         {
             if (string.IsNullOrWhiteSpace(loggerId)) return null;
             var id = loggerId.Trim();
@@ -595,18 +625,18 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
 
             if (target == null)
             {
-                HoldPendingWebSocketConfig(id, rate, interval, channelsCsv, DateTime.UtcNow);
+                HoldPendingWebSocketConfig(id, rate, interval, channelsCsv, DateTime.UtcNow, addChannels);
                 return null;
             }
 
             // A routed message supersedes anything held for this logger from before it was identified.
             ClearPendingWebSocketConfig(id);
 
-            return ApplyTo(target, targetName, id, rate, interval, channelsCsv);
+            return ApplyTo(target, targetName, id, rate, interval, channelsCsv, addChannels);
         }
 
         private static string ApplyTo(HardwareBL_DeviceType target, string targetName, string id,
-                                      string rate, string interval, string channelsCsv)
+                                      string rate, string interval, string channelsCsv, bool addChannels = false)
         {
             /*  MBA-974: only report a field as applied when it actually differs from what target
                 already holds. Before this, resending the same rate/interval/channels (e.g. the app
@@ -622,6 +652,14 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             if (int.TryParse((interval ?? "").Trim(), out var iv) && iv > 0 && target.Interval != iv) { target.Interval = iv; applied.Add("interval=" + iv); }
 
             var chans = ParseChannels(channelsCsv);
+            // MBA-967: a sensor's channels join the list (see AddWebSocketSensorChannels). Checked as
+            // containment first, so channels already present change nothing even when the current
+            // list is not in ascending order (a hand-written settings file need not be).
+            if (addChannels && chans.Count > 0)
+            {
+                var current = target.Channels ?? new List<int>();
+                chans = chans.All(current.Contains) ? new List<int>() : UnionChannels(current, chans);
+            }
             if (chans.Count > 0 && !chans.SequenceEqual(target.Channels ?? new List<int>()))
             {
                 target.Channels = chans;
@@ -672,7 +710,13 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         /// <summary>How long a held configuration waits for a logger to be identified.</summary>
         public static readonly TimeSpan PendingConfigLifetime = TimeSpan.FromMinutes(5);
 
-        internal static void HoldPendingWebSocketConfig(string loggerId, string rate, string interval, string channelsCsv, DateTime nowUtc)
+        /// <param name="addChannels">
+        /// MBA-967: true for a SensorsAssociation - its channels join the held list rather than
+        /// replace it, for the same reason as on a live logger (sensor A on 1-3, then B on 4-6, must
+        /// leave 1-6 held, not 4-6).
+        /// </param>
+        internal static void HoldPendingWebSocketConfig(string loggerId, string rate, string interval, string channelsCsv, DateTime nowUtc,
+                                                        bool addChannels = false)
         {
             lock (_activeFamiliesLock)
             {
@@ -684,7 +728,12 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
                 // Merge: SensorsAssociation carries channels only, LoggerConfiguration all three.
                 if (!string.IsNullOrWhiteSpace(rate)) p.Rate = rate;
                 if (!string.IsNullOrWhiteSpace(interval)) p.Interval = interval;
-                if (!string.IsNullOrWhiteSpace(channelsCsv)) p.Channels = channelsCsv;
+                if (!string.IsNullOrWhiteSpace(channelsCsv))
+                {
+                    p.Channels = addChannels && !string.IsNullOrWhiteSpace(p.Channels)
+                        ? string.Join(",", UnionChannels(ParseChannels(p.Channels), ParseChannels(channelsCsv)))
+                        : channelsCsv;
+                }
                 p.ReceivedUtc = nowUtc;
                 _pendingConfigs[loggerId] = p;
             }

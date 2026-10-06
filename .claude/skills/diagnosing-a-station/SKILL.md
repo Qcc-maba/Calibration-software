@@ -98,6 +98,10 @@ prints what the log says inside each gap (see the `local-scripts` skill).
 - **A 1–2 s wobble is the polling**, not the logger, on builds before MBA-967. From MBA-967 on the
   time is the logger's scan time plus a measured offset, so a wobble there is worth a look. Check the
   `[HYDRA Clock]` lines for the offset it used.
+- **Readings stamped with the send time** (`Broadcasting … scan … logger / send time PC`): the clock
+  read failed - look for `[HYDRA Clock] Could not read the logger clock`. If the setup commands around
+  it (`PACKET <TX>`) went out in pairs a few ms apart, it is the init race fixed in MBA-967 (each command
+  now waits for its reply). From that fix on, the read is retried at the next poll.
 
 ## 6. Say what you measured, not what you infer
 

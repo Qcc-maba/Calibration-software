@@ -52,6 +52,52 @@ namespace Maba.VCT.Core.Device
         public string AssociatedUnits { get; set; }
         public string AssociatedResolution { get; set; }
 
+        /*  MBA-967: several sensors on one logger. One Confirm sends a SensorsAssociation per sensor,
+            each naming only that sensor's channels. The Associated* fields above hold ONE association
+            and every LoggerData line was stamped with it, so with sensor A on 1-3 and B on 4-6 every
+            reading - A's included - was labelled as B's. Each channel now keeps the association that
+            named it; Associated* stays as the last association, for channels no association named.
+
+            Written on the WebSocket receive thread, read on the broadcast path: the map is never
+            mutated once published. A writer copies it under _channelLabelsLock and swaps the
+            reference, so a reader holds a consistent snapshot without taking any lock.  */
+        private readonly object _channelLabelsLock = new object();
+        private volatile IReadOnlyDictionary<int, ChannelLabel> _channelLabels = new Dictionary<int, ChannelLabel>();
+
+        /*  MBA-967 (review of #21): the loggers this connection has sent a LoggerConfiguration for.
+            "A SensorsAssociation adds its channels" is only right when a full channel list came first -
+            the logger dialog's Confirm and the calibration graph's saved-setup re-send both do that. A
+            client that sends a SensorsAssociation alone (the graph's fallback when the dialog was never
+            confirmed, the /websocket-test page) relied on it REPLACING the list: with only adding, the
+            default 1-20 could never be narrowed to 1,3,5, and moving from a device on 1-3 to one on 4-6
+            left 1-3 scanned and still labelled with the old device. Per connection, like the labels. */
+        private readonly object _configuredLoggersLock = new object();
+        private readonly HashSet<string> _configuredLoggers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// MBA-967: whether this connection has sent a LoggerConfiguration for <paramref name="loggerId"/>,
+        /// which decides whether its SensorsAssociations add channels or replace the list.
+        /// </summary>
+        public bool HasConfiguredLogger(string loggerId)
+        {
+            var id = (loggerId ?? "").Trim();
+            if (id.Length == 0) return false;
+            lock (_configuredLoggersLock) { return _configuredLoggers.Contains(id); }
+        }
+
+        private void MarkLoggerConfigured(string loggerId)
+        {
+            var id = (loggerId ?? "").Trim();
+            if (id.Length == 0) return;
+            lock (_configuredLoggersLock) { _configuredLoggers.Add(id); }
+        }
+
+        /// <summary>
+        /// MBA-967: the association each channel was named in, by channel number. A snapshot - never
+        /// modified after it is returned. Channels absent from it use the Associated* fields.
+        /// </summary>
+        public IReadOnlyDictionary<int, ChannelLabel> ChannelLabels => _channelLabels;
+
         #endregion
 
         #region Ctor
@@ -88,7 +134,27 @@ namespace Maba.VCT.Core.Device
                 if (!string.IsNullOrEmpty(association.BatchChannels))
                 {
                     var settings = HardwareBL_Settings.Read();
-                    var summary = settings.ApplyWebSocketConfig(association.LoggerId, null, null, association.BatchChannels);
+                    string summary;
+                    if (HasConfiguredLogger(association.LoggerId))
+                    {
+                        // MBA-967: a full channel list came first, so this sensor's channels are added to
+                        // it, not replacing it - with one SensorsAssociation per sensor, replacing left
+                        // only the last sensor's channels scanned.
+                        summary = settings.AddWebSocketSensorChannels(association.LoggerId, association.BatchChannels);
+                    }
+                    else
+                    {
+                        // No full list on this connection: the association IS the channel list, as before
+                        // #21. It replaces the list and the logger's labels, so the scan narrows and a
+                        // device no longer calibrated stops being recorded (see _configuredLoggers).
+                        ClearChannelLabels(association.LoggerId, association.BatchChannels);
+                        summary = settings.ApplyWebSocketConfig(association.LoggerId, null, null, association.BatchChannels);
+                    }
+
+                    // MBA-967: these channels are this sensor's - label their readings with it.
+                    LabelChannels(association.BatchChannels, new ChannelLabel(
+                        AssociatedDeviceId, AssociatedLoggerId, AssociatedBatchId, AssociatedUnits, AssociatedResolution));
+
                     if (summary != null)
                     {
                         Libs.Trace.Tracer.Info("[WS->HW] Applied channels from SensorsAssociation: {0}", summary);
@@ -110,6 +176,12 @@ namespace Maba.VCT.Core.Device
                 var settings = HardwareBL_Settings.Read();
                 foreach (var cfg in loggerConfig.Loggers)
                 {
+                    // MBA-967: a Confirm starts fresh. Its LoggerConfiguration arrives before its
+                    // SensorsAssociations, so a sensor removed in the dialog must not keep labelling
+                    // its old channels.
+                    ClearChannelLabels(cfg.LoggerId, cfg.BatchChannels);
+                    MarkLoggerConfigured(cfg.LoggerId);
+
                     var summary = settings.ApplyWebSocketConfig(cfg.LoggerId, cfg.Rate, cfg.Interval, cfg.BatchChannels);
                     if (summary != null)
                     {
@@ -129,6 +201,43 @@ namespace Maba.VCT.Core.Device
 
             var p = new Events.DeviceEventArgs(this, e.P);
             MainEventsBus.Fire_OnIncomingEvent(this, p);
+        }
+
+        /// <summary>MBA-967: labels every channel in <paramref name="batchChannels"/> with <paramref name="label"/>.</summary>
+        private void LabelChannels(string batchChannels, ChannelLabel label)
+        {
+            var channels = HardwareBL_Settings.ParseChannels(batchChannels);
+            if (channels.Count == 0) return;
+
+            lock (_channelLabelsLock)
+            {
+                var next = new Dictionary<int, ChannelLabel>(_channelLabels.Count + channels.Count);
+                foreach (var kv in _channelLabels) next[kv.Key] = kv.Value;
+                foreach (var ch in channels) next[ch] = label;
+                _channelLabels = next;
+            }
+        }
+
+        /// <summary>
+        /// MBA-967: drops the labels of logger <paramref name="loggerId"/> - every channel an
+        /// association for that logger named, and every channel the configuration lists.
+        /// </summary>
+        private void ClearChannelLabels(string loggerId, string batchChannels)
+        {
+            var id = (loggerId ?? "").Trim();
+            var channels = new HashSet<int>(HardwareBL_Settings.ParseChannels(batchChannels));
+
+            lock (_channelLabelsLock)
+            {
+                var next = new Dictionary<int, ChannelLabel>();
+                foreach (var kv in _channelLabels)
+                {
+                    var sameLogger = id.Length > 0 &&
+                        string.Equals((kv.Value.LoggerId ?? "").Trim(), id, StringComparison.OrdinalIgnoreCase);
+                    if (!sameLogger && !channels.Contains(kv.Key)) next[kv.Key] = kv.Value;
+                }
+                if (next.Count != _channelLabels.Count) _channelLabels = next;
+            }
         }
 
 
@@ -252,6 +361,55 @@ namespace Maba.VCT.Core.Device
                 BL.OnTimer();
             }
             // WebSocket RX is driven by WebSocketCom.RunReceiveLoopAsync (ServerCore); do not poll Receive here.
+        }
+    }
+
+    /// <summary>
+    /// MBA-967: what one SensorsAssociation said about its channels - the fields a LoggerData line
+    /// carries for them. Immutable, and equal by value, so readings whose labels are equal travel
+    /// in one line (<see cref="ServerCore.BuildLoggerDataLines"/>).
+    /// </summary>
+    public sealed class ChannelLabel : IEquatable<ChannelLabel>
+    {
+        public ChannelLabel(string deviceId, string loggerId, string batchId, string units, string resolution)
+        {
+            DeviceId = deviceId;
+            LoggerId = loggerId;
+            BatchId = batchId;
+            Units = units;
+            Resolution = resolution;
+        }
+
+        public string DeviceId { get; }
+        public string LoggerId { get; }
+        public string BatchId { get; }
+        public string Units { get; }
+        public string Resolution { get; }
+
+        public bool Equals(ChannelLabel other)
+        {
+            return other != null
+                && string.Equals(DeviceId, other.DeviceId, StringComparison.Ordinal)
+                && string.Equals(LoggerId, other.LoggerId, StringComparison.Ordinal)
+                && string.Equals(BatchId, other.BatchId, StringComparison.Ordinal)
+                && string.Equals(Units, other.Units, StringComparison.Ordinal)
+                && string.Equals(Resolution, other.Resolution, StringComparison.Ordinal);
+        }
+
+        public override bool Equals(object obj) => Equals(obj as ChannelLabel);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var h = 17;
+                h = h * 31 + (DeviceId?.GetHashCode() ?? 0);
+                h = h * 31 + (LoggerId?.GetHashCode() ?? 0);
+                h = h * 31 + (BatchId?.GetHashCode() ?? 0);
+                h = h * 31 + (Units?.GetHashCode() ?? 0);
+                h = h * 31 + (Resolution?.GetHashCode() ?? 0);
+                return h;
+            }
         }
     }
 }
