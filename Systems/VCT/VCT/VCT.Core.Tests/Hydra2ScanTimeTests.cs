@@ -225,9 +225,18 @@ namespace Maba.VCT.Core.Tests
         {
             var now = new DateTime(2026, 9, 29, 22, 0, 0, DateTimeKind.Utc);
 
-            Assert.IsTrue(Hydra2DeviceBL.LoggerClockDue(null, now));
-            Assert.IsFalse(Hydra2DeviceBL.LoggerClockDue(now.AddMinutes(-9), now));
-            Assert.IsTrue(Hydra2DeviceBL.LoggerClockDue(now.AddMinutes(-10), now));
+            Assert.IsTrue(Hydra2DeviceBL.LoggerClockDue(null, false, now));
+            Assert.IsFalse(Hydra2DeviceBL.LoggerClockDue(now.AddMinutes(-9), true, now));
+            Assert.IsTrue(Hydra2DeviceBL.LoggerClockDue(now.AddMinutes(-10), true, now));
+        }
+
+        [TestMethod]
+        public void AFailedClockReadIsRetriedAtTheNextPoll()
+        {
+            // On the bench one garbled reply left the run on send-time stamps for the full ten minutes.
+            var now = new DateTime(2026, 10, 6, 11, 6, 10, DateTimeKind.Utc);
+
+            Assert.IsTrue(Hydra2DeviceBL.LoggerClockDue(now.AddSeconds(-30), false, now));
         }
 
         [TestMethod]
@@ -351,7 +360,7 @@ namespace Maba.VCT.Core.Tests
                 var state = new SingleState(Hydra2DeviceBL.STATE_MACHINE__Date_Sync) { CurrentStep = 2 };
                 var result = po.Invoke("StateWork__Date_Sync", state);
 
-                Assert.AreEqual(SingleState.StepWorkResponses.Skip2NextStep, result);
+                Assert.AreEqual(SingleState.StepWorkResponses.Wait4Work, result, "the next command waits for the clock reply");
                 Assert.IsNotNull(po.GetField("_loggerClockReadUtc"));
 
                 state.CurrentStep = 3;
@@ -383,6 +392,177 @@ namespace Maba.VCT.Core.Tests
             {
                 HardwareBL_Settings._settings = null;
             }
+        }
+
+        [TestMethod]
+        public void TheReplyFromTheBenchWithAnErrorPromptCountsAsAFailedRead()
+        {
+            try
+            {
+                var bl = ConnectedBL(out var host, out var bus);
+                var po = new PrivateObject(bl);
+
+                po.Invoke("OnLoggerClockRead", new GetSetDateResponse(true) { ResponsePacket = new HardwarePacket(DateTime.Now.ToString("HH,mm,ss,M,d,yy") + "\r\n") });
+                Assert.IsTrue((bool)po.GetField("_loggerClockReadSucceeded"));
+
+                po.Invoke("OnLoggerClockRead", new GetSetDateResponse(true) { ResponsePacket = new HardwarePacket("11,5,0,10,6,26?>\r\n") });
+                Assert.IsFalse((bool)po.GetField("_loggerClockReadSucceeded"), "so the next poll reads the clock again");
+            }
+            finally
+            {
+                HardwareBL_Settings._settings = null;
+            }
+        }
+
+        #endregion
+
+        #region Setup commands wait for their replies (MBA-967, bench 2026-10-06)
+
+        [TestMethod]
+        public void EverySetupCommandWaitsForItsReply()
+        {
+            // Returning Skip2NextStep let a late-queued command go out in the same tick as the next one.
+            try
+            {
+                var bl = ConnectedBL(out var host, out var bus);
+                var po = new PrivateObject(bl);
+
+                foreach (var step in new[] { 0, 1, 2, 3 })
+                {
+                    var state = new SingleState(Hydra2DeviceBL.STATE_MACHINE__InitSystem) { CurrentStep = step };
+                    Assert.AreEqual(SingleState.StepWorkResponses.Wait4Work, po.Invoke("StateWork__InitSystem", state), "init step " + step);
+                }
+                foreach (var step in new[] { 0, 1, 2 })
+                {
+                    var state = new SingleState(Hydra2DeviceBL.STATE_MACHINE__Date_Sync) { CurrentStep = step };
+                    Assert.AreEqual(SingleState.StepWorkResponses.Wait4Work, po.Invoke("StateWork__Date_Sync", state), "date step " + step);
+                }
+                foreach (var step in new[] { 0, 1 })
+                {
+                    var state = new SingleState(Hydra2DeviceBL.STATE_MACHINE__Rate) { CurrentStep = step };
+                    Assert.AreEqual(SingleState.StepWorkResponses.Wait4Work, po.Invoke("StateWork__Rate", state), "rate step " + step);
+                }
+            }
+            finally
+            {
+                HardwareBL_Settings._settings = null;
+            }
+        }
+
+        [TestMethod]
+        public void TheReplyMovesTheStepOnOnce()
+        {
+            try
+            {
+                var bl = ConnectedBL(out var host, out var bus);
+                var state = new SingleState(Hydra2DeviceBL.STATE_MACHINE__InitSystem) { CurrentStep = 1, StateMode = SingleState.StateModes.Wait };
+
+                var answered = bl.AdvanceWhenAnswered(state, "FORMAT");
+                answered(new InitSystemResponse(true));
+                answered(new InitSystemResponse(true));
+
+                Assert.AreEqual(2, state.CurrentStep, "a repeated reply must not skip the next command");
+                Assert.AreEqual(SingleState.StateModes.Step, state.StateMode);
+            }
+            finally
+            {
+                HardwareBL_Settings._settings = null;
+            }
+        }
+
+        [TestMethod]
+        public void AFailedReplyStillMovesTheSetupOn()
+        {
+            // The init never stopped on a failed command; waiting for replies must not make it.
+            try
+            {
+                var bl = ConnectedBL(out var host, out var bus);
+                var state = new SingleState(Hydra2DeviceBL.STATE_MACHINE__Rate) { CurrentStep = 0, StateMode = SingleState.StateModes.Wait };
+
+                bl.AdvanceWhenAnswered(state, "RATE")(new RateResponse(false) { Expired = true });
+
+                Assert.AreEqual(1, state.CurrentStep);
+            }
+            finally
+            {
+                HardwareBL_Settings._settings = null;
+            }
+        }
+
+        [TestMethod]
+        public void AReplyFromBeforeAReInitMovesNothing()
+        {
+            try
+            {
+                var bl = ConnectedBL(out var host, out var bus);
+                var po = new PrivateObject(bl);
+                var state = new SingleState(Hydra2DeviceBL.STATE_MACHINE__InitSystem) { CurrentStep = 1, StateMode = SingleState.StateModes.Wait };
+                var answered = bl.AdvanceWhenAnswered(state, "FORMAT");
+
+                po.SetField("_pollGeneration", (int)po.GetField("_pollGeneration") + 1);
+                answered(new InitSystemResponse(true));
+
+                Assert.AreEqual(1, state.CurrentStep);
+            }
+            finally
+            {
+                HardwareBL_Settings._settings = null;
+            }
+        }
+
+        [TestMethod]
+        public void AReplyAfterItsStepTimedOutMovesNothing()
+        {
+            try
+            {
+                var bl = ConnectedBL(out var host, out var bus);
+                var state = new SingleState(Hydra2DeviceBL.STATE_MACHINE__Date_Sync) { CurrentStep = 1, StateMode = SingleState.StateModes.Wait };
+                var answered = bl.AdvanceWhenAnswered(state, "TIME");
+
+                state.NextStep(); // the step's timeout moved it on
+                answered(new GetSetDateResponse(true));
+
+                Assert.AreEqual(2, state.CurrentStep, "the late reply must not skip TIME_DATE?");
+            }
+            finally
+            {
+                HardwareBL_Settings._settings = null;
+            }
+        }
+
+        [TestMethod]
+        public void AReplyBeforeTheStepStartsWaitingIsNotLost()
+        {
+            // The reply arrives while Action_DoWork is still returning. The state used to switch to Wait
+            // anyway, sit there until the timeout, and then move on a second time - skipping a command.
+            var state = new SingleState(Hydra2DeviceBL.STATE_MACHINE__Rate) { IsActive = true };
+            state.Action_DoWork = s =>
+            {
+                s.NextStepFrom(s.CurrentStep);
+                return SingleState.StepWorkResponses.Wait4Work;
+            };
+
+            state.DoWork(DateTime.UtcNow);
+
+            Assert.AreEqual(1, state.CurrentStep);
+            Assert.AreEqual(SingleState.StateModes.Step, state.StateMode, "the next command goes out at the next tick");
+        }
+
+        [TestMethod]
+        public void AStepWithNoReplyMovesOnAtTheTimeout()
+        {
+            var state = new SingleState(Hydra2DeviceBL.STATE_MACHINE__Rate) { IsActive = true, DefaultTimeOut = TimeSpan.FromSeconds(5) };
+            state.Action_DoWork = s => SingleState.StepWorkResponses.Wait4Work;
+            var now = DateTime.UtcNow;
+
+            state.DoWork(now);
+            Assert.AreEqual(SingleState.StateModes.Wait, state.StateMode);
+
+            state.DoWork(now.AddSeconds(6));
+            state.DoWork(now.AddSeconds(6.5));
+
+            Assert.AreEqual(1, state.CurrentStep);
+            Assert.AreEqual(SingleState.StateModes.Step, state.StateMode);
         }
 
         #endregion

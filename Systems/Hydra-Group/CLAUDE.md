@@ -115,6 +115,15 @@ that send time, and evenly spaced scans showed up 29/30/31 s apart.
   now adds its channels (union; `LoggerConfiguration` still sets the list); without one it replaces, as
   before. Each `LoggerData` line carries the sensor that owns its channels — one
   line per sensor. Details in `Systems/VCT/CLAUDE.md`.
+- **Every setup command waits for its reply.** The init steps return `Wait4Work`, and
+  `Hydra2DeviceBL.AdvanceWhenAnswered` moves the state on when the reply arrives (failed replies too; no
+  reply at all moves on at the state's 5 s timeout). They used to return `Skip2NextStep`, so only the
+  500 ms device timer kept two commands apart. A request is queued on a pool thread, and when the pool was
+  busy (the 30 s rediscovery, on the bench on 2026-10-06) commands went out in pairs 1–2 ms apart.
+  `RATE 0` then landed while the logger was answering `TIME_DATE?`, the reply came back as
+  `11,5,0,10,6,26?>`, and the run used send-time stamps. `SingleState` now only waits when the reply has
+  not already moved the step on, and `NextStepFrom(step)` ignores a reply whose step timed out.
+- **A failed clock read is retried at the next poll**, not in 10 minutes (`_loggerClockReadSucceeded`).
 
 ## The Meatest M-142 cannot do GPIB — and only the M-142
 
