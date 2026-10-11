@@ -177,6 +177,22 @@ namespace Maba.VCT.Core.Tests
             Assert.IsNull(host.InternalComLayer);
         }
 
+        [TestMethod]
+        public void ReleaseDeadLinks_CountsOnlyTheLinksItClosed()
+        {
+            // Found dead under the read lock, alive again by the time it is closed (replaced in
+            // between): ReleaseDeadLink leaves it, and the count must say nothing was closed.
+            var server = new ServerCore();
+            var com = new MockComLayer();
+            var host = PromotedLogger(server, com);
+            var reads = 0;
+            com.IsConnectedProbe = () => ++reads > 1;
+
+            Assert.AreEqual(0, server.ReleaseDeadLinks());
+            Assert.AreEqual(0, com.CloseCount);
+            Assert.AreSame(com, host.InternalComLayer);
+        }
+
         // ------------------------------------------------------------------ the device comes back
 
         [TestMethod]

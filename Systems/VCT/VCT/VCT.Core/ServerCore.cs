@@ -1262,11 +1262,14 @@ namespace Maba.VCT.Core
                 }
             });
 
+            // Counts what was closed, not what was found: a link replaced between the read lock and
+            // here is no longer dead by the time ReleaseDeadLink looks, and it says so by returning false.
+            var closed = 0;
             foreach (var host in dead)
             {
                 try
                 {
-                    host.ReleaseDeadLink();
+                    if (host.ReleaseDeadLink()) closed++;
                 }
                 catch (Exception ex)
                 {
@@ -1274,7 +1277,7 @@ namespace Maba.VCT.Core
                 }
             }
 
-            return dead.Count;
+            return closed;
         }
 
         /// <summary>

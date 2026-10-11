@@ -847,7 +847,16 @@ namespace Maba.VCT.Core.Tests
     internal class MockComLayer : Maba.VCT.ComLayer.IComLayer
     {
         public string Title { get; set; } = "MockCom";
-        public bool IsConnected { get; set; } = true;
+        private bool _isConnected = true;
+
+        /// <summary>When set, answers IsConnected instead of the stored value - for a link whose state changes between two reads.</summary>
+        public Func<bool> IsConnectedProbe { get; set; }
+
+        public bool IsConnected
+        {
+            get { return IsConnectedProbe != null ? IsConnectedProbe() : _isConnected; }
+            set { _isConnected = value; }
+        }
         public Maba.VCT.ComLayer.Tunnel ParentTunnel { get; private set; } = new Maba.VCT.ComLayer.Tunnel();
         public DateTime CreationTime { get; set; } = DateTime.UtcNow;
         public DateTime? LastRX_Time { get; private set; }

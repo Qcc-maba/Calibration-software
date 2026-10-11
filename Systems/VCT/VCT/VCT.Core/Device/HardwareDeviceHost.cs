@@ -123,11 +123,22 @@ namespace Maba.VCT.Core.Device
 
                 // MBA-967: the old link used to be dropped without being closed, which leaves a
                 // serial handle for the finalizer to close at some random later moment. Only a dead
-                // one is closed here: a live one is another link to an instrument with the same SN,
-                // and closing it would just let the next rediscovery find it and swap back.
-                if (previous != null && !ReferenceEquals(previous, InternalComLayer) && !previous.IsConnected)
+                // one is closed here. A live one is another link to an instrument with the same SN,
+                // and closing it would just let the next rediscovery find it and swap back - so it is
+                // left open on purpose, and its port stays locked until the service restarts. That is
+                // logged, because nothing else would show it: with the AUTO port claimed it should be
+                // rare, and the line says whether it is.
+                if (previous != null && !ReferenceEquals(previous, InternalComLayer))
                 {
-                    CloseQuietly(previous);
+                    if (previous.IsConnected)
+                    {
+                        Libs.Trace.Tracer.Info("[LINK] SN={0}: replaced by a new live link on {1}; the old live link on {2} is left open on purpose, and its port stays locked until the service restarts.",
+                            SN, InternalComLayer?.Title, previous.Title);
+                    }
+                    else
+                    {
+                        CloseQuietly(previous);
+                    }
                 }
             }
             OnConnection();
