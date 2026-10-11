@@ -70,6 +70,25 @@ instrument that corrupts its own replies. Use the **bringing-up-an-instrument** 
 `transport-faults.md` for those, and note that its first rule applies here too: decide whether you
 have a transport fault or an instrument fault before editing any BL.
 
+**A logger link that dies silently mid-run: check whether Windows dropped the USB adapter.**
+- **What the installer guarantees.** From MBA-987 on (installers built after 1.6.15), it:
+  - turns USB selective suspend off in every power plan;
+  - turns off "allow the computer to turn off this device" for USB-serial adapters, hubs and xHCI
+    controllers;
+  - makes the Kernel-PnP/Device Management and System logs at least 50 MB;
+  - registers the SYSTEM task `MabaCalibration-UsbPower`, which re-applies all of this at startup,
+    at logon and when Windows configures a new device.
+- **Was it applied?** The `[USB-POWER]` lines in `install.log` record each value before and after,
+  and `logs\usb-power.log` records each run of the task. Both are published to the share with the
+  other logs.
+- **Check it on the station.** Run `Collect-UsbEvents.ps1` there, as Administrator (see the
+  `local-scripts` skill; a copy is in `F:\Eliran\Nofar`).
+  - **Healthy:** every scheme shows `AC=0x00000000 DC=0x00000000`, and the adapter shows
+    `turn-off-to-save-power=False` (KMDF adapters such as Prolific also `IdleInWorkingState=0`).
+  - **A drop:** a Kernel-PnP **1010** "surprise removed" for the adapter at the time the data stopped.
+    That means the hardware went away (cable, connector, hub or power) and the ComServer is not at
+    fault.
+
 ## 5. If the complaint is gaps or uneven timing in an exported Excel, match it to the log first
 
 An operator's Excel export is the best evidence of what the app received, but it has no absolute
