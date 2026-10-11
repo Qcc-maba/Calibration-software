@@ -154,6 +154,9 @@ Source: "assets\publish-logs.ps1";          DestDir: "{app}\assets";           F
 ; app answers. Without it the screen stays empty for the whole cold start and the station reads as
 ; dead - see the comment at step 3 of start-all.bat.
 Source: "assets\starting.html";             DestDir: "{app}\assets";           Flags: ignoreversion
+; Keeps the logger's USB-serial adapter powered and the Kernel-PnP log large enough to show a USB
+; drop (MBA-987). Run by STEP 8 below, and afterwards by the scheduled task that step registers.
+Source: "assets\Set-StationUsbPower.ps1";   DestDir: "{app}\assets";           Flags: ignoreversion
 
 ; NI-488.2 is deliberately NOT shipped or installed here - see Installer\DRIVERS.md. Bundling NI's
 ; online installer added 7 MB and, far worse, several hundred MB of download that turned a 3-minute
@@ -880,6 +883,27 @@ begin
     else
       WriteLog('Service verification - WARNING: Service not found after install');
 
+    { Step 8: keep the logger's USB-serial adapter powered (MBA-987). On station NOFAR the Prolific
+      adapter dropped off the bus twice mid-run with USB selective suspend enabled, and the event
+      that proves a drop had been overwritten by a flapping monitor within a day. The script turns
+      selective suspend off in every power scheme, turns off "allow the computer to turn off this
+      device" for USB-serial adapters, USB hubs and host controllers, enlarges the Kernel-PnP log, and registers a
+      SYSTEM task that re-applies it at startup, logon and whenever a new device instance appears -
+      an adapter plugged in later, or into another port, is a new instance an install-time change
+      cannot reach. It writes its own before/after lines, tagged [USB-POWER], into this log.
+      Best effort: the script always exits 0, and nothing here can stop the install. Runs on every
+      install, so an upgrade applies it too. }
+    SetInstallStatus('Keeping the USB-serial adapters powered...', 98);
+    WriteLogSection('STEP 8 - USB power saving off, event log size');
+    if FileExists(ExpandConstant('{app}\assets\Set-StationUsbPower.ps1')) then
+      RunAndLog('USB power settings',
+        ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+        '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' +
+        ExpandConstant('{app}\assets\Set-StationUsbPower.ps1') + '" -LogPath "' +
+        InstallLogPath + '" -RegisterTask')
+    else
+      WriteLog('USB power settings - SKIPPED: Set-StationUsbPower.ps1 not found');
+
     SetInstallStatus('Installation complete.', 100);
 
     WriteLogSection('INSTALLATION COMPLETE');
@@ -947,6 +971,14 @@ begin
     WriteLog('Removing WebSocket URL reservation...');
     Exec('netsh.exe', 'http delete urlacl url=http://localhost:5001/ws/', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     WriteLog('URL ACL removal exit code: ' + IntToStr(ResultCode));
+
+    { The task runs a script that is about to be deleted, so it goes. The power and event-log
+      settings STEP 8 made are left as they are: they are harmless on any machine, the previous
+      values exist only in install.log, and putting USB power saving back on a machine that still
+      has a logger attached would bring back the drops. }
+    WriteLog('Removing the USB power scheduled task...');
+    Exec(ExpandConstant('{sys}\schtasks.exe'), '/Delete /TN "MabaCalibration-UsbPower" /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    WriteLog('USB power task removal exit code: ' + IntToStr(ResultCode) + ' (USB power and event log settings are left in place)');
 
     WriteLogSection('UNINSTALL COMPLETE');
   end;

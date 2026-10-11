@@ -46,6 +46,12 @@ Things that cost a day each and will not be obvious:
   so `/VERYSILENT` leaves only the Windows service running. Interactive installs offer a "Launch
   now" checkbox; from v1.6.7 a Startup shortcut also brings the station up after a reboot.
 - **NI-488.2 is deliberately not bundled** — see `Installer/DRIVERS.md` and `docs/session1-decisions.md`.
+- **Setup keeps the logger's USB-serial adapter powered** (STEP 8, `assets\Set-StationUsbPower.ps1`,
+  MBA-987). It turns off USB selective suspend and per-device power-down, enlarges the Kernel-PnP
+  log, and registers the SYSTEM task `MabaCalibration-UsbPower`, which covers adapters plugged in
+  later. It runs on every install, upgrades included, and it is best effort: the script always exits
+  0. Mechanism, limits and how to check it: `Installer/DRIVERS.md`, "USB-serial adapters: power
+  saving".
 
 ## Inno Setup gotchas (`Installer/setup.iss`)
 
