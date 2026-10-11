@@ -861,11 +861,20 @@ namespace Maba.VCT.Core.Tests
 
         public bool ThrowOnClose { get; set; }
 
+        /// <summary>How many times Close was called.</summary>
+        public int CloseCount { get; private set; }
+
+        /// <summary>Raise LayerClosed from Close, as SerialCom does.</summary>
+        public bool RaiseLayerClosedOnClose { get; set; }
+
         public void Close()
         {
+            CloseCount++;
             if (ThrowOnClose)
                 throw new InvalidOperationException("MockComLayer.Close test throw");
             IsConnected = false;
+            if (RaiseLayerClosedOnClose)
+                LayerClosed?.Invoke(this, new Maba.VCT.ComLayer.DestroyedEventArgs());
         }
         public void Dispose() { Close(); }
         public void Open() { IsConnected = true; }

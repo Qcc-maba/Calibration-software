@@ -1173,15 +1173,20 @@ namespace Maba.VCT.Core
         /// VISA it is load-bearing: enumeration does not open anything, so without this a
         /// rediscovery pass would add a second tunnel for an address that is already live.
         /// </para>
+        /// <para>
+        /// MBA-967: "would fail to reopen anyway" stopped being true on 2026-10-08. The logger was on
+        /// the AUTO tunnel, whose tunnel says "AUTO" while the port it opened is COM6, so COM6 was never
+        /// claimed and every pass probed it, kept out only by Windows refusing the open. When the
+        /// adapter dropped, a probe got through and opened a second link to the same logger.
+        /// </para>
         /// </summary>
-        [ExcludeFromCodeCoverage]
-        private ComLayer.Tunnel[] CurrentlyHeldTransports()
+        internal ComLayer.Tunnel[] CurrentlyHeldTransports()
         {
             var held = new List<ComLayer.Tunnel>();
 
             Action<ComLayer.IComLayer> take = (layer) =>
             {
-                var t = layer?.ParentTunnel;
+                var t = HeldTransport(layer);
                 if (t != null) held.Add(t);
             };
 
@@ -1196,6 +1201,80 @@ namespace Maba.VCT.Core
             });
 
             return held.ToArray();
+        }
+
+        /// <summary>
+        /// MBA-967: what one held link claims, as a tunnel. For a serial link that is the port it
+        /// actually opened, not the one its tunnel names: an AUTO tunnel says "AUTO", which claims
+        /// nothing, while it holds a real COM port.
+        /// </summary>
+        internal static ComLayer.Tunnel HeldTransport(ComLayer.IComLayer layer)
+        {
+            var t = layer?.ParentTunnel;
+            var serial = layer as ComLayer.SerialCom;
+            if (serial == null || string.IsNullOrWhiteSpace(serial.PortName)) return t;
+
+            return new ComLayer.Tunnel
+            {
+                Name = t?.Name ?? serial.Title,
+                SerialPortName = serial.PortName.Trim(),
+                SerialBaudRate = serial.BaudRate,
+                SerialTimeout = serial.Timeout
+            };
+        }
+
+        /// <summary>
+        /// The serial ports that discovery must leave alone: every named port in
+        /// <paramref name="claimed"/>. "AUTO" is not a port and claims nothing by itself - see
+        /// <see cref="HeldTransport"/> for how the port an AUTO tunnel resolved to gets claimed.
+        /// </summary>
+        internal static List<string> ClaimedSerialPorts(IEnumerable<ComLayer.Tunnel> claimed)
+        {
+            return (claimed ?? Enumerable.Empty<ComLayer.Tunnel>())
+                .Where(t => t != null
+                         && !string.IsNullOrWhiteSpace(t.SerialPortName)
+                         && !string.Equals(t.SerialPortName, "AUTO", StringComparison.OrdinalIgnoreCase))
+                .Select(t => t.SerialPortName.Trim())
+                .ToList();
+        }
+
+        /// <summary>
+        /// MBA-967: closes the link of every identified device whose link has died underneath it, so
+        /// its port is let go and the next rediscovery pass can find the instrument again.
+        /// <para>
+        /// A USB-serial adapter that drops ends .NET's serial event loop, and from then on
+        /// <c>SerialPort.IsOpen</c> is false - but nothing is closed and no event is raised. Only
+        /// pending devices were ever checked for that, so an identified one stayed in the device list
+        /// with a dead link: it sent nothing, raised no alert, and on 2026-10-08 sat like that from
+        /// 08:09 until the service was restarted at 10:26. Collected under the lock and closed after
+        /// it, because closing raises the disconnection events.
+        /// </para>
+        /// </summary>
+        /// <returns>How many links were closed.</returns>
+        internal int ReleaseDeadLinks()
+        {
+            var dead = new List<Device.HardwareDeviceHost>();
+            DeviceHost_Slim.MyReadLock(list =>
+            {
+                foreach (var host in list.Values)
+                {
+                    if (host != null && host.InternalComLayer != null && !host.IsConnected) dead.Add(host);
+                }
+            });
+
+            foreach (var host in dead)
+            {
+                try
+                {
+                    host.ReleaseDeadLink();
+                }
+                catch (Exception ex)
+                {
+                    Libs.Trace.Tracer.Info("[LINK] SN={0}: closing the dead link threw: {1}", host.SN, ex.Message);
+                }
+            }
+
+            return dead.Count;
         }
 
         /// <summary>
@@ -1270,11 +1349,7 @@ namespace Maba.VCT.Core
                 var anyVisaConfigured = configured.Any(t => !string.IsNullOrWhiteSpace(t.VisaResource));
                 var claimedGpib = new HashSet<int>(
                     configured.Where(t => t.GpibPrimaryAddress >= 0).Select(t => t.GpibPrimaryAddress));
-                var claimedSerial = configured
-                    .Where(t => !string.IsNullOrWhiteSpace(t.SerialPortName)
-                             && !string.Equals(t.SerialPortName, "AUTO", StringComparison.OrdinalIgnoreCase))
-                    .Select(t => t.SerialPortName.Trim())
-                    .ToList();
+                var claimedSerial = ClaimedSerialPorts(configured);
 
                 Libs.Trace.Tracer.Info("[{0}] Discovering attached instruments...", phase);
 
@@ -1724,6 +1799,10 @@ namespace Maba.VCT.Core
 
             try
             {
+                // MBA-967: before anything is promoted, so a device that comes back on a new link is
+                // handed to a host that has already let go of the dead one.
+                ReleaseDeadLinks();
+
                 Device.HardwareDeviceHost _DeviceHost = null;
                 foreach (var newPending in _TempDeviceHost)
                 {
