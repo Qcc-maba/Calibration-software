@@ -104,11 +104,84 @@ namespace Maba.VCT.Core.Device
                     _LogsSession= new Sessions.LogsSession(this),
                 };
             }
+            else if (device != null)
+            {
+                // MBA-967: a known device back on a new link starts a new conversation. A request
+                // still in flight was sent on the old link and its reply is never coming; left in
+                // place it takes the new link's replies instead. On 2026-10-08 the poll's LOG_COUNT?
+                // swallowed every reply of the re-init ("HandlePacket error in session 4: Input string
+                // was not in a correct format", 19 times). ReinitializeBL clears them the same way.
+                for (int i = 0; i < Sessions.Length; i++)
+                {
+                    Sessions[i].OnDisconnect();
+                }
+            }
             if (device != null)
             {
+                var previous = InternalComLayer;
                 ReplaceComLayer(device.InternalComLayer);
+
+                // MBA-967: the old link used to be dropped without being closed, which leaves a
+                // serial handle for the finalizer to close at some random later moment. Only a dead
+                // one is closed here. A live one is another link to an instrument with the same SN,
+                // and closing it would just let the next rediscovery find it and swap back - so it is
+                // left open on purpose, and its port stays locked until the service restarts. That is
+                // logged, because nothing else would show it: with the AUTO port claimed it should be
+                // rare, and the line says whether it is.
+                if (previous != null && !ReferenceEquals(previous, InternalComLayer))
+                {
+                    if (previous.IsConnected)
+                    {
+                        Libs.Trace.Tracer.Info("[LINK] SN={0}: replaced by a new live link on {1}; the old live link on {2} is left open on purpose, and its port stays locked until the service restarts.",
+                            SN, InternalComLayer?.Title, previous.Title);
+                    }
+                    else
+                    {
+                        CloseQuietly(previous);
+                    }
+                }
             }
             OnConnection();
+        }
+
+        /// <summary>
+        /// MBA-967: closes a link whose connection has died underneath it, and disconnects this
+        /// device from it - sessions cleared, the BL told, a disconnect alert raised - exactly as if
+        /// the link had reported closing. A dead USB-serial link never reports it: .NET's
+        /// <c>SerialPort.IsOpen</c> just turns false, so until this ran the device sat with a dead
+        /// link indefinitely.
+        /// </summary>
+        /// <returns>False when there is nothing to do: no link, or a live one.</returns>
+        public bool ReleaseDeadLink()
+        {
+            var com = InternalComLayer;
+            if (com == null || com.IsConnected) return false;
+
+            Libs.Trace.Tracer.Info("[LINK] SN={0}: {1} no longer reports open - closing it so the port can be found again.",
+                SN, com.Title);
+
+            CloseQuietly(com);
+
+            // SerialCom.Close raises LayerClosed, which disconnects us (_executer_Destroy). A layer
+            // that closes without raising it is detached here instead, with the same outcome.
+            if (ReferenceEquals(InternalComLayer, com))
+            {
+                OnDisconnection();
+                _executer_Destroy(com);
+            }
+            return true;
+        }
+
+        private static void CloseQuietly(ComLayer.IComLayer com)
+        {
+            try
+            {
+                com.Close();
+            }
+            catch (Exception ex)
+            {
+                Libs.Trace.Tracer.Info("[LINK] Closing {0}: {1}", com.Title, ex.Message);
+            }
         }
         public void ReplaceComLayer(ComLayer.IComLayer comLayer)
         {

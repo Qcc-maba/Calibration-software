@@ -182,6 +182,10 @@ namespace Maba.VCT.ComLayer
                     {
                         s.Close();
                     }
+                    else
+                    {
+                        CloseDeadStream(s);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -192,6 +196,38 @@ namespace Maba.VCT.ComLayer
             if (LayerClosed != null)
             {
                 LayerClosed(this, new DestroyedEventArgs());
+            }
+        }
+
+        /// <summary>
+        /// The field <see cref="SerialPort"/> keeps its stream in. Looked up once; null if a framework
+        /// ever renames it, in which case a dead stream is left to its finalizer, as it always was.
+        /// </summary>
+        internal static readonly System.Reflection.FieldInfo InternalSerialStreamField =
+            typeof(SerialPort).GetField("internalSerialStream",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        /// <summary>
+        /// MBA-967: closes the OS handle of a port whose device has gone. When a USB-serial adapter
+        /// drops, .NET's serial event loop ends and <c>IsOpen</c> turns false while the handle stays
+        /// open - and <c>SerialPort.Close</c> then does nothing, because it only closes an open port.
+        /// The handle was left for the finalizer to close at some later moment, which may be after
+        /// the same COM port has been opened again for the adapter that came back.
+        /// </summary>
+        internal static void CloseDeadStream(SerialPort port)
+        {
+            var stream = InternalSerialStreamField?.GetValue(port) as System.IO.Stream;
+            if (stream == null) return;
+
+            InternalSerialStreamField.SetValue(port, null);
+            try
+            {
+                stream.Dispose();
+            }
+            catch (Exception ex)
+            {
+                // A removed device can fail the last purge on the way out; the handle is closed anyway.
+                Tracer.Info("[Serial] Closing dead stream: {0}", ex.Message);
             }
         }
 

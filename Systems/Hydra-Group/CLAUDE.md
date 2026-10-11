@@ -55,9 +55,14 @@ they were separated. Do not treat one as covering another:
    its scan configuration erased and will never produce data again on its own. Repair:
    `HardwareDeviceHost.ReinitializeBL`, driven from the `DataTimeout` watchdog in
    `ServerCore.CheckDataTimeouts`, bounded to five attempts a minute apart.
-2. **Communication.** The cable or adapter drops, the link reports disconnected, the pending device
-   is dropped. Repair: the rediscovery timer (`VCTSettings.RediscoverIntervalSeconds`), which finds
-   the instrument again without a server restart.
+2. **Communication.** The cable or adapter drops. The link does **not** report it: .NET's `SerialPort`
+   just stops saying it is open, with no error and no event, so an identified device used to stay in
+   the device list with a dead link. Rediscovery then opened the same port a second time (station,
+   8 Oct 2026, MBA-967). Repair: `ServerCore.ReleaseDeadLinks`, run on every device tick, closes a
+   link that no longer reports open (`HardwareDeviceHost.ReleaseDeadLink`); the device disconnects
+   with the usual alert, and the rediscovery timer (`VCTSettings.RediscoverIntervalSeconds`) finds
+   the instrument again without a server restart. Rediscovery never probes a port a link holds,
+   including one opened through the AUTO tunnel.
 3. **Channels.** One sensor is pulled while everything else stays healthy. The Hydra reports
    `9.00E+9` (`Hydra2DeviceBL.DISCONNECTED_CHANNEL_READING`) for an open input — a value that
    arrives looking like any other reading. Repair: a per-channel `ChannelDisconnected` alert on the

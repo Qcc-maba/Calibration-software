@@ -58,6 +58,34 @@ candidate port and waits for `*IDN?`, which would stall every live device.
 **Bench check:** unplug the logger's cable, wait, plug it back in. Expect `[REDISCOVER]` passes in
 `server.log` and the logger returning without restarting the software.
 
+### A link that dies without saying so (MBA-967, Nofar 2026-10-08)
+
+A USB-serial adapter that drops does **not** look disconnected. .NET's serial event loop ends,
+`SerialPort.IsOpen` turns false, and nothing is closed or raised. Before the fix an identified
+logger then sat with a dead link until the service was restarted, with no alert. How it reads in a
+1.6.15 `server.log`:
+
+1. The logger was on the **AUTO** tunnel (startup shows `Auto-detected USB-to-Serial: COM6`), and
+   the 30 s `[REDISCOVER]` passes say `Discovery added 0 tunnel(s)` with **no**
+   `COM6: claimed by a static tunnel` line. The port was probed every pass, and only Windows refusing
+   the second open kept it out.
+2. A poll is due but **no `PACKET <TX>`** appears (`SendPacket` skips a link that is not open), and
+   the serial-rx log goes quiet at the same moment.
+3. A pass then finds the logger: `Serial instrument on COM6`, `1 new transport(s) appeared`,
+   `#FLUKE,2625A Connected`, and the init is followed by
+   `[Session] HandlePacket error in session 4: Input string was not in a correct format` after every
+   reply. Session 4 is `LogsSession`, still holding the dead link's `LOG_COUNT?`.
+4. 60 s after the missed poll: `LogsSession request timed out` and `Stopping polling loop #N`, with
+   **no `Starting polling loop #N+1`**. The new link died too, and from then on
+   `claimed by a static tunnel` locks the port out of rediscovery.
+
+The same sequence is in Nofar's log on 2026-10-07 at 15:58. Since the fix: rediscovery claims the
+port an AUTO tunnel actually opened; the device tick closes a dead link
+(`[LINK] SN=…: … no longer reports open - closing it`), which raises the usual disconnect alert and
+frees the port; and the logger found again goes back to the same host with its sessions cleared, so
+polling restarts. Expect `[LINK]`, `#FLUKE,2625A Disconnected`, then, within a rediscovery pass or
+two, `Serial instrument on COM6` and `Starting polling loop`.
+
 ## Channels
 
 The Hydra reports `9.00E+9` for an open input — `Hydra2DeviceBL.DISCONNECTED_CHANNEL_READING`. It
