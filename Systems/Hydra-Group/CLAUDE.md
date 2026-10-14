@@ -129,6 +129,11 @@ that send time, and evenly spaced scans showed up 29/30/31 s apart.
   `11,5,0,10,6,26?>`, and the run used send-time stamps. `SingleState` now only waits when the reply has
   not already moved the step on, and `NextStepFrom(step)` ignores a reply whose step timed out.
 - **A failed clock read is retried at the next poll**, not in 10 minutes (`_loggerClockReadSucceeded`).
+- **"Stop scan" stops it until the next Confirm.** `Status:"Stop"` from the logger window ends with
+  `Hydra2DeviceBL.StopScanning` on the tick thread: state machine parked, polling generation moved on, then
+  `SCAN 0`, `LOG_CLR`, `*RST` (each waits for the previous reply; bench: stopped cleanly). The host keeps
+  it stopped - the watchdog, the power-cycle recovery, a live reconfiguration and a reconnect all leave it
+  alone - until a `Status:"Start"` re-inits it. Details in `Systems/VCT/CLAUDE.md`.
 
 ## The Meatest M-142 cannot do GPIB — and only the M-142
 

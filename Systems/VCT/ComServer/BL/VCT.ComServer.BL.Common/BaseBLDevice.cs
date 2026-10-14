@@ -201,7 +201,24 @@ namespace Maba.VCT.CommServer.CommonBL
 
         }
 
+        /// <summary>MBA-967: nothing to stop by default; a BL that scans (Hydra2DeviceBL) overrides this.</summary>
+        public virtual bool StopScanning(string reason)
+        {
+            return false;
+        }
+
         #endregion
+
+        /// <summary>
+        /// MBA-967: parks the state machine so the timer runs no further state - an init that was
+        /// half way through does not go on to start a polling loop. Only <see cref="OnConnection"/>
+        /// (true) starts it again. Called on the device tick thread, like OnTimer, so the two never
+        /// touch the state array at the same time.
+        /// </summary>
+        protected void HaltStateMachine()
+        {
+            CurrentStep = DeviceSteps.Close;
+        }
 
         #region protected/virtual methods
 

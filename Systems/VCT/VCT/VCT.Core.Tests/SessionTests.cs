@@ -894,7 +894,10 @@ namespace Maba.VCT.Core.Tests
             Buffer.BlockCopy(data, offset, actual, 0, count);
             LastSentBytes = actual;
         }
-        public void SendString(string data) { LastSentString = data; }
+        /// <summary>Every string sent, in order - for a sequence of commands (MBA-967 stop scan).</summary>
+        public System.Collections.Concurrent.ConcurrentQueue<string> SentStrings { get; } = new System.Collections.Concurrent.ConcurrentQueue<string>();
+
+        public void SendString(string data) { LastSentString = data; SentStrings.Enqueue(data); }
 
         public void SimulateDataReceived(byte[] data, int offset, int count)
         {

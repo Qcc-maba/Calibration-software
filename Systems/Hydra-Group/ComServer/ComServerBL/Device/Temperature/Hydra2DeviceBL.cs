@@ -566,6 +566,90 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             return CommonBL.SingleState.StepWorkResponses.StateFinished;
         }
 
+        #region Stop scan (MBA-967)
+
+        /// <summary>
+        /// What "stop scan" sends, in order: <c>SCAN 0</c> stops the scan timer, <c>LOG_CLR</c> drops
+        /// the scans still stored, <c>*RST</c> resets the logger. The sequence that stopped the logger
+        /// cleanly on the bench. Each waits for the previous reply, so they never overlap on the line.
+        /// </summary>
+        internal static readonly string[] StopCommands = { "SCAN 0", "LOG_CLR", "*RST" };
+
+        /// <summary>
+        /// MBA-967: the operator's "stop scan" from the logger window. Parks the state machine (an init
+        /// half way through must not go on to start a loop), retires every polling loop by moving the
+        /// generation on - the one polling now and one asleep in its 28 s wait both stop at their next
+        /// step (<see cref="IsStalePoll"/>) - and sends <see cref="StopCommands"/>. Only a re-init
+        /// (<c>OnConnection(true)</c>, which the next Confirm's Status:Start asks for) starts it again.
+        /// </summary>
+        public override bool StopScanning(string reason)
+        {
+            HaltStateMachine();
+            var generation = System.Threading.Interlocked.Increment(ref _pollGeneration);
+            lock (_logLock)
+            {
+                // A batch being read belongs to the loop just retired; its entries are dropped unsent.
+                _pendingLogEntries = 0;
+                _pendingEntries.Clear();
+            }
+
+            Libs.Trace.Tracer.Info("[HYDRA Stop] Stopping the scan ({0}): every polling loop before #{1} stops; sending {2}",
+                reason, generation, string.Join(", ", StopCommands));
+            SendStopCommand(0, generation);
+            return true;
+        }
+
+        /// <summary>
+        /// Sends <see cref="StopCommands"/>[<paramref name="index"/>]; its reply sends the next. A
+        /// re-init in between (the next Confirm) moves the generation on and the rest is not sent:
+        /// the init's own <c>*RST</c> follows.
+        /// </summary>
+        private void SendStopCommand(int index, int generation)
+        {
+            if (index >= StopCommands.Length)
+            {
+                Libs.Trace.Tracer.Info("[HYDRA Stop] The logger is stopped; it scans again after the next Confirm");
+                return;
+            }
+            if (System.Threading.Volatile.Read(ref _pollGeneration) != generation)
+            {
+                Libs.Trace.Tracer.Info("[HYDRA Stop] Not sending {0}: the logger was re-initialised meanwhile", StopCommands[index]);
+                return;
+            }
+
+            Action<Common.API.BaseResponse> next = res =>
+            {
+                if (res == null || !res.Result)
+                {
+                    // Carry on: the *RST at the end stops the scan even if SCAN 0 or LOG_CLR was refused.
+                    Libs.Trace.Tracer.Info("[HYDRA Stop] {0} was not acknowledged{1}; carrying on",
+                        StopCommands[index], res != null && res.Expired ? " (no reply in time)" : "");
+                }
+                SendStopCommand(index + 1, generation);
+            };
+
+            switch (index)
+            {
+                case 0:
+                    var stop = new LogsRequest(LogsRequest.LogCommands.StopScan);
+                    stop.Packet = HydraProtocolHelper.Build_ScanLogsPacket(stop);
+                    HW_Device.GetLogs(stop, r => next(r));
+                    break;
+                case 1:
+                    var clear = new LogsRequest(LogsRequest.LogCommands.ClearLogs);
+                    clear.Packet = HydraProtocolHelper.Build_ClearLogsPacket();
+                    HW_Device.GetLogs(clear, r => next(r));
+                    break;
+                default:
+                    var reset = new InitSystemRequest();
+                    reset.Packet = HydraProtocolHelper.Build_ResetPacket(true);
+                    HW_Device.Reset(reset, r => next(r));
+                    break;
+            }
+        }
+
+        #endregion
+
         /// <summary>True, and logged, when <paramref name="generation"/> is an outdated polling loop.</summary>
         private bool IsStalePoll(int generation, string step)
         {

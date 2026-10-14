@@ -174,36 +174,98 @@ namespace Maba.VCT.Core
                 }
             }
 
-            // If the event came from a WebSocket client with a Status:Stop command, disconnect all hardware devices
             if (e.Device is Device.WebSocketDeviceHost && e.Packet is Common.Protocol_Parser.WebSocketMessage.StatusMessage statusMsg)
             {
                 if (string.Equals(statusMsg.Value, "Stop", StringComparison.OrdinalIgnoreCase))
                 {
-                    Libs.Trace.Tracer.Info("[ServerCore] Received Stop command from WebSocket client - disconnecting all hardware devices");
-                    DeviceHost_Slim.MyReadLock(list =>
-                    {
-                        foreach (var dev in list.Values)
-                        {
-                            try
-                            {
-                                dev.Disconnect();
-                                Libs.Trace.Tracer.Info("[ServerCore] Disconnected device SN={0}", dev.SN);
-                            }
-                            catch (Exception ex)
-                            {
-                                Libs.Trace.Tracer.Info("[ServerCore] Error disconnecting device: {0}", ex.Message);
-                            }
-                        }
-                    });
+                    // MBA-967: the logger window's "stop scan". It used to close every hardware link,
+                    // which nothing sent and which undid itself at the next 30 s rediscovery (MBA-974).
+                    RequestStopScanning(statusMsg.DeviceID);
                 }
                 else if (string.Equals(statusMsg.Value, "Start", StringComparison.OrdinalIgnoreCase))
                 {
                     Libs.Trace.Tracer.Info("[ServerCore] Received Start from WebSocket — enabling Hydra hardware identification (*IDN? / pending scan).");
                     EnableHardwareIdentification();
+                    // MBA-967: a Confirm after a stop scans again, even with the configuration unchanged.
+                    RequestResumeScanning(statusMsg.DeviceID);
                     // Do not wait for the next timer tick: send identification / run pending-device logic immediately.
                     TriggerImmediatePendingDevicePollAfterWsStart();
                 }
             }
+        }
+
+        /// <summary>
+        /// MBA-967: the devices a Status message about logger <paramref name="loggerId"/> (the app's
+        /// MABA id, e.g. 21-337) is for - routed exactly as that logger's LoggerConfiguration is
+        /// (<see cref="HardwareBL_Settings.ResolveLiveFamilyKey"/>: Masters, else the one live
+        /// family). Without an id, the one live family. Null when no logger is identified, or when
+        /// the id cannot be told apart between several.
+        /// </summary>
+        private string ResolveStatusFamily(string loggerId)
+        {
+            if (!string.IsNullOrWhiteSpace(loggerId))
+                return HardwareBL_Settings.Read().ResolveLiveFamilyKey(loggerId);
+
+            var live = HardwareBL_Settings.ActiveFamilies();
+            return live.Count == 1 ? live[0] : null;
+        }
+
+        /// <summary>
+        /// MBA-967: Status:Stop. Marks the logger stopped and leaves the stop itself to the device tick
+        /// (CheckDataTimeouts), like a live reconfiguration: it rewinds the BL's state machine, which
+        /// the tick may be running at this moment. With no logger identified there is nothing to stop,
+        /// nothing is held for later, and it is only logged.
+        /// </summary>
+        /// <returns>How many devices were marked.</returns>
+        internal int RequestStopScanning(string loggerId)
+        {
+            var family = ResolveStatusFamily(loggerId);
+            if (family == null)
+            {
+                Libs.Trace.Tracer.Info("[STOP] Stop scan for logger '{0}': no logger is identified for it; nothing to stop", loggerId);
+                return 0;
+            }
+
+            var marked = 0;
+            DeviceHost_Slim.MyReadLock(list =>
+            {
+                foreach (var dev in list.Values)
+                {
+                    if (dev == null || !string.Equals(dev.BL?.SettingsFamily, family, StringComparison.OrdinalIgnoreCase)) continue;
+                    dev.RequestStopScanning(string.Format(CultureInfo.InvariantCulture, "stop scan for logger '{0}' from web app", loggerId));
+                    marked++;
+                }
+            });
+
+            Libs.Trace.Tracer.Info("[STOP] Stop scan for logger '{0}' ({1}): {2} device(s) to stop at the next tick", loggerId, family, marked);
+            return marked;
+        }
+
+        /// <summary>
+        /// MBA-967: Status:Start after a stop - the stopped devices of that logger's family are set up
+        /// again at the next tick. A device that was not stopped is left alone, so a Start without a
+        /// stop before it does exactly what it did before.
+        /// </summary>
+        /// <returns>How many stopped devices will resume.</returns>
+        internal int RequestResumeScanning(string loggerId)
+        {
+            var family = ResolveStatusFamily(loggerId);
+            if (family == null) return 0;
+
+            var resumed = 0;
+            DeviceHost_Slim.MyReadLock(list =>
+            {
+                foreach (var dev in list.Values)
+                {
+                    if (dev == null || !string.Equals(dev.BL?.SettingsFamily, family, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (dev.RequestResumeScanning(string.Format(CultureInfo.InvariantCulture, "scan confirmed again for logger '{0}' after a stop", loggerId)))
+                        resumed++;
+                }
+            });
+
+            if (resumed > 0)
+                Libs.Trace.Tracer.Info("[STOP] Start for logger '{0}' ({1}): {2} stopped device(s) set up again at the next tick", loggerId, family, resumed);
+            return resumed;
         }
 
         /// <summary>Requires <see cref="TimerManager_DeviceHost"/> from startup; otherwise no-op. Elided from unit line coverage.</summary>
@@ -475,6 +537,8 @@ namespace Maba.VCT.Core
             // needs its own message, and two live reconfigurations arriving before this tick coalesce
             // into the single reason the second one left, i.e. one re-init instead of two.
             var toRecover = new System.Collections.Generic.List<(Device.HardwareDeviceHost Device, string Reason)>();
+            // MBA-967: stops carried out here, after the lock, for the same reasons as toRecover.
+            var toStop = new System.Collections.Generic.List<(Device.HardwareDeviceHost Device, string Reason)>();
 
             DeviceHost_Slim.MyReadLock(list =>
             {
@@ -482,7 +546,22 @@ namespace Maba.VCT.Core
                 {
                     if (device == null) continue;
 
+                    var pendingStopReason = device.TakePendingStopReason();
+                    if (pendingStopReason != null) toStop.Add((device, pendingStopReason));
+
                     var pendingReconfigureReason = device.TakePendingReconfigureReason();
+
+                    // MBA-967: a stopped logger is silent on purpose. Neither the graph's re-send of the
+                    // saved setup (a reconfiguration) nor the watchdog's power-cycle recovery may start
+                    // it again - only the next Confirm's Status:Start does. Settings changed meanwhile
+                    // are already in memory, and that resume's re-init applies them.
+                    if (device.ScanStopped)
+                    {
+                        if (pendingReconfigureReason != null)
+                            Libs.Trace.Tracer.Info("[STOP] SN={0}: not re-initializing while the scan is stopped ({1})", device.SN, pendingReconfigureReason);
+                        continue;
+                    }
+
                     if (pendingReconfigureReason != null && device.IsConnected)
                     {
                         toRecover.Add((device, pendingReconfigureReason));
@@ -520,6 +599,18 @@ namespace Maba.VCT.Core
                     }
                 }
             });
+
+            foreach (var (device, reason) in toStop)
+            {
+                try
+                {
+                    device.StopScanning(reason);
+                }
+                catch (Exception ex)
+                {
+                    Libs.Trace.Tracer.Info("[STOP] SN={0} stopping the scan threw: {1}", device.SN, ex.Message);
+                }
+            }
 
             foreach (var (device, reason) in toRecover)
             {

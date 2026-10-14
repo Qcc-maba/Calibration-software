@@ -25,5 +25,13 @@ namespace Maba.VCT.Core.Device
         /// itself. See <c>HardwareBL_Settings.ResolveLiveFamilyKey</c>.
         /// </summary>
         string SettingsFamily { get; }
+
+        /// <summary>
+        /// MBA-967: the operator's "stop scan". Stops whatever this BL is running against the
+        /// instrument - its init sequence and any polling loop - and tells the instrument to stop.
+        /// Called only on the device tick thread (<c>HardwareDeviceHost.StopScanning</c>). Returns
+        /// false when the BL has no scan to stop, so the host knows not to treat it as stopped.
+        /// </summary>
+        bool StopScanning(string reason);
     }
 }

@@ -145,14 +145,20 @@ treatment.
 `Value = "Start}"` and the server ignores it. When sending WS commands by hand, put a throwaway
 field last (`,"DeviceID":"0"`). Note the misspelled class name; it is spelled that way in the code.
 
-**`Status:"Stop"` is momentary, not a persistent "stay off" state (MBA-974).** It calls
-`dev.Disconnect()` once on every live hardware device; it does not touch discovery. A configured or
-auto-discovered serial port stays claimed either way (`ServerCore.cs` — RediscoverTransports treats
-the currently-held transports as claimed, same as a static tunnel), so the next 30s rediscovery pass
-reopens the port, re-probes `*IDN?`, and the device reconnects on its own within seconds if it is
-still physically plugged in and powered. There is no code path that makes a device *stay* disconnected
-short of unplugging it, stopping the whole ComServer process, or removing its tunnel entry from
-settings and restarting.
+**`Status:"Stop"` is the logger window's "stop scan" (MBA-967).** The app sends
+`CMD:"Status", Value:Stop, DeviceID:"<logger MABA id>"` - `Value` is not the last field, so the
+parser quirk above does not bite. It is routed like that logger's `LoggerConfiguration`
+(`ResolveLiveFamilyKey`: Masters, else the one live family); with no logger identified it is only
+logged and nothing is held. The WS thread only marks the device (`HardwareDeviceHost.RequestStopScanning`);
+the next device tick (`CheckDataTimeouts`) carries it out: sessions drained, watchdog put back to idle,
+and `Hydra2DeviceBL.StopScanning` parks the state machine, moves `_pollGeneration` on (every polling
+loop stops) and sends `SCAN 0` -> `LOG_CLR` -> `*RST`, each after the previous reply. The link stays
+open. Until then it **stays stopped**: while `ScanStopped`, the data watchdog and its power-cycle
+recovery skip the device, a live reconfiguration (the graph re-sending the saved setup) is dropped, and
+a reconnect does not set the BL up. **Only the next Confirm restarts it** - its `Status:"Start"` calls
+`RequestResumeScanning`, which marks a re-init even when the configuration is unchanged. A Start for a
+logger that was not stopped does what it always did. Before MBA-967, Stop closed every hardware link
+once; nothing sent it, and rediscovery reopened the ports within 30 s.
 
 ## Live reconfiguration (MBA-974) and why `ReinitializeBL` has one safe caller
 

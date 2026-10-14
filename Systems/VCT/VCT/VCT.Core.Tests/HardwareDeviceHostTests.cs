@@ -844,5 +844,14 @@ namespace Maba.VCT.Core.Tests
             return true;
         }
         public void OnEvent(DeviceEventArgs e) { LastEvent = e; }
+
+        /// <summary>What StopScanning answers (MBA-967): true for a BL that scans.</summary>
+        public bool CanStopScanning { get; set; }
+        public int StopScanningCallCount { get; set; }
+        public bool StopScanning(string reason)
+        {
+            StopScanningCallCount++;
+            return CanStopScanning;
+        }
     }
 }
