@@ -297,8 +297,10 @@ namespace Maba.VCT.Core.Tests
         }
 
         [TestMethod]
-        public void WebSocket_StatusStop_WithRegisteredHardware_DisconnectsDevices()
+        public void WebSocket_StatusStop_LeavesTheHardwareLinkOpen()
         {
+            // MBA-967: Status:Stop used to close every hardware link, and the next rediscovery reopened
+            // it. It now stops the logger's scan (StopScanTests); the port stays held.
             var server = new ServerCore();
             var com = new MockComLayer();
             var host = new HardwareDeviceHost(server.MainEventsBus, com, new DeviceSettings());
@@ -311,23 +313,8 @@ namespace Maba.VCT.Core.Tests
             var wsHost = new WebSocketDeviceHost(server.MainEventsBus, wsCom, "WS");
             server.MainEventsBus.Fire_OnIncomingEvent(wsHost, new DeviceEventArgs(wsHost, new StatusMessage { Value = "Stop" }));
 
-            Assert.IsFalse(com.IsConnected);
-        }
-
-        [TestMethod]
-        public void WebSocket_StatusStop_WhenHardwareDisconnectThrows_Continues()
-        {
-            var server = new ServerCore();
-            var com = new MockComLayer { ThrowOnClose = true };
-            var host = new HardwareDeviceHost(server.MainEventsBus, com, new DeviceSettings());
-            var idBytes = System.Text.Encoding.ASCII.GetBytes("FLUKE,2625A\r\n");
-            com.SimulateDataReceived(idBytes, 0, idBytes.Length);
-
-            GetDeviceHostSlim(server).MyWriteLock(d => d.TryAdd(host.SN, host));
-
-            var wsCom = new MockComLayer();
-            var wsHost = new WebSocketDeviceHost(server.MainEventsBus, wsCom, "WS");
-            server.MainEventsBus.Fire_OnIncomingEvent(wsHost, new DeviceEventArgs(wsHost, new StatusMessage { Value = "Stop" }));
+            Assert.IsTrue(com.IsConnected);
+            Assert.AreEqual(0, com.CloseCount);
         }
 
         #endregion
