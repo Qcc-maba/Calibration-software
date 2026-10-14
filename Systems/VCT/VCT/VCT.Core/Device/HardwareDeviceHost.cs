@@ -600,6 +600,16 @@ namespace Maba.VCT.Core.Device
                 return false;
             }
 
+            // Asked before anything is cleared (review of #28): a BL that cannot stop keeps its queued
+            // requests and its watchdog clock, so "left as it was" is literally true and its watchdog
+            // goes on judging it from its last reading.
+            if (!bl.CanStopScanning)
+            {
+                Libs.Trace.Tracer.Info("[STOP] SN={0}: its BL does not scan; left as it was ({1})", SN, reason);
+                _scanStopped = false;
+                return false;
+            }
+
             Libs.Trace.Tracer.Info("[STOP] SN={0} stopping the scan: {1}", SN, reason);
 
             if (Sessions != null)
@@ -619,7 +629,9 @@ namespace Maba.VCT.Core.Device
 
             if (!bl.StopScanning(reason))
             {
-                Libs.Trace.Tracer.Info("[STOP] SN={0}: its BL does not scan; left as it was", SN);
+                // Said it could stop, then did not. The requests and the watchdog are already reset,
+                // so the line does not claim the device was left as it was.
+                Libs.Trace.Tracer.Info("[STOP] SN={0}: its BL did not stop the scan; requests dropped and watchdog reset, but the device is not held stopped", SN);
                 _scanStopped = false;
                 return false;
             }
@@ -823,9 +835,24 @@ namespace Maba.VCT.Core.Device
             {
                 // MBA-967: a stopped logger stays stopped when its link comes back; only the next
                 // Confirm (Status:Start -> RequestResumeScanning) sets it up and starts it again.
-                if (_scanStopped)
+                // Not setting it up is not enough, though (review of #28): a stop carried out while the
+                // link was down never reached the logger, and one cut off by the drop may have stopped
+                // half way, so the logger can still be scanning into its own memory. The stop sequence
+                // goes out again on every reconnect - SCAN 0 / LOG_CLR / *RST are harmless to a logger
+                // already stopped. Still no init and no polling loop. This runs on the device tick
+                // thread (DeviceTick -> InitSessions), like the stop itself; a Confirm arriving while
+                // it runs re-inits, and the re-init's generation bump cuts the rest of it off.
+                if (_scanStopped && bl.CanStopScanning)
                 {
-                    Libs.Trace.Tracer.Info("[STOP] SN={0} reconnected while its scan is stopped; not setting it up until the next Confirm", SN);
+                    Libs.Trace.Tracer.Info("[STOP] SN={0} reconnected while its scan is stopped; sending the stop again, not setting it up until the next Confirm", SN);
+                    try
+                    {
+                        bl.StopScanning("reconnected while its scan is stopped");
+                    }
+                    catch (Exception ex)
+                    {
+                        Libs.Trace.Tracer.Info("[STOP] SN={0} sending the stop again after a reconnect threw: {1}", SN, ex.Message);
+                    }
                     return;
                 }
                 bl.OnConnection(true);

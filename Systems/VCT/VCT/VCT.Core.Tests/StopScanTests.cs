@@ -271,8 +271,132 @@ namespace Maba.VCT.Core.Tests
             Status(server, "Stop");
             Tick(server, DateTime.UtcNow);
 
+            Assert.AreEqual(0, bl.StopScanningCallCount, "asked whether it can stop, not told to");
+            Assert.IsFalse(host.ScanStopped);
+        }
+
+        [TestMethod]
+        public void ADeviceWhoseBLDoesNotScanIsReallyLeftAsItWas()
+        {
+            // Review of #28: the BL is asked before anything is cleared, so the watchdog keeps judging
+            // the device from its last reading and its recovery budget is not handed back.
+            var server = new ServerCore();
+            var bl = new MockDeviceBL { SettingsFamily = Hydra2DeviceBL.SETTINGS_FAMILY, CanStopScanning = false };
+            var host = Logger(server, bl);
+            host.BroadcastAllMeasurements(new List<int> { 1 }, new List<double> { 23.1 });
+            var lastReading = host.LastMeasurementUtc;
+            host.DataTimedOut = true;
+            host.RecoveryAttempts = 3;
+            host.RequestStopScanning("stop scan from web app");
+
+            Assert.IsFalse(host.StopScanning(host.TakePendingStopReason()));
+
+            Assert.AreEqual(lastReading, host.LastMeasurementUtc);
+            Assert.IsTrue(host.DataTimedOut);
+            Assert.AreEqual(3, host.RecoveryAttempts);
+            Assert.IsFalse(host.ScanStopped);
+        }
+
+        [TestMethod]
+        public void ABLThatClaimsItCanStopAndThenDoesNotIsNotHeldStopped()
+        {
+            var server = new ServerCore();
+            var bl = new MockDeviceBL { SettingsFamily = Hydra2DeviceBL.SETTINGS_FAMILY, CanStopScanning = true, StopScanningFails = true };
+            var host = Logger(server, bl);
+            host.RequestStopScanning("stop scan from web app");
+
+            Assert.IsFalse(host.StopScanning(host.TakePendingStopReason()));
+
             Assert.AreEqual(1, bl.StopScanningCallCount);
             Assert.IsFalse(host.ScanStopped);
+        }
+
+        [TestMethod]
+        public void ADeviceWithNoBLHasNothingToStop()
+        {
+            var host = new HardwareDeviceHost(new EventsBus(), new MockComLayer(), new DeviceSettings());
+            Identify((MockComLayer)host.InternalComLayer);
+            host.RequestStopScanning("stop scan from web app");
+
+            Assert.IsFalse(host.StopScanning(host.TakePendingStopReason()));
+            Assert.IsFalse(host.ScanStopped);
+        }
+
+        [TestMethod]
+        public void AStopOrResumeWithoutAReasonGetsADefaultOne()
+        {
+            var host = new HardwareDeviceHost(new EventsBus(), new MockComLayer(), new DeviceSettings());
+
+            host.RequestStopScanning(null);
+            Assert.AreEqual("stop scan from web app", host.TakePendingStopReason());
+
+            Assert.IsTrue(host.RequestResumeScanning(null));
+            Assert.AreEqual("scan resumed from web app", host.TakePendingReconfigureReason());
+        }
+
+        /// <summary>The device's link drops and a new one is promoted to it, as DeviceTick does.</summary>
+        private static MockComLayer Reconnect(HardwareDeviceHost host, EventsBus bus)
+        {
+            var newCom = new MockComLayer();
+            var pending = new HardwareDeviceHost(bus, newCom, new DeviceSettings());
+            Identify(newCom);
+            host.InitSessions(pending);
+            pending.ReplaceComLayer(null);
+            return newCom;
+        }
+
+        [TestMethod]
+        public void AStoppedLoggerThatReconnectsIsSentTheStopAgain()
+        {
+            // Review of #28: a stop carried out with the link down never reached the logger, which
+            // goes on scanning into its own memory. The reconnect is when it can be told.
+            var server = new ServerCore();
+            var bl = ScanningBL();
+            var host = Logger(server, bl);
+            Status(server, "Stop");
+            Tick(server, DateTime.UtcNow);
+            var callsBefore = bl.OnConnectionCallCount;
+
+            Reconnect(host, server.MainEventsBus);
+            Assert.AreEqual(2, bl.StopScanningCallCount);
+            Assert.AreEqual("reconnected while its scan is stopped", bl.LastStopReason);
+
+            Reconnect(host, server.MainEventsBus);
+            Assert.AreEqual(3, bl.StopScanningCallCount, "on every reconnect while stopped");
+            Assert.AreEqual(callsBefore, bl.OnConnectionCallCount, "set up again");
+            Assert.IsTrue(host.ScanStopped);
+        }
+
+        [TestMethod]
+        public void AReconnectWhoseStopThrowsIsLoggedAndStillDoesNotSetItUp()
+        {
+            var server = new ServerCore();
+            var bl = new MockDeviceBL { SettingsFamily = Hydra2DeviceBL.SETTINGS_FAMILY, CanStopScanning = true, StopScanningThrows = true };
+            var host = Logger(server, bl);
+            host.RequestStopScanning("stop scan from web app");
+            var callsBefore = bl.OnConnectionCallCount;
+
+            Reconnect(host, server.MainEventsBus);
+
+            Assert.AreEqual(callsBefore, bl.OnConnectionCallCount);
+            Assert.IsTrue(host.ScanStopped);
+        }
+
+        [TestMethod]
+        public void AReconnectOfADeviceThatCannotStopSetsItUpAsUsual()
+        {
+            // Marked stopped by a Stop the tick has not carried out yet; its BL has no scan to stop,
+            // so the tick will clear the mark - it must not come back unconfigured meanwhile.
+            var server = new ServerCore();
+            var bl = new MockDeviceBL { SettingsFamily = Hydra2DeviceBL.SETTINGS_FAMILY, CanStopScanning = false };
+            var host = Logger(server, bl);
+            host.RequestStopScanning("stop scan from web app");
+            var callsBefore = bl.OnConnectionCallCount;
+
+            Reconnect(host, server.MainEventsBus);
+
+            Assert.AreEqual(callsBefore + 1, bl.OnConnectionCallCount);
+            Assert.AreEqual(0, bl.StopScanningCallCount);
         }
 
         // ------------------------------------------------------------------ the Hydra 2625A itself
@@ -411,10 +535,180 @@ namespace Maba.VCT.Core.Tests
 
             hydra.Host.ReinitializeBL("scan confirmed again after a stop");
             var sentBefore = hydra.Com.SentStrings.Count;
-            hydra.BL.Invoke("SendStopCommand", 1, stopGeneration);
+            hydra.BL.Invoke("SendStopCommand", 1, stopGeneration, new List<string>());
             for (var i = 0; i < 5; i++) { hydra.Host.Timer(); System.Threading.Thread.Sleep(10); }
 
             Assert.IsFalse(hydra.Com.SentStrings.Skip(sentBefore).Any(s => s.Trim() == "LOG_CLR"));
+        }
+
+        // ------------------------------------------------------------------ the link down (review of #28)
+
+        /// <summary>Captures what the server logs, for the lines an operator reads to know what happened.</summary>
+        private sealed class LogCapture : IDisposable
+        {
+            private readonly System.IO.TextWriter _previous;
+            private readonly System.IO.StringWriter _log = new System.IO.StringWriter();
+
+            public LogCapture()
+            {
+                _previous = Maba.VCT.Libs.Trace.Tracer.CurrentTracer.OutputStream;
+                Maba.VCT.Libs.Trace.Tracer.CurrentTracer.OutputStream = System.IO.TextWriter.Synchronized(_log);
+            }
+
+            public string Text { get { lock (_log) return _log.ToString(); } }
+
+            /// <summary>Waits for a line logged from a reply callback, which runs on a pool thread.</summary>
+            public bool WaitFor(string fragment, int milliseconds = 5000)
+            {
+                var deadline = DateTime.UtcNow.AddMilliseconds(milliseconds);
+                while (DateTime.UtcNow < deadline)
+                {
+                    if (Text.Contains(fragment)) return true;
+                    System.Threading.Thread.Sleep(10);
+                }
+                return false;
+            }
+
+            public void Dispose() { Maba.VCT.Libs.Trace.Tracer.CurrentTracer.OutputStream = _previous; }
+        }
+
+        private const string StoppedLine = "[HYDRA Stop] The logger is stopped";
+
+        private static void Pump(Hydra hydra, int ticks = 10)
+        {
+            for (var i = 0; i < ticks; i++) { hydra.Host.Timer(); System.Threading.Thread.Sleep(10); }
+        }
+
+        /// <summary>A stop carried out the way the tick does it, while the logger's link is down.</summary>
+        private static void StopWhileUnplugged(Hydra hydra)
+        {
+            hydra.Com.IsConnected = false;
+            hydra.Host.RequestStopScanning("stop scan from web app");
+            Assert.IsTrue(hydra.Host.StopScanning(hydra.Host.TakePendingStopReason()));
+        }
+
+        /// <summary>The logger's link comes back on a new port, as DeviceTick promotes it.</summary>
+        private static void Replug(Hydra hydra)
+        {
+            hydra.Com = new MockComLayer();
+            var pending = new HardwareDeviceHost(hydra.Bus, hydra.Com, new DeviceSettings());
+            Identify(hydra.Com);
+            hydra.Host.InitSessions(pending);
+            pending.ReplaceComLayer(null);
+        }
+
+        [TestMethod]
+        public void AStopWithTheLinkDownSendsNothingAndSaysSo()
+        {
+            var hydra = ConnectedHydra();
+            using (var log = new LogCapture())
+            {
+                StopWhileUnplugged(hydra);
+                Pump(hydra);
+
+                Assert.AreEqual(0, hydra.Com.SentStrings.Count);
+                StringAssert.Contains(log.Text, "[HYDRA Stop] Stop recorded (stop scan from web app)");
+                StringAssert.Contains(log.Text, "the logger is not reachable, so nothing is sent now - SCAN 0, LOG_CLR, *RST go out when its link reconnects");
+                Assert.IsFalse(log.Text.Contains(StoppedLine));
+            }
+            Assert.IsTrue(hydra.Host.ScanStopped, "the stop still holds");
+            Assert.AreEqual(BaseBLDevice.DeviceSteps.Close, hydra.BL.GetProperty("CurrentStep"));
+        }
+
+        [TestMethod]
+        public void AStoppedLoggerThatReconnectsIsStoppedForRealAndNotSetUp()
+        {
+            var hydra = ConnectedHydra();
+            StopWhileUnplugged(hydra);
+            using (var log = new LogCapture())
+            {
+                Replug(hydra);
+
+                PumpUntilSent(hydra, "SCAN 0");
+                Reply(hydra);
+                PumpUntilSent(hydra, "LOG_CLR");
+                Reply(hydra);
+                PumpUntilSent(hydra, "*RST");
+                Reply(hydra);
+                Assert.IsTrue(log.WaitFor(StoppedLine), "the stopped line after a connected run");
+
+                // No init and no polling loop: nothing else goes out, however long it is left.
+                Pump(hydra);
+                CollectionAssert.AreEqual(new[] { "SCAN 0", "LOG_CLR", "*RST" },
+                    hydra.Com.SentStrings.Select(s => s.Trim()).ToArray());
+                Assert.AreEqual(BaseBLDevice.DeviceSteps.Close, hydra.BL.GetProperty("CurrentStep"));
+                Assert.IsTrue(hydra.Host.ScanStopped);
+            }
+        }
+
+        [TestMethod]
+        public void ALinkThatDropsDuringTheStopDoesNotClaimTheLoggerStopped()
+        {
+            var hydra = ConnectedHydra();
+            using (var log = new LogCapture())
+            {
+                hydra.Host.StopScanning("stop scan from web app");
+                PumpUntilSent(hydra, "SCAN 0");
+
+                hydra.Com.IsConnected = false;
+                Reply(hydra);
+
+                Assert.IsTrue(log.WaitFor("[HYDRA Stop] The link dropped during the stop sequence (before LOG_CLR); the logger may still be scanning - the stop is sent again when its link reconnects"));
+                Pump(hydra);
+                Assert.IsFalse(log.Text.Contains(StoppedLine));
+            }
+        }
+
+        [TestMethod]
+        public void AStopSequenceWithAnUnansweredCommandDoesNotClaimTheLoggerStopped()
+        {
+            var hydra = ConnectedHydra();
+            using (var log = new LogCapture())
+            {
+                hydra.BL.Invoke("SendStopCommand", Hydra2DeviceBL.StopCommands.Length, hydra.Generation, new List<string> { "LOG_CLR" });
+
+                StringAssert.Contains(log.Text, "[HYDRA Stop] The stop sequence went out, but LOG_CLR got no acknowledgement; the logger is not confirmed stopped.");
+                Assert.IsFalse(log.Text.Contains(StoppedLine));
+            }
+        }
+
+        [TestMethod]
+        public void AStopSequenceOvertakenByAReInitAtItsLastStepSaysSo()
+        {
+            var hydra = ConnectedHydra();
+            var stale = hydra.Generation - 1;
+            using (var log = new LogCapture())
+            {
+                hydra.BL.Invoke("SendStopCommand", Hydra2DeviceBL.StopCommands.Length, stale, new List<string>());
+
+                StringAssert.Contains(log.Text, "[HYDRA Stop] The stop sequence was overtaken by a re-init");
+                Assert.IsFalse(log.Text.Contains(StoppedLine));
+            }
+        }
+
+        [TestMethod]
+        public void AConfirmWhileTheReconnectStopIsRunningReInitsTheLogger()
+        {
+            var hydra = ConnectedHydra();
+            StopWhileUnplugged(hydra);
+            Replug(hydra);
+            PumpUntilSent(hydra, "SCAN 0");
+            var reconnectStop = hydra.Generation;
+
+            // The Confirm's Status:Start, then the tick's re-init (ServerCore.CheckDataTimeouts).
+            Assert.IsTrue(hydra.Host.RequestResumeScanning("scan confirmed again after a stop"));
+            Assert.IsTrue(hydra.Host.ReinitializeBL(hydra.Host.TakePendingReconfigureReason()));
+            Assert.AreEqual(reconnectStop + 1, hydra.Generation, "the re-init retires the reconnect's stop");
+            Assert.AreEqual(BaseBLDevice.DeviceSteps.Start, hydra.BL.GetProperty("CurrentStep"));
+
+            var sentBefore = hydra.Com.SentStrings.Count;
+            Reply(hydra);
+            hydra.BL.Invoke("SendStopCommand", 1, reconnectStop, new List<string>());
+            Pump(hydra);
+
+            Assert.IsFalse(hydra.Com.SentStrings.Skip(sentBefore).Any(s => s.Trim() == "LOG_CLR"), "the rest of the stop went out over the init");
+            Assert.IsTrue(hydra.Com.SentStrings.Count > sentBefore, "the init did not start");
+            Assert.IsFalse(hydra.Host.ScanStopped);
         }
     }
 }

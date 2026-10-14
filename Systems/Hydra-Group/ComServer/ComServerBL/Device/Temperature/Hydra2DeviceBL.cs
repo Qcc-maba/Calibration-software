@@ -575,12 +575,17 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// </summary>
         internal static readonly string[] StopCommands = { "SCAN 0", "LOG_CLR", "*RST" };
 
+        /// <summary>MBA-967: the 2625A scans, and <see cref="StopScanning"/> stops it.</summary>
+        public override bool CanStopScanning => true;
+
         /// <summary>
         /// MBA-967: the operator's "stop scan" from the logger window. Parks the state machine (an init
         /// half way through must not go on to start a loop), retires every polling loop by moving the
         /// generation on - the one polling now and one asleep in its 28 s wait both stop at their next
         /// step (<see cref="IsStalePoll"/>) - and sends <see cref="StopCommands"/>. Only a re-init
         /// (<c>OnConnection(true)</c>, which the next Confirm's Status:Start asks for) starts it again.
+        /// Also called by the host when the link of a stopped logger comes back, to send the commands
+        /// again (<c>HardwareDeviceHost.OnConnection</c>).
         /// </summary>
         public override bool StopScanning(string reason)
         {
@@ -593,27 +598,56 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 _pendingEntries.Clear();
             }
 
+            // With the link down every command would be dropped unsent and time out one by one, and
+            // the log would still end "the logger is stopped" (review of #28). The stop holds anyway -
+            // the host keeps the device stopped - and the commands go out when the link comes back.
+            if (HW_Device == null || !HW_Device.IsConnected)
+            {
+                Libs.Trace.Tracer.Info("[HYDRA Stop] Stop recorded ({0}); the logger is not reachable, so nothing is sent now - {1} go out when its link reconnects",
+                    reason, string.Join(", ", StopCommands));
+                return true;
+            }
+
             Libs.Trace.Tracer.Info("[HYDRA Stop] Stopping the scan ({0}): every polling loop before #{1} stops; sending {2}",
                 reason, generation, string.Join(", ", StopCommands));
-            SendStopCommand(0, generation);
+            SendStopCommand(0, generation, new List<string>());
             return true;
         }
 
         /// <summary>
         /// Sends <see cref="StopCommands"/>[<paramref name="index"/>]; its reply sends the next. A
         /// re-init in between (the next Confirm) moves the generation on and the rest is not sent:
-        /// the init's own <c>*RST</c> follows.
+        /// the init's own <c>*RST</c> follows. <paramref name="unacknowledged"/> collects the commands
+        /// that got no good reply, so the last line says whether the logger is known to be stopped.
         /// </summary>
-        private void SendStopCommand(int index, int generation)
+        private void SendStopCommand(int index, int generation, List<string> unacknowledged)
         {
-            if (index >= StopCommands.Length)
-            {
-                Libs.Trace.Tracer.Info("[HYDRA Stop] The logger is stopped; it scans again after the next Confirm");
-                return;
-            }
             if (System.Threading.Volatile.Read(ref _pollGeneration) != generation)
             {
-                Libs.Trace.Tracer.Info("[HYDRA Stop] Not sending {0}: the logger was re-initialised meanwhile", StopCommands[index]);
+                Libs.Trace.Tracer.Info(index < StopCommands.Length
+                    ? "[HYDRA Stop] Not sending " + StopCommands[index] + ": the logger was re-initialised meanwhile"
+                    : "[HYDRA Stop] The stop sequence was overtaken by a re-init");
+                return;
+            }
+            // A drop part way through: the session queue was emptied with the link, so nothing more
+            // would reach the logger, and the reconnect sends the whole sequence again.
+            if (HW_Device == null || !HW_Device.IsConnected)
+            {
+                Libs.Trace.Tracer.Info("[HYDRA Stop] The link dropped during the stop sequence{0}; the logger may still be scanning - the stop is sent again when its link reconnects",
+                    index < StopCommands.Length ? " (before " + StopCommands[index] + ")" : "");
+                return;
+            }
+            if (index >= StopCommands.Length)
+            {
+                if (unacknowledged.Count == 0)
+                {
+                    Libs.Trace.Tracer.Info("[HYDRA Stop] The logger is stopped; it scans again after the next Confirm");
+                }
+                else
+                {
+                    Libs.Trace.Tracer.Info("[HYDRA Stop] The stop sequence went out, but {0} got no acknowledgement; the logger is not confirmed stopped. It is sent again if its link reconnects, and the next Confirm re-inits it",
+                        string.Join(", ", unacknowledged));
+                }
                 return;
             }
 
@@ -624,8 +658,9 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                     // Carry on: the *RST at the end stops the scan even if SCAN 0 or LOG_CLR was refused.
                     Libs.Trace.Tracer.Info("[HYDRA Stop] {0} was not acknowledged{1}; carrying on",
                         StopCommands[index], res != null && res.Expired ? " (no reply in time)" : "");
+                    unacknowledged.Add(StopCommands[index]);
                 }
-                SendStopCommand(index + 1, generation);
+                SendStopCommand(index + 1, generation, unacknowledged);
             };
 
             switch (index)

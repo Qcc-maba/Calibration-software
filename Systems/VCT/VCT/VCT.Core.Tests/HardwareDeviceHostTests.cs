@@ -845,13 +845,20 @@ namespace Maba.VCT.Core.Tests
         }
         public void OnEvent(DeviceEventArgs e) { LastEvent = e; }
 
-        /// <summary>What StopScanning answers (MBA-967): true for a BL that scans.</summary>
+        /// <summary>MBA-967: true for a BL that scans; StopScanning answers the same unless <see cref="StopScanningFails"/>.</summary>
         public bool CanStopScanning { get; set; }
+        /// <summary>A BL that says it can stop and then does not - the host's last-resort branch.</summary>
+        public bool StopScanningFails { get; set; }
+        /// <summary>A BL whose stop throws - the reconnect path must still not set the device up.</summary>
+        public bool StopScanningThrows { get; set; }
         public int StopScanningCallCount { get; set; }
+        public string LastStopReason { get; set; }
         public bool StopScanning(string reason)
         {
             StopScanningCallCount++;
-            return CanStopScanning;
+            LastStopReason = reason;
+            if (StopScanningThrows) throw new InvalidOperationException("stop failed");
+            return CanStopScanning && !StopScanningFails;
         }
     }
 }

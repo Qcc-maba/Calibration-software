@@ -27,10 +27,18 @@ namespace Maba.VCT.Core.Device
         string SettingsFamily { get; }
 
         /// <summary>
+        /// MBA-967: whether this BL runs a scan that <see cref="StopScanning"/> can stop. Asked
+        /// before the host touches anything, so a device whose BL cannot stop is really left as it
+        /// was - its queued requests and its watchdog state included.
+        /// </summary>
+        bool CanStopScanning { get; }
+
+        /// <summary>
         /// MBA-967: the operator's "stop scan". Stops whatever this BL is running against the
         /// instrument - its init sequence and any polling loop - and tells the instrument to stop.
-        /// Called only on the device tick thread (<c>HardwareDeviceHost.StopScanning</c>). Returns
-        /// false when the BL has no scan to stop, so the host knows not to treat it as stopped.
+        /// Called only on the device tick thread (<c>HardwareDeviceHost.StopScanning</c>, and its
+        /// reconnect while stopped). Returns false when the BL has no scan to stop, so the host knows
+        /// not to treat it as stopped.
         /// </summary>
         bool StopScanning(string reason);
     }

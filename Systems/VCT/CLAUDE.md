@@ -155,7 +155,11 @@ and `Hydra2DeviceBL.StopScanning` parks the state machine, moves `_pollGeneratio
 loop stops) and sends `SCAN 0` -> `LOG_CLR` -> `*RST`, each after the previous reply. The link stays
 open. Until then it **stays stopped**: while `ScanStopped`, the data watchdog and its power-cycle
 recovery skip the device, a live reconfiguration (the graph re-sending the saved setup) is dropped, and
-a reconnect does not set the BL up. **Only the next Confirm restarts it** - its `Status:"Start"` calls
+a reconnect does not set the BL up - it sends `SCAN 0` -> `LOG_CLR` -> `*RST` again instead, on every
+reconnect, because a stop carried out with the link down sends nothing (it logs "Stop recorded ... not
+reachable") and the logger goes on scanning into its own memory. "The logger is stopped" is logged only
+after the whole sequence was acknowledged over a live link. A BL whose `CanStopScanning` is false is
+left exactly as it was (nothing drained, watchdog untouched). **Only the next Confirm restarts it** - its `Status:"Start"` calls
 `RequestResumeScanning`, which marks a re-init even when the configuration is unchanged. A Start for a
 logger that was not stopped does what it always did. Before MBA-967, Stop closed every hardware link
 once; nothing sent it, and rediscovery reopened the ports within 30 s.

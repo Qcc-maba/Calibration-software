@@ -202,6 +202,9 @@ namespace Maba.VCT.CommServer.CommonBL
         }
 
         /// <summary>MBA-967: nothing to stop by default; a BL that scans (Hydra2DeviceBL) overrides this.</summary>
+        public virtual bool CanStopScanning => false;
+
+        /// <summary>MBA-967: nothing to stop by default; a BL that scans (Hydra2DeviceBL) overrides this.</summary>
         public virtual bool StopScanning(string reason)
         {
             return false;
