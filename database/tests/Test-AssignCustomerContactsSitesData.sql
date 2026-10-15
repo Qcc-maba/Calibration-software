@@ -97,6 +97,7 @@ WHERE cs.IsDeleted = 0
   AND cs.CustomerId NOT IN (SELECT CustomerId FROM @Own)
 ORDER BY cs.CustomerSiteId;
 
+
 DECLARE @Err INT, @A NVARCHAR(60), @B NVARCHAR(60), @N1 INT, @N2 INT, @K1 INT, @K2 INT;
 DECLARE @Unknown NVARCHAR(100) = N'mba627-nobody-' + CONVERT(NVARCHAR(36), NEWID()) + N'@example.invalid';
 DECLARE @NewEmail NVARCHAR(50) = N'mba627.' + LEFT(CONVERT(NVARCHAR(36), NEWID()), 8) + N'@example.com';
@@ -256,6 +257,15 @@ BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
 IF @@TRANCOUNT > 0 ROLLBACK;
 INSERT @Out SELECT N'contacts', N'C11 @CustomerContactsIdsToRemove no longer accepted', N'8145', @Err, IIF(@Err = 8145, N'PASS', N'FAIL');
 
+/* C12 - Priority marks the caller inactive: refused, and nothing moves. Simulated inside the case's
+   own transaction (STAGE holds no inactive-only address); GetPortalCustomerIds and the own-row lookup
+   both filter on IsActive, and this keeps them from drifting apart into a silent "saved". */
+BEGIN TRAN; SET @Err = 0;
+UPDATE dbo.CustomerContacts SET IsActive = 0 WHERE CustomerContactId IN (SELECT CustomerContactId FROM @Own);
+BEGIN TRY DELETE #C; INSERT #C EXEC dbo.AssignCustomerContactsData @LoggedInUserEmail = @Me, @CustomerContactPhone = N'03-6270627'; END TRY
+BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
+IF @@TRANCOUNT > 0 ROLLBACK;
+INSERT @Out SELECT N'contacts', N'C12 inactive contact refused', N'54001', @Err, IIF(@Err = 54001, N'PASS', N'FAIL');
 /* =============================================================================================
    AssignCustomerSitesData
    ============================================================================================= */
@@ -310,23 +320,32 @@ BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
 IF @@TRANCOUNT > 0 ROLLBACK;
 INSERT @Out SELECT N'sites', N'S4 empty list refused', N'54102', @Err, IIF(@Err = 54102, N'PASS', N'FAIL');
 
-/* S5 - removing an own site soft-deletes it; S6 - reverting brings it back */
+/* S5 - removing an own site soft-deletes it; removing it again is accepted and changes nothing;
+   S6 - a removed site cannot be edited (there is no revert any more) */
 IF @OwnSite IS NULL
-    INSERT @Out SELECT N'sites', N'S5/S6 own site remove and revert', NULL, NULL, N'SKIP: no site in the caller''s set';
+    INSERT @Out SELECT N'sites', N'S5/S6 own site remove, re-remove, edit removed', NULL, NULL, N'SKIP: no site in the caller''s set';
 ELSE
 BEGIN
+    DECLARE @Stamp1 DATETIME2(6), @Stamp2 DATETIME2(6), @Err2 INT = 0, @Err3 INT = 0;
     BEGIN TRAN; SET @Err = 0;
     SET @List = CONCAT(@OwnSite, N'');
     BEGIN TRY DELETE #S; INSERT #S EXEC dbo.AssignCustomerSitesData @LoggedInUserEmail = @Me, @CustomerSitesIdsToRemove = @List; END TRY
     BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
-    SET @N1 = (SELECT CAST(IsDeleted AS INT) FROM dbo.CustomerSites WHERE CustomerSiteId = @OwnSite);
+    SELECT @N1 = CAST(IsDeleted AS INT), @Stamp1 = UpdatedDate FROM dbo.CustomerSites WHERE CustomerSiteId = @OwnSite;
     IF @Err = 0
-    BEGIN TRY DELETE #S; INSERT #S EXEC dbo.AssignCustomerSitesData @LoggedInUserEmail = @Me, @CustomerSiteId = @OwnSite, @RevertDeletion = 1; END TRY
-    BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
-    SET @N2 = (SELECT CAST(IsDeleted AS INT) FROM dbo.CustomerSites WHERE CustomerSiteId = @OwnSite);
+    BEGIN TRY DELETE #S; INSERT #S EXEC dbo.AssignCustomerSitesData @LoggedInUserEmail = @Me, @CustomerSitesIdsToRemove = @List; END TRY
+    BEGIN CATCH SET @Err2 = ERROR_NUMBER(); END CATCH
+    SELECT @Stamp2 = UpdatedDate FROM dbo.CustomerSites WHERE CustomerSiteId = @OwnSite;
+    SET @N2 = (SELECT COUNT(*) FROM #S);
+    IF @Err = 0 AND @Err2 = 0
+    BEGIN TRY DELETE #S; INSERT #S EXEC dbo.AssignCustomerSitesData @LoggedInUserEmail = @Me, @CustomerSiteId = @OwnSite, @CustomerSitePhone = N'1'; END TRY
+    BEGIN CATCH SET @Err3 = ERROR_NUMBER(); END CATCH
     IF @@TRANCOUNT > 0 ROLLBACK;
-    INSERT @Out SELECT N'sites', N'S5/S6 own site removed, then reverted', N'1 / 0', CONCAT(@N1, N' / ', @N2),
-                       IIF(@Err = 0 AND @N1 = 1 AND @N2 = 0, N'PASS', N'FAIL');
+    INSERT @Out SELECT N'sites', N'S5 own site removed', N'1', CONCAT(@N1, N''), IIF(@Err = 0 AND @N1 = 1, N'PASS', N'FAIL');
+    INSERT @Out SELECT N'sites', N'S5 re-remove: accepted / rows written / stamp', N'0 / 0 / same',
+                       CONCAT(@Err2, N' / ', @N2, N' / ', IIF(@Stamp1 = @Stamp2, N'same', N'CHANGED')),
+                       IIF(@Err2 = 0 AND @N2 = 0 AND @Stamp1 = @Stamp2, N'PASS', N'FAIL');
+    INSERT @Out SELECT N'sites', N'S6 removed site cannot be edited', N'54103', @Err3, IIF(@Err3 = 54103, N'PASS', N'FAIL');
 END
 
 /* S7 - editing another customer's site is refused */
@@ -357,21 +376,35 @@ BEGIN
                        IIF(@Err = 0 AND @A = N'03-6270627' AND @K1 = @K2, N'PASS', N'FAIL');
 END
 
-/* S9 - add goes to the primary customer; S10 - same code twice is refused */
+/* S9 - add goes to the primary customer, with no site code (the code is Priority's) */
 BEGIN TRAN; SET @Err = 0;
 BEGIN TRY DELETE #S; INSERT #S EXEC dbo.AssignCustomerSitesData @LoggedInUserEmail = @Me,
-                                    @CustomerSiteDescription = N'MBA-627 test site', @CustomerSiteCode = 627062706; END TRY
+                                    @CustomerSiteDescription = N'MBA-627 test site'; END TRY
 BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
-SET @N1 = (SELECT TOP (1) customerId FROM #S);
-SET @N2 = @Err;
-IF @Err = 0
-BEGIN TRY DELETE #S; INSERT #S EXEC dbo.AssignCustomerSitesData @LoggedInUserEmail = @Me,
-                                    @CustomerSiteDescription = N'MBA-627 test site 2', @CustomerSiteCode = 627062706; END TRY
+SELECT TOP (1) @N1 = customerId, @N2 = siteCode FROM #S;
+IF @@TRANCOUNT > 0 ROLLBACK;
+INSERT @Out SELECT N'sites', N'S9 new site: customer / code', N'primary / NULL',
+                   CONCAT(IIF(@N1 = @PrimaryCust, N'primary', N'other'), N' / ', ISNULL(CAST(@N2 AS NVARCHAR(12)), N'NULL')),
+                   IIF(@Err = 0 AND @N1 = @PrimaryCust AND @N2 IS NULL, N'PASS', N'FAIL');
+
+/* S10 - the removed parameters fail loudly instead of being half-honoured */
+SET @Err = 0;
+BEGIN TRY
+    EXEC sp_executesql N'EXEC dbo.AssignCustomerSitesData @LoggedInUserEmail = @e, @CustomerSiteDescription = N''x'', @CustomerSiteCode = 1',
+                       N'@e NVARCHAR(100)', @e = @Me;
+END TRY
 BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
 IF @@TRANCOUNT > 0 ROLLBACK;
-INSERT @Out SELECT N'sites', N'S9 new site goes to the primary customer', N'primary', IIF(@N1 = @PrimaryCust, N'primary', CONCAT(N'other, err ', @N2)),
-                   IIF(@N2 = 0 AND @N1 = @PrimaryCust, N'PASS', N'FAIL');
-INSERT @Out SELECT N'sites', N'S10 duplicate code refused', N'54104', @Err, IIF(@Err = 54104, N'PASS', N'FAIL');
+INSERT @Out SELECT N'sites', N'S10 @CustomerSiteCode no longer accepted', N'8145', @Err, IIF(@Err = 8145, N'PASS', N'FAIL');
+
+SET @Err = 0;
+BEGIN TRY
+    EXEC sp_executesql N'EXEC dbo.AssignCustomerSitesData @LoggedInUserEmail = @e, @CustomerSiteId = 1, @RevertDeletion = 1',
+                       N'@e NVARCHAR(100)', @e = @Me;
+END TRY
+BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
+IF @@TRANCOUNT > 0 ROLLBACK;
+INSERT @Out SELECT N'sites', N'S10 @RevertDeletion no longer accepted', N'8145', @Err, IIF(@Err = 8145, N'PASS', N'FAIL');
 
 /* S11 - a new site needs a description or an address */
 BEGIN TRAN; SET @Err = 0;
@@ -380,4 +413,11 @@ BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
 IF @@TRANCOUNT > 0 ROLLBACK;
 INSERT @Out SELECT N'sites', N'S11 empty new site refused', N'54105', @Err, IIF(@Err = 54105, N'PASS', N'FAIL');
 
+/* S12 - the same for sites */
+BEGIN TRAN; SET @Err = 0;
+UPDATE dbo.CustomerContacts SET IsActive = 0 WHERE CustomerContactId IN (SELECT CustomerContactId FROM @Own);
+BEGIN TRY DELETE #S; INSERT #S EXEC dbo.AssignCustomerSitesData @LoggedInUserEmail = @Me, @CustomerSiteDescription = N'MBA-627 test site'; END TRY
+BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
+IF @@TRANCOUNT > 0 ROLLBACK;
+INSERT @Out SELECT N'sites', N'S12 inactive contact refused', N'54101', @Err, IIF(@Err = 54101, N'PASS', N'FAIL');
 SELECT Seq, Section, Test, Expected, Actual, Result FROM @Out ORDER BY Seq;

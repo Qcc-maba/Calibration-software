@@ -30,23 +30,30 @@
 
     stg.MergeCustomersData matches sites on (CustomerId, CustomerSiteCode) and overwrites their
     text from Priority, so a site edited here that Priority also holds reverts on the next sync.
-    Same known gap as the contacts; tracked on MBA-627. A site added here with a code Priority
-    later uses for that customer would be taken over by Priority the same way.
+    Same known gap as the contacts; tracked on MBA-627.
+
+    PR #29 review (same day):
+      - A site added here always gets CustomerSiteCode NULL. The code is Priority's, and NULL never
+        matches in the sync MERGE, so a portal site cannot be taken over by a Priority site that
+        later uses the same code. @CustomerSiteCode is gone, and with it the duplicate-code check.
+      - @RevertDeletion is gone. It let a customer bring back any removed site of their customers,
+        including one MABA staff removed, and the profile screen has no "restore" anyway. A removed
+        site cannot be edited either; adding it again creates a new site.
+      - Removing a site that is already removed is accepted and changes nothing.
 
     PARAMETERS
     ----------
     @CustomerSitesIdsToRemove   comma-separated CustomerSiteId list. When given, the call only
                                 removes; every other parameter is ignored.
-    @CustomerSiteId             edit that site. NULL with no removal list = add a new site.
-    @RevertDeletion = 1         with @CustomerSiteId: bring a removed site back.
+    @CustomerSiteId             edit that (live) site. NULL with no removal list = add a new site.
     The text fields: NULL keeps the current value on an edit.
 
     Refusals, all before anything is written:
       54101  the address is not a portal contact
       54102  a removal id is not a site of the caller (or not a number)
-      54103  @CustomerSiteId is not a site of the caller
-      54104  a new site's code is already used by a live site of the same customer
+      54103  @CustomerSiteId is not a live site of the caller
       54105  a new site has neither description nor address
+      (54104, a duplicate site code, was retired with @CustomerSiteCode.)
 
     UpdateUserID is NULL on a portal write: the caller has no dbo.Users row. The sync writes 0.
 
@@ -60,12 +67,10 @@ CREATE OR ALTER PROCEDURE [dbo].[AssignCustomerSitesData]
     @CustomerSiteZIP            NVARCHAR(10)  = NULL,
     @CustomerSitePhone          NVARCHAR(30)  = NULL,
     @CustomerSiteDescription    NVARCHAR(50)  = NULL,
-    @CustomerSiteCode           INT           = NULL,
     @CustomerSiteAddressENG     NVARCHAR(80)  = NULL,
     @CustomerSiteStateENG       NVARCHAR(40)  = NULL,
     @CustomerSiteDescriptionENG NVARCHAR(50)  = NULL,
-    @CustomerSiteId             INT           = NULL,
-    @RevertDeletion             BIT           = NULL
+    @CustomerSiteId             INT           = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -109,7 +114,8 @@ BEGIN
             OUTPUT inserted.CustomerSiteId INTO @Written (CustomerSiteId)
             FROM dbo.CustomerSites AS cs
             INNER JOIN #Mine AS m ON m.CustomerId = cs.CustomerId
-            INNER JOIN @Requested AS r ON cs.CustomerSiteId = TRY_CAST(r.Value AS INT);
+            INNER JOIN @Requested AS r ON cs.CustomerSiteId = TRY_CAST(r.Value AS INT)
+            WHERE cs.IsDeleted = 0;   /* already removed: accepted above, nothing to change */
         COMMIT;
     END
 
@@ -118,8 +124,9 @@ BEGIN
     BEGIN
         IF NOT EXISTS (SELECT 1 FROM dbo.CustomerSites AS cs
                        INNER JOIN #Mine AS m ON m.CustomerId = cs.CustomerId
-                       WHERE cs.CustomerSiteId = @CustomerSiteId)
-            THROW 54103, 'The site does not belong to the caller.', 1;
+                       WHERE cs.CustomerSiteId = @CustomerSiteId
+                         AND cs.IsDeleted = 0)
+            THROW 54103, 'The site does not belong to the caller, or was removed.', 1;
 
         BEGIN TRAN;
             UPDATE cs
@@ -131,13 +138,13 @@ BEGIN
                 ,cs.CustomerSiteAddressENG     = COALESCE(@CustomerSiteAddressENG, cs.CustomerSiteAddressENG)
                 ,cs.CustomerSiteStateENG       = COALESCE(@CustomerSiteStateENG, cs.CustomerSiteStateENG)
                 ,cs.CustomerSiteDescriptionENG = COALESCE(@CustomerSiteDescriptionENG, cs.CustomerSiteDescriptionENG)
-                ,cs.IsDeleted                  = IIF(@RevertDeletion = 1, 0, cs.IsDeleted)
                 ,cs.UpdatedDate                = GETDATE()
                 ,cs.UpdateUserID               = NULL
             OUTPUT inserted.CustomerSiteId INTO @Written (CustomerSiteId)
             FROM dbo.CustomerSites AS cs
             INNER JOIN #Mine AS m ON m.CustomerId = cs.CustomerId
-            WHERE cs.CustomerSiteId = @CustomerSiteId;
+            WHERE cs.CustomerSiteId = @CustomerSiteId
+              AND cs.IsDeleted = 0;
         COMMIT;
     END
 
@@ -151,14 +158,6 @@ BEGIN
            AND NULLIF(LTRIM(RTRIM(@CustomerSiteAddress)), N'') IS NULL
             THROW 54105, 'A new site needs a description or an address.', 1;
 
-        /* (CustomerId, CustomerSiteCode) is the key the Priority sync matches on. */
-        IF @CustomerSiteCode IS NOT NULL
-           AND EXISTS (SELECT 1 FROM dbo.CustomerSites AS cs
-                       WHERE cs.CustomerId = @PrimaryCustomerId
-                         AND cs.CustomerSiteCode = @CustomerSiteCode
-                         AND cs.IsDeleted = 0)
-            THROW 54104, 'A site with this code already exists for the customer.', 1;
-
         BEGIN TRAN;
             INSERT INTO dbo.CustomerSites
                 (CustomerId, CustomerSiteAddress, CustomerSiteState, CustomerSiteZIP, CustomerSitePhone,
@@ -166,7 +165,7 @@ BEGIN
                  CustomerSiteAddressENG, CustomerSiteStateENG, CustomerSiteDescriptionENG)
             OUTPUT inserted.CustomerSiteId INTO @Written (CustomerSiteId)
             SELECT @PrimaryCustomerId, @CustomerSiteAddress, @CustomerSiteState, @CustomerSiteZIP, @CustomerSitePhone,
-                   @CustomerSiteDescription, @CustomerSiteCode, GETDATE(), NULL, 0, c.SourceId,
+                   @CustomerSiteDescription, NULL /* code: Priority's, see header */, GETDATE(), NULL, 0, c.SourceId,
                    @CustomerSiteAddressENG, @CustomerSiteStateENG, @CustomerSiteDescriptionENG
             FROM dbo.Customers AS c
             WHERE c.CustomerId = @PrimaryCustomerId;
