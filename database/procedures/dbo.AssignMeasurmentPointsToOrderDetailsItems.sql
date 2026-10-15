@@ -66,6 +66,11 @@ CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToOrderDetailsItems]
 --   value and never has to guess which set it was given. It takes precedence over @ReturnSummary,
 --   which keeps its three sets unchanged so the caller deployed today keeps working until it
 --   switches; retire it once nothing passes it.
+--   Same round, from review: a point is now listed in `warnings` only when the save keeps it - an
+--   unknown sensor or an unreadable coordinate used to put the same point in both lists. And an
+--   empty-string id ('' for the order item, sensor or channel) now counts as missing: TRY_CONVERT
+--   turned '' into 0, which saved the point against order item 0, or on channel 0, and reported it
+--   as saved. Never seen on STAGE (no item-0 rows); the app sends numbers, but the guard is cheap.
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MBA-904
 -- =============================================
 --Example of json needs to be passed
@@ -176,12 +181,14 @@ INSERT #parsedData
 )
 
 SELECT 
-    TRY_CONVERT(INT, d.OrderDetailsItemId)        AS OrderDetailsItemId,
+    /* MBA-904: NULLIF first - TRY_CONVERT(INT, N'') is 0, not NULL, so an empty id was saved as
+       order item 0 / channel 0 instead of being skipped. */
+    TRY_CONVERT(INT, NULLIF(LTRIM(RTRIM(d.OrderDetailsItemId)), N''))        AS OrderDetailsItemId,
     c.MeasurmentPointName,
-    TRY_CONVERT(INT, c.SensorMeasurementDeviceId) AS SensorMeasurementDeviceId,
+    TRY_CONVERT(INT, NULLIF(LTRIM(RTRIM(c.SensorMeasurementDeviceId)), N'')) AS SensorMeasurementDeviceId,
     TRY_CONVERT(DECIMAL(10,4), REPLACE(c.MeasurmentPointCoordX, ',', '.')) AS MeasurmentPointCoordX,
     TRY_CONVERT(DECIMAL(10,4), REPLACE(c.MeasurmentPointCoordY, ',', '.')) AS MeasurmentPointCoordY,
-    TRY_CONVERT(INT, c.ChannelNumber)             AS ChannelNumber,
+    TRY_CONVERT(INT, NULLIF(LTRIM(RTRIM(c.ChannelNumber)), N''))             AS ChannelNumber,
     TRY_CONVERT(DECIMAL(18,6), REPLACE(c.MasterValue, ',', '.')) AS MasterValue,
     c.MasterValueUnitId,
     TRY_CONVERT(DECIMAL(10,4), REPLACE(c.AdditionalValue, ',', '.')) AS AdditionalValue,
@@ -259,8 +266,14 @@ SELECT pd.OrderDetailsItemId, pd.MeasurmentPointName, pd.SensorMeasurementDevice
        END AS Warning
 INTO #channelWarnings
 FROM #parsedData AS pd
-WHERE pd.SensorMeasurementDeviceId IS NOT NULL
+/* MBA-904: only points the save keeps. A point that is also skipped (no order item, unreadable
+   coordinate, unknown sensor) was listed in both, so the caller said "not saved" and "saved" for it. */
+WHERE pd.OrderDetailsItemId IS NOT NULL
+  AND pd.SensorMeasurementDeviceId IS NOT NULL
   AND pd.ChannelNumber IS NOT NULL
+  AND pd.MeasurmentPointCoordX IS NOT NULL
+  AND pd.MeasurmentPointCoordY IS NOT NULL
+  AND EXISTS (SELECT 1 FROM dbo.MeasurementDevices AS md WHERE md.ID = pd.SensorMeasurementDeviceId)
   AND NOT EXISTS (SELECT 1 FROM dbo.ChannelsToSensorRelation AS c
                   WHERE c.SensorMeasurementDeviceId = pd.SensorMeasurementDeviceId
                     AND c.ChannelNumber = pd.ChannelNumber
@@ -424,8 +437,8 @@ BEGIN
         FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES
     ) AS summary;
 END
-/* MBA-902: opt-in only - the caller uses $executeRaw, which cannot take a result set.
-   Superseded by @SummaryAsJson (MBA-904); kept until the caller switches. */
+/* MBA-902: three result sets, opt-in. The caller reads them through Prisma $queryRaw, which keeps
+   only the last non-empty set. Superseded by @SummaryAsJson (MBA-904); kept until the caller switches. */
 ELSE IF @ReturnSummary = 1
 BEGIN
     SELECT @Received                                     AS pointsReceived,
