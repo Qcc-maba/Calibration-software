@@ -71,8 +71,8 @@ namespace Maba.VCT.Core.Tests
         [TestMethod]
         public void DeviceAndLoggerCarryTheFailingSerial_NotAClientAssociation()
         {
-            // The whole point of the MBA-485 follow-up: with several loggers the alert used to be
-            // labelled with the RECEIVING client's association, naming the wrong device every time.
+            // The formatter puts the ids where it is told. Which ids those are - MABA ids per client,
+            // the serial only without one - is BuildAlertLine's business (MBA-967, AlertIdentityTests).
             var msg = Build();
 
             Assert.AreEqual("SN-1234", DeviceId.Match(msg).Groups[1].Value);

@@ -146,8 +146,10 @@ namespace Maba.VCT.Core
                 && !hw.DisconnectAlerted)
             {
                 hw.DisconnectAlerted = true; // both the self-disconnect and comm-loss paths fire; alert once
+                // MBA-967: named per client by its MABA id (BuildAlertLine); the flag above also makes
+                // the host announce DataRestored when the device is identified again.
                 BroadcastAlertToWebSockets(hw, "ChannelDisconnected",
-                    string.Format("Logger {0} disconnected - no data received", hw.SN));
+                    string.Format("Logger {0} disconnected - no data received", Events.DeviceAlertEventArgs.LoggerNameToken));
             }
         }
 
@@ -377,11 +379,7 @@ namespace Maba.VCT.Core
 
             for (int i = 0; i + 1 < parts.Count; i += 2)
             {
-                ChannelLabel label = null;
-                if (labels != null && int.TryParse((parts[i] ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ch))
-                    labels.TryGetValue(ch, out label);
-
-                var resolved = Resolve(label ?? fallback, defaults);
+                var resolved = ResolveChannelLabel(labels, parts[i], fallback, defaults);
                 if (!groupIndex.TryGetValue(resolved, out var g))
                 {
                     var header = new System.Text.StringBuilder();
@@ -395,6 +393,22 @@ namespace Maba.VCT.Core
             }
 
             return lines.Select(sb => sb.ToString()).ToList();
+        }
+
+        /// <summary>
+        /// MBA-967: the label a reading on <paramref name="channel"/> goes out under - its own label,
+        /// else <paramref name="fallback"/>, each empty field filled from <paramref name="defaults"/>.
+        /// The one rule for LoggerData lines and per-channel alerts alike: the app keys an alert to the
+        /// readings by DeviceID and channel, so the two must not resolve a channel differently.
+        /// </summary>
+        internal static ChannelLabel ResolveChannelLabel(IReadOnlyDictionary<int, ChannelLabel> labels, string channel,
+                                                         ChannelLabel fallback, ChannelLabel defaults)
+        {
+            ChannelLabel label = null;
+            if (labels != null && int.TryParse((channel ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ch))
+                labels.TryGetValue(ch, out label);
+
+            return Resolve(label ?? fallback, defaults);
         }
 
         /// <summary>Each field of <paramref name="label"/>, or of <paramref name="defaults"/> where it is empty.</summary>
@@ -448,9 +462,9 @@ namespace Maba.VCT.Core
         /// breaks silently. The app matches each field with its own regex and discards the whole
         /// alert if one fails, so a stray character costs the alert with nothing logged anywhere.
         /// </summary>
-        /// <param name="deviceId">Serial of the device the alert is ABOUT - see the caller.</param>
-        /// <param name="loggerId">Same serial; the app carries both fields through to the UI.</param>
-        /// <param name="batchId">The receiving client's run, or LIVE.</param>
+        /// <param name="deviceId">Who the alert is about, as the app knows it - see <see cref="BuildAlertLine"/>.</param>
+        /// <param name="loggerId">The logger, as the app knows it.</param>
+        /// <param name="batchId">The run the alert belongs in.</param>
         /// <param name="localTime">Local time: the app parses with date-fns into the browser's zone.</param>
         /// <param name="channel">
         /// The channel the alert is about, or null for a device-wide alert (rendered as "ALL").
@@ -476,17 +490,102 @@ namespace Maba.VCT.Core
         }
 
         /// <summary>
+        /// MBA-967: the alert line about <paramref name="deviceSn"/> for one client, identified the way
+        /// that client's LoggerData lines are - the app files alerts and readings under the same ids, and
+        /// on the bench an alert carrying the serial ("FLUKE,2625A") matched nothing on screen.
+        /// <list type="bullet">
+        /// <item>Per channel (Channel:"14"): DeviceID, LoggerID and BatchID are exactly what a LoggerData
+        /// line for that channel carries (<see cref="ResolveChannelLabel"/>, the same defaults), so with
+        /// two sensors on one logger each channel's alert names its own sensor.</item>
+        /// <item>Logger-wide (Channel:"ALL"): DeviceID, LoggerID and BatchID are all the logger's MABA id,
+        /// as in the LoggerConfiguration the app sends, whose BatchID is the logger.</item>
+        /// <item>No MABA id known for this client (it never sent a LoggerConfiguration or a
+        /// SensorsAssociation, or names several loggers that cannot be told apart): the serial and the
+        /// client's batch (or LIVE), as before MBA-967, so an unconfigured device keeps alerting.</item>
+        /// </list>
+        /// <see cref="Events.DeviceAlertEventArgs.LoggerNameToken"/> in <paramref name="message"/> becomes
+        /// the logger's MABA id, or the serial without one.
+        /// </summary>
+        /// <param name="loggerId">The logger's MABA id for this client (<see cref="ResolveAlertLoggerId"/>), or null.</param>
+        /// <param name="labels">The client's per-channel labels (<see cref="WebSocketDeviceHost.ChannelLabels"/>).</param>
+        /// <param name="fallback">The client's last association (its Associated* fields).</param>
+        /// <param name="channel">The channel number as text, or null/"ALL" for a logger-wide alert.</param>
+        internal static string BuildAlertLine(string deviceSn, string loggerId,
+                                              IReadOnlyDictionary<int, ChannelLabel> labels, ChannelLabel fallback,
+                                              string alertType, string message, DateTime localTime, string channel)
+        {
+            var hasLogger = !string.IsNullOrWhiteSpace(loggerId);
+            var loggerName = hasLogger ? loggerId.Trim() : deviceSn;
+            var text = (message ?? "").Replace(Events.DeviceAlertEventArgs.LoggerNameToken, loggerName ?? "");
+
+            var loggerWide = string.IsNullOrWhiteSpace(channel)
+                          || string.Equals(channel.Trim(), AlertChannelAll, StringComparison.OrdinalIgnoreCase);
+            if (loggerWide)
+            {
+                if (hasLogger)
+                    return BuildAlertMessage(loggerName, loggerName, loggerName, alertType, text, localTime, AlertChannelAll);
+
+                var batchId = !string.IsNullOrEmpty(fallback?.BatchId) ? fallback.BatchId : AlertBatchLive;
+                return BuildAlertMessage(deviceSn, deviceSn, batchId, alertType, text, localTime, AlertChannelAll);
+            }
+
+            // The defaults are BroadcastToWebSockets' for LoggerData; units/resolution are not in an alert.
+            var defaults = new ChannelLabel(deviceSn, deviceSn, AlertBatchLive, null, null);
+            var resolved = ResolveChannelLabel(labels, channel, fallback, defaults);
+            return BuildAlertMessage(resolved.DeviceId, resolved.LoggerId, resolved.BatchId, alertType, text, localTime, channel.Trim());
+        }
+
+        private const string AlertBatchLive = "LIVE";
+
+        /// <summary>
+        /// MBA-967: which of the logger ids a client has named is the one <paramref name="deviceFamily"/>
+        /// is driving. One id: that one - the usual station, one logger per socket, and the same
+        /// assumption LoggerData already makes. Several: the one whose configuration is routed to this
+        /// device's family (<see cref="HardwareBL_Settings.ResolveLiveFamilyKey"/>, via
+        /// <paramref name="familyOf"/>), when exactly one is. Otherwise null - naming a logger the
+        /// alert may not be about is worse than the serial (see the MBA-485 follow-up).
+        /// </summary>
+        internal static string ResolveAlertLoggerId(IReadOnlyList<string> knownLoggerIds, string deviceFamily,
+                                                    Func<string, string> familyOf)
+        {
+            if (knownLoggerIds == null || knownLoggerIds.Count == 0) return null;
+            if (knownLoggerIds.Count == 1) return knownLoggerIds[0];
+            if (string.IsNullOrWhiteSpace(deviceFamily) || familyOf == null) return null;
+
+            var matching = knownLoggerIds
+                .Where(id => string.Equals(familyOf(id), deviceFamily, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            return matching.Count == 1 ? matching[0] : null;
+        }
+
+        /// <summary>MBA-967: <see cref="BuildAlertLine"/> for one connected client.</summary>
+        internal static string BuildAlertLineFor(WebSocketDeviceHost wsHost, Device.HardwareDeviceHost device,
+                                                 string alertType, string message, DateTime localTime, string channel)
+        {
+            var known = wsHost.KnownLoggerIds;
+            var loggerId = ResolveAlertLoggerId(known, device.BL?.SettingsFamily,
+                known.Count > 1 ? (Func<string, string>)(id => HardwareBL_Settings.Read().ResolveLiveFamilyKey(id)) : null);
+
+            var fallback = new ChannelLabel(wsHost.AssociatedDeviceId, wsHost.AssociatedLoggerId,
+                wsHost.AssociatedBatchId, wsHost.AssociatedUnits, wsHost.AssociatedResolution);
+
+            return BuildAlertLine(device.SN, loggerId, wsHost.ChannelLabels, fallback, alertType, message, localTime, channel);
+        }
+
+        /// <summary>
         /// MBA-485 AC5/AC6: sends a <c>CMD:"Alert"</c> about <paramref name="device"/> to every WS client.
+        /// Every alert line the server sends is built here, by <see cref="BuildAlertLineFor"/> - the
+        /// server's own (link drop, data watchdog) and the BLs' (<see cref="HardwareDeviceHost.RaiseAlert"/>).
         ///
-        /// DeviceID and LoggerID name the device that actually failed, NOT the receiving client's
-        /// sensor association. Those are different namespaces - an association's LoggerId is matched
-        /// against HardwareBL_Settings.Masters, never against a serial - so using the association
-        /// labelled every client's alert with that client's own logger, whichever device had really
-        /// dropped. Invisible with one logger; with several it names the wrong one every time.
+        /// MBA-967: identified per client, as that client's LoggerData is. The MBA-485 follow-up had put
+        /// the serial in DeviceID/LoggerID because a client's single association named the wrong logger
+        /// with several loggers; the app, though, files readings under the MABA ids, so a serial matched
+        /// nothing it shows. The ids now come from the client's per-channel labels and configured logger
+        /// ids, and the serial is kept wherever no id can be told apart (<see cref="ResolveAlertLoggerId"/>).
         ///
         /// Broadcasting to all clients is deliberate and safe: the app does not filter alerts by
         /// DeviceID (BackgroundDataProcessor adds every parsed alert, and group-alerts groups by
-        /// channel and type), so the id is a label, and a truthful serial beats a wrong association.
+        /// channel and type). With no client connected nothing is sent.
         /// </summary>
         [ExcludeFromCodeCoverage]
         private void BroadcastAlertToWebSockets(Device.HardwareDeviceHost device, string alertType, string message,
@@ -503,11 +602,7 @@ namespace Maba.VCT.Core
                         var com = wsHost.InternalComLayer;
                         if (com == null || !com.IsConnected) continue;
 
-                        // The batch IS the receiving client's, unlike the ids above: it identifies the
-                        // run the operator is looking at, which is what the alert has to appear inside.
-                        var batchId = !string.IsNullOrEmpty(wsHost.AssociatedBatchId) ? wsHost.AssociatedBatchId : "LIVE";
-
-                        var wsMessage = BuildAlertMessage(device.SN, device.SN, batchId, alertType, message, DateTime.Now, channel);
+                        var wsMessage = BuildAlertLineFor(wsHost, device, alertType, message, DateTime.Now, channel);
 
                         com.SendString(wsMessage);
                         Libs.Trace.Tracer.Info("[WS TX ALERT] {0}", wsMessage);
@@ -1039,10 +1134,7 @@ namespace Maba.VCT.Core
             {
                 wsc = new WebSocketCom(webSocket);
                 wsdh = new WebSocketDeviceHost(MainEventsBus, wsc, wsKey);
-                WSDeviceHost_Slim.MyWriteLock(list =>
-                {
-                    list[wsKey] = wsdh;
-                });
+                RegisterWebSocketClient(wsKey, wsdh);
                 MainEventsBus.Fire_WebSocketConnection(this, new Events.DeviceConnectionEventArgs(wsdh));
                 Libs.Trace.Tracer.Info("[WS] Client connected (key={0}, path={1}, state={2})",
                     wsKey, ctx.Request.Url.AbsolutePath, webSocket.State.ToString());
@@ -1061,6 +1153,15 @@ namespace Maba.VCT.Core
                 });
                 Libs.Trace.Tracer.Info("[WS] Client session ended (key={0}, state={1})", wsKey, webSocket?.State.ToString());
             }
+        }
+
+        /// <summary>Adds a connected client to the broadcast list (LoggerData and alerts go to every one).</summary>
+        internal void RegisterWebSocketClient(string key, WebSocketDeviceHost host)
+        {
+            WSDeviceHost_Slim.MyWriteLock(list =>
+            {
+                list[key] = host;
+            });
         }
 
         public void Stop()

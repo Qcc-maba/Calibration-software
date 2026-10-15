@@ -811,7 +811,21 @@ namespace Maba.VCT.Core.Device
             // known SN reconnects (see AddPendingDevices - it calls InitSessions on the existing
             // host rather than creating one), so without this reset the flag stays true for the
             // life of the process and only the FIRST disconnect of a device is ever reported.
+            var dropWasAlerted = DisconnectAlerted;
             DisconnectAlerted = false;
+
+            // MBA-967: the app was told the logger dropped (ChannelDisconnected, Channel ALL), so it
+            // has to be told it is back - on the bench the adapter was plugged in again, polling
+            // restarted, and the app kept showing the logger as disconnected. DataRestored on ALL is
+            // the pair the app closes that range with (deviceId:ALL). Only after a drop alert: the
+            // first identification has nothing to restore, and a re-init (ReinitializeBL) never
+            // comes through here.
+            if (dropWasAlerted)
+            {
+                RaiseAlert("DataRestored",
+                    string.Format("Logger {0} reconnected", Events.DeviceAlertEventArgs.LoggerNameToken),
+                    "ALL");
+            }
 
             // A device that reconnects has not produced data yet. Clearing this stops the watchdog
             // from firing DataTimeout off a stale pre-disconnect timestamp the moment it comes back.
