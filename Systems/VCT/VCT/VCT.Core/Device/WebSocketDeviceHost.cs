@@ -98,6 +98,63 @@ namespace Maba.VCT.Core.Device
         /// </summary>
         public IReadOnlyDictionary<int, ChannelLabel> ChannelLabels => _channelLabels;
 
+        /// <summary>
+        /// MBA-967: every logger MABA id this connection has named - in a LoggerConfiguration, in a
+        /// channel's label, or in the last SensorsAssociation. Lets an alert about a whole logger name
+        /// it the way the app knows it (21-337) instead of by its serial. Empty for a client that never
+        /// configured anything, which keeps today's serial-number alerts.
+        /// </summary>
+        public IReadOnlyList<string> KnownLoggerIds
+        {
+            get
+            {
+                var ids = new List<string>();
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                void Add(string id)
+                {
+                    var t = (id ?? "").Trim();
+                    if (t.Length > 0 && seen.Add(t)) ids.Add(t);
+                }
+
+                lock (_configuredLoggersLock)
+                {
+                    foreach (var id in _configuredLoggers) Add(id);
+                }
+                foreach (var label in _channelLabels.Values) Add(label?.LoggerId);
+                Add(AssociatedLoggerId);
+                return ids;
+            }
+        }
+
+        /*  MBA-967 (review of #30): the ids each channel's ChannelDisconnected went to this client under,
+            by device serial and channel, until that channel's DataRestored. The app closes a disconnect
+            range only with a restore on the same deviceId:channel, and by the time a channel is back
+            its label may be gone - a Confirm that drops the channel clears it, and the restore would go
+            out under the last association, another sensor. Per connection, like the labels: a client
+            that never got the disconnect has nothing to close.  */
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, ChannelLabel> _channelsReportedDown =
+            new System.Collections.Concurrent.ConcurrentDictionary<string, ChannelLabel>(StringComparer.OrdinalIgnoreCase);
+
+        private static string ReportedDownKey(string deviceSn, string channel)
+        {
+            return (deviceSn ?? "") + "|" + (channel ?? "").Trim();
+        }
+
+        /// <summary>MBA-967: <paramref name="channel"/> of <paramref name="deviceSn"/> was reported down to this client as <paramref name="ids"/>.</summary>
+        internal void NoteChannelReportedDown(string deviceSn, string channel, ChannelLabel ids)
+        {
+            _channelsReportedDown[ReportedDownKey(deviceSn, channel)] = ids;
+        }
+
+        /// <summary>
+        /// MBA-967: the ids <paramref name="channel"/> of <paramref name="deviceSn"/> was reported down
+        /// under, forgotten as they are returned; null when it was not reported down to this client.
+        /// </summary>
+        internal ChannelLabel TakeChannelReportedDown(string deviceSn, string channel)
+        {
+            return _channelsReportedDown.TryRemove(ReportedDownKey(deviceSn, channel), out var ids) ? ids : null;
+        }
+
         #endregion
 
         #region Ctor

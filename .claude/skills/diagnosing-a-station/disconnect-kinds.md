@@ -125,3 +125,26 @@ session. Device-wide alerts pass `Channel:"ALL"` and `Value:"0"` as placeholders
 A BL reaches this path through `HardwareDeviceHost.RaiseAlert(type, message, channel)` →
 `EventsBus.DeviceAlert` → `ServerCore`. The BL is the only layer that can see a lost channel: to
 everything above it, `9.00E+9` is a number.
+
+**Reading the `[WS TX ALERT]` lines in `server.log` (MBA-967).** An alert names things the way the
+`LoggerData` lines do, so the two can be matched by eye:
+
+```
+[WS TX ALERT] CMD:"Alert", DeviceID:"31-98", LoggerID:"21-337", BatchID:"31-98", Channel:"14", ... AlertType:"ChannelDisconnected", Message:"Channel 14 disconnected - no sensor detected", ...
+[WS TX ALERT] CMD:"Alert", DeviceID:"21-337", LoggerID:"21-337", BatchID:"21-337", Channel:"ALL", ... AlertType:"ChannelDisconnected", Message:"Logger 21-337 disconnected - no data received", ...
+[WS TX ALERT] CMD:"Alert", DeviceID:"21-337", LoggerID:"21-337", BatchID:"21-337", Channel:"ALL", ... AlertType:"DataRestored", Message:"Logger 21-337 reconnected", ...
+```
+
+A per-channel alert carries the sensor on that channel; an `ALL` alert carries the logger's MABA id in
+all three ids. **An alert carrying the serial (`DeviceID:"FLUKE,2625A"`) means the server knew no MABA
+id** for that client — no `LoggerConfiguration`/`SensorsAssociation` arrived on that connection and no
+earlier connection ever named the logger (a browser that reconnects inherits the id the device
+remembers), or several loggers could not be told apart — or the build predates MBA-967, when every
+alert looked like that and the app showed none of them. "Logger … reconnected" follows a drop alert once, when the
+instrument is identified again; a drop with no "reconnected" after it means the logger never came back.
+
+A channel reported down stays down across a Confirm, a USB replug and a power-cycle recovery: no
+second `ChannelDisconnected` while it is still open, and one `Channel 14 reconnected - readings resumed`
+on its first good scan. A channel a Confirm took off the scan is closed at that re-init with
+`Channel 14 removed from the scan - no longer monitored` (also `DataRestored`, under the ids its
+disconnect carried).

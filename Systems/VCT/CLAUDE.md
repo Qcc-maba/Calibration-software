@@ -76,6 +76,65 @@ A BL reaches this path through `HardwareDeviceHost.RaiseAlert(type, message, cha
 `EventsBus.DeviceAlert` for ServerCore to broadcast. `AlertMessageFormatTests` and
 `DeviceRecoveryTests` copy the app's regexes verbatim — update them in the same change as the app.
 
+### Alerts are identified like LoggerData (MBA-967)
+
+Every alert line is built per receiving client by `ServerCore.BuildAlertLine` (via `BuildAlertLineFor`,
+from `BroadcastAlertToWebSockets` — the only sender, logged as `[WS TX ALERT]`). Field order and quoting
+never change: `CMD, DeviceID, LoggerID, BatchID, Channel, Value, AlertType, Message, Time`. Until
+MBA-967 every alert carried the instrument serial, so on the bench (Fluke 2625A as logger 21-337) the
+app filed `DeviceID:"FLUKE,2625A"` under a device it did not show and the operator saw nothing.
+
+```
+per channel  CMD:"Alert", DeviceID:"31-98", LoggerID:"21-337", BatchID:"31-98", Channel:"14", Value:"0", AlertType:"ChannelDisconnected", Message:"Channel 14 disconnected - no sensor detected", Time:"10/15/2026 09:47:22"
+link drop    CMD:"Alert", DeviceID:"21-337", LoggerID:"21-337", BatchID:"21-337", Channel:"ALL", Value:"0", AlertType:"ChannelDisconnected", Message:"Logger 21-337 disconnected - no data received", Time:"10/15/2026 09:51:57"
+link back    CMD:"Alert", DeviceID:"21-337", LoggerID:"21-337", BatchID:"21-337", Channel:"ALL", Value:"0", AlertType:"DataRestored", Message:"Logger 21-337 reconnected", Time:"10/15/2026 09:53:53"
+legacy       CMD:"Alert", DeviceID:"FLUKE,2625A", LoggerID:"FLUKE,2625A", BatchID:"LIVE", Channel:"ALL", Value:"0", AlertType:"ChannelDisconnected", Message:"Logger FLUKE,2625A disconnected - no data received", Time:"..."
+```
+
+- **Per channel** (`Channel:"<n>"`): DeviceID/LoggerID/BatchID are exactly what that client's
+  `LoggerData` line for that channel carries — the same `ServerCore.ResolveChannelLabel` (channel
+  label, else the last association, else serial/serial/`LIVE`). Two sensors on one logger → each
+  channel's alert names its own sensor.
+- **A channel's restore carries its disconnect's ids** (review of #30). `BuildAlertLineFor` records,
+  per client, the ids each per-channel `ChannelDisconnected` went out under
+  (`WebSocketDeviceHost.NoteChannelReportedDown`), and that channel's next `DataRestored` to the client
+  reuses them (`TakeChannelReportedDown`). The labels can change in between — a Confirm that drops the
+  channel clears its label, and the restore would otherwise go out under the client's last association,
+  another sensor, and close nothing. A client that never got the disconnect resolves the restore like
+  its LoggerData.
+- **Logger-wide** (`Channel:"ALL"`: link drop, link back, `DataTimeout`, the watchdog's `DataRestored`):
+  all three ids are the logger's MABA id, as in the app's `LoggerConfiguration`, whose BatchID is the
+  logger. The id is the one logger the client has named (`WebSocketDeviceHost.KnownLoggerIds`:
+  LoggerConfigurations, channel labels, last association); with several, the one routed to this
+  device's family (`ResolveAlertLoggerId`), else none.
+- **The device remembers its MABA id** (`HardwareDeviceHost.LastKnownLoggerId`, set by
+  `ServerCore.ResolveAndRememberLoggerId` on every LoggerData send and every alert to a client that
+  names it). A client that has named **no** logger — a browser that reconnected and has not re-sent its
+  setup — gets that id on logger-wide alerts, so a drop announced as 21-337 is not followed by a return
+  as FLUKE,2625A, which the app does not pair. A client's own naming always wins, and a client naming
+  several it cannot tell apart still gets the serial (the remembered id came from another connection).
+  The host outlives its links (reused per serial), so the id survives a USB replug too.
+- **No MABA id** (no client ever named the logger, or several loggers that cannot be told apart):
+  the pre-MBA-967 line — serial, serial, the client's batch or `LIVE`.
+- `{logger}` (`DeviceAlertEventArgs.LoggerNameToken`) in a message becomes the MABA id, or the serial.
+- **Link back:** `HardwareDeviceHost.OnConnection` sends `DataRestored` on `ALL` ("Logger 21-337
+  reconnected") when the device is identified again **after a drop alert** (`DisconnectAlerted`) — not
+  on the first identification and not on a re-init (`ReinitializeBL` does not pass there). It pairs with
+  the drop's `ChannelDisconnected` on `deviceId:ALL`, as the watchdog's `DataRestored` pairs with
+  `DataTimeout`. Before, the logger came back and polled again with the app still showing it dropped.
+- **Channels reported down survive a re-init** (Confirm, USB replug, power-cycle recovery) — the
+  Hydra2 BL keeps them; see "The three ways a logger disconnects" in `Systems/Hydra-Group/CLAUDE.md`.
+  What a tester sees, sensor on 14 pulled:
+
+  ```
+  Confirm, sensor back    Channel 14 disconnected ... → (Confirm) → Channel 14 reconnected - readings resumed   (once, first good scan)
+  Confirm, sensor out     Channel 14 disconnected ... → (Confirm) → nothing more until it reads again
+  Confirm removes 14      Channel 14 disconnected ... → (Confirm) → DataRestored "Channel 14 removed from the scan - no longer monitored"
+  USB replug, sensor out  Channel 14 disconnected ... → Logger 21-337 disconnected → Logger 21-337 reconnected → nothing more about 14
+  ```
+- Same limit as LoggerData: labels are per socket and per channel number, so two loggers on one socket
+  with overlapping channel numbers would share a label.
+
 ## Several sensors on one logger: channels add up, readings carry their own sensor (MBA-967)
 
 On Confirm the app sends one `LoggerConfiguration` (every channel of the logger), then one
