@@ -137,7 +137,14 @@ everything above it, `9.00E+9` is a number.
 
 A per-channel alert carries the sensor on that channel; an `ALL` alert carries the logger's MABA id in
 all three ids. **An alert carrying the serial (`DeviceID:"FLUKE,2625A"`) means the server knew no MABA
-id** for that client — no `LoggerConfiguration`/`SensorsAssociation` arrived on that connection (or
-several loggers could not be told apart) — or the build predates MBA-967, when every alert looked like
-that and the app showed none of them. "Logger … reconnected" follows a drop alert once, when the
+id** for that client — no `LoggerConfiguration`/`SensorsAssociation` arrived on that connection and no
+earlier connection ever named the logger (a browser that reconnects inherits the id the device
+remembers), or several loggers could not be told apart — or the build predates MBA-967, when every
+alert looked like that and the app showed none of them. "Logger … reconnected" follows a drop alert once, when the
 instrument is identified again; a drop with no "reconnected" after it means the logger never came back.
+
+A channel reported down stays down across a Confirm, a USB replug and a power-cycle recovery: no
+second `ChannelDisconnected` while it is still open, and one `Channel 14 reconnected - readings resumed`
+on its first good scan. A channel a Confirm took off the scan is closed at that re-init with
+`Channel 14 removed from the scan - no longer monitored` (also `DataRestored`, under the ids its
+disconnect carried).

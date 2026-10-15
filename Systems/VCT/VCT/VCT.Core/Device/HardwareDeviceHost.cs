@@ -462,6 +462,21 @@ namespace Maba.VCT.Core.Device
         public bool DisconnectAlerted { get; set; }
 
         /// <summary>
+        /// MBA-967 (review of #30): the logger's MABA id (21-337) as the last client that named it
+        /// unambiguously did (<see cref="ServerCore.ResolveAndRememberLoggerId"/>). Alerts to a client
+        /// that has named no logger - a browser that just reconnected - use it rather than the serial,
+        /// so a drop announced as 21-337 is not followed by a return announced as FLUKE,2625A. Kept on
+        /// the host because the host outlives its links: ServerCore reuses it when a known serial is
+        /// found again on a new one. Null until some client names it.
+        /// </summary>
+        public string LastKnownLoggerId
+        {
+            get { return System.Threading.Volatile.Read(ref _lastKnownLoggerId); }
+            internal set { System.Threading.Volatile.Write(ref _lastKnownLoggerId, value); }
+        }
+        private string _lastKnownLoggerId;
+
+        /// <summary>
         /// MBA-962: UTC of the last measurement whose values actually <em>differed</em> from the one
         /// before it. Null until the device has produced two distinct readings.
         /// <para>

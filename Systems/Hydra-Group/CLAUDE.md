@@ -69,6 +69,15 @@ they were separated. Do not treat one as covering another:
    falling edge and `DataRestored` on the rising one. This is the dangerous one: before the alert
    existed, the reading was dropped with a bare `continue` and the calibration carried on with fewer
    points than the operator had asked for, with nothing on screen and nothing in the log.
+   The channels reported down (`_disconnectedChannels`) are what the app has been told, so they
+   **survive every re-init** — Confirm, USB replug, power-cycle recovery (MBA-967, review of #30). They
+   used to be cleared in `OnCreateStates`: a sensor plugged back in meanwhile then never announced its
+   return (the app kept it down for good, and its next unplug was not toasted), and one still out was
+   announced down again after every reconnect. Now the first scan after the init decides, channel by
+   channel; a channel the new configuration no longer scans is closed at the init with a `DataRestored`
+   ("Channel 14 removed from the scan - no longer monitored") and forgotten
+   (`ForgetChannelsNoLongerScanned`). The state lives on the BL, which is kept per serial
+   (`BaseBLCore._blBySN`) on a host ServerCore reuses for a known serial, so a new link reaches it.
 
 ## The Hydra 2625A is polled, and its readings carry the logger's own time (MBA-967)
 

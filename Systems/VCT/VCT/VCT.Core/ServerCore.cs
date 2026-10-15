@@ -337,6 +337,11 @@ namespace Maba.VCT.Core
                         var fallback = new ChannelLabel(wsHost.AssociatedDeviceId, wsHost.AssociatedLoggerId,
                             wsHost.AssociatedBatchId, wsHost.AssociatedUnits, wsHost.AssociatedResolution);
 
+                        // MBA-967 (review of #30): a configured client teaches the device its MABA id
+                        // with every scan, so a browser that reconnects later is told about this logger
+                        // by that id, not by the serial, before it has sent its setup again.
+                        ResolveAndRememberLoggerId(wsHost, device);
+
                         // MBA-967: one line per sensor, each labelled with its own association.
                         foreach (var wsMessage in BuildLoggerDataLines(parts, wsHost.ChannelLabels, fallback, defaults, timeStr))
                         {
@@ -510,17 +515,21 @@ namespace Maba.VCT.Core
         /// <param name="labels">The client's per-channel labels (<see cref="WebSocketDeviceHost.ChannelLabels"/>).</param>
         /// <param name="fallback">The client's last association (its Associated* fields).</param>
         /// <param name="channel">The channel number as text, or null/"ALL" for a logger-wide alert.</param>
+        /// <param name="channelIds">
+        /// For a per-channel alert, the ids to send instead of resolving them from
+        /// <paramref name="labels"/> - the ids that channel's disconnect went out under, so its restore
+        /// closes the same range (<see cref="BuildAlertLineFor"/>). Ignored for a logger-wide alert.
+        /// </param>
         internal static string BuildAlertLine(string deviceSn, string loggerId,
                                               IReadOnlyDictionary<int, ChannelLabel> labels, ChannelLabel fallback,
-                                              string alertType, string message, DateTime localTime, string channel)
+                                              string alertType, string message, DateTime localTime, string channel,
+                                              ChannelLabel channelIds = null)
         {
             var hasLogger = !string.IsNullOrWhiteSpace(loggerId);
             var loggerName = hasLogger ? loggerId.Trim() : deviceSn;
             var text = (message ?? "").Replace(Events.DeviceAlertEventArgs.LoggerNameToken, loggerName ?? "");
 
-            var loggerWide = string.IsNullOrWhiteSpace(channel)
-                          || string.Equals(channel.Trim(), AlertChannelAll, StringComparison.OrdinalIgnoreCase);
-            if (loggerWide)
+            if (IsLoggerWideAlert(channel))
             {
                 if (hasLogger)
                     return BuildAlertMessage(loggerName, loggerName, loggerName, alertType, text, localTime, AlertChannelAll);
@@ -529,13 +538,30 @@ namespace Maba.VCT.Core
                 return BuildAlertMessage(deviceSn, deviceSn, batchId, alertType, text, localTime, AlertChannelAll);
             }
 
-            // The defaults are BroadcastToWebSockets' for LoggerData; units/resolution are not in an alert.
-            var defaults = new ChannelLabel(deviceSn, deviceSn, AlertBatchLive, null, null);
-            var resolved = ResolveChannelLabel(labels, channel, fallback, defaults);
+            var resolved = channelIds ?? ResolveAlertChannelIds(deviceSn, labels, fallback, channel);
             return BuildAlertMessage(resolved.DeviceId, resolved.LoggerId, resolved.BatchId, alertType, text, localTime, channel.Trim());
         }
 
         private const string AlertBatchLive = "LIVE";
+
+        /// <summary>Channel null, empty or "ALL": the alert is about the whole logger.</summary>
+        private static bool IsLoggerWideAlert(string channel)
+        {
+            return string.IsNullOrWhiteSpace(channel)
+                || string.Equals(channel.Trim(), AlertChannelAll, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// MBA-967: the ids a per-channel alert on <paramref name="channel"/> carries - exactly those of
+        /// that channel's LoggerData line. The defaults are BroadcastToWebSockets' for LoggerData;
+        /// units/resolution are not in an alert.
+        /// </summary>
+        private static ChannelLabel ResolveAlertChannelIds(string deviceSn, IReadOnlyDictionary<int, ChannelLabel> labels,
+                                                           ChannelLabel fallback, string channel)
+        {
+            var defaults = new ChannelLabel(deviceSn, deviceSn, AlertBatchLive, null, null);
+            return ResolveChannelLabel(labels, channel, fallback, defaults);
+        }
 
         /// <summary>
         /// MBA-967: which of the logger ids a client has named is the one <paramref name="deviceFamily"/>
@@ -558,18 +584,62 @@ namespace Maba.VCT.Core
             return matching.Count == 1 ? matching[0] : null;
         }
 
-        /// <summary>MBA-967: <see cref="BuildAlertLine"/> for one connected client.</summary>
+        /// <summary>
+        /// MBA-967: the logger's MABA id as <paramref name="wsHost"/> names it for
+        /// <paramref name="device"/> (<see cref="ResolveAlertLoggerId"/>), and what the device remembers.
+        /// <list type="bullet">
+        /// <item>The client names it: that id, and the device remembers it
+        /// (<see cref="Device.HardwareDeviceHost.LastKnownLoggerId"/>).</item>
+        /// <item>The client has named no logger at all - a browser that reconnected and has not sent its
+        /// setup again: the id the device remembers from any earlier connection (review of #30). Until
+        /// then a drop named "21-337" got a restore named "FLUKE,2625A", which the app does not pair.</item>
+        /// <item>The client names several that cannot be told apart: none, as before - it may have
+        /// meant another logger, and the device's id came from another connection.</item>
+        /// </list>
+        /// </summary>
+        internal static string ResolveAndRememberLoggerId(WebSocketDeviceHost wsHost, Device.HardwareDeviceHost device)
+        {
+            var known = wsHost.KnownLoggerIds;
+            if (known.Count == 0) return device.LastKnownLoggerId;
+
+            var loggerId = ResolveAlertLoggerId(known, device.BL?.SettingsFamily,
+                known.Count > 1 ? (Func<string, string>)(id => HardwareBL_Settings.Read().ResolveLiveFamilyKey(id)) : null);
+            if (loggerId != null) device.LastKnownLoggerId = loggerId.Trim();
+            return loggerId;
+        }
+
+        /// <summary>
+        /// MBA-967: <see cref="BuildAlertLine"/> for one connected client. A channel's
+        /// <c>ChannelDisconnected</c> records the ids it went out under on the client
+        /// (<see cref="WebSocketDeviceHost.NoteChannelReportedDown"/>), and that channel's next
+        /// <c>DataRestored</c> to the client goes out under the same ids (review of #30). The app closes
+        /// a disconnect range only with a restore on the same deviceId:channel, and the labels can have
+        /// changed in between: a Confirm that drops the channel clears its label, and the restore for it
+        /// would otherwise go out under the client's last association - another sensor.
+        /// </summary>
         internal static string BuildAlertLineFor(WebSocketDeviceHost wsHost, Device.HardwareDeviceHost device,
                                                  string alertType, string message, DateTime localTime, string channel)
         {
-            var known = wsHost.KnownLoggerIds;
-            var loggerId = ResolveAlertLoggerId(known, device.BL?.SettingsFamily,
-                known.Count > 1 ? (Func<string, string>)(id => HardwareBL_Settings.Read().ResolveLiveFamilyKey(id)) : null);
+            var loggerId = ResolveAndRememberLoggerId(wsHost, device);
 
             var fallback = new ChannelLabel(wsHost.AssociatedDeviceId, wsHost.AssociatedLoggerId,
                 wsHost.AssociatedBatchId, wsHost.AssociatedUnits, wsHost.AssociatedResolution);
 
-            return BuildAlertLine(device.SN, loggerId, wsHost.ChannelLabels, fallback, alertType, message, localTime, channel);
+            ChannelLabel channelIds = null;
+            if (!IsLoggerWideAlert(channel))
+            {
+                if (string.Equals(alertType, "ChannelDisconnected", StringComparison.Ordinal))
+                {
+                    channelIds = ResolveAlertChannelIds(device.SN, wsHost.ChannelLabels, fallback, channel);
+                    wsHost.NoteChannelReportedDown(device.SN, channel, channelIds);
+                }
+                else if (string.Equals(alertType, "DataRestored", StringComparison.Ordinal))
+                {
+                    channelIds = wsHost.TakeChannelReportedDown(device.SN, channel);
+                }
+            }
+
+            return BuildAlertLine(device.SN, loggerId, wsHost.ChannelLabels, fallback, alertType, message, localTime, channel, channelIds);
         }
 
         /// <summary>

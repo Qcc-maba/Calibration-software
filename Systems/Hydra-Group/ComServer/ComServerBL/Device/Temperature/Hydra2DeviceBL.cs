@@ -125,6 +125,14 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// than on every scan. A logger scanning at the usual rate would otherwise emit an alert per
         /// channel every couple of seconds for as long as the sensor stays out, and the operator
         /// would learn to ignore the whole alert area.
+        /// <para>
+        /// MBA-967 (review of #30): it is what the app has been told is down, so it outlives a re-init
+        /// (every Confirm, every USB reconnect, every power-cycle recovery) - see
+        /// <see cref="ForgetChannelsNoLongerScanned"/>. It also outlives the link: the BL is kept per
+        /// serial (<c>BaseBLCore._blBySN</c>) and ServerCore reuses the host when a known serial is found
+        /// again, so a reconnect reaches this same object. Locked: the tick thread re-inits while a
+        /// log reply may be broadcasting a scan.
+        /// </para>
         /// </summary>
         private readonly HashSet<int> _disconnectedChannels = new HashSet<int>();
         #endregion
@@ -159,10 +167,16 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         protected override CommonBL.SingleState[] OnCreateStates()
         {
-            // Also the re-init entry point (HardwareDeviceHost.ReinitializeBL after a power cycle).
-            // The channel state has to go with it: the device is about to be set up from scratch, and
-            // a channel remembered as disconnected would never announce its recovery.
-            _disconnectedChannels.Clear();
+            // Also the re-init entry point (HardwareDeviceHost.ReinitializeBL after a power cycle, a
+            // Confirm, a reconnect). The disconnected channels are deliberately NOT forgotten here
+            // (MBA-967, review of #30): they are what the app was told is down, and it keeps each one
+            // shaded until a DataRestored on that channel. Clearing them on every re-init meant a
+            // sensor plugged back in meanwhile never announced its return - its first good scan found
+            // nothing to restore - and one still out was announced down again after every reconnect.
+            // Kept, the first scan after the init decides, channel by channel, as it does after a
+            // power cycle: still open, nothing is sent; reading again, one DataRestored. Only a channel
+            // the new configuration no longer scans is settled here, after the held configuration is
+            // applied below, since it will never be read again.
 
             // The init sets the logger's clock again, so the old offset no longer describes it, and a
             // batch interrupted by the reset is never going to finish.
@@ -199,6 +213,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                                        "cannot tell which is this one, so none was applied and all were dropped. " +
                                        "Using the current settings until the next Confirm.", ambiguous);
             }
+
+            ForgetChannelsNoLongerScanned();
 
             HC.Init(settings.Hydra2type.Masters).GetAwaiter().GetResult();
 
@@ -798,7 +814,10 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// </summary>
         private void NoteChannelDisconnected(int channel)
         {
-            if (!_disconnectedChannels.Add(channel)) return;
+            lock (_disconnectedChannels)
+            {
+                if (!_disconnectedChannels.Add(channel)) return;
+            }
 
             Libs.Trace.Tracer.Info("[HYDRA] CH{0} is reading the open-input value - no sensor connected. " +
                                    "It is excluded from the broadcast and from the calibration.", channel);
@@ -815,13 +834,45 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// </summary>
         private void NoteChannelRestored(int channel)
         {
-            if (!_disconnectedChannels.Remove(channel)) return;
+            lock (_disconnectedChannels)
+            {
+                if (!_disconnectedChannels.Remove(channel)) return;
+            }
 
             Libs.Trace.Tracer.Info("[HYDRA] CH{0} is reading again - sensor reconnected.", channel);
 
             HW_Device?.RaiseAlert("DataRestored",
                 string.Format("Channel {0} reconnected - readings resumed", channel),
                 channel.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>
+        /// MBA-967 (review of #30): a channel the app was told is down, and that the configuration this
+        /// init applies no longer scans (the operator's Confirm took it out), is never read again, so
+        /// no scan will ever announce it back. It is forgotten here and closed with a DataRestored on
+        /// that channel - otherwise the app keeps it shaded for good, and a later disconnect of the
+        /// channel, scanned again, finds it already "down" and is never announced. The alert line
+        /// carries the ids the disconnect went out under (ServerCore.BuildAlertLineFor), since the
+        /// channel's label went with the Confirm.
+        /// </summary>
+        private void ForgetChannelsNoLongerScanned()
+        {
+            var scanned = new HashSet<int>(settings.Hydra2type.Channels ?? new List<int>());
+            List<int> dropped;
+            lock (_disconnectedChannels)
+            {
+                dropped = _disconnectedChannels.Where(ch => !scanned.Contains(ch)).OrderBy(ch => ch).ToList();
+                foreach (var ch in dropped) _disconnectedChannels.Remove(ch);
+            }
+
+            foreach (var channel in dropped)
+            {
+                Libs.Trace.Tracer.Info("[HYDRA] CH{0} was disconnected and is no longer scanned - closing its alert.", channel);
+
+                HW_Device?.RaiseAlert("DataRestored",
+                    string.Format("Channel {0} removed from the scan - no longer monitored", channel),
+                    channel.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
         }
 
         private void HandleLogData(LogsResponse response)
