@@ -41,18 +41,28 @@
         site cannot be edited either; adding it again creates a new site.
       - Removing a site that is already removed is accepted and changes nothing.
 
+    2026-10-18 - MBA-627, review of app PR #165: an empty string clears a field.
+      The profile dialog sends every field, and a blank one as ''. The edit used COALESCE, so ''
+      was stored as an empty string, and the add stored it as given: blanks the Priority sync never
+      writes (it NULLIFs every text column) and GetCustomerSites then had to tell apart from NULL.
+      Text is now trimmed and '' becomes NULL, on both paths - the same rule as
+      AssignCustomerContactsData. NULL still keeps the current value on an edit.
+      An edit that would leave the site with neither description nor address is refused with
+      54105, the rule a new site already had; otherwise the site disappears from the list, which
+      shows it by one of the two.
+
     PARAMETERS
     ----------
     @CustomerSitesIdsToRemove   comma-separated CustomerSiteId list. When given, the call only
                                 removes; every other parameter is ignored.
     @CustomerSiteId             edit that (live) site. NULL with no removal list = add a new site.
-    The text fields: NULL keeps the current value on an edit.
+    The text fields: NULL keeps the current value on an edit; '' (or blanks) clears it.
 
     Refusals, all before anything is written:
       54101  the address is not a portal contact
       54102  a removal id is not a site of the caller (or not a number)
       54103  @CustomerSiteId is not a live site of the caller
-      54105  a new site has neither description nor address
+      54105  the site (new, or after this edit) has neither description nor address
       (54104, a duplicate site code, was retired with @CustomerSiteCode.)
 
     UpdateUserID is NULL on a portal write: the caller has no dbo.Users row. The sync writes 0.
@@ -86,6 +96,17 @@ BEGIN
         THROW 54101, 'The address does not belong to any customer contact.', 1;
 
     DECLARE @Written TABLE (CustomerSiteId INT PRIMARY KEY);
+
+    /* Trimmed, '' -> NULL. The raw parameter still tells "not sent" (NULL) from "cleared" ('')
+       on an edit - see the header. */
+    DECLARE @Address        NVARCHAR(80) = NULLIF(LTRIM(RTRIM(@CustomerSiteAddress)), N''),
+            @State          NVARCHAR(40) = NULLIF(LTRIM(RTRIM(@CustomerSiteState)), N''),
+            @Zip            NVARCHAR(10) = NULLIF(LTRIM(RTRIM(@CustomerSiteZIP)), N''),
+            @Phone          NVARCHAR(30) = NULLIF(LTRIM(RTRIM(@CustomerSitePhone)), N''),
+            @Description    NVARCHAR(50) = NULLIF(LTRIM(RTRIM(@CustomerSiteDescription)), N''),
+            @AddressEng     NVARCHAR(80) = NULLIF(LTRIM(RTRIM(@CustomerSiteAddressENG)), N''),
+            @StateEng       NVARCHAR(40) = NULLIF(LTRIM(RTRIM(@CustomerSiteStateENG)), N''),
+            @DescriptionEng NVARCHAR(50) = NULLIF(LTRIM(RTRIM(@CustomerSiteDescriptionENG)), N'');
 
     /* ---- Remove ------------------------------------------------------------------------- */
     IF @CustomerSitesIdsToRemove IS NOT NULL
@@ -128,16 +149,23 @@ BEGIN
                          AND cs.IsDeleted = 0)
             THROW 54103, 'The site does not belong to the caller, or was removed.', 1;
 
+        /* The description and address the site would have after this edit. */
+        IF NOT EXISTS (SELECT 1 FROM dbo.CustomerSites AS cs
+                       WHERE cs.CustomerSiteId = @CustomerSiteId
+                         AND (IIF(@CustomerSiteDescription IS NULL, NULLIF(LTRIM(RTRIM(cs.CustomerSiteDescription)), N''), @Description) IS NOT NULL
+                           OR IIF(@CustomerSiteAddress     IS NULL, NULLIF(LTRIM(RTRIM(cs.CustomerSiteAddress)), N''),     @Address)     IS NOT NULL))
+            THROW 54105, 'A site needs a description or an address.', 1;
+
         BEGIN TRAN;
             UPDATE cs
-            SET  cs.CustomerSiteAddress        = COALESCE(@CustomerSiteAddress, cs.CustomerSiteAddress)
-                ,cs.CustomerSiteState          = COALESCE(@CustomerSiteState, cs.CustomerSiteState)
-                ,cs.CustomerSiteZIP            = COALESCE(@CustomerSiteZIP, cs.CustomerSiteZIP)
-                ,cs.CustomerSitePhone          = COALESCE(@CustomerSitePhone, cs.CustomerSitePhone)
-                ,cs.CustomerSiteDescription    = COALESCE(@CustomerSiteDescription, cs.CustomerSiteDescription)
-                ,cs.CustomerSiteAddressENG     = COALESCE(@CustomerSiteAddressENG, cs.CustomerSiteAddressENG)
-                ,cs.CustomerSiteStateENG       = COALESCE(@CustomerSiteStateENG, cs.CustomerSiteStateENG)
-                ,cs.CustomerSiteDescriptionENG = COALESCE(@CustomerSiteDescriptionENG, cs.CustomerSiteDescriptionENG)
+            SET  cs.CustomerSiteAddress        = IIF(@CustomerSiteAddress        IS NULL, cs.CustomerSiteAddress,        @Address)
+                ,cs.CustomerSiteState          = IIF(@CustomerSiteState          IS NULL, cs.CustomerSiteState,          @State)
+                ,cs.CustomerSiteZIP            = IIF(@CustomerSiteZIP            IS NULL, cs.CustomerSiteZIP,            @Zip)
+                ,cs.CustomerSitePhone          = IIF(@CustomerSitePhone          IS NULL, cs.CustomerSitePhone,          @Phone)
+                ,cs.CustomerSiteDescription    = IIF(@CustomerSiteDescription    IS NULL, cs.CustomerSiteDescription,    @Description)
+                ,cs.CustomerSiteAddressENG     = IIF(@CustomerSiteAddressENG     IS NULL, cs.CustomerSiteAddressENG,     @AddressEng)
+                ,cs.CustomerSiteStateENG       = IIF(@CustomerSiteStateENG       IS NULL, cs.CustomerSiteStateENG,       @StateEng)
+                ,cs.CustomerSiteDescriptionENG = IIF(@CustomerSiteDescriptionENG IS NULL, cs.CustomerSiteDescriptionENG, @DescriptionEng)
                 ,cs.UpdatedDate                = GETDATE()
                 ,cs.UpdateUserID               = NULL
             OUTPUT inserted.CustomerSiteId INTO @Written (CustomerSiteId)
@@ -154,9 +182,8 @@ BEGIN
         DECLARE @PrimaryCustomerId INT = (SELECT TOP (1) m.CustomerId FROM #Mine AS m
                                           ORDER BY m.IsPrimary DESC, m.CustomerId);
 
-        IF NULLIF(LTRIM(RTRIM(@CustomerSiteDescription)), N'') IS NULL
-           AND NULLIF(LTRIM(RTRIM(@CustomerSiteAddress)), N'') IS NULL
-            THROW 54105, 'A new site needs a description or an address.', 1;
+        IF @Description IS NULL AND @Address IS NULL
+            THROW 54105, 'A site needs a description or an address.', 1;
 
         BEGIN TRAN;
             INSERT INTO dbo.CustomerSites
@@ -164,9 +191,9 @@ BEGIN
                  CustomerSiteDescription, CustomerSiteCode, CreateDate, UpdateUserID, IsDeleted, SourceId,
                  CustomerSiteAddressENG, CustomerSiteStateENG, CustomerSiteDescriptionENG)
             OUTPUT inserted.CustomerSiteId INTO @Written (CustomerSiteId)
-            SELECT @PrimaryCustomerId, @CustomerSiteAddress, @CustomerSiteState, @CustomerSiteZIP, @CustomerSitePhone,
-                   @CustomerSiteDescription, NULL /* code: Priority's, see header */, GETDATE(), NULL, 0, c.SourceId,
-                   @CustomerSiteAddressENG, @CustomerSiteStateENG, @CustomerSiteDescriptionENG
+            SELECT @PrimaryCustomerId, @Address, @State, @Zip, @Phone,
+                   @Description, NULL /* code: Priority's, see header */, GETDATE(), NULL, 0, c.SourceId,
+                   @AddressEng, @StateEng, @DescriptionEng
             FROM dbo.Customers AS c
             WHERE c.CustomerId = @PrimaryCustomerId;
         COMMIT;
