@@ -420,4 +420,59 @@ BEGIN TRY DELETE #S; INSERT #S EXEC dbo.AssignCustomerSitesData @LoggedInUserEma
 BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
 IF @@TRANCOUNT > 0 ROLLBACK;
 INSERT @Out SELECT N'sites', N'S12 inactive contact refused', N'54101', @Err, IIF(@Err = 54101, N'PASS', N'FAIL');
+
+/* S13 - app PR #165 sends every field, a blank one as '': on an edit '' clears to NULL (never ''),
+   NULL keeps, and text is trimmed */
+IF @OwnSite IS NULL
+    INSERT @Out SELECT N'sites', N'S13 edit: '''' clears, NULL keeps, trimmed', NULL, NULL, N'SKIP: no site in the caller''s set';
+ELSE
+BEGIN
+    DECLARE @Zip0 NVARCHAR(20), @ZipAfter NVARCHAR(20), @StateAfter NVARCHAR(80), @PhoneAfter NVARCHAR(60);
+    BEGIN TRAN; SET @Err = 0;
+    /* give the site a description so clearing the address below stays legal */
+    UPDATE dbo.CustomerSites SET CustomerSiteDescription = N'MBA-627 test site', CustomerSiteState = N'x'
+    WHERE CustomerSiteId = @OwnSite;
+    SELECT @Zip0 = CustomerSiteZIP FROM dbo.CustomerSites WHERE CustomerSiteId = @OwnSite;
+    BEGIN TRY DELETE #S; INSERT #S EXEC dbo.AssignCustomerSitesData @LoggedInUserEmail = @Me, @CustomerSiteId = @OwnSite,
+                                        @CustomerSiteState = N'', @CustomerSitePhone = N'  03-6270627  '; END TRY
+    BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
+    SELECT @StateAfter = ISNULL(CustomerSiteState, N'<NULL>'), @PhoneAfter = CustomerSitePhone, @ZipAfter = CustomerSiteZIP
+    FROM dbo.CustomerSites WHERE CustomerSiteId = @OwnSite;
+    IF @@TRANCOUNT > 0 ROLLBACK;
+    INSERT @Out SELECT N'sites', N'S13 edit: state '''' -> NULL / phone trimmed / zip kept', N'<NULL> / 03-6270627 / same',
+                       CONCAT(@StateAfter, N' / ', @PhoneAfter, N' / ', IIF(ISNULL(@Zip0, N'~') = ISNULL(@ZipAfter, N'~'), N'same', N'CHANGED')),
+                       IIF(@Err = 0 AND @StateAfter = N'<NULL>' AND @PhoneAfter = N'03-6270627'
+                           AND ISNULL(@Zip0, N'~') = ISNULL(@ZipAfter, N'~'), N'PASS', N'FAIL');
+END
+
+/* S14 - an edit that clears both description and address is refused, and nothing changes */
+IF @OwnSite IS NULL
+    INSERT @Out SELECT N'sites', N'S14 edit clearing description and address refused', N'54105', NULL, N'SKIP: no site in the caller''s set';
+ELSE
+BEGIN
+    BEGIN TRAN; SET @Err = 0;
+    SET @K1 = (SELECT BINARY_CHECKSUM(CustomerSiteAddress, CustomerSiteDescription, UpdatedDate) FROM dbo.CustomerSites WHERE CustomerSiteId = @OwnSite);
+    BEGIN TRY DELETE #S; INSERT #S EXEC dbo.AssignCustomerSitesData @LoggedInUserEmail = @Me, @CustomerSiteId = @OwnSite,
+                                        @CustomerSiteDescription = N' ', @CustomerSiteAddress = N''; END TRY
+    BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK;
+    SET @K2 = (SELECT BINARY_CHECKSUM(CustomerSiteAddress, CustomerSiteDescription, UpdatedDate) FROM dbo.CustomerSites WHERE CustomerSiteId = @OwnSite);
+    INSERT @Out SELECT N'sites', N'S14 edit clearing description and address refused / unchanged', N'54105 / same',
+                       CONCAT(@Err, N' / ', IIF(@K1 = @K2, N'same', N'CHANGED')), IIF(@Err = 54105 AND @K1 = @K2, N'PASS', N'FAIL');
+END
+
+/* S15 - a new site stores blanks as NULL, and trimmed text */
+BEGIN TRAN; SET @Err = 0;
+BEGIN TRY DELETE #S; INSERT #S EXEC dbo.AssignCustomerSitesData @LoggedInUserEmail = @Me,
+                                    @CustomerSiteDescription = N'  MBA-627 test site  ', @CustomerSiteAddress = N'',
+                                    @CustomerSiteState = N'', @CustomerSiteZIP = N' ', @CustomerSitePhone = N'',
+                                    @CustomerSiteDescriptionENG = N'', @CustomerSiteAddressENG = N'', @CustomerSiteStateENG = N''; END TRY
+BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
+SELECT TOP (1) @A = description,
+       @N1 = IIF(address IS NULL AND state IS NULL AND zip IS NULL AND phone IS NULL
+                 AND descriptionENG IS NULL AND addressENG IS NULL AND stateENG IS NULL, 1, 0)
+FROM #S;
+IF @@TRANCOUNT > 0 ROLLBACK;
+INSERT @Out SELECT N'sites', N'S15 new site: description trimmed / blanks are NULL', N'MBA-627 test site / 1',
+                   CONCAT(@A, N' / ', @N1), IIF(@Err = 0 AND @A = N'MBA-627 test site' AND @N1 = 1, N'PASS', N'FAIL');
 SELECT Seq, Section, Test, Expected, Actual, Result FROM @Out ORDER BY Seq;
