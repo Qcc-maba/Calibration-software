@@ -67,7 +67,9 @@ function Invoke-Q([string]$cs, [string]$sql) {
 }
 
 $Q_COLUMNS = @'
-SELECT t.TABLE_NAME + '.' + c.COLUMN_NAME AS k,
+-- Schema in the key: dbo.Cars and etl.Cars (also Users, CalendarEvents, ...) share a name, and without
+-- it the two overwrote each other and reported a nullability difference that did not exist (MBA-999).
+SELECT t.TABLE_SCHEMA + '.' + t.TABLE_NAME + '.' + c.COLUMN_NAME AS k,
        c.DATA_TYPE
          + ISNULL('(' + CASE WHEN c.CHARACTER_MAXIMUM_LENGTH = -1 THEN 'max'
                              ELSE CAST(COALESCE(c.CHARACTER_MAXIMUM_LENGTH,
@@ -222,4 +224,5 @@ if ($total) {
     Write-Host "Each one is either work to deploy or a new entry for Compare-Schema.expected.txt, with its reason and ticket." -ForegroundColor DarkGray
     Write-Host "Do not merge to app main or finish a PROD deploy while this is not zero." -ForegroundColor DarkGray
 }
-if ($FailOnUnexpected -and $total) { exit 1 }
+# Always set the exit code under -FailOnUnexpected, so a caller never reads a stale $LASTEXITCODE.
+if ($FailOnUnexpected) { if ($total) { exit 1 } else { exit 0 } }
