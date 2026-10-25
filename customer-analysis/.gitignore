@@ -34,3 +34,7 @@ screenshots/
 
 # DB dumps מיובאים מ-Replit / גיבויים מקומיים — לא לקומיט
 local-scripts/dumps/
+
+# run-customer-analysis skill: generated at runtime, not part of the skill itself
+.claude/skills/run-customer-analysis/server.log
+.claude/skills/run-customer-analysis/screenshots/

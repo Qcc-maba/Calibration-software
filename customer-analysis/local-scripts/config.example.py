@@ -19,7 +19,8 @@ QCCDATA_CONFIG = {
 }
 
 # כתובת ה-API של השרת שאליו הסקריפט שולח נתונים מסונכרנים
-SERVER_API_URL = 'http://localhost:5000/api/sync/customer-data'
+# השם חייב להיות REPLIT_API_URL — זה מה ש-sync-customer-data.py מייבא מ-config.py.
+REPLIT_API_URL = 'http://localhost:5000/api/sync/customer-data'
 
 # Ship API (UPS Israel) - משלוחים
 SHIP_API_CONFIG = {

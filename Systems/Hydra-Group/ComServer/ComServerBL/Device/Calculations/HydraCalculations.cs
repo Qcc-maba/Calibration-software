@@ -175,9 +175,28 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations
             return new Tuple<double, CalibrationRepository.ResultStatus>(P, CalibrationRepository.ResultStatus.OK);
         }
 
+        /// <summary>
+        /// Converts a platinum resistance thermometer's reading (ohms) to degrees Celsius per ITS-90.
+        /// </summary>
+        /// <remarks>
+        /// Two kinds of constants appear here, and only one of them belongs in code.
+        ///
+        /// The REFERENCE-FUNCTION constants - the polynomial coefficients below (0.183324722 ...,
+        /// 439.932854 ...), 273.16, and the 0.65/0.35 and 2.64/1.64 scalings - are defined by the
+        /// ITS-90 standard itself. They are the same for every sensor and never change, so they are
+        /// hard-coded on purpose.
+        ///
+        /// RTP, A4, B4, A7, B7 and C7 are NOT ITS-90 constants. They are one sensor's own calibration
+        /// results - RTP its resistance at the triple point of water, A4/B4 its deviation function below
+        /// 0 degC (W &lt;= 1), A7/B7/C7 above it - and every sensor has its own. The values below are sensor
+        /// 21-214's, and today every precision sensor is converted with them. MBA-816 stores each
+        /// sensor's coefficients by MabaID (dbo.ConversionParameters); they should be loaded per
+        /// sensor from there instead.
+        /// </remarks>
         public Tuple<double, CalibrationRepository.ResultStatus> CalcResistanceToTemperatureITS90(string masterID, double value)
         {
-            // TODO: load parameters from DB via repository
+            // Sensor 21-214's coefficients, not ITS-90 constants - see the remarks above.
+            // TODO: load them per sensor (masterID) from DB via repository
             double A4 = -0.0188349;
             double B4 = 0.00064590173677;
             double C7 = 0.00022327774;

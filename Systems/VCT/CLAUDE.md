@@ -1,0 +1,260 @@
+# Systems/VCT — the VCT hardware server core
+
+Claude Code loads this file when working under `Systems/VCT/`: sessions, discovery, the device tick,
+identification, the WebSocket protocol and alerts. The instruments themselves — their BLs, the
+loggers, the M-142 — are in `Systems/Hydra-Group/CLAUDE.md`. Build and test commands are in the root
+`CLAUDE.md`. Skills: **`bringing-up-an-instrument`** and **`diagnosing-a-station`**.
+
+## Running and testing it
+
+App on `http://localhost:3000`, WebSocket on `ws://localhost:5001/ws/` (must match
+`NEXT_PUBLIC_WEBSOCKET_URL` in `app\.env`).
+
+`Run-VCT-Core-Coverage.ps1` gates on **line *and* branch** at 95%. Branch coverage sits at ~93% on
+`master`, so the script exits non-zero even when every test passes — check the "Passed!" line before
+believing the run failed, and don't attribute the gate failure to your own change without first
+confirming with `git diff --numstat` that you touched a `VCT.Core` source file at all.
+
+## VCT server architecture
+
+The end-to-end pipeline (full diagram in `docs/architecture.md` §1):
+
+```
+device --RS232/TCP/Modbus--> IComLayer --> HardwareDeviceHost --> BaseSession --> IDeviceBL
+                                              (parser, SN id)      (request queue)  (state machine)
+                                                                                        |
+                              WebSocket clients <-- ServerCore.BroadcastToWebSockets <---+
+```
+
+Points that are not obvious from any single file:
+
+- **`BaseSession` runs one request at a time.** A timer dequeues a single `BaseRequest` per tick;
+  a device reply is matched to whichever session is waiting. Adding a request does not send it.
+- **`HardwareDeviceHost` owns one physical device** and routes parsed packets to its sessions.
+  Device identity comes from the `*IDN?` reply, not from configuration.
+- **Three settings files, three classes** — `VCT.json` (`VCTSettings`: tunnels, device timeouts,
+  WebSocket prefix), `ComServerSettings.json` (`ComServerSettings`: which `IBLCore` modules to load
+  by reflection, IP→master mapping), `HydraBL_Settings.json` (`HardwareBL_Settings`: per-device
+  channels, rate, sensor, `Masters[]`).
+- **Masters** are reference standards loaded from SQL via `CalibrationRepository.InitMasters`; they
+  apply a correction curve to readings.
+- Adding a device is a fixed recipe — follow `docs/architecture.md` §4 rather than improvising.
+
+## Transport code
+
+- **A query is detected by a `?` anywhere, not at the end.** `:MEASure:VPP? CHANnel1` is a query with
+  an argument; checking `EndsWith("?")` means the reply is never read and the session stalls after one
+  measurement. `VisaCom.IsQuery` / `GpibCom.IsQuery` (in `VCT.ComLayer`) scan for `?` anywhere — keep
+  it that way.
+
+## Settings files
+
+- **Settings files must be written with `FileMode.Create`.** `OpenOrCreate` does not truncate, so
+  saving a shorter file over a longer one leaves valid JSON followed by a garbage tail. Fixed in the
+  three VCT settings classes; **`Libraries/Connectors/JSON/FileReadWrite.cs` still has it**, so
+  anything using that helper inherits the bug.
+
+## Alerts are a closed contract with the web app
+
+`ServerCore.BuildAlertMessage` emits `CMD:"Alert"` lines that the app parses field by field. Two
+properties of the app side decide what the server may send, and both fail silently:
+
+- **`AlertType` is a closed union.** The app declares `TAlertType` as exactly `DataTimeout`,
+  `OutOfRange_Low`, `OutOfRange_High`, `ChannelDisconnected`, `DataRestored`. A new type name is
+  parsed, stored and never rendered — so a channel coming back is announced as `DataRestored`, not
+  as some more descriptive name.
+- **A restore is matched to its disconnect by `deviceId:channel`.** `getChannelDisconnectRanges`
+  closes a shaded range only with a `DataRestored` carrying the *same* channel, so a per-channel
+  alert must name its channel and its restore must name it again. A restore sent as `ALL` leaves
+  that channel shaded for good.
+
+Every field must also be non-empty: `parse-alert-message.ts` returns null on the first blank and
+drops the whole alert with nothing logged on either side. That is why device-wide alerts send the
+placeholders `Channel:"ALL"` and `Value:"0"` rather than omitting them.
+
+A BL reaches this path through `HardwareDeviceHost.RaiseAlert(type, message, channel)`, which fires
+`EventsBus.DeviceAlert` for ServerCore to broadcast. `AlertMessageFormatTests` and
+`DeviceRecoveryTests` copy the app's regexes verbatim — update them in the same change as the app.
+
+### Alerts are identified like LoggerData (MBA-967)
+
+Every alert line is built per receiving client by `ServerCore.BuildAlertLine` (via `BuildAlertLineFor`,
+from `BroadcastAlertToWebSockets` — the only sender, logged as `[WS TX ALERT]`). Field order and quoting
+never change: `CMD, DeviceID, LoggerID, BatchID, Channel, Value, AlertType, Message, Time`. Until
+MBA-967 every alert carried the instrument serial, so on the bench (Fluke 2625A as logger 21-337) the
+app filed `DeviceID:"FLUKE,2625A"` under a device it did not show and the operator saw nothing.
+
+```
+per channel  CMD:"Alert", DeviceID:"31-98", LoggerID:"21-337", BatchID:"31-98", Channel:"14", Value:"0", AlertType:"ChannelDisconnected", Message:"Channel 14 disconnected - no sensor detected", Time:"10/15/2026 09:47:22"
+link drop    CMD:"Alert", DeviceID:"21-337", LoggerID:"21-337", BatchID:"21-337", Channel:"ALL", Value:"0", AlertType:"ChannelDisconnected", Message:"Logger 21-337 disconnected - no data received", Time:"10/15/2026 09:51:57"
+link back    CMD:"Alert", DeviceID:"21-337", LoggerID:"21-337", BatchID:"21-337", Channel:"ALL", Value:"0", AlertType:"DataRestored", Message:"Logger 21-337 reconnected", Time:"10/15/2026 09:53:53"
+legacy       CMD:"Alert", DeviceID:"FLUKE,2625A", LoggerID:"FLUKE,2625A", BatchID:"LIVE", Channel:"ALL", Value:"0", AlertType:"ChannelDisconnected", Message:"Logger FLUKE,2625A disconnected - no data received", Time:"..."
+```
+
+- **Per channel** (`Channel:"<n>"`): DeviceID/LoggerID/BatchID are exactly what that client's
+  `LoggerData` line for that channel carries — the same `ServerCore.ResolveChannelLabel` (channel
+  label, else the last association, else serial/serial/`LIVE`). Two sensors on one logger → each
+  channel's alert names its own sensor.
+- **A channel's restore carries its disconnect's ids** (review of #30). `BuildAlertLineFor` records,
+  per client, the ids each per-channel `ChannelDisconnected` went out under
+  (`WebSocketDeviceHost.NoteChannelReportedDown`), and that channel's next `DataRestored` to the client
+  reuses them (`TakeChannelReportedDown`). The labels can change in between — a Confirm that drops the
+  channel clears its label, and the restore would otherwise go out under the client's last association,
+  another sensor, and close nothing. A client that never got the disconnect resolves the restore like
+  its LoggerData.
+- **Logger-wide** (`Channel:"ALL"`: link drop, link back, `DataTimeout`, the watchdog's `DataRestored`):
+  all three ids are the logger's MABA id, as in the app's `LoggerConfiguration`, whose BatchID is the
+  logger. The id is the one logger the client has named (`WebSocketDeviceHost.KnownLoggerIds`:
+  LoggerConfigurations, channel labels, last association); with several, the one routed to this
+  device's family (`ResolveAlertLoggerId`), else none.
+- **The device remembers its MABA id** (`HardwareDeviceHost.LastKnownLoggerId`, set by
+  `ServerCore.ResolveAndRememberLoggerId` on every LoggerData send and every alert to a client that
+  names it). A client that has named **no** logger — a browser that reconnected and has not re-sent its
+  setup — gets that id on logger-wide alerts, so a drop announced as 21-337 is not followed by a return
+  as FLUKE,2625A, which the app does not pair. A client's own naming always wins, and a client naming
+  several it cannot tell apart still gets the serial (the remembered id came from another connection).
+  The host outlives its links (reused per serial), so the id survives a USB replug too.
+- **No MABA id** (no client ever named the logger, or several loggers that cannot be told apart):
+  the pre-MBA-967 line — serial, serial, the client's batch or `LIVE`.
+- `{logger}` (`DeviceAlertEventArgs.LoggerNameToken`) in a message becomes the MABA id, or the serial.
+- **Link back:** `HardwareDeviceHost.OnConnection` sends `DataRestored` on `ALL` ("Logger 21-337
+  reconnected") when the device is identified again **after a drop alert** (`DisconnectAlerted`) — not
+  on the first identification and not on a re-init (`ReinitializeBL` does not pass there). It pairs with
+  the drop's `ChannelDisconnected` on `deviceId:ALL`, as the watchdog's `DataRestored` pairs with
+  `DataTimeout`. Before, the logger came back and polled again with the app still showing it dropped.
+- **Channels reported down survive a re-init** (Confirm, USB replug, power-cycle recovery) — the
+  Hydra2 BL keeps them; see "The three ways a logger disconnects" in `Systems/Hydra-Group/CLAUDE.md`.
+  What a tester sees, sensor on 14 pulled:
+
+  ```
+  Confirm, sensor back    Channel 14 disconnected ... → (Confirm) → Channel 14 reconnected - readings resumed   (once, first good scan)
+  Confirm, sensor out     Channel 14 disconnected ... → (Confirm) → nothing more until it reads again
+  Confirm removes 14      Channel 14 disconnected ... → (Confirm) → DataRestored "Channel 14 removed from the scan - no longer monitored"
+  USB replug, sensor out  Channel 14 disconnected ... → Logger 21-337 disconnected → Logger 21-337 reconnected → nothing more about 14
+  ```
+- Same limit as LoggerData: labels are per socket and per channel number, so two loggers on one socket
+  with overlapping channel numbers would share a label.
+
+## Several sensors on one logger: channels add up, readings carry their own sensor (MBA-967)
+
+On Confirm the app sends one `LoggerConfiguration` (every channel of the logger), then one
+`SensorsAssociation` **per sensor** (only that sensor's `BatchChannels`), then `Status:"Start"`. Two
+rules follow, both fixed after the bench showed sensor A on 1-3 and B on 4-6 leaving only 4-6 scanned
+and every reading labelled as B's:
+
+- **`LoggerConfiguration` sets the channel list; a `SensorsAssociation` only adds to it**
+  (`HardwareBL_Settings.AddWebSocketSensorChannels` — a union, live and in the held pre-identification
+  config). Channels already present change nothing, return null, and so trigger no re-init.
+  **Only once that connection has sent a `LoggerConfiguration` for the logger**
+  (`WebSocketDeviceHost.HasConfiguredLogger`). Until then a `SensorsAssociation` *replaces* the list and
+  that logger's labels, as before: the graph's fallback (dialog never confirmed) and the
+  `/websocket-test` page send associations alone, and with add-only they could never narrow the default
+  1-20 or stop scanning a device no longer calibrated (review of #21). Per connection, so a reconnect
+  must send the full list again - the app's calibration graph does.
+- **Labels are per channel.** `WebSocketDeviceHost.ChannelLabels` maps channel → the association that
+  named it; a `LoggerConfiguration` for logger L clears L's labels (a new Confirm starts fresh).
+  `ServerCore.BuildLoggerDataLines` sends **one `LoggerData` line per distinct label**, same `Time`, in
+  the unchanged line format; unlabelled channels go under `Associated*` (the last association) as
+  before. With no labels the output is byte-identical to the old single line. Labels are keyed by
+  channel number only, per socket — with two loggers on one socket using the same channel numbers they
+  would collide (as the single association always did).
+
+## VCT runtime: discovery, the device tick, and identification
+
+These four are the difference between "the instrument answers `*IDN?` but never appears" being a
+five-minute question and a five-hour one. All were found against hardware.
+
+**Transports are discovered, not configured.** `Settings/VCT.json` holds **one** tunnel — the TCP
+listener, which has nothing to discover because it waits for a device to dial in. Everything else is
+found at startup by `ComLayer.TransportDiscovery` and turned into a tunnel by
+`ServerCore.DiscoverTransportTunnels`. USB and GPIB are enumerated through VISA (`viFindRsrc`), so a
+handle is only ever opened where something answers; serial baud cannot be enumerated, so each
+candidate port is probed with `*IDN?` across `SerialBaudCandidates` and the first speed that answers
+wins. That last part is what removed the final per-device setting — the PRODIGIT wants 115200 and
+the Fluke 9600 on the same adapter.
+
+- **A configured tunnel is left alone** and its port is never probed, so an instrument that does not
+  answer `*IDN?` can still be pinned by hand. `AutoDiscoverTransports` (default true) disables the
+  whole mechanism.
+- **Never probe a Bluetooth COM port.** Opening one can block for many seconds; two on the bench
+  stretched startup from ~1.6s to **46s**. `ServerCore.ListProbeableSerialPorts` asks WMI which
+  ports are Bluetooth and excludes them — which is why the OS query lives in `ServerCore` and
+  `DiscoverSerial` takes the candidate list as a parameter rather than building it.
+- **A wrong baud rate still returns bytes**, just meaningless ones. `LooksLikeIdentification`
+  therefore requires mostly-printable ASCII with at least one letter; accepting noise would pin an
+  instrument to the wrong speed permanently.
+
+**The device tick is re-entrancy-guarded, and it has to be.** `System.Timers.Timer` fires every 2s
+whether or not the previous callback finished, and `_TempDeviceHost` is a *shared field* that each
+tick clears at the start and reads at the end. Overlapping ticks meant one tick queued a device for
+promotion while another cleared the list before it got there — the device was re-queued forever and
+never promoted, with no exception and no log. Guarded with `Interlocked` (`_deviceTickRunning`);
+the body lives in `DeviceTick()`. Three failure paths that used to be silent now log, including
+**an identified device that no BL core claimed** — which is what you see when a `DeviceIdToken` does
+not match the SN, or the module is missing from `Settings/ComServerSettings.json`.
+
+**Identification matches the model before the manufacturer.** The HP 53181A and the Agilent 34401A
+both answer `HEWLETT-PACKARD`, and the old code compared `Substring(0, 15)` — identical for both, so
+the 34401A's `"HEWLETT"` token would claim the counter and drive it with `CONF:VOLT:DC`. Match the
+model (`53181A`) first. Any new instrument from a manufacturer already present needs the same
+treatment.
+
+**`WebSocketProtocolParaser` does not strip the closing brace.** It splits JSON by hand, so the
+**last** field of a message parses with a trailing `}` — `{"CMD":"Status","Value":"Start"}` yields
+`Value = "Start}"` and the server ignores it. When sending WS commands by hand, put a throwaway
+field last (`,"DeviceID":"0"`). Note the misspelled class name; it is spelled that way in the code.
+
+**`Status:"Stop"` is the logger window's "stop scan" (MBA-967).** The app sends
+`CMD:"Status", Value:Stop, DeviceID:"<logger MABA id>"` - `Value` is not the last field, so the
+parser quirk above does not bite. It is routed like that logger's `LoggerConfiguration`
+(`ResolveLiveFamilyKey`: Masters, else the one live family); with no logger identified it is only
+logged and nothing is held. The WS thread only marks the device (`HardwareDeviceHost.RequestStopScanning`);
+the next device tick (`CheckDataTimeouts`) carries it out: sessions drained, watchdog put back to idle,
+and `Hydra2DeviceBL.StopScanning` parks the state machine, moves `_pollGeneration` on (every polling
+loop stops) and sends `SCAN 0` -> `LOG_CLR` -> `*RST`, each after the previous reply. The link stays
+open. Until then it **stays stopped**: while `ScanStopped`, the data watchdog and its power-cycle
+recovery skip the device, a live reconfiguration (the graph re-sending the saved setup) is dropped, and
+a reconnect does not set the BL up - it sends `SCAN 0` -> `LOG_CLR` -> `*RST` again instead, on every
+reconnect, because a stop carried out with the link down sends nothing (it logs "Stop recorded ... not
+reachable") and the logger goes on scanning into its own memory. "The logger is stopped" is logged only
+after the whole sequence was acknowledged over a live link. A BL whose `CanStopScanning` is false is
+left exactly as it was (nothing drained, watchdog untouched). **Only the next Confirm restarts it** - its `Status:"Start"` calls
+`RequestResumeScanning`, which marks a re-init even when the configuration is unchanged. A Start for a
+logger that was not stopped does what it always did. Before MBA-967, Stop closed every hardware link
+once; nothing sent it, and rediscovery reopened the ports within 30 s.
+
+## Live reconfiguration (MBA-974) and why `ReinitializeBL` has one safe caller
+
+A `SensorsAssociation`/`LoggerConfiguration` message arriving while a device is already connected
+updates `HardwareBL_Settings`'s in-memory `Channels`/`MeasurementRate`/`Interval` — nothing more. The
+BL only ever reads that settings object once, during its init state machine (InitSystem → DateSync →
+Rate → InitChannels → Logs), which runs to completion once per connect and is never ticked again
+(`BaseBLDevice.Step__Start_Work` sends `CurrentStep` to `Close` once all states finish). So a channel
+added while connected is silently never scanned until the device happens to reconnect while that
+channel count is the current one in memory — which is a race, not a guarantee. Confirmed live against
+a real Fluke 2625A: `HardwareBL_Settings.ApplyWebSocketConfig` logged `Applied channels ...
+channels=[1,2,3,5,11,15]` while `[HYDRA HandleLogData] Received LogsResponse: Measurements.Count=4,
+Configured Channels.Count=6` kept firing on every poll.
+
+The fix is to re-run the BL's init sequence (`HardwareDeviceHost.ReinitializeBL`, the same MBA-962
+power-cycle-recovery entry point) whenever a live change lands — but **`ReinitializeBL` has exactly
+one safe caller: `ServerCore.CheckDataTimeouts`, on the device tick thread, after `DeviceHost_Slim`'s
+read lock is released.** Two reasons, both real and both only show up on real hardware, never in a
+test:
+
+- `ReinitializeBL` → `BL.OnConnection(true)` resets `CurrentStep`/`States_CurrentIndex` and every
+  state. `BL.OnTimer()` (`Step__Start_Work`) runs on the device tick and can be mid-`DoWork` on that
+  same state array at any moment. Calling `ReinitializeBL` from anywhere else races the tick.
+- `OnCreateStates()` does a blocking SQL read (`HC.Init(...).GetAwaiter().GetResult()`). Calling
+  `ReinitializeBL` while holding `DeviceHost_Slim`'s lock — e.g. inline from a WebSocket message
+  handler — blocks that thread for the read's duration and stalls anything waiting on the write lock.
+
+So a live-reconfiguration trigger (`ServerCore.MainEventsBus_LiveHardwareReconfigured`, the WS event
+handler) must never call `ReinitializeBL` itself. It marks the device instead
+(`HardwareDeviceHost.MarkPendingReconfigure`/`TakePendingReconfigureReason`, `Interlocked` so a mark
+from the WS thread and a take from the tick thread never race) and `CheckDataTimeouts` folds marked
+devices into the same `toRecover` list it already uses for power-cycle recovery. Two marks before the
+next tick coalesce into one re-init rather than the second restarting the first mid-sequence — this
+is exactly what happens if a `SensorsAssociation` and a `LoggerConfiguration` for the same change
+arrive back to back, which they normally do.
+

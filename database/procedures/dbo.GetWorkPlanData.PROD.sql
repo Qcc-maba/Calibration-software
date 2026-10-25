@@ -335,7 +335,15 @@ CONCAT(
 		wp.[OrderWorkPlanId],
         spc.[SpecialCares],
         c.[CustomerName] as [ClientName],
-        IIF(css.CustomerSiteId IS NOT NULL,CONCAT_WS('', '',css.CustomerSiteAddress,css.CustomerSiteState,css.CustomerSiteZIP), CONCAT_WS('', '',c.CustomerAddress, c.CustomerCity)) as [Location],
+        /* One row per order, not one per site. The address of an order is the site address when any
+           of its detail lines carries a CustomerSiteId, and the customer address otherwise.
+           Grouping by this expression rather than aggregating it split any order whose lines were
+           partly sited and partly not: LA26102918 came back as two rows identical in 32 of 34
+           columns, differing only in Location and CustomerPackingExists. */
+        COALESCE(
+            MAX(IIF(css.CustomerSiteId IS NOT NULL,CONCAT_WS('', '',css.CustomerSiteAddress,css.CustomerSiteState,css.CustomerSiteZIP),NULL)),
+            MAX(CONCAT_WS('', '',c.CustomerAddress, c.CustomerCity))
+        ) as [Location],
         wp.[WorkPlanOpenDate] as [WorkPlanOpenDate],
 		sp.StatusDescriptionENG AS SpecialCareENG,
 		sp.StatusDescriptionHEB AS SpecialCareHEB, 
@@ -422,7 +430,6 @@ CONCAT(
 	wp.[OrderWorkPlanId],
 	spc.[SpecialCares],
 	c.[CustomerName], 
-	IIF(css.CustomerSiteId IS NOT NULL,CONCAT_WS('', '',css.CustomerSiteAddress,css.CustomerSiteState,css.CustomerSiteZIP), CONCAT_WS('', '',c.CustomerAddress, c.CustomerCity)),
 	wp.[WorkPlanOpenDate],
 	co.[Cars],
     coh.EquipmentIds,

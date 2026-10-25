@@ -99,13 +99,25 @@ namespace Maba.VCT.Core.Settings
 
         public long PendingDevice_MaxAwakePacketTimes { get; set; }
 
-        public int ServerTimerInterval
-        {
-            get
-            {
-                return 2000;
-            }
-        }
+        /// <summary>
+        /// How often, in milliseconds, the device tick runs. It is the rate at which each session is
+        /// asked "are you free?", NOT a rate limit on the instrument: <see cref="Device.Sessions.BaseSession"/>
+        /// dequeues one request only once the previous reply has arrived, so a shorter tick removes
+        /// dead time between commands and cannot make the server talk over a device.
+        /// <para>
+        /// It was a hard-coded 2000. Every command in the start-up sequence therefore cost two
+        /// seconds of waiting whatever the instrument's own latency was, and a Hydra configured for
+        /// 20 channels spent 40 seconds on FUNC commands alone before it could be told to scan -
+        /// about a minute from the operator pressing confirm to the first reading (MBA-962).
+        /// </para>
+        /// <para>
+        /// 500 rather than something smaller because the tick also drives the LOG_COUNT? poll that
+        /// runs continuously while a scan is in progress: at 9600 baud, and in the log, that traffic
+        /// is not free. 500 makes start-up four times quicker while leaving the steady-state
+        /// polling at a rate the instrument and the log file can carry.
+        /// </para>
+        /// </summary>
+        public int ServerTimerInterval { get; set; } = 500;
 
         //#region Firmware (OTA) Settings
 
@@ -256,8 +268,55 @@ namespace Maba.VCT.Core.Settings
             else
                 _settings.WebSocketListenPrefix = NormalizeWebSocketListenPrefix(_settings.WebSocketListenPrefix);
 
+            _settings.ServerTimerInterval = NormalizeServerTimerInterval(_settings.ServerTimerInterval);
+
             _settings.Save();
             return _settings;
+        }
+
+        /// <summary>The value the old hard-coded getter returned, and therefore the value Save() wrote
+        /// into every station's VCT.json before this became a real setting.</summary>
+        internal const int LEGACY_SERVER_TIMER_INTERVAL = 2000;
+
+        /// <summary>Default and bounds for <see cref="ServerTimerInterval"/>.</summary>
+        internal const int DEFAULT_SERVER_TIMER_INTERVAL = 500;
+        internal const int MIN_SERVER_TIMER_INTERVAL = 50;
+        internal const int MAX_SERVER_TIMER_INTERVAL = 5000;
+
+        /// <summary>
+        /// Decides the tick a station actually runs at, and it exists because of an upgrade problem
+        /// rather than a preference.
+        /// <para>
+        /// <c>ServerTimerInterval</c> used to be a get-only property returning 2000, and
+        /// <see cref="Save"/> wrote that number into the settings file of every station ever
+        /// installed. Those files are all sitting on disk, and the installer deliberately does not
+        /// overwrite a station's tuned settings - so making the property settable would have left
+        /// every existing station on the slow tick while only fresh installs got the new one.
+        /// A file saying exactly 2000 is an artifact of the old build, not an operator's decision,
+        /// so it is migrated. A station that genuinely wants a two-second tick can say 1999 or 2001.
+        /// </para>
+        /// <para>
+        /// Anything outside the bounds is refused rather than obeyed: a mistyped 5 would spin the
+        /// device tick, and a mistyped 50000 would look exactly like a hung server.
+        /// </para>
+        /// </summary>
+        internal static int NormalizeServerTimerInterval(int configured)
+        {
+            if (configured == LEGACY_SERVER_TIMER_INTERVAL)
+            {
+                Tracer.Info("[VCTSettings] ServerTimerInterval {0}ms came from the old hard-coded default; using {1}ms.",
+                            LEGACY_SERVER_TIMER_INTERVAL, DEFAULT_SERVER_TIMER_INTERVAL);
+                return DEFAULT_SERVER_TIMER_INTERVAL;
+            }
+
+            if (configured < MIN_SERVER_TIMER_INTERVAL || configured > MAX_SERVER_TIMER_INTERVAL)
+            {
+                Tracer.Info("[VCTSettings] ServerTimerInterval {0}ms is outside {1}-{2}ms; using {3}ms.",
+                            configured, MIN_SERVER_TIMER_INTERVAL, MAX_SERVER_TIMER_INTERVAL, DEFAULT_SERVER_TIMER_INTERVAL);
+                return DEFAULT_SERVER_TIMER_INTERVAL;
+            }
+
+            return configured;
         }
 
         /// <summary>Ensures trailing slash and trims whitespace (HttpListener requirement).</summary>

@@ -443,6 +443,37 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         #region WebSocket-driven config (MBA-485)
 
         /// <summary>All per-family buckets paired with a display name, for routing WS config.</summary>
+        #region live families
+
+        /*  Which settings family a connected instrument is actually being driven by. A BL registers
+            itself when it starts, and that is the only thing in the process that knows the answer -
+            the settings file describes every family we support, not the one plugged in today.  */
+        private static readonly HashSet<string> _activeFamilies =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly object _activeFamiliesLock = new object();
+
+        /// <summary>Called by a device BL as it starts, and again on every re-initialisation. Idempotent.</summary>
+        public static void RegisterActiveFamily(string familyName)
+        {
+            if (string.IsNullOrWhiteSpace(familyName)) return;
+            lock (_activeFamiliesLock) { _activeFamilies.Add(familyName.Trim()); }
+        }
+
+        /// <summary>Called when a device's BL stops driving it, so a family that is gone stops being a candidate.</summary>
+        public static void UnregisterActiveFamily(string familyName)
+        {
+            if (string.IsNullOrWhiteSpace(familyName)) return;
+            lock (_activeFamiliesLock) { _activeFamilies.Remove(familyName.Trim()); }
+        }
+
+        /// <summary>A snapshot, so callers never enumerate the set while a device connects.</summary>
+        public static List<string> ActiveFamilies()
+        {
+            lock (_activeFamiliesLock) { return _activeFamilies.ToList(); }
+        }
+
+        #endregion
+
         private IEnumerable<KeyValuePair<string, HardwareBL_DeviceType>> Families()
         {
             yield return new KeyValuePair<string, HardwareBL_DeviceType>("Hydra2", Hydra2type);
@@ -478,8 +509,10 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         /// Parses a channel list into a distinct, ordered set. Accepts the web app's format
         /// (space-separated with ranges, e.g. "0-10 11 20-23" or "1-5") as well as comma-separated
         /// (e.g. the DB ChannelList "0,1,2"). Ranges "a-b" are expanded inclusively.
+        /// Public because the WebSocket host labels readings per channel from the same BatchChannels
+        /// text (MBA-967), and two parsers of one field would sooner or later disagree on a channel.
         /// </summary>
-        private static List<int> ParseChannels(string spec)
+        public static List<int> ParseChannels(string spec)
         {
             var set = new SortedSet<int>();
             if (!string.IsNullOrWhiteSpace(spec))
@@ -507,6 +540,14 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             return set.ToList();
         }
 
+        /// <summary>MBA-967: the distinct, ascending union of two channel lists.</summary>
+        private static List<int> UnionChannels(IEnumerable<int> current, IEnumerable<int> added)
+        {
+            var set = new SortedSet<int>(current ?? Enumerable.Empty<int>());
+            set.UnionWith(added ?? Enumerable.Empty<int>());
+            return set.ToList();
+        }
+
         /// <summary>
         /// MBA-485: applies a logger configuration pushed by the web app over WebSocket
         /// (CMD:"LoggerConfiguration") to the in-memory per-family settings, so the BL drives the
@@ -516,6 +557,26 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         /// Mutates in place (the BL holds the same instance), so it takes effect on the next scan setup.
         /// </summary>
         public string ApplyWebSocketConfig(string loggerId, string rate, string interval, string channelsCsv)
+        {
+            return ApplyWebSocketConfig(loggerId, rate, interval, channelsCsv, addChannels: false);
+        }
+
+        /// <summary>
+        /// MBA-967: applies the channels of one sensor (CMD:"SensorsAssociation") by ADDING them to the
+        /// logger's channel list instead of replacing it. One Confirm sends LoggerConfiguration with
+        /// every channel of the logger and then one SensorsAssociation per sensor, each carrying only
+        /// that sensor's channels. When each of those replaced the list, sensor A on 1-3 and sensor B
+        /// on 4-6 left the logger scanning 4-6 only - A's channels were never measured. The list is
+        /// set by LoggerConfiguration; a sensor can only add to it. A sensor whose channels are all
+        /// present already changes nothing and returns null, so it never triggers a re-init.
+        /// Held (unidentified-logger) configurations get the same union.
+        /// </summary>
+        public string AddWebSocketSensorChannels(string loggerId, string channelsCsv)
+        {
+            return ApplyWebSocketConfig(loggerId, null, null, channelsCsv, addChannels: true);
+        }
+
+        private string ApplyWebSocketConfig(string loggerId, string rate, string interval, string channelsCsv, bool addChannels)
         {
             if (string.IsNullOrWhiteSpace(loggerId)) return null;
             var id = loggerId.Trim();
@@ -532,20 +593,242 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
                     break;
                 }
             }
-            if (target == null) return null;
 
+            /*  The operator's screen is authoritative about which logger is on the bench, and the
+                app sends that logger's MABA id. Requiring the id to appear in a Masters list written
+                into HydraBL_Settings.json by hand meant that on every station whose logger was not
+                the one the file happened to name, the whole message was dropped and the device kept
+                the file's default of twenty channels - which is also what made start-up take about a
+                minute, at two seconds per channel (MBA-962).
+
+                So when the id is unknown, fall back to the family a live device is actually driving.
+                Only when exactly one is live: with two loggers connected there is no honest way to
+                decide which one the message is about, and guessing would configure the wrong
+                instrument. Masters is deliberately NOT extended here - it selects correction curves,
+                and a channel list must not quietly change which corrections a reading gets.  */
+            if (target == null)
+            {
+                var live = ActiveFamilies();
+                if (live.Count == 1)
+                {
+                    foreach (var fam in Families())
+                    {
+                        if (string.Equals(fam.Key, live[0], StringComparison.OrdinalIgnoreCase))
+                        {
+                            target = fam.Value;
+                            targetName = fam.Key + " (matched by the live device, not by Masters)";
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (target == null)
+            {
+                HoldPendingWebSocketConfig(id, rate, interval, channelsCsv, DateTime.UtcNow, addChannels);
+                return null;
+            }
+
+            // A routed message supersedes anything held for this logger from before it was identified.
+            ClearPendingWebSocketConfig(id);
+
+            return ApplyTo(target, targetName, id, rate, interval, channelsCsv, addChannels);
+        }
+
+        private static string ApplyTo(HardwareBL_DeviceType target, string targetName, string id,
+                                      string rate, string interval, string channelsCsv, bool addChannels = false)
+        {
+            /*  MBA-974: only report a field as applied when it actually differs from what target
+                already holds. Before this, resending the same rate/interval/channels (e.g. the app
+                re-sending SensorsAssociation because an unrelated field like units changed) always
+                reported "applied", even though nothing was new - which would make a live-hardware
+                reinitialization triggered on "applied != null" fire on every no-op resend instead of
+                only on a genuine change. */
             var applied = new List<string>();
 
             var r = ParseRate(rate);
-            if (r.HasValue) { target.MeasurementRate = r.Value; applied.Add("rate=" + r.Value); }
+            if (r.HasValue && target.MeasurementRate != r.Value) { target.MeasurementRate = r.Value; applied.Add("rate=" + r.Value); }
 
-            if (int.TryParse((interval ?? "").Trim(), out var iv) && iv > 0) { target.Interval = iv; applied.Add("interval=" + iv); }
+            if (int.TryParse((interval ?? "").Trim(), out var iv) && iv > 0 && target.Interval != iv) { target.Interval = iv; applied.Add("interval=" + iv); }
 
             var chans = ParseChannels(channelsCsv);
-            if (chans.Count > 0) { target.Channels = chans; applied.Add("channels=[" + string.Join(",", chans) + "]"); }
+            // MBA-967: a sensor's channels join the list (see AddWebSocketSensorChannels). Checked as
+            // containment first, so channels already present change nothing even when the current
+            // list is not in ascending order (a hand-written settings file need not be).
+            if (addChannels && chans.Count > 0)
+            {
+                var current = target.Channels ?? new List<int>();
+                chans = chans.All(current.Contains) ? new List<int>() : UnionChannels(current, chans);
+            }
+            if (chans.Count > 0 && !chans.SequenceEqual(target.Channels ?? new List<int>()))
+            {
+                target.Channels = chans;
+                applied.Add("channels=[" + string.Join(",", chans) + "]");
+            }
 
             if (applied.Count == 0) return null;
             return string.Format("{0} (master {1}): {2}", targetName, id, string.Join(", ", applied));
+        }
+
+        #region configuration that arrives before the logger is identified (MBA-967)
+
+        /*  On the operator's first Confirm the app sends LoggerConfiguration, SensorsAssociation and
+            Status:Start together, in that order. Identification waits for the Start, so when the
+            channel list arrives no BL is live and the logger's MABA id is normally not in any
+            Masters list: nothing can be routed, and the list used to be dropped ("no matching
+            family ... kept current settings"). The logger was then set up from the settings file -
+            twenty channels on Nofar's station - and only the second Confirm, arriving while it was
+            live, applied the operator's channels. Measured 2026-09-30: channels 1,3,5,6,7 selected,
+            FUNC sent for 1,11,15,5,2,3.
+
+            So an unroutable message is held, and the BL applies it as it registers - before its
+            channel-setup state runs - so the first init already uses the operator's channels. It is
+            held per logger id (a later message for the same logger merges into it), and it expires:
+            a list typed long ago must not configure an instrument plugged in much later.
+
+            The BL cannot tell which held configuration is its own. Identification yields the
+            logger's serial number ("FLUKE,2625A,..."), and nothing on the server maps that to the
+            MABA id the app sends (21-337). So a configuration is applied only when it is the only one
+            held. With two - the app configured loggers A and B before either was identified - applying
+            either could set up A with B's channels, rate and interval; none is applied, both are
+            dropped, and the second Confirm, arriving while the logger is live, configures it by the
+            normal path.  */
+
+        private sealed class PendingWebSocketConfig
+        {
+            public string LoggerId;
+            public string Rate;
+            public string Interval;
+            public string Channels;
+            public DateTime ReceivedUtc;
+        }
+
+        /// <summary>Held configurations by logger id. Guarded by <see cref="_activeFamiliesLock"/>.</summary>
+        private static readonly Dictionary<string, PendingWebSocketConfig> _pendingConfigs =
+            new Dictionary<string, PendingWebSocketConfig>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>How long a held configuration waits for a logger to be identified.</summary>
+        public static readonly TimeSpan PendingConfigLifetime = TimeSpan.FromMinutes(5);
+
+        /// <param name="addChannels">
+        /// MBA-967: true for a SensorsAssociation - its channels join the held list rather than
+        /// replace it, for the same reason as on a live logger (sensor A on 1-3, then B on 4-6, must
+        /// leave 1-6 held, not 4-6).
+        /// </param>
+        internal static void HoldPendingWebSocketConfig(string loggerId, string rate, string interval, string channelsCsv, DateTime nowUtc,
+                                                        bool addChannels = false)
+        {
+            lock (_activeFamiliesLock)
+            {
+                if (!_pendingConfigs.TryGetValue(loggerId, out var p) || nowUtc - p.ReceivedUtc > PendingConfigLifetime)
+                {
+                    p = new PendingWebSocketConfig { LoggerId = loggerId };
+                }
+
+                // Merge: SensorsAssociation carries channels only, LoggerConfiguration all three.
+                if (!string.IsNullOrWhiteSpace(rate)) p.Rate = rate;
+                if (!string.IsNullOrWhiteSpace(interval)) p.Interval = interval;
+                if (!string.IsNullOrWhiteSpace(channelsCsv))
+                {
+                    p.Channels = addChannels && !string.IsNullOrWhiteSpace(p.Channels)
+                        ? string.Join(",", UnionChannels(ParseChannels(p.Channels), ParseChannels(channelsCsv)))
+                        : channelsCsv;
+                }
+                p.ReceivedUtc = nowUtc;
+                _pendingConfigs[loggerId] = p;
+            }
+        }
+
+        /// <summary>Drops every held configuration.</summary>
+        public static void ClearPendingWebSocketConfig()
+        {
+            lock (_activeFamiliesLock) { _pendingConfigs.Clear(); }
+        }
+
+        /// <summary>Drops the held configuration of one logger, when a message for it has been routed.</summary>
+        private static void ClearPendingWebSocketConfig(string loggerId)
+        {
+            lock (_activeFamiliesLock) { _pendingConfigs.Remove(loggerId); }
+        }
+
+        /// <summary>True when a configuration for <paramref name="loggerId"/> is held. For the log line that says so.</summary>
+        public static bool IsWebSocketConfigHeld(string loggerId)
+        {
+            if (string.IsNullOrWhiteSpace(loggerId)) return false;
+            lock (_activeFamiliesLock) { return _pendingConfigs.ContainsKey(loggerId.Trim()); }
+        }
+
+        /// <summary>
+        /// Called by a BL as it registers its family, before it sets the instrument up: applies and
+        /// clears a configuration held because it arrived before any logger was identified. Returns a
+        /// summary of what changed, or null when nothing was held, it expired, it changed nothing, or
+        /// more than one logger's configuration was held.
+        /// </summary>
+        public string ApplyPendingWebSocketConfig(string familyName, DateTime nowUtc)
+        {
+            return ApplyPendingWebSocketConfig(familyName, nowUtc, out _);
+        }
+
+        /// <param name="familyName">The family of the BL that is registering.</param>
+        /// <param name="nowUtc">Now, for the expiry.</param>
+        /// <param name="ambiguousLoggerIds">
+        /// When configurations for more than one logger were held, their ids, comma-separated - none
+        /// was applied and all were dropped. Otherwise null.
+        /// </param>
+        public string ApplyPendingWebSocketConfig(string familyName, DateTime nowUtc, out string ambiguousLoggerIds)
+        {
+            ambiguousLoggerIds = null;
+            List<PendingWebSocketConfig> live;
+            lock (_activeFamiliesLock)
+            {
+                live = _pendingConfigs.Values.Where(c => nowUtc - c.ReceivedUtc <= PendingConfigLifetime).ToList();
+                _pendingConfigs.Clear();
+            }
+
+            if (live.Count == 0) return null;
+            if (live.Count > 1)
+            {
+                ambiguousLoggerIds = string.Join(",", live.Select(c => c.LoggerId).OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
+                return null;
+            }
+
+            var p = live[0];
+            foreach (var fam in Families())
+            {
+                if (string.Equals(fam.Key, familyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return ApplyTo(fam.Value, fam.Key + " (held until the logger was identified)", p.LoggerId, p.Rate, p.Interval, p.Channels);
+                }
+            }
+            return null;
+        }
+
+        #endregion
+
+        /// <summary>
+        /// MBA-974: resolves which settings family a LoggerID's config would apply to, without
+        /// mutating anything - the exact same routing rule as <see cref="ApplyWebSocketConfig"/>
+        /// (Masters match, else the single live family). Kept as a small, deliberately duplicated
+        /// sibling rather than refactored out of that already-proven-correct method, so a live
+        /// reconfiguration's hardware re-init target is resolved the same way the settings write was,
+        /// without risking a change to the routing logic actually driving connected instruments today.
+        /// </summary>
+        public string ResolveLiveFamilyKey(string loggerId)
+        {
+            if (string.IsNullOrWhiteSpace(loggerId)) return null;
+            var id = loggerId.Trim();
+
+            foreach (var fam in Families())
+            {
+                if (fam.Value?.Masters != null &&
+                    fam.Value.Masters.Any(m => string.Equals((m ?? "").Trim(), id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return fam.Key;
+                }
+            }
+
+            var live = ActiveFamilies();
+            return live.Count == 1 ? live[0] : null;
         }
 
         #endregion

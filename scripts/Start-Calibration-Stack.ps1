@@ -6,7 +6,12 @@
   - Tries to stop Windows service MabaCalibrationServer (needs elevation if it was started as a service).
   - Force-stops Maba.VCT.CommServer.Hosts.ConsoleHost.exe (Debug console or stray instances).
   - Frees TCP port 3000 (typical Next.js dev).
-  - Starts Com Server from bin\Debug (preferred for local dev), then opens a new window running pnpm dev in .\app
+  - Starts Com Server from bin\Debug (preferred for local dev), then opens a new window running pnpm dev
+    in the web app (see -AppPath for where it is looked for).
+
+.PARAMETER AppPath
+  Folder of the Next.js web app. When omitted: <root>\app, then the app repository cloned beside
+  this one (..\app) - the web app is its own repo, so in a dev checkout it is the sibling that exists.
 
 .PARAMETER BuildServer
   Run dotnet msbuild on ComServer.Hosts.ConsoleHost (Debug) before starting the exe.
@@ -27,7 +32,8 @@
 param(
     [switch] $BuildServer,
     [switch] $NoBrowser,
-    [switch] $UseWindowsService
+    [switch] $UseWindowsService,
+    [string] $AppPath
 )
 
 $ErrorActionPreference = "Continue"
@@ -126,22 +132,36 @@ else {
 }
 
 # --- 6) Start web app (pnpm preferred) ---
-$appDir = Join-Path $root "app"
 $standalone = Join-Path $root "webapp\server.js"
+# The web app is its own repository, cloned beside this one in a dev checkout (GIT_ROOT\app), so
+# <root>\app alone never matched there and the stack came up without a UI.
+$appDir = $null
+$appCandidates = if ($AppPath) { @($AppPath) }
+                 else { @((Join-Path $root "app"), (Join-Path (Split-Path $root -Parent) "app")) }
+foreach ($candidate in $appCandidates) {
+    if (Test-Path (Join-Path $candidate "package.json")) {
+        $appDir = (Resolve-Path $candidate).Path
+        break
+    }
+}
 
-if (Test-Path $standalone) {
+# An explicit -AppPath wins over the installed standalone build.
+if (-not $AppPath -and (Test-Path $standalone)) {
     Write-Host "Starting standalone web (node server.js)..." -ForegroundColor Cyan
     $webappDir = Join-Path $root "webapp"
     $cmdArgs = @("/k", "cd /d `"$webappDir`" && node server.js")
     Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs
 }
-elseif (Test-Path $appDir) {
-    $mgr = if (Get-Command pnpm -ErrorAction SilentlyContinue) { "pnpm" }
-           elseif (Get-Command npm -ErrorAction SilentlyContinue) { "npm" }
-           else { $null }
-    if (-not $mgr) {
-        Write-Error "Neither pnpm nor npm found in PATH."
+elseif ($appDir) {
+    # pnpm only. The app is pnpm-managed, and npm lays out node_modules incompatibly - falling back
+    # to it rebuilds the tree and has crashed a running dev server.
+    if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
+        Write-Error "pnpm not found in PATH. The web app needs pnpm - do not use npm on it."
         exit 1
+    }
+    $mgr = "pnpm"
+    if ($appDir -match '\\OneDrive') {
+        Write-Host "Warning: $appDir is inside OneDrive - Turbopack cannot resolve pnpm's symlinks there." -ForegroundColor DarkYellow
     }
 
     if (-not (Test-Path (Join-Path $appDir "node_modules"))) {
@@ -161,7 +181,8 @@ elseif (Test-Path $appDir) {
     Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs
 }
 else {
-    Write-Error "Web app not found. Expected .\app or .\webapp\server.js"
+    Write-Error ("Web app not found. Looked for webapp\server.js and a package.json in: " +
+                 ($appCandidates -join ', ') + ". Pass -AppPath to point at it.")
     exit 1
 }
 
@@ -173,5 +194,5 @@ if (-not $NoBrowser) {
 
 Write-Host "`nDone." -ForegroundColor Green
 Write-Host "  Web:        http://localhost:3000" -ForegroundColor White
-Write-Host "  WebSocket:  ws://localhost:5001/ws/  (match NEXT_PUBLIC_WEBSOCKET_URL in app\.env.local)" -ForegroundColor White
+Write-Host "  WebSocket:  ws://localhost:5001/ws/  (match NEXT_PUBLIC_WEBSOCKET_URL in the app's .env)" -ForegroundColor White
 Write-Host "  Server log: Systems\VCT\ComServer\ComServer.Hosts.ConsoleHost\bin\logs\server.log" -ForegroundColor DarkGray

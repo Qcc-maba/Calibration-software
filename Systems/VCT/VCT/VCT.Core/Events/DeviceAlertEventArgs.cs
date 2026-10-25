@@ -17,7 +17,15 @@ namespace Maba.VCT.Core.Events
     /// </summary>
     public class DeviceAlertEventArgs : EventArgs
     {
-        /// <summary>The device the alert is about. Never the receiving client — see ServerCore.BroadcastAlertToWebSockets.</summary>
+        /// <summary>
+        /// MBA-967: put in a message where the logger should be named. The device only knows its
+        /// serial ("FLUKE,2625A"); the app knows the logger by its MABA id (21-337), and only the
+        /// receiving client's LoggerConfiguration/SensorsAssociation says which that is, so
+        /// ServerCore replaces the token per client - with the serial when no MABA id is known.
+        /// </summary>
+        public const string LoggerNameToken = "{logger}";
+
+        /// <summary>The device the alert is about. Never the receiving client — see ServerCore.BuildAlertLine.</summary>
         public HardwareDeviceHost Device { get; private set; }
 
         /// <summary>One of the AlertTypes the web app declares in its TAlertType union. Inventing a new

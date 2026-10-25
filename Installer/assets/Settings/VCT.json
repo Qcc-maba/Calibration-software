@@ -33,7 +33,7 @@
   "PendingDevice_MaximumSilence_TimeSpan": "00:01:00",
   "PendingDevice_FirstAwakePacket_TimeSpan": "00:00:01",
   "PendingDevice_MaxAwakePacketTimes": 5,
-  "ServerTimerInterval": 2000,
+  "ServerTimerInterval": 500,
   "AutoDiscoverTransports": true,
   "RediscoverIntervalSeconds": 30
 }

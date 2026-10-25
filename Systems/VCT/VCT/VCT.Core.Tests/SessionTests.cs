@@ -847,7 +847,16 @@ namespace Maba.VCT.Core.Tests
     internal class MockComLayer : Maba.VCT.ComLayer.IComLayer
     {
         public string Title { get; set; } = "MockCom";
-        public bool IsConnected { get; set; } = true;
+        private bool _isConnected = true;
+
+        /// <summary>When set, answers IsConnected instead of the stored value - for a link whose state changes between two reads.</summary>
+        public Func<bool> IsConnectedProbe { get; set; }
+
+        public bool IsConnected
+        {
+            get { return IsConnectedProbe != null ? IsConnectedProbe() : _isConnected; }
+            set { _isConnected = value; }
+        }
         public Maba.VCT.ComLayer.Tunnel ParentTunnel { get; private set; } = new Maba.VCT.ComLayer.Tunnel();
         public DateTime CreationTime { get; set; } = DateTime.UtcNow;
         public DateTime? LastRX_Time { get; private set; }
@@ -861,11 +870,20 @@ namespace Maba.VCT.Core.Tests
 
         public bool ThrowOnClose { get; set; }
 
+        /// <summary>How many times Close was called.</summary>
+        public int CloseCount { get; private set; }
+
+        /// <summary>Raise LayerClosed from Close, as SerialCom does.</summary>
+        public bool RaiseLayerClosedOnClose { get; set; }
+
         public void Close()
         {
+            CloseCount++;
             if (ThrowOnClose)
                 throw new InvalidOperationException("MockComLayer.Close test throw");
             IsConnected = false;
+            if (RaiseLayerClosedOnClose)
+                LayerClosed?.Invoke(this, new Maba.VCT.ComLayer.DestroyedEventArgs());
         }
         public void Dispose() { Close(); }
         public void Open() { IsConnected = true; }
@@ -876,7 +894,10 @@ namespace Maba.VCT.Core.Tests
             Buffer.BlockCopy(data, offset, actual, 0, count);
             LastSentBytes = actual;
         }
-        public void SendString(string data) { LastSentString = data; }
+        /// <summary>Every string sent, in order - for a sequence of commands (MBA-967 stop scan).</summary>
+        public System.Collections.Concurrent.ConcurrentQueue<string> SentStrings { get; } = new System.Collections.Concurrent.ConcurrentQueue<string>();
+
+        public void SendString(string data) { LastSentString = data; SentStrings.Enqueue(data); }
 
         public void SimulateDataReceived(byte[] data, int offset, int count)
         {

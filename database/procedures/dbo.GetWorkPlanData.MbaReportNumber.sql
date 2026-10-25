@@ -408,10 +408,16 @@ BEGIN
 	DROP TABLE IF EXISTS #WorkPlanCalibrators;
 	CREATE TABLE #WorkPlanCalibrators (
 		OrderWorkPlanId INT,
-		Calibrators NVARCHAR(800) COLLATE Latin1_General_100_CI_AI_SC
+		Calibrators NVARCHAR(800) COLLATE Latin1_General_100_CI_AI_SC,
+		-- The intake number the coordinator types into the approval dialog, which
+		-- dbo.AssignMbaReportNumberForOrder writes onto CalibratorsToWorkPlan. It carries no slash;
+		-- the calibrator adds the per-device part later, onto OrderDetailsItems.MbaReportNumber.
+		-- MIN is safe: no work plan on STAGE holds more than one distinct value.
+		CoordinatorMabaNumber NVARCHAR(100) COLLATE Latin1_General_100_CI_AI_SC
 	);
-	INSERT INTO #WorkPlanCalibrators (OrderWorkPlanId, Calibrators)
-	SELECT cwp.OrderWorkPlanId, STRING_AGG(CONCAT(u.FirstName,' ',u.LastName),',') as Calibrators
+	INSERT INTO #WorkPlanCalibrators (OrderWorkPlanId, Calibrators, CoordinatorMabaNumber)
+	SELECT cwp.OrderWorkPlanId, STRING_AGG(CONCAT(u.FirstName,' ',u.LastName),',') as Calibrators,
+	       MIN(NULLIF(LTRIM(RTRIM(cwp.OrderDetailsMbaReportNumber)),'')) as CoordinatorMabaNumber
 	FROM [dbo].[CalibratorsToWorkPlan] as cwp
 	JOIN [dbo].[Users] as u ON cwp.CalibratorId = u.ID
 	WHERE cwp.IsDeleted = 0
@@ -482,7 +488,16 @@ CONCAT(
 		wp.[OrderWorkPlanId],
         spc.[SpecialCares],
         c.[CustomerName] as [ClientName],
-        IIF(css.CustomerSiteId IS NOT NULL,CONCAT_WS('', '',css.CustomerSiteAddress,css.CustomerSiteState,css.CustomerSiteZIP), CONCAT_WS('', '',c.CustomerAddress, c.CustomerCity)) as [Location],
+        /* One row per order, not one per site. The address of an order is the site address when any
+           of its detail lines carries a CustomerSiteId, and the customer address otherwise.
+           Grouping by this expression rather than aggregating it split any order whose lines were
+           partly sited and partly not: LA26102918 came back as two rows identical in 32 of 34
+           columns, differing only in Location and CustomerPackingExists. Measured on STAGE: its two
+           detail lines are one on CustomerSiteId 333 (בנימינה) and one with no site. */
+        COALESCE(
+            MAX(IIF(css.CustomerSiteId IS NOT NULL,CONCAT_WS('', '',css.CustomerSiteAddress,css.CustomerSiteState,css.CustomerSiteZIP),NULL)),
+            MAX(CONCAT_WS('', '',c.CustomerAddress, c.CustomerCity))
+        ) as [Location],
         wp.[WorkPlanOpenDate] as [WorkPlanOpenDate],
 		sp.StatusDescriptionENG AS SpecialCareENG,
 		sp.StatusDescriptionHEB AS SpecialCareHEB, 
@@ -490,6 +505,7 @@ CONCAT(
         coh.EquipmentIds,
 		coh.EquipmentNames,
 		cwp.Calibrators,
+		cwp.CoordinatorMabaNumber,
         wp.Notes as Notes,
 		MIN(mcat.[MainCategoryName]) as MainCategory,
 		wp.[IsCancelled],
@@ -497,6 +513,16 @@ CONCAT(
 		MAX(itm.ExpectedReturnDate) as ExpectedReturnDate,
 		MAX(itm.ActualReturnDate) as ActualReturnDate,
 		(SELECT MIN(i9.MbaReportNumber) FROM [dbo].[OrderDetailsItems] as i9 JOIN [dbo].[OrderDetails] as od9 ON od9.OrderDetailId = i9.OrderDetailId WHERE od9.OrderWorkPlanId = wp.[OrderWorkPlanId] AND ISNULL(od9.IsDeleted,0) = 0 AND ISNULL(i9.IsDeleted,0) = 0 AND i9.MbaReportNumber LIKE ''[0-9][0-9][0-9][0-9][0-9][0-9][0-9]/%'') as CalibratorMabaNumber, 
+		/* Whether this customer has anyone worth calling, so the card can say so without opening
+		   the tab. An EXISTS rather than a join: dbo.GetMabaContactInfoByOrder cross-joins
+		   OrderDetails with CustomerContacts and returns 188 rows for a 4-line order.
+		   A phone of ''0'' is a placeholder in these columns and is not someone you can call. */
+		CAST(CASE WHEN EXISTS (
+			SELECT 1 FROM [dbo].[CustomerContacts] AS ccx
+			WHERE ccx.CustomerId = wp.CustomerId AND ISNULL(ccx.IsDeleted,0) = 0
+			  AND (NULLIF(LTRIM(RTRIM(ISNULL(ccx.CustomerContactEmail,''''))),'''') IS NOT NULL
+			    OR NULLIF(LTRIM(RTRIM(ISNULL(ccx.CustomerContactPhone,''''))),'''') NOT IN ('''',''0''))
+		) THEN 1 ELSE 0 END AS BIT) as HasContactInfo,
 		/* MBA-902: the delivery note. Priority calls it ShippingDoc and it is what the packing
 		   screen means by its order-number column - the values are D26009347, D26009342 and the
 		   like. 2,353 of the 3,838 items carry one and every single one starts with D. An order can
@@ -615,12 +641,12 @@ CONCAT(
 	wp.[OrderWorkPlanId],
 	spc.[SpecialCares],
 	c.[CustomerName], 
-	IIF(css.CustomerSiteId IS NOT NULL,CONCAT_WS('', '',css.CustomerSiteAddress,css.CustomerSiteState,css.CustomerSiteZIP), CONCAT_WS('', '',c.CustomerAddress, c.CustomerCity)),
 	wp.[WorkPlanOpenDate],
 	co.[Cars],
     coh.EquipmentIds,
 	coh.EquipmentNames,
 	cwp.Calibrators,
+	cwp.CoordinatorMabaNumber,
 	wp.Notes,
 	sp.StatusDescriptionENG,
 	sp.StatusDescriptionHEB, 

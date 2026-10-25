@@ -11,12 +11,14 @@
       OrderWorkPlanId, OrderNumber, CustomerId, CustomerName, CustomerNameENG,
       ClientConfirmationStatus  — current status, ENG ('New' when the column is NULL)
       IsCancelled
+      IsInHouse                 — 1 when the order has no live external line; see below
       PlacementDate             — תאריך שיבוץ: earliest CalibratorsToWorkPlan.AssigmentDate
       SiteAddress               — אתר הלקוח (first non-empty site on the order lines)
       CalibrationRange          — תחומי הכיול, comma separated MainCategories (Priority: תחום כיול)
       ContactName / ContactEmail / ContactPhone — the recipient of the e-mail
       ContactId
-      RecipientCount            — how many contacts of this customer have an e-mail at all
+      RecipientCount            — how many contacts of this customer could receive it (same
+                                  filter as the recipient: e-mail, active, not do-not-mail)
       CalibratorsJson           — [{ "Name": "...", "Phone": "..." }]  שם וטלפון הכייל
       DevicesJson               — [{ "PartName", "ProductType", "Manufacturer", "Model",
                                      "SerialNumber", "AdditionalDeviceNumber", "Quantity" }]
@@ -24,9 +26,24 @@
                                   per-device / per-line fallback.
       SkusJson                  — ["999999", ...] distinct מק"טים, for the Priority intake call
 
-    Contact resolution: contacts of the order's customer that have an e-mail, preferring one
-    attached to a site that appears on the order, then the lowest CustomerContactId — the same
-    "deterministic pick" rule dbo.GetCustomerPortalContactByEmail uses.
+    Contact resolution: contacts of the order's customer that have an e-mail, are active
+    (IsActive = 1, kept in step with Priority) and are not marked do-not-mail (DoNotMail = 0),
+    preferring one attached to a site that appears on the order, then the lowest
+    CustomerContactId — the same "deterministic pick" rule dbo.GetCustomerPortalContactByEmail
+    uses. The IsActive / DoNotMail filter was added 2026-10-13 (MBA-888): before it, the pick
+    could land on an inactive or do-not-mail contact - 10 active orders on STAGE and 2 on PROD
+    would have mailed such a contact. Each of those has another eligible contact, so no order
+    loses its recipient. When none is eligible ContactEmail is NULL and the app reports
+    "no contact e-mail" instead of sending.
+
+    IsInHouse mirrors the coordinator screen, which lists an order only when one of its lines has
+    OrderDetails.IsInHouse = 0 (dbo.GetWorkPlanData, @Page = 'coordinator-orders'). An order is
+    "in-house" here when it has no such line that is live (not deleted, not cancelled), so a
+    mixed order (139 on STAGE, 256 on PROD) counts as external. Counting
+    only live lines changes no current order's answer on either server (measured 2026-10-13);
+    it keeps a deleted external line from making an in-house order look external. The app uses
+    it to refuse sending the coordination mail for an order the screen would never show, because
+    the send endpoint takes any OrderWorkPlanId.
 
     Read-only.
 */
@@ -71,6 +88,8 @@ BEGIN
                                  cc.CustomerContactAdditionalPhoneNumber)
     FROM dbo.CustomerContacts AS cc
     WHERE cc.IsDeleted = 0
+      AND cc.IsActive = 1
+      AND cc.DoNotMail = 0
       AND cc.CustomerId = @CustomerId
       AND NULLIF(LTRIM(RTRIM(cc.CustomerContactEmail)), N'') IS NOT NULL
     ORDER BY
@@ -81,6 +100,8 @@ BEGIN
     SELECT @RecipientCount = COUNT(*)
     FROM dbo.CustomerContacts AS cc
     WHERE cc.IsDeleted = 0
+      AND cc.IsActive = 1
+      AND cc.DoNotMail = 0
       AND cc.CustomerId = @CustomerId
       AND NULLIF(LTRIM(RTRIM(cc.CustomerContactEmail)), N'') IS NOT NULL;
 
@@ -92,6 +113,14 @@ BEGIN
         cust.CustomerNameENG,
         COALESCE(st.StatusDescriptionENG, N'New')  AS ClientConfirmationStatus,
         wp.IsCancelled,
+
+        CAST(CASE WHEN EXISTS (SELECT 1
+                               FROM dbo.OrderDetails AS od
+                               WHERE od.OrderWorkPlanId = wp.OrderWorkPlanId
+                                 AND od.IsDeleted = 0
+                                 AND od.IsCancelled = 0
+                                 AND od.IsInHouse = 0)
+                  THEN 0 ELSE 1 END AS BIT)        AS IsInHouse,
 
         (SELECT MIN(ctwp.AssigmentDate)
          FROM dbo.CalibratorsToWorkPlan AS ctwp

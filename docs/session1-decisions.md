@@ -1,4 +1,8 @@
-# Decisions, and why
+# Decisions, and why — session 1
+
+One file per working session, so several sessions can be merged later without fighting over the
+same lines. A later session writes `session2-decisions.md` beside this one rather than appending
+here; when they are merged, renumber then, not now.
 
 Written 2026-09-09. Each entry says what was chosen, what was rejected, and the measurement that
 settled it. Rejected options are here on purpose — several of them look obviously right until you
@@ -1384,7 +1388,7 @@ correction history now travels with the logs that already get collected.
 ---
 ### Still in flight, as of this handoff
 
-- **`docs/decisions.md` numbers are unique but out of order.** This file was appended to by several
+- **`docs/session1-decisions.md` numbers are unique but out of order.** This file was appended to by several
   sessions in parallel. The numbering was de-duplicated, but the sections still run
   1-26 → 32-40 → 27-31 → 42-49 → 41, so reading top to bottom does not read in numeric order and a
   new entry cannot simply take "the number after the last heading". Before adding one, check the
@@ -1405,3 +1409,150 @@ correction history now travels with the logs that already get collected.
 - **`correction.log` is gone** (decision 50). A station upgraded from an older version still has the
   old file sitting in the ComServer's working directory; it is not deleted by the installer, and on
   the bench it was 53 MB.
+
+---
+
+# Getting the work into git
+
+The repositories had accumulated months of uncommitted work — 935 entries in this one, 49 in the web
+app. These entries are how it was landed on 2026-09-09, and why each split was made where it was.
+
+---
+
+## 51. `master` was merged by taking `Eliran`'s tree whole, not file by file
+
+`master` had not moved since 2025-04-07. Its last eight commits are an initial import and seven
+directory deletions; `Eliran` carried 186 commits of everything since.
+
+**Measured first.** A content merge reports **91 conflicting paths**. The 150 files that exist only
+on `master` break down as: `Try`, `Convert`, `Convertor`, `DeviationCalculation`, `MasterCalibration`,
+`Modbus`, `CSV writer`, `XML Convert`, `SaveDeviationValuesForMaster`, `VpnConsoleApp` — all present
+on `Eliran` **under `archive/`** — plus `XCI-Group`, `VCT.DIGI`, `AccountSystem`, `OnlineSystem`,
+`MultiFrameSystem`, `CommonWebAPI` and `DigiMonitor`, which were removed on purpose. So `Eliran` is a
+superset: the old tools were relocated, not lost, and the dead systems are meant to stay dead.
+
+**Chosen:** a merge commit built with plumbing —
+
+```
+git commit-tree $(git rev-parse origin/Eliran^{tree}) -p origin/master -p origin/Eliran -m "..."
+```
+
+Two parents, so both histories are preserved and the push is a fast-forward; the tree is byte-for-byte
+`Eliran`'s. Nothing was checked out, so the working tree never moved and no 900-file churn hit
+OneDrive. Verified before pushing: `XCI-Group`, `VCT/DIGI` and `DigiMonitor.cs` resolve to zero files,
+`archive/` to 124.
+
+**Rejected — resolving the 91 conflicts individually.** Hours of work whose only possible correct
+answer is "take Eliran's side", and every mistake would have **resurrected XCI and DIGI**, which the
+user had just asked to be gone.
+
+**Rejected — `push --force` so master becomes a copy of Eliran.** Same tree, but it discards master's
+eight commits and moves the base of every branch cut from it. There was no reason to rewrite a
+shared default branch when a fast-forward gives the same content.
+
+**Rejected — leaving `master` alone and repointing the GitHub default branch.** Cheapest, but leaves
+the repository permanently confusing to anyone who clones it.
+
+---
+
+## 52. The app work went to a `reference/*` branch named after its contents
+
+The local branch was called `feature/customer-portal-otp-login`, and by the time it was pushed it
+held order approval, master-device helpers, a Hebrew search fix and a tsconfig change — no OTP work
+at all.
+
+**Chosen:** pushed to **`reference/order-approval-and-master-device`**, following the standing rule
+that front-end work reaches Dako as a Jira US plus a `reference/*` branch.
+
+**Rejected — pushing under the local branch name.** The name would have described none of the four
+commits, and `feature/*` invites a merge that was never intended.
+
+**Rejected — updating the existing `reference/customer-portal-otp-login`.** Dako may already be
+reading it; mixing new work into something already handed over makes the handover meaningless.
+
+---
+
+## 53. Two faults in one settings file, both of which stop a service before it logs
+
+`Systems/OrderAttachments/appsettings.json` carried a second `"OrderAttachments"` section and
+`"C:\ProgramData\ms-playwright"` written with single backslashes.
+
+Either one is fatal and silent: a duplicate key is a `FormatException` in the JSON configuration
+provider, and `\P` is not a valid JSON escape. The service fails during configuration load — before
+any logging is configured — so the only symptom is a service that will not start.
+
+**Chosen:** merge the two sections and escape the path. **Validate configuration files by parsing
+them**, not by reading them; both faults are invisible to the eye and obvious to a parser.
+
+`BrowsersPath` is read from configuration in code on purpose. A machine-wide
+`PLAYWRIGHT_BROWSERS_PATH` is read by *every* Playwright on the box and broke the frontend's own e2e
+browsers on 07/09.
+
+---
+
+## 54. What was excluded from git, and why each one matters
+
+Roughly 2,700 untracked files were not committed. This is not tidying — each has a reason:
+
+| Excluded | Why |
+|---|---|
+| `app/` | its own git repository; committing it embeds one repo inside another |
+| `tmpsetup-watch/` | 267 MB of installer payload from a build |
+| `customer-analysis/data/` | runtime state: every learned match correction, plus the customer price list |
+| `deploy/env-additions.txt` | a live dashboard password |
+| `_*.mjs` under `local-scripts` | scratch probes |
+| `.claude/settings.local.json` | per-machine permissions |
+| root `DATABASES.en.pdf` | byte-identical duplicate of the generated `docs/` copy |
+
+**Rejected — committing `customer-analysis/data/` "so it is backed up".** It publishes the price list
+and freezes learned corrections that are supposed to keep changing.
+
+---
+
+## 55. A vitest test in the app repo uses `test()`, not `it()`
+
+`eslint-plugin-playwright`'s `no-standalone-expect` is enabled repo-wide rather than scoped to
+`e2e/`, and it recognises `test()` as a test block but not `it()`. A new unit test written with
+`it()` + `expect()` failed the pre-commit hook with eleven errors.
+
+**Chosen:** rename the blocks to `test()`. One line changed, the five tests still pass, and the file
+reads like the Playwright specs beside it.
+
+**Rejected — scoping the playwright config to `e2e/**` in `eslint.config.js`.** It is the more
+correct fix and it is what should eventually happen, but it changes linting for the whole repository
+in a commit whose subject is a feature — and existing `it()`-based unit tests pass today only because
+they assert with `node:assert/strict`, so the change needs its own commit and its own check.
+
+**Rejected — `--no-verify`.** The hook is the only thing keeping this repository's lint clean.
+
+---
+
+## In flight — after the git catch-up (2026-09-09)
+
+**Both repositories are clean and pushed.** `Calibration-software` `Eliran` and `master` are in sync
+with origin and hold the same tree; the web app's four commits are on
+`reference/order-approval-and-master-device`, four ahead of `origin/stg`.
+
+**The local `master` ref is 187 commits behind `origin/master`.** Only the local ref — `origin/master`
+is correct. `git update-ref` was refused by the tool-permission layer at the time; a `git fetch` plus
+a checkout of `master` fixes it.
+
+**The web app work is delivered but not requested.** The `reference/*` branch exists; the Jira US
+pointing Dako at it has not been written. Nothing consumes that branch until it is.
+
+**Nothing in the master-device commit is wired to a screen.** `background-data-processor`,
+`prefetch-calibrator-master-data`, `calibration-hardware-allowed-atom` and
+`get-logger-channel-count-for-ui` are committed and imported by nothing. They are bench work, not
+behaviour.
+
+**`eslint-plugin-playwright` is still applied repo-wide in the app.** Every future vitest unit test
+that uses `expect()` inside `it()` will fail the hook. Scoping the config to `e2e/**` is the real
+fix and has not been done (decision 55).
+
+**Dependabot:** 27 vulnerabilities on this repository's default branch (2 critical, 23 high), 192 on
+the web app's (2 critical, 95 high). Neither has been triaged. Note that a count on `main`/`master`
+says nothing about what actually ships.
+
+**Two installer scripts were being edited in parallel while this ran** — `Installer/assets/start-all.bat`
+and `start-webapp.ps1`, adding `^` escaping around parentheses inside `echo` in a batch block. They
+were left to that session and have since landed.

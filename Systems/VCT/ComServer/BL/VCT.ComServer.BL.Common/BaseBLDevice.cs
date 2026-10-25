@@ -43,6 +43,9 @@ namespace Maba.VCT.CommServer.CommonBL
         public Core.Device.HardwareDeviceHost HW_Device { get; private set; }
         public Core.Device.WebSocketDeviceHost WS_Device { get; private set; }
         public DeviceSteps CurrentStep { get; private set; } = DeviceSteps.Start;
+
+        /// <summary>MBA-974: no settings family by default; a BL that registers one (e.g. Hydra2DeviceBL) overrides this.</summary>
+        public virtual string SettingsFamily => null;
         #endregion
 
         #region ctor
@@ -165,6 +168,15 @@ namespace Maba.VCT.CommServer.CommonBL
             }
         }
 
+        /// <summary>
+        /// Whether a reading identical to the one before it means this instrument has stalled.
+        /// True for anything that measures - noise alone moves the last digits, so a repeat is the
+        /// same buffered entry being read again. False for a source, which is meant to report the
+        /// setpoint it was given for as long as nobody changes it. See
+        /// HardwareDeviceHost.StaleDataDetectionEnabled (MBA-962).
+        /// </summary>
+        protected virtual bool DetectsStaleData { get { return false; } }
+
         public void Start(IDeviceHost device)
         {
             if (device is HardwareDeviceHost host)
@@ -172,6 +184,10 @@ namespace Maba.VCT.CommServer.CommonBL
                 OnConnection(true);
                 HW_Device = host;
                 HW_Device.BL = this;
+
+                // After the assignment, deliberately: OnConnection above runs OnCreateStates while
+                // HW_Device is still null, so anything that configures the host has to happen here.
+                HW_Device.StaleDataDetectionEnabled = DetectsStaleData;
             }
             else
             {
@@ -185,7 +201,27 @@ namespace Maba.VCT.CommServer.CommonBL
 
         }
 
+        /// <summary>MBA-967: nothing to stop by default; a BL that scans (Hydra2DeviceBL) overrides this.</summary>
+        public virtual bool CanStopScanning => false;
+
+        /// <summary>MBA-967: nothing to stop by default; a BL that scans (Hydra2DeviceBL) overrides this.</summary>
+        public virtual bool StopScanning(string reason)
+        {
+            return false;
+        }
+
         #endregion
+
+        /// <summary>
+        /// MBA-967: parks the state machine so the timer runs no further state - an init that was
+        /// half way through does not go on to start a polling loop. Only <see cref="OnConnection"/>
+        /// (true) starts it again. Called on the device tick thread, like OnTimer, so the two never
+        /// touch the state array at the same time.
+        /// </summary>
+        protected void HaltStateMachine()
+        {
+            CurrentStep = DeviceSteps.Close;
+        }
 
         #region protected/virtual methods
 

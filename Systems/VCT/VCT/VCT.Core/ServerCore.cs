@@ -95,6 +95,7 @@ namespace Maba.VCT.Core
             this.MainEventsBus.DeviceOnIncomingEvent += MainEventsBus_DeviceOnIncomingEvent;
             this.MainEventsBus.DeviceConnnection += MainEventsBus_DeviceConnectionForAlerts;
             this.MainEventsBus.DeviceAlert += MainEventsBus_DeviceAlert;
+            this.MainEventsBus.LiveHardwareReconfigured += MainEventsBus_LiveHardwareReconfigured;
             CurrentServerSettings = new Settings.VCTSettings();
         }
 
@@ -110,6 +111,31 @@ namespace Maba.VCT.Core
         }
 
         /// <summary>
+        /// MBA-974: a live SensorsAssociation/LoggerConfiguration message changed a device's
+        /// channels/rate/interval in HardwareBL_Settings, but that alone never reaches the physical
+        /// instrument - it is only ever told its scan configuration once, at connect time. Whichever
+        /// live device is actually driving the affected family needs its BL re-initialized so the
+        /// hardware matches what was just applied - but not from here. This runs on the WebSocket
+        /// receive thread, and re-initializing inline would race BL.OnTimer on the device tick thread
+        /// and block behind a live SQL read while holding DeviceHost_Slim's read lock. So this only
+        /// marks the device; CheckDataTimeouts takes the mark and performs the actual re-init on the
+        /// tick thread, the same way MBA-962's power-cycle recovery already does safely.
+        /// </summary>
+        private void MainEventsBus_LiveHardwareReconfigured(object o, Events.LiveHardwareReconfiguredEventArgs e)
+        {
+            if (e == null || string.IsNullOrWhiteSpace(e.FamilyKey)) return;
+
+            DeviceHost_Slim.MyReadLock(list =>
+            {
+                foreach (var dev in list.Values)
+                {
+                    if (string.Equals(dev.BL?.SettingsFamily, e.FamilyKey, StringComparison.OrdinalIgnoreCase))
+                        dev.MarkPendingReconfigure(e.Reason);
+                }
+            });
+        }
+
+        /// <summary>
         /// MBA-485 AC5: when a hardware logger drops (self-disconnect or comm-loss), push a
         /// <c>CMD:"Alert"</c> (AlertType ChannelDisconnected) to every WS client so the UI can notify
         /// the calibrator. Connects are ignored here (handled by the BL-claim path).
@@ -120,8 +146,10 @@ namespace Maba.VCT.Core
                 && !hw.DisconnectAlerted)
             {
                 hw.DisconnectAlerted = true; // both the self-disconnect and comm-loss paths fire; alert once
+                // MBA-967: named per client by its MABA id (BuildAlertLine); the flag above also makes
+                // the host announce DataRestored when the device is identified again.
                 BroadcastAlertToWebSockets(hw, "ChannelDisconnected",
-                    string.Format("Logger {0} disconnected - no data received", hw.SN));
+                    string.Format("Logger {0} disconnected - no data received", Events.DeviceAlertEventArgs.LoggerNameToken));
             }
         }
 
@@ -148,36 +176,98 @@ namespace Maba.VCT.Core
                 }
             }
 
-            // If the event came from a WebSocket client with a Status:Stop command, disconnect all hardware devices
             if (e.Device is Device.WebSocketDeviceHost && e.Packet is Common.Protocol_Parser.WebSocketMessage.StatusMessage statusMsg)
             {
                 if (string.Equals(statusMsg.Value, "Stop", StringComparison.OrdinalIgnoreCase))
                 {
-                    Libs.Trace.Tracer.Info("[ServerCore] Received Stop command from WebSocket client - disconnecting all hardware devices");
-                    DeviceHost_Slim.MyReadLock(list =>
-                    {
-                        foreach (var dev in list.Values)
-                        {
-                            try
-                            {
-                                dev.Disconnect();
-                                Libs.Trace.Tracer.Info("[ServerCore] Disconnected device SN={0}", dev.SN);
-                            }
-                            catch (Exception ex)
-                            {
-                                Libs.Trace.Tracer.Info("[ServerCore] Error disconnecting device: {0}", ex.Message);
-                            }
-                        }
-                    });
+                    // MBA-967: the logger window's "stop scan". It used to close every hardware link,
+                    // which nothing sent and which undid itself at the next 30 s rediscovery (MBA-974).
+                    RequestStopScanning(statusMsg.DeviceID);
                 }
                 else if (string.Equals(statusMsg.Value, "Start", StringComparison.OrdinalIgnoreCase))
                 {
                     Libs.Trace.Tracer.Info("[ServerCore] Received Start from WebSocket — enabling Hydra hardware identification (*IDN? / pending scan).");
                     EnableHardwareIdentification();
+                    // MBA-967: a Confirm after a stop scans again, even with the configuration unchanged.
+                    RequestResumeScanning(statusMsg.DeviceID);
                     // Do not wait for the next timer tick: send identification / run pending-device logic immediately.
                     TriggerImmediatePendingDevicePollAfterWsStart();
                 }
             }
+        }
+
+        /// <summary>
+        /// MBA-967: the devices a Status message about logger <paramref name="loggerId"/> (the app's
+        /// MABA id, e.g. 21-337) is for - routed exactly as that logger's LoggerConfiguration is
+        /// (<see cref="HardwareBL_Settings.ResolveLiveFamilyKey"/>: Masters, else the one live
+        /// family). Without an id, the one live family. Null when no logger is identified, or when
+        /// the id cannot be told apart between several.
+        /// </summary>
+        private string ResolveStatusFamily(string loggerId)
+        {
+            if (!string.IsNullOrWhiteSpace(loggerId))
+                return HardwareBL_Settings.Read().ResolveLiveFamilyKey(loggerId);
+
+            var live = HardwareBL_Settings.ActiveFamilies();
+            return live.Count == 1 ? live[0] : null;
+        }
+
+        /// <summary>
+        /// MBA-967: Status:Stop. Marks the logger stopped and leaves the stop itself to the device tick
+        /// (CheckDataTimeouts), like a live reconfiguration: it rewinds the BL's state machine, which
+        /// the tick may be running at this moment. With no logger identified there is nothing to stop,
+        /// nothing is held for later, and it is only logged.
+        /// </summary>
+        /// <returns>How many devices were marked.</returns>
+        internal int RequestStopScanning(string loggerId)
+        {
+            var family = ResolveStatusFamily(loggerId);
+            if (family == null)
+            {
+                Libs.Trace.Tracer.Info("[STOP] Stop scan for logger '{0}': no logger is identified for it; nothing to stop", loggerId);
+                return 0;
+            }
+
+            var marked = 0;
+            DeviceHost_Slim.MyReadLock(list =>
+            {
+                foreach (var dev in list.Values)
+                {
+                    if (dev == null || !string.Equals(dev.BL?.SettingsFamily, family, StringComparison.OrdinalIgnoreCase)) continue;
+                    dev.RequestStopScanning(string.Format(CultureInfo.InvariantCulture, "stop scan for logger '{0}' from web app", loggerId));
+                    marked++;
+                }
+            });
+
+            Libs.Trace.Tracer.Info("[STOP] Stop scan for logger '{0}' ({1}): {2} device(s) to stop at the next tick", loggerId, family, marked);
+            return marked;
+        }
+
+        /// <summary>
+        /// MBA-967: Status:Start after a stop - the stopped devices of that logger's family are set up
+        /// again at the next tick. A device that was not stopped is left alone, so a Start without a
+        /// stop before it does exactly what it did before.
+        /// </summary>
+        /// <returns>How many stopped devices will resume.</returns>
+        internal int RequestResumeScanning(string loggerId)
+        {
+            var family = ResolveStatusFamily(loggerId);
+            if (family == null) return 0;
+
+            var resumed = 0;
+            DeviceHost_Slim.MyReadLock(list =>
+            {
+                foreach (var dev in list.Values)
+                {
+                    if (dev == null || !string.Equals(dev.BL?.SettingsFamily, family, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (dev.RequestResumeScanning(string.Format(CultureInfo.InvariantCulture, "scan confirmed again for logger '{0}' after a stop", loggerId)))
+                        resumed++;
+                }
+            });
+
+            if (resumed > 0)
+                Libs.Trace.Tracer.Info("[STOP] Start for logger '{0}' ({1}): {2} stopped device(s) set up again at the next tick", loggerId, family, resumed);
+            return resumed;
         }
 
         /// <summary>Requires <see cref="TimerManager_DeviceHost"/> from startup; otherwise no-op. Elided from unit line coverage.</summary>
@@ -235,32 +325,29 @@ namespace Maba.VCT.Core
                             channelData, parts.Length, parts.Length / 2);
                         if (parts.Length < 2 || parts.Length % 2 != 0) continue;
 
-                        string timeStr = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss");
+                        // MBA-967: a logger's reading carries its scan time; the app plots, tabulates
+                        // and exports by this field, so the send time made even scans look uneven.
+                        string timeStr = FormatLoggerDataTime((packet as HardwarePacket)?.MeasuredAt, DateTime.Now);
 
-                        // Use association data from WebSocket client if available, otherwise fall back to device SN
-                        var wsDeviceId = !string.IsNullOrEmpty(wsHost.AssociatedDeviceId) ? wsHost.AssociatedDeviceId : device.SN;
-                        var wsLoggerId = !string.IsNullOrEmpty(wsHost.AssociatedLoggerId) ? wsHost.AssociatedLoggerId : device.SN;
-                        var wsBatchId = !string.IsNullOrEmpty(wsHost.AssociatedBatchId) ? wsHost.AssociatedBatchId : "LIVE";
-
+                        // Use association data from WebSocket client if available, otherwise fall back to device SN.
                         // An association from the app wins; otherwise fall back to what this
                         // instrument actually measures rather than assuming temperature.
-                        var wsUnits = !string.IsNullOrEmpty(wsHost.AssociatedUnits)
-                            ? wsHost.AssociatedUnits
-                            : HardwareBL_Settings.Read().DefaultUnitsForDeviceSN(device.SN);
-                        var wsResolution = !string.IsNullOrEmpty(wsHost.AssociatedResolution) ? wsHost.AssociatedResolution : "2";
+                        var defaults = new ChannelLabel(device.SN, device.SN, "LIVE",
+                            HardwareBL_Settings.Read().DefaultUnitsForDeviceSN(device.SN), "2");
+                        var fallback = new ChannelLabel(wsHost.AssociatedDeviceId, wsHost.AssociatedLoggerId,
+                            wsHost.AssociatedBatchId, wsHost.AssociatedUnits, wsHost.AssociatedResolution);
 
-                        var sb = new System.Text.StringBuilder();
-                        sb.AppendFormat("CMD:\"LoggerData\", DeviceID:\"{0}\", LoggerID:\"{1}\", BatchID:\"{2}\", Time:\"{3}\", Units:\"{4}\", Resolution:\"{5}\"",
-                            wsDeviceId, wsLoggerId, wsBatchId, timeStr, wsUnits, wsResolution);
+                        // MBA-967 (review of #30): a configured client teaches the device its MABA id
+                        // with every scan, so a browser that reconnects later is told about this logger
+                        // by that id, not by the serial, before it has sent its setup again.
+                        ResolveAndRememberLoggerId(wsHost, device);
 
-                        for (int i = 0; i + 1 < parts.Length; i += 2)
+                        // MBA-967: one line per sensor, each labelled with its own association.
+                        foreach (var wsMessage in BuildLoggerDataLines(parts, wsHost.ChannelLabels, fallback, defaults, timeStr))
                         {
-                            sb.AppendFormat(", Channel:\"{0}\", Value:\"{1}\"", parts[i], parts[i + 1]);
+                            com.SendString(wsMessage);
+                            Libs.Trace.Tracer.Info("[WS TX] {0}", wsMessage);
                         }
-
-                        var wsMessage = sb.ToString();
-                        com.SendString(wsMessage);
-                        Libs.Trace.Tracer.Info("[WS TX] {0}", wsMessage);
                     }
                     catch (Exception ex)
                     {
@@ -268,6 +355,87 @@ namespace Maba.VCT.Core
                     }
                 }
             });
+        }
+
+        /// <summary>
+        /// MBA-967: builds the LoggerData lines for one reading, one line per distinct label.
+        ///
+        /// With several sensors on one logger every line used to carry the last SensorsAssociation's
+        /// DeviceID/BatchID/Units - sensor A on 1-3 and B on 4-6 sent all six readings as B's. Each
+        /// channel's pair now goes in the line of the association that named it; channels no
+        /// association named go together under <paramref name="fallback"/> (the client's last
+        /// association), exactly as every channel did before. Groups whose labels resolve to the same
+        /// fields share one line, so with no per-channel labels - or one sensor on every channel - the
+        /// output is the single line it always was, byte for byte. Groups are in the order their first
+        /// channel appears in the reading; channels keep the reading's order; every line has the same
+        /// Time. The line format is the one the app parses field by field - do not change it.
+        /// </summary>
+        /// <param name="parts">The reading's channel,value,channel,value,... tokens; an even count.</param>
+        /// <param name="labels">Per-channel labels (<see cref="WebSocketDeviceHost.ChannelLabels"/>); may be null.</param>
+        /// <param name="fallback">The label for unlabelled channels; empty fields take <paramref name="defaults"/>.</param>
+        /// <param name="defaults">Per-field values used wherever a label leaves a field empty.</param>
+        /// <param name="timeStr">The formatted Time field (<see cref="FormatLoggerDataTime"/>).</param>
+        internal static List<string> BuildLoggerDataLines(IList<string> parts,
+                                                          IReadOnlyDictionary<int, ChannelLabel> labels,
+                                                          ChannelLabel fallback, ChannelLabel defaults, string timeStr)
+        {
+            var groupIndex = new Dictionary<ChannelLabel, int>();
+            var lines = new List<System.Text.StringBuilder>();
+
+            for (int i = 0; i + 1 < parts.Count; i += 2)
+            {
+                var resolved = ResolveChannelLabel(labels, parts[i], fallback, defaults);
+                if (!groupIndex.TryGetValue(resolved, out var g))
+                {
+                    var header = new System.Text.StringBuilder();
+                    header.AppendFormat("CMD:\"LoggerData\", DeviceID:\"{0}\", LoggerID:\"{1}\", BatchID:\"{2}\", Time:\"{3}\", Units:\"{4}\", Resolution:\"{5}\"",
+                        resolved.DeviceId, resolved.LoggerId, resolved.BatchId, timeStr, resolved.Units, resolved.Resolution);
+                    g = lines.Count;
+                    lines.Add(header);
+                    groupIndex[resolved] = g;
+                }
+                lines[g].AppendFormat(", Channel:\"{0}\", Value:\"{1}\"", parts[i], parts[i + 1]);
+            }
+
+            return lines.Select(sb => sb.ToString()).ToList();
+        }
+
+        /// <summary>
+        /// MBA-967: the label a reading on <paramref name="channel"/> goes out under - its own label,
+        /// else <paramref name="fallback"/>, each empty field filled from <paramref name="defaults"/>.
+        /// The one rule for LoggerData lines and per-channel alerts alike: the app keys an alert to the
+        /// readings by DeviceID and channel, so the two must not resolve a channel differently.
+        /// </summary>
+        internal static ChannelLabel ResolveChannelLabel(IReadOnlyDictionary<int, ChannelLabel> labels, string channel,
+                                                         ChannelLabel fallback, ChannelLabel defaults)
+        {
+            ChannelLabel label = null;
+            if (labels != null && int.TryParse((channel ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ch))
+                labels.TryGetValue(ch, out label);
+
+            return Resolve(label ?? fallback, defaults);
+        }
+
+        /// <summary>Each field of <paramref name="label"/>, or of <paramref name="defaults"/> where it is empty.</summary>
+        private static ChannelLabel Resolve(ChannelLabel label, ChannelLabel defaults)
+        {
+            string Pick(string own, string dflt) => !string.IsNullOrEmpty(own) ? own : dflt;
+            return new ChannelLabel(
+                Pick(label?.DeviceId, defaults?.DeviceId),
+                Pick(label?.LoggerId, defaults?.LoggerId),
+                Pick(label?.BatchId, defaults?.BatchId),
+                Pick(label?.Units, defaults?.Units),
+                Pick(label?.Resolution, defaults?.Resolution));
+        }
+
+        /// <summary>
+        /// MBA-967: the <c>Time</c> field of a LoggerData line - the reading's own time when the device
+        /// supplied one, otherwise <paramref name="now"/>. Invariant culture because the app splits this
+        /// on '/', ' ' and ':' itself (parse-logger-data-message.ts), whatever the station's locale.
+        /// </summary>
+        internal static string FormatLoggerDataTime(DateTime? measuredAt, DateTime now)
+        {
+            return (measuredAt ?? now).ToString("MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
         }
 
         /// <summary>How long a scanning logger may go silent before a DataTimeout alert (MBA-485 AC5/AC6).</summary>
@@ -299,9 +467,9 @@ namespace Maba.VCT.Core
         /// breaks silently. The app matches each field with its own regex and discards the whole
         /// alert if one fails, so a stray character costs the alert with nothing logged anywhere.
         /// </summary>
-        /// <param name="deviceId">Serial of the device the alert is ABOUT - see the caller.</param>
-        /// <param name="loggerId">Same serial; the app carries both fields through to the UI.</param>
-        /// <param name="batchId">The receiving client's run, or LIVE.</param>
+        /// <param name="deviceId">Who the alert is about, as the app knows it - see <see cref="BuildAlertLine"/>.</param>
+        /// <param name="loggerId">The logger, as the app knows it.</param>
+        /// <param name="batchId">The run the alert belongs in.</param>
         /// <param name="localTime">Local time: the app parses with date-fns into the browser's zone.</param>
         /// <param name="channel">
         /// The channel the alert is about, or null for a device-wide alert (rendered as "ALL").
@@ -327,17 +495,167 @@ namespace Maba.VCT.Core
         }
 
         /// <summary>
+        /// MBA-967: the alert line about <paramref name="deviceSn"/> for one client, identified the way
+        /// that client's LoggerData lines are - the app files alerts and readings under the same ids, and
+        /// on the bench an alert carrying the serial ("FLUKE,2625A") matched nothing on screen.
+        /// <list type="bullet">
+        /// <item>Per channel (Channel:"14"): DeviceID, LoggerID and BatchID are exactly what a LoggerData
+        /// line for that channel carries (<see cref="ResolveChannelLabel"/>, the same defaults), so with
+        /// two sensors on one logger each channel's alert names its own sensor.</item>
+        /// <item>Logger-wide (Channel:"ALL"): DeviceID, LoggerID and BatchID are all the logger's MABA id,
+        /// as in the LoggerConfiguration the app sends, whose BatchID is the logger.</item>
+        /// <item>No MABA id known for this client (it never sent a LoggerConfiguration or a
+        /// SensorsAssociation, or names several loggers that cannot be told apart): the serial and the
+        /// client's batch (or LIVE), as before MBA-967, so an unconfigured device keeps alerting.</item>
+        /// </list>
+        /// <see cref="Events.DeviceAlertEventArgs.LoggerNameToken"/> in <paramref name="message"/> becomes
+        /// the logger's MABA id, or the serial without one.
+        /// </summary>
+        /// <param name="loggerId">The logger's MABA id for this client (<see cref="ResolveAlertLoggerId"/>), or null.</param>
+        /// <param name="labels">The client's per-channel labels (<see cref="WebSocketDeviceHost.ChannelLabels"/>).</param>
+        /// <param name="fallback">The client's last association (its Associated* fields).</param>
+        /// <param name="channel">The channel number as text, or null/"ALL" for a logger-wide alert.</param>
+        /// <param name="channelIds">
+        /// For a per-channel alert, the ids to send instead of resolving them from
+        /// <paramref name="labels"/> - the ids that channel's disconnect went out under, so its restore
+        /// closes the same range (<see cref="BuildAlertLineFor"/>). Ignored for a logger-wide alert.
+        /// </param>
+        internal static string BuildAlertLine(string deviceSn, string loggerId,
+                                              IReadOnlyDictionary<int, ChannelLabel> labels, ChannelLabel fallback,
+                                              string alertType, string message, DateTime localTime, string channel,
+                                              ChannelLabel channelIds = null)
+        {
+            var hasLogger = !string.IsNullOrWhiteSpace(loggerId);
+            var loggerName = hasLogger ? loggerId.Trim() : deviceSn;
+            var text = (message ?? "").Replace(Events.DeviceAlertEventArgs.LoggerNameToken, loggerName ?? "");
+
+            if (IsLoggerWideAlert(channel))
+            {
+                if (hasLogger)
+                    return BuildAlertMessage(loggerName, loggerName, loggerName, alertType, text, localTime, AlertChannelAll);
+
+                var batchId = !string.IsNullOrEmpty(fallback?.BatchId) ? fallback.BatchId : AlertBatchLive;
+                return BuildAlertMessage(deviceSn, deviceSn, batchId, alertType, text, localTime, AlertChannelAll);
+            }
+
+            var resolved = channelIds ?? ResolveAlertChannelIds(deviceSn, labels, fallback, channel);
+            return BuildAlertMessage(resolved.DeviceId, resolved.LoggerId, resolved.BatchId, alertType, text, localTime, channel.Trim());
+        }
+
+        private const string AlertBatchLive = "LIVE";
+
+        /// <summary>Channel null, empty or "ALL": the alert is about the whole logger.</summary>
+        private static bool IsLoggerWideAlert(string channel)
+        {
+            return string.IsNullOrWhiteSpace(channel)
+                || string.Equals(channel.Trim(), AlertChannelAll, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// MBA-967: the ids a per-channel alert on <paramref name="channel"/> carries - exactly those of
+        /// that channel's LoggerData line. The defaults are BroadcastToWebSockets' for LoggerData;
+        /// units/resolution are not in an alert.
+        /// </summary>
+        private static ChannelLabel ResolveAlertChannelIds(string deviceSn, IReadOnlyDictionary<int, ChannelLabel> labels,
+                                                           ChannelLabel fallback, string channel)
+        {
+            var defaults = new ChannelLabel(deviceSn, deviceSn, AlertBatchLive, null, null);
+            return ResolveChannelLabel(labels, channel, fallback, defaults);
+        }
+
+        /// <summary>
+        /// MBA-967: which of the logger ids a client has named is the one <paramref name="deviceFamily"/>
+        /// is driving. One id: that one - the usual station, one logger per socket, and the same
+        /// assumption LoggerData already makes. Several: the one whose configuration is routed to this
+        /// device's family (<see cref="HardwareBL_Settings.ResolveLiveFamilyKey"/>, via
+        /// <paramref name="familyOf"/>), when exactly one is. Otherwise null - naming a logger the
+        /// alert may not be about is worse than the serial (see the MBA-485 follow-up).
+        /// </summary>
+        internal static string ResolveAlertLoggerId(IReadOnlyList<string> knownLoggerIds, string deviceFamily,
+                                                    Func<string, string> familyOf)
+        {
+            if (knownLoggerIds == null || knownLoggerIds.Count == 0) return null;
+            if (knownLoggerIds.Count == 1) return knownLoggerIds[0];
+            if (string.IsNullOrWhiteSpace(deviceFamily) || familyOf == null) return null;
+
+            var matching = knownLoggerIds
+                .Where(id => string.Equals(familyOf(id), deviceFamily, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            return matching.Count == 1 ? matching[0] : null;
+        }
+
+        /// <summary>
+        /// MBA-967: the logger's MABA id as <paramref name="wsHost"/> names it for
+        /// <paramref name="device"/> (<see cref="ResolveAlertLoggerId"/>), and what the device remembers.
+        /// <list type="bullet">
+        /// <item>The client names it: that id, and the device remembers it
+        /// (<see cref="Device.HardwareDeviceHost.LastKnownLoggerId"/>).</item>
+        /// <item>The client has named no logger at all - a browser that reconnected and has not sent its
+        /// setup again: the id the device remembers from any earlier connection (review of #30). Until
+        /// then a drop named "21-337" got a restore named "FLUKE,2625A", which the app does not pair.</item>
+        /// <item>The client names several that cannot be told apart: none, as before - it may have
+        /// meant another logger, and the device's id came from another connection.</item>
+        /// </list>
+        /// </summary>
+        internal static string ResolveAndRememberLoggerId(WebSocketDeviceHost wsHost, Device.HardwareDeviceHost device)
+        {
+            var known = wsHost.KnownLoggerIds;
+            if (known.Count == 0) return device.LastKnownLoggerId;
+
+            var loggerId = ResolveAlertLoggerId(known, device.BL?.SettingsFamily,
+                known.Count > 1 ? (Func<string, string>)(id => HardwareBL_Settings.Read().ResolveLiveFamilyKey(id)) : null);
+            if (loggerId != null) device.LastKnownLoggerId = loggerId.Trim();
+            return loggerId;
+        }
+
+        /// <summary>
+        /// MBA-967: <see cref="BuildAlertLine"/> for one connected client. A channel's
+        /// <c>ChannelDisconnected</c> records the ids it went out under on the client
+        /// (<see cref="WebSocketDeviceHost.NoteChannelReportedDown"/>), and that channel's next
+        /// <c>DataRestored</c> to the client goes out under the same ids (review of #30). The app closes
+        /// a disconnect range only with a restore on the same deviceId:channel, and the labels can have
+        /// changed in between: a Confirm that drops the channel clears its label, and the restore for it
+        /// would otherwise go out under the client's last association - another sensor.
+        /// </summary>
+        internal static string BuildAlertLineFor(WebSocketDeviceHost wsHost, Device.HardwareDeviceHost device,
+                                                 string alertType, string message, DateTime localTime, string channel)
+        {
+            var loggerId = ResolveAndRememberLoggerId(wsHost, device);
+
+            var fallback = new ChannelLabel(wsHost.AssociatedDeviceId, wsHost.AssociatedLoggerId,
+                wsHost.AssociatedBatchId, wsHost.AssociatedUnits, wsHost.AssociatedResolution);
+
+            ChannelLabel channelIds = null;
+            if (!IsLoggerWideAlert(channel))
+            {
+                if (string.Equals(alertType, "ChannelDisconnected", StringComparison.Ordinal))
+                {
+                    channelIds = ResolveAlertChannelIds(device.SN, wsHost.ChannelLabels, fallback, channel);
+                    wsHost.NoteChannelReportedDown(device.SN, channel, channelIds);
+                }
+                else if (string.Equals(alertType, "DataRestored", StringComparison.Ordinal))
+                {
+                    channelIds = wsHost.TakeChannelReportedDown(device.SN, channel);
+                }
+            }
+
+            return BuildAlertLine(device.SN, loggerId, wsHost.ChannelLabels, fallback, alertType, message, localTime, channel, channelIds);
+        }
+
+        /// <summary>
         /// MBA-485 AC5/AC6: sends a <c>CMD:"Alert"</c> about <paramref name="device"/> to every WS client.
+        /// Every alert line the server sends is built here, by <see cref="BuildAlertLineFor"/> - the
+        /// server's own (link drop, data watchdog) and the BLs' (<see cref="HardwareDeviceHost.RaiseAlert"/>).
         ///
-        /// DeviceID and LoggerID name the device that actually failed, NOT the receiving client's
-        /// sensor association. Those are different namespaces - an association's LoggerId is matched
-        /// against HardwareBL_Settings.Masters, never against a serial - so using the association
-        /// labelled every client's alert with that client's own logger, whichever device had really
-        /// dropped. Invisible with one logger; with several it names the wrong one every time.
+        /// MBA-967: identified per client, as that client's LoggerData is. The MBA-485 follow-up had put
+        /// the serial in DeviceID/LoggerID because a client's single association named the wrong logger
+        /// with several loggers; the app, though, files readings under the MABA ids, so a serial matched
+        /// nothing it shows. The ids now come from the client's per-channel labels and configured logger
+        /// ids, and the serial is kept wherever no id can be told apart (<see cref="ResolveAlertLoggerId"/>).
         ///
         /// Broadcasting to all clients is deliberate and safe: the app does not filter alerts by
         /// DeviceID (BackgroundDataProcessor adds every parsed alert, and group-alerts groups by
-        /// channel and type), so the id is a label, and a truthful serial beats a wrong association.
+        /// channel and type). With no client connected nothing is sent.
         /// </summary>
         [ExcludeFromCodeCoverage]
         private void BroadcastAlertToWebSockets(Device.HardwareDeviceHost device, string alertType, string message,
@@ -354,11 +672,7 @@ namespace Maba.VCT.Core
                         var com = wsHost.InternalComLayer;
                         if (com == null || !com.IsConnected) continue;
 
-                        // The batch IS the receiving client's, unlike the ids above: it identifies the
-                        // run the operator is looking at, which is what the alert has to appear inside.
-                        var batchId = !string.IsNullOrEmpty(wsHost.AssociatedBatchId) ? wsHost.AssociatedBatchId : "LIVE";
-
-                        var wsMessage = BuildAlertMessage(device.SN, device.SN, batchId, alertType, message, DateTime.Now, channel);
+                        var wsMessage = BuildAlertLineFor(wsHost, device, alertType, message, DateTime.Now, channel);
 
                         com.SendString(wsMessage);
                         Libs.Trace.Tracer.Info("[WS TX ALERT] {0}", wsMessage);
@@ -383,7 +697,13 @@ namespace Maba.VCT.Core
             // MBA-962: devices to restart are collected under the lock and restarted after it is
             // released. ReinitializeBL runs the BL's OnCreateStates, which re-reads the master
             // corrections from SQL - holding the device read lock across that would stall the tick.
-            var toRecover = new System.Collections.Generic.List<Device.HardwareDeviceHost>();
+            // MBA-974: also carries the reason, since a device can land in this list either for going
+            // silent (below) or for a live WS reconfiguration (TakePendingReconfigureReason) - each
+            // needs its own message, and two live reconfigurations arriving before this tick coalesce
+            // into the single reason the second one left, i.e. one re-init instead of two.
+            var toRecover = new System.Collections.Generic.List<(Device.HardwareDeviceHost Device, string Reason)>();
+            // MBA-967: stops carried out here, after the lock, for the same reasons as toRecover.
+            var toStop = new System.Collections.Generic.List<(Device.HardwareDeviceHost Device, string Reason)>();
 
             DeviceHost_Slim.MyReadLock(list =>
             {
@@ -391,15 +711,37 @@ namespace Maba.VCT.Core
                 {
                     if (device == null) continue;
 
-                    switch (EvaluateDataWatchdog(device.IsConnected, device.LastMeasurementUtc,
+                    var pendingStopReason = device.TakePendingStopReason();
+                    if (pendingStopReason != null) toStop.Add((device, pendingStopReason));
+
+                    var pendingReconfigureReason = device.TakePendingReconfigureReason();
+
+                    // MBA-967: a stopped logger is silent on purpose. Neither the graph's re-send of the
+                    // saved setup (a reconfiguration) nor the watchdog's power-cycle recovery may start
+                    // it again - only the next Confirm's Status:Start does. Settings changed meanwhile
+                    // are already in memory, and that resume's re-init applies them.
+                    if (device.ScanStopped)
+                    {
+                        if (pendingReconfigureReason != null)
+                            Libs.Trace.Tracer.Info("[STOP] SN={0}: not re-initializing while the scan is stopped ({1})", device.SN, pendingReconfigureReason);
+                        continue;
+                    }
+
+                    if (pendingReconfigureReason != null && device.IsConnected)
+                    {
+                        toRecover.Add((device, pendingReconfigureReason));
+                        // MBA-967: the re-init restarts the scan; the silence it causes is not a fault.
+                        // The Hydra2 BL restarts the clock again once its channel setup has finished.
+                        device.RestartWatchdogClockForReconfiguration(nowUtc);
+                    }
+
+                    switch (EvaluateDataWatchdog(device.IsConnected, device.WatchdogMeasurementUtc,
                                                  device.DataTimedOut, nowUtc, DataTimeout_TimeSpan))
                     {
                         case DataWatchdogAction.Timeout:
                             device.DataTimedOut = true;
                             BroadcastAlertToWebSockets(device, "DataTimeout",
-                                string.Format(CultureInfo.InvariantCulture,
-                                              "No data received for {0} seconds",
-                                              (int)DataTimeout_TimeSpan.TotalSeconds));
+                                DescribeDataFault(device, DataTimeout_TimeSpan, nowUtc));
                             break;
 
                         case DataWatchdogAction.Restored:
@@ -416,18 +758,30 @@ namespace Maba.VCT.Core
                     {
                         device.RecoveryAttempts++;
                         device.LastRecoveryAttemptUtc = nowUtc;
-                        toRecover.Add(device);
+                        toRecover.Add((device, string.Format(CultureInfo.InvariantCulture,
+                            "silent for over {0}s - power-cycle recovery attempt {1}/{2}",
+                            (int)DataTimeout_TimeSpan.TotalSeconds, device.RecoveryAttempts, Recovery_MaxAttempts)));
                     }
                 }
             });
 
-            foreach (var device in toRecover)
+            foreach (var (device, reason) in toStop)
             {
                 try
                 {
-                    device.ReinitializeBL(string.Format(CultureInfo.InvariantCulture,
-                        "silent for over {0}s - power-cycle recovery attempt {1}/{2}",
-                        (int)DataTimeout_TimeSpan.TotalSeconds, device.RecoveryAttempts, Recovery_MaxAttempts));
+                    device.StopScanning(reason);
+                }
+                catch (Exception ex)
+                {
+                    Libs.Trace.Tracer.Info("[STOP] SN={0} stopping the scan threw: {1}", device.SN, ex.Message);
+                }
+            }
+
+            foreach (var (device, reason) in toRecover)
+            {
+                try
+                {
+                    device.ReinitializeBL(reason);
                 }
                 catch (Exception ex)
                 {
@@ -463,6 +817,29 @@ namespace Maba.VCT.Core
             if (lastAttemptUtc == null) return true;
 
             return nowUtc - lastAttemptUtc.Value >= retryInterval;
+        }
+
+        /// <summary>
+        /// MBA-962: the two faults that stop a calibration look identical in the alert type - the app
+        /// only knows DataTimeout - so the difference has to be carried by the words the operator
+        /// reads. "No data" means the instrument went quiet; "the same reading" means it is still
+        /// answering and repeating itself, which is what a communication interruption produced on a
+        /// station: the values were live-looking and had not moved for minutes.
+        /// </summary>
+        internal static string DescribeDataFault(Device.HardwareDeviceHost device, TimeSpan limit, DateTime nowUtc)
+        {
+            var seconds = (int)limit.TotalSeconds;
+
+            if (device != null && device.StaleDataDetectionEnabled &&
+                device.LastMeasurementUtc.HasValue &&
+                nowUtc - device.LastMeasurementUtc.Value <= limit)
+            {
+                return string.Format(CultureInfo.InvariantCulture,
+                    "The logger is still answering but has repeated the same reading for {0} seconds - the scan has stalled",
+                    seconds);
+            }
+
+            return string.Format(CultureInfo.InvariantCulture, "No data received for {0} seconds", seconds);
         }
 
         /// <summary>What the data watchdog decided for one device on one tick.</summary>
@@ -827,10 +1204,7 @@ namespace Maba.VCT.Core
             {
                 wsc = new WebSocketCom(webSocket);
                 wsdh = new WebSocketDeviceHost(MainEventsBus, wsc, wsKey);
-                WSDeviceHost_Slim.MyWriteLock(list =>
-                {
-                    list[wsKey] = wsdh;
-                });
+                RegisterWebSocketClient(wsKey, wsdh);
                 MainEventsBus.Fire_WebSocketConnection(this, new Events.DeviceConnectionEventArgs(wsdh));
                 Libs.Trace.Tracer.Info("[WS] Client connected (key={0}, path={1}, state={2})",
                     wsKey, ctx.Request.Url.AbsolutePath, webSocket.State.ToString());
@@ -849,6 +1223,15 @@ namespace Maba.VCT.Core
                 });
                 Libs.Trace.Tracer.Info("[WS] Client session ended (key={0}, state={1})", wsKey, webSocket?.State.ToString());
             }
+        }
+
+        /// <summary>Adds a connected client to the broadcast list (LoggerData and alerts go to every one).</summary>
+        internal void RegisterWebSocketClient(string key, WebSocketDeviceHost host)
+        {
+            WSDeviceHost_Slim.MyWriteLock(list =>
+            {
+                list[key] = host;
+            });
         }
 
         public void Stop()
@@ -1052,15 +1435,20 @@ namespace Maba.VCT.Core
         /// VISA it is load-bearing: enumeration does not open anything, so without this a
         /// rediscovery pass would add a second tunnel for an address that is already live.
         /// </para>
+        /// <para>
+        /// MBA-967: "would fail to reopen anyway" stopped being true on 2026-10-08. The logger was on
+        /// the AUTO tunnel, whose tunnel says "AUTO" while the port it opened is COM6, so COM6 was never
+        /// claimed and every pass probed it, kept out only by Windows refusing the open. When the
+        /// adapter dropped, a probe got through and opened a second link to the same logger.
+        /// </para>
         /// </summary>
-        [ExcludeFromCodeCoverage]
-        private ComLayer.Tunnel[] CurrentlyHeldTransports()
+        internal ComLayer.Tunnel[] CurrentlyHeldTransports()
         {
             var held = new List<ComLayer.Tunnel>();
 
             Action<ComLayer.IComLayer> take = (layer) =>
             {
-                var t = layer?.ParentTunnel;
+                var t = HeldTransport(layer);
                 if (t != null) held.Add(t);
             };
 
@@ -1075,6 +1463,83 @@ namespace Maba.VCT.Core
             });
 
             return held.ToArray();
+        }
+
+        /// <summary>
+        /// MBA-967: what one held link claims, as a tunnel. For a serial link that is the port it
+        /// actually opened, not the one its tunnel names: an AUTO tunnel says "AUTO", which claims
+        /// nothing, while it holds a real COM port.
+        /// </summary>
+        internal static ComLayer.Tunnel HeldTransport(ComLayer.IComLayer layer)
+        {
+            var t = layer?.ParentTunnel;
+            var serial = layer as ComLayer.SerialCom;
+            if (serial == null || string.IsNullOrWhiteSpace(serial.PortName)) return t;
+
+            return new ComLayer.Tunnel
+            {
+                Name = t?.Name ?? serial.Title,
+                SerialPortName = serial.PortName.Trim(),
+                SerialBaudRate = serial.BaudRate,
+                SerialTimeout = serial.Timeout
+            };
+        }
+
+        /// <summary>
+        /// The serial ports that discovery must leave alone: every named port in
+        /// <paramref name="claimed"/>. "AUTO" is not a port and claims nothing by itself - see
+        /// <see cref="HeldTransport"/> for how the port an AUTO tunnel resolved to gets claimed.
+        /// </summary>
+        internal static List<string> ClaimedSerialPorts(IEnumerable<ComLayer.Tunnel> claimed)
+        {
+            return (claimed ?? Enumerable.Empty<ComLayer.Tunnel>())
+                .Where(t => t != null
+                         && !string.IsNullOrWhiteSpace(t.SerialPortName)
+                         && !string.Equals(t.SerialPortName, "AUTO", StringComparison.OrdinalIgnoreCase))
+                .Select(t => t.SerialPortName.Trim())
+                .ToList();
+        }
+
+        /// <summary>
+        /// MBA-967: closes the link of every identified device whose link has died underneath it, so
+        /// its port is let go and the next rediscovery pass can find the instrument again.
+        /// <para>
+        /// A USB-serial adapter that drops ends .NET's serial event loop, and from then on
+        /// <c>SerialPort.IsOpen</c> is false - but nothing is closed and no event is raised. Only
+        /// pending devices were ever checked for that, so an identified one stayed in the device list
+        /// with a dead link: it sent nothing, raised no alert, and on 2026-10-08 sat like that from
+        /// 08:09 until the service was restarted at 10:26. Collected under the lock and closed after
+        /// it, because closing raises the disconnection events.
+        /// </para>
+        /// </summary>
+        /// <returns>How many links were closed.</returns>
+        internal int ReleaseDeadLinks()
+        {
+            var dead = new List<Device.HardwareDeviceHost>();
+            DeviceHost_Slim.MyReadLock(list =>
+            {
+                foreach (var host in list.Values)
+                {
+                    if (host != null && host.InternalComLayer != null && !host.IsConnected) dead.Add(host);
+                }
+            });
+
+            // Counts what was closed, not what was found: a link replaced between the read lock and
+            // here is no longer dead by the time ReleaseDeadLink looks, and it says so by returning false.
+            var closed = 0;
+            foreach (var host in dead)
+            {
+                try
+                {
+                    if (host.ReleaseDeadLink()) closed++;
+                }
+                catch (Exception ex)
+                {
+                    Libs.Trace.Tracer.Info("[LINK] SN={0}: closing the dead link threw: {1}", host.SN, ex.Message);
+                }
+            }
+
+            return closed;
         }
 
         /// <summary>
@@ -1149,11 +1614,7 @@ namespace Maba.VCT.Core
                 var anyVisaConfigured = configured.Any(t => !string.IsNullOrWhiteSpace(t.VisaResource));
                 var claimedGpib = new HashSet<int>(
                     configured.Where(t => t.GpibPrimaryAddress >= 0).Select(t => t.GpibPrimaryAddress));
-                var claimedSerial = configured
-                    .Where(t => !string.IsNullOrWhiteSpace(t.SerialPortName)
-                             && !string.Equals(t.SerialPortName, "AUTO", StringComparison.OrdinalIgnoreCase))
-                    .Select(t => t.SerialPortName.Trim())
-                    .ToList();
+                var claimedSerial = ClaimedSerialPorts(configured);
 
                 Libs.Trace.Tracer.Info("[{0}] Discovering attached instruments...", phase);
 
@@ -1603,6 +2064,10 @@ namespace Maba.VCT.Core
 
             try
             {
+                // MBA-967: before anything is promoted, so a device that comes back on a new link is
+                // handed to a host that has already let go of the dead one.
+                ReleaseDeadLinks();
+
                 Device.HardwareDeviceHost _DeviceHost = null;
                 foreach (var newPending in _TempDeviceHost)
                 {

@@ -57,6 +57,12 @@ namespace Maba.VCT.CommServer.CommonBL
 
         public Func<SingleState, StepWorkResponses> Action_DoWork { get; set; }
 
+        /// <summary>
+        /// Guards step changes: a step that waits for a reply is moved on from the thread that
+        /// delivers the reply, while the device timer drives <see cref="DoWork"/>.
+        /// </summary>
+        private readonly object _stepLock = new object();
+
         #endregion
 
         #region ctor
@@ -85,11 +91,22 @@ namespace Maba.VCT.CommServer.CommonBL
                     if (!IsActive || Action_DoWork != null)
                     {
                         StateExpireTime = now.Add(DefaultTimeOut);
+                        var stepBefore = CurrentStep;
                         var response = Action_DoWork(this);
                         switch (response)
                         {
                             case StepWorkResponses.Wait4Work:
-                                this.StateMode = StateModes.Wait;
+                                // MBA-967: the reply can arrive before Action_DoWork has even returned,
+                                // and its callback has then already moved the step on. Waiting regardless
+                                // parked the next step until the timeout, which then moved it on a second
+                                // time and skipped it.
+                                lock (_stepLock)
+                                {
+                                    if (CurrentStep == stepBefore)
+                                    {
+                                        this.StateMode = StateModes.Wait;
+                                    }
+                                }
                                 break;
                             case StepWorkResponses.Skip2NextStep:
                                 NextStep();
@@ -155,10 +172,28 @@ namespace Maba.VCT.CommServer.CommonBL
 
         public void NextStep()
         {
-            CurrentStep++;
-            LastStateChange = DateTime.UtcNow;
-            StateExpireTime = DateTime.UtcNow.Add(DefaultTimeOut);
-            StateMode = StateModes.Step;
+            lock (_stepLock)
+            {
+                CurrentStep++;
+                LastStateChange = DateTime.UtcNow;
+                StateExpireTime = DateTime.UtcNow.Add(DefaultTimeOut);
+                StateMode = StateModes.Step;
+            }
+        }
+
+        /// <summary>
+        /// Moves on from <paramref name="step"/> only if the state is still on it - for a reply that
+        /// may come back after its step timed out and the state has already moved on without it.
+        /// </summary>
+        /// <returns>True when the state moved on.</returns>
+        public bool NextStepFrom(int step)
+        {
+            lock (_stepLock)
+            {
+                if (CurrentStep != step) return false;
+                NextStep();
+                return true;
+            }
         }
         public void SetTimeout(TimeSpan? StepTimeout = null)
         {

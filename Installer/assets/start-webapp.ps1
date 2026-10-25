@@ -51,58 +51,11 @@ if ($logFallbackReason) {
     Write-Log ("WARNING: {0}\logs is not writable ({1}). Logging to {2} instead." -f $appDir, $logFallbackReason, $logDir)
 }
 
-<#  Everything below is written down because it is what we actually had to ask for, one machine at
-    a time, when a station would not come up: which build, which node, where it is running from. #>
-Write-Log '--------------------------------------------------------------'
-Write-Log ("Launcher starting. user={0}  computer={1}" -f $env:USERNAME, $env:COMPUTERNAME)
-Write-Log ("App folder: {0}" -f $appDir)
-$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
-if ($nodeCmd) {
-    $nodeVersion = (& node --version 2>&1) -join ' '
-    Write-Log ("node: {0}  ({1})" -f $nodeVersion, $nodeCmd.Source)
-}
-else {
-    Write-Log 'ERROR: node was not found on PATH. The web app cannot start. Install Node.js.'
-    exit 1
-}
-
-$server = Join-Path $webapp 'server.js'
-if (-not (Test-Path $server)) {
-    Write-Log 'ERROR: server.js not found; webapp not installed.'
-    exit 1
-}
-
-if (-not $env:REMOTE_DATABASE_URL) {
-    $target = 'PROD'
-    if ($env:MABA_DB_TARGET) { $target = $env:MABA_DB_TARGET.ToUpper() }
-
-    $envFile = Join-Path $webapp '.env'
-    if (-not (Test-Path $envFile)) {
-        Write-Log "ERROR: $envFile is missing; cannot resolve REMOTE_DATABASE_URL."
-        exit 1
-    }
-
-    # Match REMOTE_DATABASE_URL_<TARGET>, tolerating surrounding quotes. The value is a connection
-    # string with a password in it and is never written to the log.
-    $pattern = '^\s*REMOTE_DATABASE_URL_' + [regex]::Escape($target) + '\s*=\s*"?([^"\r\n]+)"?\s*$'
-    $value = $null
-    foreach ($line in (Get-Content -Path $envFile -Encoding utf8)) {
-        $m = [regex]::Match($line, $pattern)
-        if ($m.Success) { $value = $m.Groups[1].Value; break }
-    }
-
-    if (-not $value) {
-        Write-Log "ERROR: REMOTE_DATABASE_URL_$target not found in .env; cannot start."
-        exit 1
-    }
-
-    $env:REMOTE_DATABASE_URL = $value
-    Write-Log "Resolved REMOTE_DATABASE_URL from REMOTE_DATABASE_URL_$target."
-}
-
-# Ship the PREVIOUS run's logs before this one starts overwriting them - that is the crash case,
-# and it is the only moment the files are complete. Best effort: a station with no route to the
-# share must still start.
+<#  Defined here, before the first thing that can fail, because of what happened on 2026-09-09: a
+    station was reinstalled twice, would not come up, and sent NOTHING to the share. The publish used
+    to sit below the prerequisite checks, so the four failures that stop the web app dead - no node,
+    no server.js, no .env, no database URL in it - each exited before any log could travel. The one
+    situation where the log is the only evidence we will ever get was the one that produced none.  #>
 $publishLogs = Join-Path $PSScriptRoot 'publish-logs.ps1'
 
 function Publish-StationLogs([string]$When) {
@@ -116,6 +69,64 @@ function Publish-StationLogs([string]$When) {
     }
 }
 
+# Every prerequisite failure below ships what it just wrote before it goes.
+function Exit-WithLogs([string]$Reason) {
+    Publish-StationLogs $Reason
+    exit 1
+}
+
+<#  Everything below is written down because it is what we actually had to ask for, one machine at
+    a time, when a station would not come up: which build, which node, where it is running from. #>
+Write-Log '--------------------------------------------------------------'
+Write-Log ("Launcher starting. user={0}  computer={1}" -f $env:USERNAME, $env:COMPUTERNAME)
+Write-Log ("App folder: {0}" -f $appDir)
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+if ($nodeCmd) {
+    $nodeVersion = (& node --version 2>&1) -join ' '
+    Write-Log ("node: {0}  ({1})" -f $nodeVersion, $nodeCmd.Source)
+}
+else {
+    Write-Log 'ERROR: node was not found on PATH. The web app cannot start. Install Node.js.'
+    Exit-WithLogs 'no node'
+}
+
+$server = Join-Path $webapp 'server.js'
+if (-not (Test-Path $server)) {
+    Write-Log 'ERROR: server.js not found; webapp not installed.'
+    Exit-WithLogs 'no server.js'
+}
+
+if (-not $env:REMOTE_DATABASE_URL) {
+    $target = 'PROD'
+    if ($env:MABA_DB_TARGET) { $target = $env:MABA_DB_TARGET.ToUpper() }
+
+    $envFile = Join-Path $webapp '.env'
+    if (-not (Test-Path $envFile)) {
+        Write-Log "ERROR: $envFile is missing; cannot resolve REMOTE_DATABASE_URL."
+        Exit-WithLogs 'no .env'
+    }
+
+    # Match REMOTE_DATABASE_URL_<TARGET>, tolerating surrounding quotes. The value is a connection
+    # string with a password in it and is never written to the log.
+    $pattern = '^\s*REMOTE_DATABASE_URL_' + [regex]::Escape($target) + '\s*=\s*"?([^"\r\n]+)"?\s*$'
+    $value = $null
+    foreach ($line in (Get-Content -Path $envFile -Encoding utf8)) {
+        $m = [regex]::Match($line, $pattern)
+        if ($m.Success) { $value = $m.Groups[1].Value; break }
+    }
+
+    if (-not $value) {
+        Write-Log "ERROR: REMOTE_DATABASE_URL_$target not found in .env; cannot start."
+        Exit-WithLogs 'no database url'
+    }
+
+    $env:REMOTE_DATABASE_URL = $value
+    Write-Log "Resolved REMOTE_DATABASE_URL from REMOTE_DATABASE_URL_$target."
+}
+
+# Ship the PREVIOUS run's logs before this one starts overwriting them - that is the crash case,
+# and it is the only moment the files are complete. Best effort: a station with no route to the
+# share must still start.
 Publish-StationLogs 'previous run'
 
 # A station that already has something on the port starts a server that exits at once, and the
@@ -137,7 +148,7 @@ if ($holder) {
     $name = (Get-Process -Id $holder -ErrorAction SilentlyContinue).ProcessName
     Write-Log ("ERROR: port {0} is already in use by process {1} ({2}). The web app cannot start." -f $port, $holder, $name)
     Write-Host ("Port {0} is already in use by {1} (PID {2}). Stop it and run this again." -f $port, $name, $holder)
-    exit 1
+    Exit-WithLogs 'port already in use'
 }
 
 Write-Log '===== WEBAPP SESSION STARTED ====='

@@ -1,5 +1,5 @@
 ﻿#define AppName "Calibration Software"
-#define AppVersion "1.6.10"
+#define AppVersion "1.6.16"
 #define AppPublisher "MBA"
 #define AppURL "http://localhost:3000"
 #define ServiceName "MabaCalibrationServer"
@@ -24,6 +24,10 @@
 #endif
 #ifndef WebAppPublic
   #define WebAppPublic "..\app\public"
+#endif
+; Build-Station-Installer.ps1 passes the one from the same checkout the web app was built from.
+#ifndef WebAppEnvExample
+  #define WebAppEnvExample "..\app\.env.example"
 #endif
 
 [Setup]
@@ -95,6 +99,7 @@ Type: files; Name: "{app}\consolehost\*.pdb"
 Type: files; Name: "{app}\assets\*.ps1"
 Type: files; Name: "{app}\assets\*.bat"
 Type: files; Name: "{app}\assets\*.vbs"
+Type: files; Name: "{app}\assets\*.html"
 
 ; Wipe previous run logs (upgrade / reinstall over same folder)
 Type: filesandordirs; Name: "{app}\logs"
@@ -145,6 +150,13 @@ Source: "assets\start-webapp.ps1";          DestDir: "{app}\assets";           F
 ; Copies this station's logs to \\maba-srv\maba2000\Eliran\<folder>\<COMPUTERNAME> so a problem on
 ; a customer machine can be investigated without going there. Called by start-webapp.ps1.
 Source: "assets\publish-logs.ps1";          DestDir: "{app}\assets";           Flags: ignoreversion
+; Shown the instant the operator clicks the shortcut, and it replaces itself with the app once the
+; app answers. Without it the screen stays empty for the whole cold start and the station reads as
+; dead - see the comment at step 3 of start-all.bat.
+Source: "assets\starting.html";             DestDir: "{app}\assets";           Flags: ignoreversion
+; Keeps the logger's USB-serial adapter powered and the Kernel-PnP log large enough to show a USB
+; drop (MBA-987). Run by STEP 8 below, and afterwards by the scheduled task that step registers.
+Source: "assets\Set-StationUsbPower.ps1";   DestDir: "{app}\assets";           Flags: ignoreversion
 
 ; NI-488.2 is deliberately NOT shipped or installed here - see Installer\DRIVERS.md. Bundling NI's
 ; online installer added 7 MB and, far worse, several hundred MB of download that turned a 3-minute
@@ -161,7 +173,13 @@ Source: "..\scripts\run-project.ps1";       DestDir: "{app}";                  F
 ; app\.env verbatim put the staging database password, the SQL admin connection string,
 ; the SMTP password and seven test accounts onto every customer machine.
 Source: "assets\.env.station";             DestDir: "{app}\webapp";           DestName: ".env"; Flags: ignoreversion
-Source: "..\app\.env.example";              DestDir: "{app}\webapp";           DestName: ".env.example"; Flags: ignoreversion
+Source: "{#WebAppEnvExample}";             DestDir: "{app}\webapp";           DestName: ".env.example"; Flags: ignoreversion
+
+; --- Build identity ---
+; Written by scripts\Build-Station-Installer.ps1: the version plus the Calibration-software and app
+; commits this installer was built from, so an installed station can say exactly what it runs.
+; Skipped when ISCC is run by hand without the script.
+Source: "assets\build-info.json";          DestDir: "{app}";                  Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\{#AppName}";                 Filename: "{app}\CalibrationLauncher.exe"; WorkingDir: "{app}"
@@ -865,6 +883,27 @@ begin
     else
       WriteLog('Service verification - WARNING: Service not found after install');
 
+    { Step 8: keep the logger's USB-serial adapter powered (MBA-987). On station NOFAR the Prolific
+      adapter dropped off the bus twice mid-run with USB selective suspend enabled, and the event
+      that proves a drop had been overwritten by a flapping monitor within a day. The script turns
+      selective suspend off in every power scheme, turns off "allow the computer to turn off this
+      device" for USB-serial adapters, USB hubs and host controllers, enlarges the Kernel-PnP log, and registers a
+      SYSTEM task that re-applies it at startup, logon and whenever a new device instance appears -
+      an adapter plugged in later, or into another port, is a new instance an install-time change
+      cannot reach. It writes its own before/after lines, tagged [USB-POWER], into this log.
+      Best effort: the script always exits 0, and nothing here can stop the install. Runs on every
+      install, so an upgrade applies it too. }
+    SetInstallStatus('Keeping the USB-serial adapters powered...', 98);
+    WriteLogSection('STEP 8 - USB power saving off, event log size');
+    if FileExists(ExpandConstant('{app}\assets\Set-StationUsbPower.ps1')) then
+      RunAndLog('USB power settings',
+        ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+        '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' +
+        ExpandConstant('{app}\assets\Set-StationUsbPower.ps1') + '" -LogPath "' +
+        InstallLogPath + '" -RegisterTask')
+    else
+      WriteLog('USB power settings - SKIPPED: Set-StationUsbPower.ps1 not found');
+
     SetInstallStatus('Installation complete.', 100);
 
     WriteLogSection('INSTALLATION COMPLETE');
@@ -932,6 +971,14 @@ begin
     WriteLog('Removing WebSocket URL reservation...');
     Exec('netsh.exe', 'http delete urlacl url=http://localhost:5001/ws/', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     WriteLog('URL ACL removal exit code: ' + IntToStr(ResultCode));
+
+    { The task runs a script that is about to be deleted, so it goes. The power and event-log
+      settings STEP 8 made are left as they are: they are harmless on any machine, the previous
+      values exist only in install.log, and putting USB power saving back on a machine that still
+      has a logger attached would bring back the drops. }
+    WriteLog('Removing the USB power scheduled task...');
+    Exec(ExpandConstant('{sys}\schtasks.exe'), '/Delete /TN "MabaCalibration-UsbPower" /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    WriteLog('USB power task removal exit code: ' + IntToStr(ResultCode) + ' (USB power and event log settings are left in place)');
 
     WriteLogSection('UNINSTALL COMPLETE');
   end;

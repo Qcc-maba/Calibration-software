@@ -63,6 +63,7 @@
     <Compile Include="Events\DeviceConnectionEventArgs.cs" />
     <Compile Include="Events\DeviceEventArgs.cs" />
     <Compile Include="Events\EventsBus.cs" />
+    <Compile Include="Events\LiveHardwareReconfiguredEventArgs.cs" />
     <Compile Include="Device\Sessions\RateSession.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ServerCore.cs" />

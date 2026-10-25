@@ -27,7 +27,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-if (-not $SourceEnv) { $SourceEnv = Join-Path $root 'app\.env' }
+if (-not $SourceEnv) {
+    # The app is <root>\app in the original layout, and its own repo beside this one (GIT_ROOT\app)
+    # in the dev layout - the same two places Start-Calibration-Stack.ps1 looks.
+    $SourceEnv = @((Join-Path $root 'app\.env'), (Join-Path (Split-Path -Parent $root) 'app\.env')) |
+        Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $SourceEnv) { $SourceEnv = Join-Path $root 'app\.env' }
+}
 if (-not $OutFile)   { $OutFile   = Join-Path $root 'Installer\assets\.env.station' }
 
 if (-not (Test-Path $SourceEnv)) { throw "Source env not found: $SourceEnv" }

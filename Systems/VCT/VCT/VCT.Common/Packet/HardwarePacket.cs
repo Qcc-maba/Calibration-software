@@ -14,6 +14,14 @@ namespace Maba.VCT.Common
         public string Response { get; private set; }
         public float FloatData { get; private set; }
 
+        /// <summary>
+        /// MBA-967: when the instrument took the reading, in the PC's local time, for an instrument
+        /// that records it. Null means "now" - the time the packet is sent is the only time known.
+        /// A logger is read by polling, so the moment a reading reaches the app lags its scan by a
+        /// varying amount; stamping it with the send time made evenly spaced scans look uneven.
+        /// </summary>
+        public DateTime? MeasuredAt { get; set; }
+
 
         public bool Wait4Respons { get; private set; }
         public bool OK

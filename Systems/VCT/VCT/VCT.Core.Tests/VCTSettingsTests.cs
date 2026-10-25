@@ -78,10 +78,21 @@ namespace Maba.VCT.Core.Tests
         #region Computed Property Tests
 
         [TestMethod]
-        public void ServerTimerInterval_Is2000()
+        public void ServerTimerInterval_DefaultsToTheFastTick()
         {
+            // Was pinned at 2000 while the property was a hard-coded getter. One command goes out per
+            // tick, so that number was the whole cost of starting a scan: twenty channels meant forty
+            // seconds of FUNC commands before the logger could be told to scan (MBA-962). The bounds
+            // and the migration of the old value are covered in ServerTimerIntervalTests.
             var settings = new VCTSettings();
-            Assert.AreEqual(2000, settings.ServerTimerInterval);
+            Assert.AreEqual(VCTSettings.DEFAULT_SERVER_TIMER_INTERVAL, settings.ServerTimerInterval);
+        }
+
+        [TestMethod]
+        public void ServerTimerInterval_CanBeSetPerStation()
+        {
+            var settings = new VCTSettings { ServerTimerInterval = 750 };
+            Assert.AreEqual(750, settings.ServerTimerInterval);
         }
 
         [TestMethod]
