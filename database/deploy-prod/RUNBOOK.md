@@ -412,3 +412,30 @@ ORDER BY h.run_date DESC, h.run_time DESC;
 
 On STAGE the packing job's first run read 4,414 receipts, dated 3,604 items and flagged 82 order
 lines as customer-packed. Expect different numbers on PROD; expect them to be non-zero.
+
+---
+
+# Steps 9 and 10 - the constraints tranche A never created (MBA-999)
+
+**Tranche A built each new table from its columns and primary key only.** Compare its `dbo.OrderNote`
+with `database/procedures/dbo.OrderNote.table.sql`: the defaults, the check constraints, the foreign
+key and every secondary index are gone. The column checks above all passed, because every column was
+there. Nobody wrote to those tables until the 25.Oct.2026 release, and then the first validator note
+and the first portal request both failed with "Cannot insert the value NULL into column 'CreatedDate'".
+
+| File | State | What it does |
+|---|---|---|
+| `09-hotfix-2026-10-25-portal-and-notes-constraints.sql` | **applied on PROD 2026-10-25** | `OrderNote`, `CustomerPortalRequest`, `CustomerPortalRequestItem`, `OrderApprovalRequest`: 5 defaults, 3 checks, 6 indexes, 1 FK. Kept here as the record of what was run. |
+| `10-MBA-999-cache-and-cycle-constraints.sql` | to run on PROD | `CrmDeviceDescription`, `CrmOrderAttachments`, the `OrderApprovalRequest.CreatedAt` default, and the FK from `MeasurmentPointsToCalibrationCycles` to its cycle. Not breaking today: those writers pass every value. |
+
+Both are idempotent, run as one transaction, and end with a one-row check. On STAGE they change
+nothing (tested 2026-10-25: 5|3|6|1 and 4|3|1, no object modified). 10 refuses to start if any
+measurement point has lost its cycle, so the foreign key cannot fail halfway.
+
+**Next package: never regenerate a table from `sys.columns`.** Replay its
+`database/procedures/dbo.<Table>.table.sql`, which carries the whole definition, and add a file for any
+table that has none. Then run `database/Compare-Schema.ps1 -FailOnUnexpected`, before and after the
+deploy. Since MBA-999 it also compares procedure bodies, defaults, checks, foreign keys and indexes, by
+content rather than name. It exits 1 on any difference not listed, with a reason, in
+`database/Compare-Schema.expected.txt`. It is the check that would have caught this. Don't call a deploy
+finished while it fails.
