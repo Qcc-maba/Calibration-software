@@ -1,0 +1,39 @@
+# Differences between STAGE (Calibrator) and PROD (CalibratorProd) that are known and accepted.
+# Read by Compare-Schema.ps1. Anything it finds that is NOT matched here counts as unexpected, and
+# -FailOnUnexpected then exits 1.
+#
+# One entry per line:   SECTION | KIND | key pattern | reason (who/what/ticket, and when it goes away)
+#   SECTION  COLUMNS, ROUTINES, BODIES, CONSTRAINTS
+#   KIND     STAGE only, PROD only, DIFFERS, or * for any
+#   pattern  PowerShell -like wildcards on the key the script prints (schema-qualified: dbo.Table.Column)
+#
+# Rule: an entry is a promise that the difference is understood. Add one only with a reason and a
+# ticket, and delete it in the same change that deploys or removes the difference. A stale entry would
+# hide the next real gap - which is how the 31/08 constraint gap went unnoticed (MBA-999).
+
+# ---- STAGE-only backup tables, kept from data fixes ----------------------------------------------
+COLUMNS     | STAGE only | dbo.Backup_OrderDetailsItems_Calibrator_20260906.*  | STAGE backup from the 2026-09-06 report-number fix; never deployed
+COLUMNS     | STAGE only | dbo.CustomerContacts_PortalIdentityBackup_20260907.* | STAGE backup from the 2026-09-07 portal identity fix; never deployed
+
+# ---- PROD-only sync monitoring (live; must never be dropped) --------------------------------------
+COLUMNS     | PROD only  | etl.SyncRunLog.*                                    | etl.SyncRunLog, PROD sync monitoring; does not exist on STAGE
+ROUTINES    | PROD only  | dbo.usp_SyncHealthCheck                             | PROD sync monitoring; does not exist on STAGE
+ROUTINES    | PROD only  | etl.usp_SyncRun*                                    | PROD sync monitoring; does not exist on STAGE
+CONSTRAINTS | PROD only  | * etl.SyncRunLog*                                   | PROD sync monitoring; does not exist on STAGE
+
+# ---- MBA-816 sensor coefficients: on STAGE, waits for the coefficient screen (STATUS.md checklist item 2) ----
+COLUMNS     | STAGE only | dbo.ConversionParameters.*                          | MBA-816 coefficients, not deployed to PROD yet
+COLUMNS     | DIFFERS    | dbo.ConversionParameters.*                          | MBA-816: the six coefficients are NOT NULL on STAGE; PROD table has 0 rows
+ROUTINES    | STAGE only | dbo.GetSensorCoefficients                           | MBA-816 coefficients, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.SaveSensorCoefficients                          | MBA-816 coefficients, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.ConversionParameters *                        | MBA-816 coefficients, not deployed to PROD yet
+
+# ---- Customer status from Priority: on STAGE, independent of any release (STATUS.md checklist item 3) ----
+COLUMNS     | STAGE only | dbo.Customers.IsInactiveInSource                    | checklist item 3, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.RefreshCustomerStatusFromPriority               | checklist item 3, not deployed to PROD yet
+CONSTRAINTS | STAGE only | DEFAULT dbo.Customers.IsInactiveInSource            | checklist item 3, not deployed to PROD yet
+
+# ---- STAGE ahead of PROD, waiting for its app change ----------------------------------------------
+ROUTINES    | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)
+BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)
+BODIES      | DIFFERS    | dbo.GetCustomerInvoicesFromPriority                 | held back on 2026-10-25; deploy with MBA-998 (invoice PDFs via S3)
