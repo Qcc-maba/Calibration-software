@@ -58,6 +58,7 @@
     <Compile Include="MSSqlServer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Records\CorrectionValues.cs" />
+    <Compile Include="Records\SensorCoefficients.cs" />
     <Compile Include="Reflection\IncompatibleColumnsTypesException.cs" />
     <Compile Include="Reflection\PropertyAssignerAttribute.cs" />
     <Compile Include="Reflection\PropertyAssignerIgnoreAttribute.cs" />
