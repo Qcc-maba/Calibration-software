@@ -1,4 +1,4 @@
-﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-10-26 (MBA-855).
+﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-10-26 (MBA-1002).
 -- Regenerated from the live object; see the in-body comments for what each change does
 -- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
 -- =============================================
@@ -129,8 +129,12 @@ r.[SerialNumber],
 r.[ManufacturerNumber],
 r.[DeviceModel],
 r.[AdditionalDeviceNumber],	
-CASE 
-	WHEN @IsUserCalibrator = 1 THEN IIF(CHARINDEX(ctwp.OrderDetailsMbaReportNumber,r.[MbaReportNumber] ) <> 0,r.[MbaReportNumber],CONCAT(ctwp.OrderDetailsMbaReportNumber,'',ROW_NUMBER() OVER (PARTITION BY COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) ORDER BY r.[OrderWorkPlanId])  ))
+-- MBA-1002: build the MABA No from the calibrator's prefix only when there is a prefix. With no
+-- assignment on the work plan, or an empty OrderDetailsMbaReportNumber, CHARINDEX(NULL, ...) is NULL,
+-- the IIF fell to CONCAT(NULL, '', n), and page 1 showed and then saved a bare row number ('1', '2')
+-- over the device's real MABA No. On STAGE 2026-10-26, 17 of 21 live assignments had no prefix.
+CASE
+	WHEN @IsUserCalibrator = 1 AND NULLIF(LTRIM(RTRIM(ctwp.OrderDetailsMbaReportNumber)), '') IS NOT NULL THEN IIF(CHARINDEX(ctwp.OrderDetailsMbaReportNumber,r.[MbaReportNumber] ) <> 0,r.[MbaReportNumber],CONCAT(ctwp.OrderDetailsMbaReportNumber,'',ROW_NUMBER() OVER (PARTITION BY COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) ORDER BY r.[OrderWorkPlanId])  ))
 ELSE r.[MbaReportNumber]
 END as [MbaReportNumber],
 r.[MainCategoryId] as [OrdersMainCategoryId],	
