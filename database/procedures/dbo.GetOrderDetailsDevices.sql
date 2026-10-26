@@ -1,4 +1,4 @@
-﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-08-23.
+﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-10-26 (MBA-855).
 -- Regenerated from the live object; see the in-body comments for what each change does
 -- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
 -- =============================================
@@ -8,7 +8,7 @@
 -- JiraLink: 
 -- =============================================
 
-CREATE   PROCEDURE [dbo].[GetOrderDetailsDevices] 
+CREATE OR ALTER PROCEDURE [dbo].[GetOrderDetailsDevices]
 @OrderWorkPlanId INT,
 @OrderDetailId INT = NULL,
 @LoggedInUserEmail NVARCHAR(50) = NULL,
@@ -171,6 +171,13 @@ odi.ProductLocation,
 odi.[OrdersDeviceManufacturer],
 odi.[ControllerType],
 odi.[DiagramMapLink],
+-- MBA-855: the Identification screen reads these three, and AssignProductIdentificationData
+-- writes them, but they were never returned, so the screen opened with them empty (STAGE item
+-- 2371 stores Reference Documents '14' and showed none). Saving the screen then wrote the empty
+-- list back.
+odi.[SpecificationReferenceIds],
+odi.[Tolerance],
+odi.[Resolution],
 -- MBA-666: Calibration Item / device description sourced from Priority (amaba.dbo.PART +
 -- FAMILY) and the CRM free-text blocks, all served from the local cache refreshed by
 -- dbo.RefreshCrmTextCache - no per-request linked-server round-trip.

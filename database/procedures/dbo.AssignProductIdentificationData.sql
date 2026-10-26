@@ -24,6 +24,10 @@
     the column and NULL leaves it - the same shape DiagramMapLink already uses on the line above.
 
     Round-tripped on STAGE against a live item: write, clear-the-list, restore.
+
+    MBA-855: a new UUT serial is also written to the device's sensor table rows that carry its
+    MABA No or none, so page 1 and the table show the same serial. Rows carrying another MABA No
+    are left alone. Tested by database/tests/Test-AssignProductIdentificationSerialSync.sql.
 */
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -170,8 +174,13 @@ BEGIN
 	SET [OrderLineCnt] = IIF(@OrderLineCnt_new IS NULL,[OrderLineCnt], @OrderLineCnt_new)
 	WHERE OrderDetailId = @OrderDetailId AND [OrderLineCnt] <> COALESCE(@OrderLineCnt_new,[OrderLineCnt])
 
+	/* MBA-855: the device's MABA No before this save, so its table rows still match it below
+	   even when this same save changes the MABA No. */
+	DECLARE @ItemId INT = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
+	DECLARE @MabaBefore NVARCHAR(100) = (SELECT LTRIM(RTRIM([MbaReportNumber])) FROM [dbo].[OrderDetailsItems] WHERE OrderDetailsItemId = @ItemId)
+
 	UPDATE [dbo].[OrderDetailsItems]
-			SET 
+			SET
 			 [ActualCalibrationDate] = IIF(@ActualCalibrationDate IS NULL,[ActualCalibrationDate],@ActualCalibrationDate)
 			,[NextCalibrationDate] = IIF(@NextCalibrationDate IS NULL,[NextCalibrationDate],@NextCalibrationDate)
 			,[SerialNumber] = IIF(@SerialNumber IS NULL,[SerialNumber],@SerialNumber)
@@ -209,6 +218,26 @@ BEGIN
 			   impossible. Same shape as DiagramMapLink above. */
 			,[SpecificationReferenceIds] = IIF(@SpecificationReferenceIds = '',NULL,COALESCE(@SpecificationReferenceIds,[SpecificationReferenceIds]))
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
+
+	/* MBA-855: one UUT serial per MABA No. A new serial on the device also goes to its sensor
+	   table rows that carry the device's MABA No (before or after this save) or none; rows
+	   carrying another MABA No belong to another device and keep their own serial. Without
+	   this, page 1 changed only the device and the table kept showing the old serial.
+	   The comparison is binary, so a change of letter case alone still reaches the rows. */
+	IF @SerialNumber IS NOT NULL
+		UPDATE p
+		SET  p.[SerialNumber] = @SerialNumber
+			,p.[UpdatedDate]  = GETDATE()
+			,p.[UpdateUserID] = @UserId
+		FROM [dbo].[MeasurmentPointsToOrderDetailsItems] p
+		JOIN [dbo].[OrderDetailsItems] i ON i.OrderDetailsItemId = p.OrderDetailsItemId
+		WHERE p.OrderDetailsItemId = @ItemId
+		  AND p.IsDeleted = 0
+		  AND (   NULLIF(LTRIM(RTRIM(p.[MbaReportNumber])), '') IS NULL
+		       OR NULLIF(LTRIM(RTRIM(i.[MbaReportNumber])), '') IS NULL
+		       OR LTRIM(RTRIM(p.[MbaReportNumber])) = LTRIM(RTRIM(i.[MbaReportNumber]))
+		       OR LTRIM(RTRIM(p.[MbaReportNumber])) = @MabaBefore)
+		  AND ISNULL(p.[SerialNumber], N'') COLLATE Latin1_General_BIN2 <> @SerialNumber COLLATE Latin1_General_BIN2
 
 	SELECT COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) as OrderDetailsItemId
 END

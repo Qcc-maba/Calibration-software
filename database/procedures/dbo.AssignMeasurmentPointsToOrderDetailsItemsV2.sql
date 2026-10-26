@@ -106,17 +106,28 @@ BEGIN
       AND src.OrderDetailsItemId IS NOT NULL
       AND src.ChannelNumber IS NOT NULL;
 
-    /* 3. UPDATE SerialNumber and MbaReportNumber in OrderDetailsItems -- NEW (as a backup fallback) */
+    /* 3. Write the device's own UUT serial back to OrderDetailsItems (and its MABA No, only when it has none).
+
+       MBA-855: a device's table rows may carry another MABA No, and a different MABA No may have a
+       different UUT serial. This step used to take MIN() over ALL rows, so one such row replaced the
+       device's own MABA No and serial with the other device's. Measured on STAGE 2026-10-26 in a
+       rolled-back transaction: item 4146 went from 2628023/11 / mynew567 to 2628023/10 / AAA-OTHER-SN.
+       Now only rows that carry the device's MABA No, or none, count. The device's MABA No comes from
+       Priority, so it is only filled from the rows when the device has none. */
     UPDATE odi
     SET odi.SerialNumber = COALESCE(pd.SerialNumber, odi.SerialNumber),
-        odi.MbaReportNumber = COALESCE(pd.MbaReportNumber, odi.MbaReportNumber)
+        odi.MbaReportNumber = COALESCE(NULLIF(LTRIM(RTRIM(odi.MbaReportNumber)), ''), pd.MbaReportNumber)
     FROM [dbo].[OrderDetailsItems] odi
     JOIN (
-        SELECT DISTINCT OrderDetailsItemId, 
-                        MIN(NULLIF(SerialNumber, '')) AS SerialNumber,
-                        MIN(NULLIF(MbaReportNumber, '')) AS MbaReportNumber
-        FROM #parsedData
-        GROUP BY OrderDetailsItemId
+        SELECT src.OrderDetailsItemId,
+               MIN(NULLIF(LTRIM(RTRIM(src.SerialNumber)), '')) AS SerialNumber,
+               MIN(NULLIF(LTRIM(RTRIM(src.MbaReportNumber)), '')) AS MbaReportNumber
+        FROM #parsedData src
+        JOIN [dbo].[OrderDetailsItems] own ON own.OrderDetailsItemId = src.OrderDetailsItemId
+        WHERE NULLIF(LTRIM(RTRIM(own.MbaReportNumber)), '') IS NULL
+           OR NULLIF(LTRIM(RTRIM(src.MbaReportNumber)), '') IS NULL
+           OR LTRIM(RTRIM(src.MbaReportNumber)) = LTRIM(RTRIM(own.MbaReportNumber))
+        GROUP BY src.OrderDetailsItemId
     ) pd ON odi.OrderDetailsItemId = pd.OrderDetailsItemId;
 
 END
