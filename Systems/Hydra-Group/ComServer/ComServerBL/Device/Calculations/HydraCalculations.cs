@@ -196,8 +196,10 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations
                 bool firstTime;
                 lock (_warnedNoCoefficients)
                     firstTime = _warnedNoCoefficients.Add(masterID ?? string.Empty);
+                // Tracer, not Trace.WriteLine: nothing listens to Trace on a station, and this is the
+                // line an operator needs in logs\server.log to see why the readings stopped.
                 if (firstTime)
-                    Trace.WriteLine($"CalcResistanceToTemperatureITS90: master '{masterID}' has no ITS-90 coefficients on file - its readings are not converted (MBA-831)");
+                    Libs.Trace.Tracer.Info("[ITS-90] master '{0}' has no ITS-90 coefficients on file - its readings are not converted (MBA-831)", masterID);
                 return new Tuple<double, CalibrationRepository.ResultStatus>(9999, CalibrationRepository.ResultStatus.WrongValue);
             }
 
