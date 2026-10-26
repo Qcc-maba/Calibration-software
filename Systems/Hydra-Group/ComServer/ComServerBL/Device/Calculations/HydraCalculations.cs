@@ -1,4 +1,5 @@
 using ComServerBL.Hydra2.DAL.Calibration;
+using Maba.DAL.BaseDAL.Records;
 using Maba.VCT.Common;
 using Maba.VCT.Common.API.RemoteProtocolService;
 using Maba.VCT.Common.Calibration_results;
@@ -30,6 +31,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations
         #region Members
 
         private readonly CalibrationRepository _repository;
+        /// <summary>Masters already logged as having no ITS-90 coefficients, so a run logs each once.</summary>
+        private readonly HashSet<string> _warnedNoCoefficients = new HashSet<string>();
         public CalibrationResults CalibrationResult { get; set; }
 
         #endregion
@@ -176,7 +179,33 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations
         }
 
         /// <summary>
-        /// Converts a platinum resistance thermometer's reading (ohms) to degrees Celsius per ITS-90.
+        /// Converts the master's reading (ohms) to degrees Celsius per ITS-90, with that master's own
+        /// coefficients - loaded by Init from dbo.GetSensorCoefficients (MBA-816, MBA-831).
+        /// </summary>
+        /// <remarks>
+        /// Until MBA-831 every precision sensor was converted with sensor 21-214's coefficients,
+        /// hard-coded here. A master with no coefficients on file is now refused - 9999 and
+        /// WrongValue, as CalcDeviationForTemperature answers for a master with no correction table -
+        /// because another sensor's coefficients give a plausible temperature that is wrong.
+        /// Coefficients saved after Init are picked up by the next one (Confirm, or a reconnect).
+        /// </remarks>
+        public Tuple<double, CalibrationRepository.ResultStatus> CalcResistanceToTemperatureITS90(string masterID, double value)
+        {
+            if (!_repository.TryGetSensorCoefficients(masterID, out var coefficients))
+            {
+                bool firstTime;
+                lock (_warnedNoCoefficients)
+                    firstTime = _warnedNoCoefficients.Add(masterID ?? string.Empty);
+                if (firstTime)
+                    Trace.WriteLine($"CalcResistanceToTemperatureITS90: master '{masterID}' has no ITS-90 coefficients on file - its readings are not converted (MBA-831)");
+                return new Tuple<double, CalibrationRepository.ResultStatus>(9999, CalibrationRepository.ResultStatus.WrongValue);
+            }
+
+            return ResistanceToTemperatureITS90(value, coefficients);
+        }
+
+        /// <summary>
+        /// The ITS-90 conversion itself, for one sensor's coefficients.
         /// </summary>
         /// <remarks>
         /// Two kinds of constants appear here, and only one of them belongs in code.
@@ -188,21 +217,17 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations
         ///
         /// RTP, A4, B4, A7, B7 and C7 are NOT ITS-90 constants. They are one sensor's own calibration
         /// results - RTP its resistance at the triple point of water, A4/B4 its deviation function below
-        /// 0 degC (W &lt;= 1), A7/B7/C7 above it - and every sensor has its own. The values below are sensor
-        /// 21-214's, and today every precision sensor is converted with them. MBA-816 stores each
-        /// sensor's coefficients by MabaID (dbo.ConversionParameters); they should be loaded per
-        /// sensor from there instead.
+        /// 0 degC (W &lt;= 1), A7/B7/C7 above it - and every sensor has its own, stored by MabaID in
+        /// dbo.ConversionParameters.
         /// </remarks>
-        public Tuple<double, CalibrationRepository.ResultStatus> CalcResistanceToTemperatureITS90(string masterID, double value)
+        public static Tuple<double, CalibrationRepository.ResultStatus> ResistanceToTemperatureITS90(double value, SensorCoefficients coefficients)
         {
-            // Sensor 21-214's coefficients, not ITS-90 constants - see the remarks above.
-            // TODO: load them per sensor (masterID) from DB via repository
-            double A4 = -0.0188349;
-            double B4 = 0.00064590173677;
-            double C7 = 0.00022327774;
-            double B7 = -0.00032928408;
-            double A7 = -0.01943119;
-            double RTP = 100.0018614;
+            double A4 = coefficients.A4;
+            double B4 = coefficients.B4;
+            double C7 = coefficients.C7;
+            double B7 = coefficients.B7;
+            double A7 = coefficients.A7;
+            double RTP = coefficients.RTP;
 
             if (RTP == 0)
                 return new Tuple<double, CalibrationRepository.ResultStatus>(0, CalibrationRepository.ResultStatus.WrongValue);

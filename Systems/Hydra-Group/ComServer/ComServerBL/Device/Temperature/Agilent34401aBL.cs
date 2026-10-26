@@ -175,8 +175,14 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                         if (Agilent34401aReadings.RequiresTemperatureConversion(sensor))
                         {
                             var masterId = settings.Agilent.Masters.FirstOrDefault();
-                            value = HC.CalcConversionUnits(raw, HydraCalculations.ConversionUnits.Ohm,
-                                                           HydraCalculations.ConversionUnits.Celsius, masterId).Item1;
+                            var converted = HC.CalcConversionUnits(raw, HydraCalculations.ConversionUnits.Ohm,
+                                                                   HydraCalculations.ConversionUnits.Celsius, masterId);
+                            // WrongValue - e.g. no coefficients on file for the master (MBA-831) - carries
+                            // no temperature, so nothing is sent rather than a number the app would plot.
+                            // The finally still queues the next READ?.
+                            if (converted.Item2 == ComServerBL.Hydra2.DAL.Calibration.CalibrationRepository.ResultStatus.WrongValue)
+                                return;
+                            value = converted.Item1;
                         }
 
                         HW_Device.BroadcastAllMeasurements(new List<int> { 1 }, new List<double> { value });
