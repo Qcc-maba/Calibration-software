@@ -95,7 +95,9 @@ odi.IsChecked,
 odi.StickerAmount,
 odi.StickerTypeId,
 stit.StatusDescriptionHEB as StickerType,
-ROW_NUMBER() OVER( PARTITION BY odi.OrderDetailId ORDER BY odi.OrderDetailId) as rn
+-- MBA-1002: ordered by item, not by the partition column, so a device keeps its slot (and the MABA No
+-- generated from that slot's position) between loads.
+ROW_NUMBER() OVER( PARTITION BY odi.OrderDetailId ORDER BY odi.OrderDetailsItemId) as rn
  FROM [dbo].[OrderWorkPlans] as wp 
 JOIN  [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId
 LEFT JOIN [dbo].[Customers] as cust ON wp.CustomerId = cust.CustomerId
@@ -133,8 +135,16 @@ r.[AdditionalDeviceNumber],
 -- assignment on the work plan, or an empty OrderDetailsMbaReportNumber, CHARINDEX(NULL, ...) is NULL,
 -- the IIF fell to CONCAT(NULL, '', n), and page 1 showed and then saved a bare row number ('1', '2')
 -- over the device's real MABA No. On STAGE 2026-10-26, 17 of 21 live assignments had no prefix.
+-- MBA-1002 (approved 2026-10-26): a device that already has a MABA No keeps it; before, a stored
+-- number without the prefix was replaced by prefix + n, and page 1 saved that over Priority's number.
+-- A generated number gets the '/' that 8,585 of 8,668 live devices use (the prefix is stored without
+-- it, and the validator screens list only NNNNNNN/x), and is numbered by line and slot: the old
+-- ROW_NUMBER was ordered by the column it was partitioned by, so the number could change between loads.
 CASE
-	WHEN @IsUserCalibrator = 1 AND NULLIF(LTRIM(RTRIM(ctwp.OrderDetailsMbaReportNumber)), '') IS NOT NULL THEN IIF(CHARINDEX(ctwp.OrderDetailsMbaReportNumber,r.[MbaReportNumber] ) <> 0,r.[MbaReportNumber],CONCAT(ctwp.OrderDetailsMbaReportNumber,'',ROW_NUMBER() OVER (PARTITION BY COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) ORDER BY r.[OrderWorkPlanId])  ))
+	WHEN @IsUserCalibrator = 1
+	 AND NULLIF(LTRIM(RTRIM(ctwp.OrderDetailsMbaReportNumber)), '') IS NOT NULL
+	 AND NULLIF(LTRIM(RTRIM(r.[MbaReportNumber])), '') IS NULL
+	THEN CONCAT(LTRIM(RTRIM(ctwp.OrderDetailsMbaReportNumber)), '/', ROW_NUMBER() OVER (PARTITION BY COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) ORDER BY n.[OrderDetailId], n.[cnt]))
 ELSE r.[MbaReportNumber]
 END as [MbaReportNumber],
 r.[MainCategoryId] as [OrdersMainCategoryId],	
