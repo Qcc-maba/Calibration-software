@@ -1,4 +1,5 @@
 ﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-10-26 (MBA-1002),
+-- plus the three MBA-802 humidity columns, already on STAGE but not yet in this file on develop,
 -- plus SpecificationReferenceEn (MBA-623), which goes to STAGE with that ticket.
 -- Regenerated from the live object; see the in-body comments for what each change does
 -- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
@@ -225,6 +226,10 @@ odi.[DiagramMapLink],
 odi.[SpecificationReferenceIds],
 odi.[Tolerance],
 odi.[Resolution],
+-- MBA-802: the humidity set of a humidity device (its unit is always %RH). NULL on every other device.
+odi.[HumidityAccuracy],
+odi.[HumidityTolerance],
+odi.[HumidityResolution],
 -- MBA-666: Calibration Item / device description sourced from Priority (amaba.dbo.PART +
 -- FAMILY) and the CRM free-text blocks, all served from the local cache refreshed by
 -- dbo.RefreshCrmTextCache - no per-request linked-server round-trip.

@@ -12,9 +12,10 @@
                         (get-calculation-case.ts); the values below are what that guess returned
                         for each row, so no calculation changes.
 
-    Four names change to the spelling in the table: AMS 2750 -> AMS-2750, ISO 17665 -> the Israeli
-    standard 17665-1, ISO 1133, ASTM D1238 -> ASTM D1238, ISO 1133, DKD-R-5-7 -> DKD-R 5-7.
-    Saved choices are stored as ids, so a rename changes no device or cycle.
+    Names are NOT changed: the table spells four of them differently (AMS-2750, the Israeli
+    standard 17665-1, ASTM D1238, ISO 1133, DKD-R 5-7), but renaming is a separate round after
+    the app change is deployed. #Target.Name below is that future spelling, used only for
+    matching; the UPDATE leaves Name as it is.
 
     ISO 11135 is not in the table and is soft-deleted (IsDeleted = 1), never removed: 7 cycles on
     STAGE point at it (2026-10-28) and keep showing its name, but it leaves the picker.
@@ -126,8 +127,7 @@ DECLARE @Missing INT =
 DECLARE @Changes INT =
     (SELECT COUNT(*) FROM #Plan
      WHERE TargetKey IS NOT NULL
-       AND (   OldName <> Name
-            OR ISNULL(OldDescription, N'') <> ISNULL(Description, N'')
+       AND (   ISNULL(OldDescription, N'') <> ISNULL(Description, N'')
             OR ISNULL(OldNameEn, N'')      <> ISNULL(NameEn, N'')
             OR ISNULL(OldCalculationCase, 0) <> ISNULL(CalculationCase, 0)
             OR OldIsDeleted <> IsDeleted));
@@ -140,8 +140,7 @@ BEGIN
     BEGIN TRANSACTION;
 
     UPDATE sr
-    SET    sr.Name            = p.Name,
-           sr.Description     = p.Description,
+    SET    sr.Description     = p.Description,
            sr.NameEn          = p.NameEn,
            sr.CalculationCase = p.CalculationCase,
            sr.IsDeleted       = p.IsDeleted,
@@ -149,8 +148,7 @@ BEGIN
     FROM   dbo.SpecificationReference AS sr
     JOIN   #Plan AS p ON p.ID = sr.ID
     WHERE  p.TargetKey IS NOT NULL
-      AND (   p.OldName <> p.Name
-           OR ISNULL(p.OldDescription, N'') <> ISNULL(p.Description, N'')
+      AND (   ISNULL(p.OldDescription, N'') <> ISNULL(p.Description, N'')
            OR ISNULL(p.OldNameEn, N'')      <> ISNULL(p.NameEn, N'')
            OR ISNULL(p.OldCalculationCase, 0) <> ISNULL(p.CalculationCase, 0)
            OR p.OldIsDeleted <> p.IsDeleted);
@@ -169,20 +167,19 @@ SELECT
     CASE
         WHEN TargetKey IS NULL AND OldIsDeleted = 0 THEN 'UNMATCHED - add its spelling to #Alias'
         WHEN TargetKey IS NULL                      THEN 'unmatched, already deleted - left alone'
-        WHEN OldName <> Name
-          OR ISNULL(OldDescription, N'') <> ISNULL(Description, N'')
+        WHEN ISNULL(OldDescription, N'') <> ISNULL(Description, N'')
           OR ISNULL(OldNameEn, N'')      <> ISNULL(NameEn, N'')
           OR ISNULL(OldCalculationCase, 0) <> ISNULL(CalculationCase, 0)
           OR OldIsDeleted <> IsDeleted              THEN CASE WHEN @Apply = 1 THEN 'changed' ELSE 'will change' END
         ELSE 'up to date'
     END AS Action,
     ID, SecondaryCategoryId,
-    OldName, Name, Description, NameEn,
+    OldName AS Name, Description, NameEn,
     OldCalculationCase, CalculationCase,
     OldIsDeleted, IsDeleted
 FROM #Plan
 UNION ALL
-SELECT 'MISSING - no row has this name', NULL, @Chambers, NULL, t.Name, t.Description, t.NameEn,
+SELECT 'MISSING - no row has this name', NULL, @Chambers, t.Name, t.Description, t.NameEn,
        NULL, t.CalculationCase, NULL, t.IsDeleted
 FROM #Target AS t
 WHERE t.IsDeleted = 0 AND NOT EXISTS (SELECT 1 FROM #Plan AS p WHERE p.TargetKey = t.TargetKey)
