@@ -1,5 +1,6 @@
 ﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-10-26 (MBA-1002),
--- plus the three MBA-802 humidity columns (not yet deployed when this line was written).
+-- plus the three MBA-802 humidity columns, already on STAGE but not yet in this file on develop,
+-- plus SpecificationReferenceEn (MBA-623), which goes to STAGE with that ticket.
 -- Regenerated from the live object; see the in-body comments for what each change does
 -- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
 -- =============================================
@@ -100,6 +101,7 @@ odi.[CalibrationSpecificationId],
 mc.Name as [CalibrationSpecification],
 odi.[SpecificationReferenceId],	
 sr.[Name] as [SpecificationReference],
+sr.[NameEn] as [SpecificationReferenceEn], -- MBA-623: the name on an English report
 odi.[MeasurementUnitId],
 mu.ShortNameHe as [MeasurementUnit],
 odi.[MeasurementPoints],	
@@ -186,6 +188,7 @@ r.[CalibrationSpecificationId],
 r.[CalibrationSpecification],
 r.[SpecificationReferenceId],	
 r.[SpecificationReference],
+r.[SpecificationReferenceEn],
 r.[MeasurementUnitId],
 r.[MeasurementUnit],
 r.[MeasurementPoints],	
