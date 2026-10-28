@@ -10,7 +10,8 @@
         T1  a calibrator on a work plan they are NOT assigned to -> every device shows its stored MABA No
         T2  a calibrator assigned with NO prefix                -> every device shows its stored MABA No
         T3  the T2 assignment given a prefix its devices do not contain (STAGE has no such case of its own)
-            -> a device with a MABA No shows it; a slot without one shows prefix + '/' + a number
+            -> a device with a MABA No shows it; a slot without one shows prefix + '/' + a number that no
+               live device has and that is not repeated in the result
             (before: prefix + row number, no '/', over the device's own MABA No)
 */
 SET NOCOUNT ON;
@@ -52,6 +53,11 @@ BEGIN
           AND NULLIF(LTRIM(RTRIM(c.OrderDetailsMbaReportNumber)), '') IS NULL
           AND EXISTS (SELECT 1 FROM dbo.OrderDetails od JOIN dbo.OrderDetailsItems i ON i.OrderDetailId = od.OrderDetailId
                       WHERE od.OrderWorkPlanId = c.OrderWorkPlanId AND NULLIF(i.MbaReportNumber, '') IS NOT NULL)
+          -- STAGE has an OrderDetailId on two work plans (58, May test data); the procedure returns such a
+          -- line's rows twice, which would read as a repeated MABA No. PROD has none (2026-10-28).
+          AND NOT EXISTS (SELECT 1 FROM dbo.OrderDetails od JOIN dbo.OrderDetails od2 ON od2.OrderDetailId = od.OrderDetailId
+                          AND od2.OrderWorkPlanId <> od.OrderWorkPlanId
+                          WHERE od.OrderWorkPlanId = c.OrderWorkPlanId)
         ORDER BY c.OrderWorkPlanId DESC;
     IF @T = 3 AND @Wp IS NOT NULL
     BEGIN
@@ -75,36 +81,41 @@ BEGIN
         EXEC sp_executesql @Sql, N'@Wp INT, @Email NVARCHAR(255)', @Wp = @Wp, @Email = @Email;
     END
 
+    -- One flag per returned row first; SQL Server does not allow a subquery inside SUM/MAX.
     INSERT @Results
     SELECT CASE @T WHEN 1 THEN N'T1: calibrator not assigned to the work plan'
                       WHEN 2 THEN N'T2: calibrator assigned with no prefix'
                       ELSE N'T3: calibrator with a prefix, devices numbered without it' END,
            @Email, @Wp,
-           COUNT(o.OrderDetailsItemId),
-           SUM(CASE WHEN (CASE WHEN @T = 3 AND NULLIF(i.MbaReportNumber, N'') IS NULL
-                     THEN IIF(o.MbaReportNumber COLLATE Latin1_General_BIN2 LIKE @Prefix + N'/[1-9]%' COLLATE Latin1_General_BIN2
-                              AND SUBSTRING(o.MbaReportNumber, LEN(@Prefix) + 2, 50) NOT LIKE N'%[^0-9]%', 0, 1)
-                     ELSE IIF(ISNULL(o.MbaReportNumber, N'') COLLATE Latin1_General_BIN2 <> ISNULL(i.MbaReportNumber, N'') COLLATE Latin1_General_BIN2, 1, 0) END) = 1 THEN 1 ELSE 0 END),
-           MAX(CASE WHEN (CASE WHEN @T = 3 AND NULLIF(i.MbaReportNumber, N'') IS NULL
-                     THEN IIF(o.MbaReportNumber COLLATE Latin1_General_BIN2 LIKE @Prefix + N'/[1-9]%' COLLATE Latin1_General_BIN2
-                              AND SUBSTRING(o.MbaReportNumber, LEN(@Prefix) + 2, 50) NOT LIKE N'%[^0-9]%', 0, 1)
-                     ELSE IIF(ISNULL(o.MbaReportNumber, N'') COLLATE Latin1_General_BIN2 <> ISNULL(i.MbaReportNumber, N'') COLLATE Latin1_General_BIN2, 1, 0) END) = 1
-                    THEN CONCAT(N'item ', o.OrderDetailsItemId, N': returned ', o.MbaReportNumber COLLATE DATABASE_DEFAULT,
-                                N', stored ', i.MbaReportNumber COLLATE DATABASE_DEFAULT) END),
+           COUNT(f.OrderDetailsItemId),
+           ISNULL(SUM(f.Wrong), 0),
+           MAX(CASE WHEN f.Wrong = 1
+                    THEN CONCAT(N'item ', f.OrderDetailsItemId, N': returned ', f.Returned, N', stored ', f.Stored) END),
            CASE
              WHEN @Email IS NULL OR @Wp IS NULL THEN N'SKIP: no such case on this server'
-             WHEN COUNT(o.OrderDetailsItemId) = 0 THEN N'FAIL: no devices returned'
-             WHEN SUM(CASE WHEN (CASE WHEN @T = 3 AND NULLIF(i.MbaReportNumber, N'') IS NULL
-                     THEN IIF(o.MbaReportNumber COLLATE Latin1_General_BIN2 LIKE @Prefix + N'/[1-9]%' COLLATE Latin1_General_BIN2
-                              AND SUBSTRING(o.MbaReportNumber, LEN(@Prefix) + 2, 50) NOT LIKE N'%[^0-9]%', 0, 1)
-                     ELSE IIF(ISNULL(o.MbaReportNumber, N'') COLLATE Latin1_General_BIN2 <> ISNULL(i.MbaReportNumber, N'') COLLATE Latin1_General_BIN2, 1, 0) END) = 1 THEN 1 ELSE 0 END) > 0
-               THEN N'FAIL: MABA No not the stored one, or not prefix/n'
+             WHEN COUNT(f.OrderDetailsItemId) = 0 THEN N'FAIL: no devices returned'
+             WHEN SUM(f.Wrong) > 0 THEN N'FAIL: not the stored MABA No, or not a new unique prefix/n'
              ELSE N'PASS'
            END
-    FROM #Out o
-    LEFT JOIN dbo.OrderDetailsItems i ON i.OrderDetailsItemId = o.OrderDetailsItemId
-                                     AND i.OrderDetailId      = o.OrderDetailId
-    WHERE o.OrderDetailsItemId IS NOT NULL OR @T = 3;
+    FROM (
+        SELECT o.OrderDetailsItemId,
+               o.MbaReportNumber COLLATE DATABASE_DEFAULT AS Returned,
+               i.MbaReportNumber COLLATE DATABASE_DEFAULT AS Stored,
+               CASE
+                 -- a slot without a MABA No (T3): prefix/n, n digits, used by no live device, not repeated
+                 WHEN @T = 3 AND NULLIF(i.MbaReportNumber, N'') IS NULL
+                   THEN IIF(o.MbaReportNumber COLLATE Latin1_General_BIN2 LIKE @Prefix + N'/[1-9]%' COLLATE Latin1_General_BIN2
+                            AND SUBSTRING(o.MbaReportNumber, LEN(@Prefix) + 2, 50) NOT LIKE N'%[^0-9]%'
+                            AND NOT EXISTS (SELECT 1 FROM dbo.OrderDetailsItems x WHERE x.IsDeleted = 0 AND x.MbaReportNumber = o.MbaReportNumber COLLATE DATABASE_DEFAULT)
+                            AND (SELECT COUNT(*) FROM #Out o2 WHERE o2.MbaReportNumber = o.MbaReportNumber) = 1, 0, 1)
+                 -- a device with a MABA No: exactly the stored one
+                 ELSE IIF(ISNULL(o.MbaReportNumber, N'') COLLATE Latin1_General_BIN2 <> ISNULL(i.MbaReportNumber, N'') COLLATE Latin1_General_BIN2, 1, 0)
+               END AS Wrong
+        FROM #Out o
+        LEFT JOIN dbo.OrderDetailsItems i ON i.OrderDetailsItemId = o.OrderDetailsItemId
+                                         AND i.OrderDetailId      = o.OrderDetailId
+        WHERE o.OrderDetailsItemId IS NOT NULL OR @T = 3
+    ) AS f;
 
     IF @@TRANCOUNT > 0 ROLLBACK;   -- T3's prefix; #Out is emptied by the rollback, @Results is kept
 
