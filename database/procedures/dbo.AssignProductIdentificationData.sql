@@ -28,6 +28,12 @@
     MBA-855: a new UUT serial is also written to the device's sensor table rows that carry its
     MABA No or none, so page 1 and the table show the same serial. Rows carrying another MABA No
     are left alone. Tested by database/tests/Test-AssignProductIdentificationSerialSync.sql.
+
+    MBA-802: a humidity device (secondary category "Humidity") has a second set of Guard Band,
+    tolerance and resolution for its %RH readings. They go to HumidityAccuracy, HumidityTolerance
+    and HumidityResolution (database/schema/dbo.OrderDetailsItems.Humidity.sql), typed like
+    Accuracy, Tolerance and Resolution, which keep holding the temperature set. Same NULL
+    convention: NULL leaves the column alone.
 */
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -77,7 +83,12 @@ CREATE OR ALTER PROCEDURE [dbo].[AssignProductIdentificationData]
 	   sending it keeps working. */
 	@Tolerance DECIMAL(18,6) = NULL,
 	@Resolution DECIMAL(18,6) = NULL,
-	@SpecificationReferenceIds NVARCHAR(MAX) = NULL
+	@SpecificationReferenceIds NVARCHAR(MAX) = NULL,
+	/* MBA-802: the humidity set of a humidity device; the temperature set stays in
+	   @Accuracy, @Tolerance and @Resolution. */
+	@HumidityAccuracy TINYINT = NULL,
+	@HumidityTolerance DECIMAL(18,6) = NULL,
+	@HumidityResolution DECIMAL(18,6) = NULL
 AS
 BEGIN 
 
@@ -123,6 +134,9 @@ BEGIN
 					   ,[Tolerance]
 					   ,[Resolution]
 					   ,[SpecificationReferenceIds]
+					   ,[HumidityAccuracy]
+					   ,[HumidityTolerance]
+					   ,[HumidityResolution]
 					)
 				 SELECT
 					@OrderDetailId,	
@@ -159,7 +173,10 @@ BEGIN
 					@DiagramMapLink,
 					@Tolerance,
 					@Resolution,
-					NULLIF(@SpecificationReferenceIds, '')
+					NULLIF(@SpecificationReferenceIds, ''),
+					@HumidityAccuracy,
+					@HumidityTolerance,
+					@HumidityResolution
 				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
 
 		END
@@ -217,6 +234,9 @@ BEGIN
 			   document has to be storable, and COALESCE on its own would make that
 			   impossible. Same shape as DiagramMapLink above. */
 			,[SpecificationReferenceIds] = IIF(@SpecificationReferenceIds = '',NULL,COALESCE(@SpecificationReferenceIds,[SpecificationReferenceIds]))
+			,[HumidityAccuracy] = COALESCE(@HumidityAccuracy,[HumidityAccuracy])
+			,[HumidityTolerance] = COALESCE(@HumidityTolerance,[HumidityTolerance])
+			,[HumidityResolution] = COALESCE(@HumidityResolution,[HumidityResolution])
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
 	/* MBA-855: one UUT serial per MABA No. A new serial on the device also goes to its sensor
