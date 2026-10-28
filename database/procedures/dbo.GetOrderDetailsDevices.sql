@@ -1,4 +1,4 @@
-﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-10-26 (MBA-855).
+﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-10-26 (MBA-1002).
 -- Regenerated from the live object; see the in-body comments for what each change does
 -- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
 -- =============================================
@@ -26,6 +26,24 @@ SELECT
 FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
 JOIN dbo.Users as u ON d.UserId  = u.ID
 JOIN dbo.UserRoles as ur ON u.UserRoleId = ur.UserRoleId
+
+-- MBA-1002: the calibrator's MABA prefix on this work plan, and the highest number already used with it
+-- on any live device. A generated MABA No continues after that number: numbering by slot position gave
+-- 39 empty slots on PROD (2026-10-26) a number another device already carried.
+DECLARE @MbaPrefix NVARCHAR(200), @MbaPrefixMaxNo INT = 0
+IF @IsUserCalibrator = 1
+BEGIN
+	SELECT TOP 1 @MbaPrefix = NULLIF(LTRIM(RTRIM(ctwp.OrderDetailsMbaReportNumber)), '')
+	FROM [dbo].[CalibratorsToWorkPlan] as ctwp
+	WHERE ctwp.[OrderWorkPlanId] = @OrderWorkPlanId AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
+	ORDER BY ctwp.[OrderDetailsMbaReportNumber] DESC
+
+	IF @MbaPrefix IS NOT NULL
+		SELECT @MbaPrefixMaxNo = ISNULL(MAX(TRY_CAST(SUBSTRING(i.MbaReportNumber, LEN(@MbaPrefix) + 2, 20) AS INT)), 0)
+		FROM [dbo].[OrderDetailsItems] as i
+		WHERE ISNULL(i.IsDeleted, 0) = 0
+		  AND LEFT(i.MbaReportNumber, LEN(@MbaPrefix) + 1) = @MbaPrefix + N'/'
+END
 
 
 ;WITH numbers
@@ -95,7 +113,9 @@ odi.IsChecked,
 odi.StickerAmount,
 odi.StickerTypeId,
 stit.StatusDescriptionHEB as StickerType,
-ROW_NUMBER() OVER( PARTITION BY odi.OrderDetailId ORDER BY odi.OrderDetailId) as rn
+-- MBA-1002: ordered by item, not by the partition column, so a device keeps its slot (and the MABA No
+-- generated from that slot's position) between loads.
+ROW_NUMBER() OVER( PARTITION BY odi.OrderDetailId ORDER BY odi.OrderDetailsItemId) as rn
  FROM [dbo].[OrderWorkPlans] as wp 
 JOIN  [dbo].[OrderDetails] as od ON od.OrderWorkPlanId = wp.OrderWorkPlanId
 LEFT JOIN [dbo].[Customers] as cust ON wp.CustomerId = cust.CustomerId
@@ -109,7 +129,18 @@ LEFT JOIN [dbo].[MeasurementDeviceUnits] as mu ON odi.[MeasurementUnitId] = mu.M
 LEFT JOIN [dbo].[Statuses] as scs ON odi.[CalibrationStatusId] = scs.StatusId
 LEFT JOIN [dbo].[Statuses] as stit ON odi.StickerTypeId = stit.StatusId
 LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = wp.[OrderWorkPlanId] AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
-WHERE wp.[OrderWorkPlanId] = @OrderWorkPlanId 
+WHERE wp.[OrderWorkPlanId] = @OrderWorkPlanId
+)
+,
+-- MBA-1002: each unnumbered slot's place among all the work plan's unnumbered slots, counted here rather
+-- than in the final SELECT, whose WHERE narrows to one device when @OrderDetailsItems is passed (the app
+-- does), which would make every device "first".
+mbaGen as
+(
+SELECT n.OrderDetailId, n.cnt,
+       ROW_NUMBER() OVER (ORDER BY IIF(NULLIF(LTRIM(RTRIM(r.[MbaReportNumber])), '') IS NULL, 0, 1), n.OrderDetailId, n.cnt) as GenNo
+FROM numbers as n
+LEFT JOIN result as r ON r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt
 )
 SELECT
 FIRST_VALUE(r.[OrderWorkPlanId]) OVER(ORDER BY r.[OrderWorkPlanId] DESC) as [OrderWorkPlanId],
@@ -129,8 +160,21 @@ r.[SerialNumber],
 r.[ManufacturerNumber],
 r.[DeviceModel],
 r.[AdditionalDeviceNumber],	
-CASE 
-	WHEN @IsUserCalibrator = 1 THEN IIF(CHARINDEX(ctwp.OrderDetailsMbaReportNumber,r.[MbaReportNumber] ) <> 0,r.[MbaReportNumber],CONCAT(ctwp.OrderDetailsMbaReportNumber,'',ROW_NUMBER() OVER (PARTITION BY COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) ORDER BY r.[OrderWorkPlanId])  ))
+-- MBA-1002: build the MABA No from the calibrator's prefix only when there is a prefix. With no
+-- assignment on the work plan, or an empty OrderDetailsMbaReportNumber, CHARINDEX(NULL, ...) is NULL,
+-- the IIF fell to CONCAT(NULL, '', n), and page 1 showed and then saved a bare row number ('1', '2')
+-- over the device's real MABA No. On STAGE 2026-10-26, 17 of 21 live assignments had no prefix.
+-- MBA-1002 (approved 2026-10-26): a device that already has a MABA No keeps it; before, a stored
+-- number without the prefix was replaced by prefix + n, and page 1 saved that over Priority's number.
+-- A generated number gets the '/' that 8,585 of 8,668 live devices use (the prefix is stored without
+-- it, and the validator screens list only NNNNNNN/x), and is numbered by line and slot: the old
+-- ROW_NUMBER was ordered by the column it was partitioned by, so the number could change between loads.
+-- Approved 2026-10-28: the number is @MbaPrefixMaxNo + the slot's place among the unnumbered slots, so it
+-- never repeats one in use, and saving the first slot leaves the next slot's number unchanged.
+CASE
+	WHEN @MbaPrefix IS NOT NULL
+	 AND NULLIF(LTRIM(RTRIM(r.[MbaReportNumber])), '') IS NULL
+	THEN CONCAT(@MbaPrefix, '/', @MbaPrefixMaxNo + g.GenNo)
 ELSE r.[MbaReportNumber]
 END as [MbaReportNumber],
 r.[MainCategoryId] as [OrdersMainCategoryId],	
@@ -187,7 +231,8 @@ cpi.[FamilyDescription] as [DeviceFamily],       -- FAMILY.FAMILYDES, e.g. מא�
 cct.[CatalogText]       as [TextToCatalogNumber],-- טקסט למק"ט   (PARTTEXT)
 cdt.[DeviceText]        as [TextToDevice]        -- טקסט למכשיר  (SERNUMBERSTEXT)
 FROM  numbers as n
-LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt 
+LEFT JOIN result as r ON  r.OrderDetailId = n.OrderDetailId and r.rn = n.cnt
+LEFT JOIN mbaGen as g ON g.OrderDetailId = n.OrderDetailId AND g.cnt = n.cnt
 LEFT JOIN [dbo].[OrdersProductTypes] as opt1 ON n.[OrdersProductTypeId] = opt1.[OrdersProductTypeId]
 LEFT JOIN [dbo].[OrdersProductTypes] as opt2 ON r.[OrdersProductTypeId] = opt2.[OrdersProductTypeId]
 LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
