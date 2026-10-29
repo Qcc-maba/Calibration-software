@@ -172,8 +172,9 @@ all 21 readings were corrected with 21-449: 22.1 became 22.0701 instead of 22.23
     screen does that mid-run) uses the previous sensor, never the file's master.
 - **No certificate, no reading.** A sensor whose certificate isn't loaded is not compensated with another's,
   and its channels are not sent. The scan itself is still broadcast, so the data watchdog does not reset a
-  working logger. With the current app nothing shows on screen (decision 2026-10-29); an alert needs a new
-  `AlertType` on both sides (see `Systems/VCT/CLAUDE.md`).
+  working logger. Since MBA-1008 the operator is told: a `CorrectionUnavailable` alert per held-back channel,
+  once per sensor per init or association, sent only once the reason is settled (none on file, or a read
+  failed). A load still running is not alerted. The app toasts it; an app older than MBA-1008 ignores it.
 - **Certificates load at every init**, before the first scan: the file master plus every associated sensor,
   latest version only (`@GetLatestVersionOnly=1`).
   - A sensor is loaded **as soon as it is associated**, in the background (`HardwareBL_DeviceType.ChannelMastersChanged`

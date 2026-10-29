@@ -150,6 +150,9 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
               same certificate at once.
             - Each sensor's channels held back are logged once per init, not per channel per scan - three
               channels at a 2 s rate were about 130,000 identical lines a day.
+            - MBA-1008: the operator is told too, with a CorrectionUnavailable alert per held-back channel -
+              once per sensor per init or association, and only once the reason is settled (the database
+              answered "none", or a read failed). A load still running is not alerted; it usually succeeds.
 
             Guarded by _certificateLock; nothing marks a sensor before its load has been attempted, so a scan
             racing a re-init cannot find a sensor "looked up" that was never loaded.  */
@@ -158,6 +161,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         private readonly HashSet<string> _certificatesLoading = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DateTime> _certificateRetryUtc = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _certificatesReported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _certificatesAlerted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>How soon a certificate whose load failed is tried again.</summary>
         internal static readonly TimeSpan CertificateRetryInterval = TimeSpan.FromSeconds(30);
@@ -252,6 +256,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             {
                 _certificateRetryUtc.Clear();
                 _certificatesReported.Clear();
+                _certificatesAlerted.Clear();
             }
             lock (_certificateLoadLock)
             {
@@ -1115,6 +1120,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 {
                     _certificateRetryUtc.Remove(sensor);
                     _certificatesReported.Remove(sensor);
+                    _certificatesAlerted.Remove(sensor);
                 }
                 EnsureCertificate(sensor);
             }
@@ -1157,6 +1163,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// <summary>
         /// MBA-1007: one line per sensor per init for the channels held back because its certificate is not
         /// loaded, saying why. Logged again only once the reason has changed (a load attempt finished).
+        /// MBA-1008: and alerted to the app, once per sensor until the next init or association.
         /// </summary>
         private void ReportHeldBack(List<int> heldBack, ChannelMasterMap sensors)
         {
@@ -1165,17 +1172,45 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             foreach (var group in heldBack.GroupBy(ch => sensors.MasterFor(ch) ?? "", StringComparer.OrdinalIgnoreCase))
             {
                 var sensor = group.Key;
-                bool first;
-                lock (_certificateLock) { first = _certificatesReported.Add(sensor); }
-                if (!first) continue;
+                var none = HC.IsKnownToHaveNoCorrections(sensor);
+                bool first, alert;
+                lock (_certificateLock)
+                {
+                    first = _certificatesReported.Add(sensor);
+                    // a load still running is not alerted yet: the scan after it ends is
+                    alert = (none || _certificateRetryUtc.ContainsKey(sensor)) && _certificatesAlerted.Add(sensor);
+                }
 
-                string why;
-                if (HC.IsKnownToHaveNoCorrections(sensor))
-                    why = "no correction certificate on file - not sent until one is saved and the logger is confirmed again";
-                else
-                    why = "correction certificate not loaded yet - not sent until it is";
-                Libs.Trace.Tracer.Info("[HYDRA Correction] CH{0} | NOT SENT: sensor '{1}': {2}",
-                    string.Join(",", group), sensor, why);
+                if (first)
+                {
+                    string why;
+                    if (none)
+                        why = "no correction certificate on file - not sent until one is saved and the logger is confirmed again";
+                    else
+                        why = "correction certificate not loaded yet - not sent until it is";
+                    Libs.Trace.Tracer.Info("[HYDRA Correction] CH{0} | NOT SENT: sensor '{1}': {2}",
+                        string.Join(",", group), sensor, why);
+                }
+
+                if (alert) AlertHeldBack(group, sensor, none);
+            }
+        }
+
+        /// <summary>
+        /// MBA-1008: a CorrectionUnavailable alert per channel held back for <paramref name="sensor"/>, so the
+        /// operator sees why its readings are missing - before this only the server log said so. The app
+        /// toasts the sensor's channels together, and needs the type in its TAlertType union.
+        /// </summary>
+        private void AlertHeldBack(IEnumerable<int> channels, string sensor, bool noneOnFile)
+        {
+            var why = noneOnFile
+                ? "has no correction certificate on file"
+                : "correction certificate could not be read - retrying";
+            foreach (var channel in channels)
+            {
+                HW_Device?.RaiseAlert("CorrectionUnavailable",
+                    string.Format("Channel {0} not sent - sensor {1} {2}", channel, sensor, why),
+                    channel.ToString(System.Globalization.CultureInfo.InvariantCulture));
             }
         }
     }

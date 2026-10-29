@@ -142,6 +142,24 @@ namespace Maba.VCT.Core.Tests
             return result;
         }
 
+        private static readonly Regex AlertLine = new Regex(
+            "^CMD:\"Alert\", DeviceID:\"([^\"]*)\".*Channel:\"([^\"]*)\".*AlertType:\"([^\"]*)\", Message:\"([^\"]*)\"");
+
+        /// <summary>The alerts of one type sent since the last call (it reads everything sent, LoggerData included).</summary>
+        private static List<(string DeviceId, string Channel, string Message)> SentAlerts(MockComLayer client, string alertType)
+        {
+            var result = new List<(string DeviceId, string Channel, string Message)>();
+            while (client.SentStrings.TryDequeue(out var line))
+            {
+                var m = AlertLine.Match(line);
+                if (m.Success && m.Groups[3].Value == alertType)
+                {
+                    result.Add((m.Groups[1].Value, m.Groups[2].Value, m.Groups[4].Value));
+                }
+            }
+            return result;
+        }
+
         private static List<CorrectionValues> Points(params (double Temperature, double Deviation)[] points)
         {
             return points.Select(p => new CorrectionValues { TemperatureValue = p.Temperature, Deviation = p.Deviation }).ToList();
@@ -323,6 +341,52 @@ namespace Maba.VCT.Core.Tests
                 Assert.IsTrue(retry["99-999"] > DateTime.UtcNow, "read again once due, and rescheduled after failing");
             }
             Assert.IsFalse(LastScan(b.Client).ContainsKey(1), "still nothing to compensate with, so still not sent");
+        }
+
+        [TestMethod]
+        public void ASensorWithNoCertificateOnFile_IsAlertedOnce_OnEachOfItsChannels()
+        {
+            // MBA-1008: the held-back channels were only in the server log; the operator saw nothing.
+            var b = IdentifiedBench();
+            b.Certificates.SetCorrectionValues("31-98", Certificate31_98);
+            Confirm(b.Client, "1,2,14", ("99-999", "1,2"), ("31-98", "14"));
+            WaitForBackgroundLoads(b);
+            b.Certificates.SetNoCorrectionsOnFile("99-999");
+
+            Scan(b, 22.1, 22.1, 22.1);
+            Scan(b, 22.1, 22.1, 22.1);
+
+            var alerts = SentAlerts(b.Client, "CorrectionUnavailable");
+            CollectionAssert.AreEquivalent(new[] { "1", "2" }, alerts.Select(a => a.Channel).ToList(),
+                "one alert per held-back channel, not one per scan - and none for 31-98's channel");
+            Assert.IsTrue(alerts.All(a => a.DeviceId == "99-999"), "each names the sensor, as that channel's LoggerData would");
+            Assert.IsTrue(alerts.All(a => a.Message.Contains("no correction certificate on file")), alerts[0].Message);
+        }
+
+        [TestMethod]
+        public void AFailedCertificateRead_IsAlertedOnce_AndAgainAfterTheNextAssociation()
+        {
+            var b = IdentifiedBench();
+            Confirm(b.Client, "1", ("99-999", "1"));
+            WaitForBackgroundLoads(b);   // the read fails: the test's connection string points nowhere
+
+            Scan(b, 22.1);
+            var lockObject = b.BL.GetField("_certificateLock");
+            var retry = (Dictionary<string, DateTime>)b.BL.GetField("_certificateRetryUtc");
+            lock (lockObject) { retry["99-999"] = DateTime.UtcNow.AddSeconds(-1); }
+            Scan(b, 22.1);   // retried, failing again: not alerted a second time
+            WaitForBackgroundLoads(b);
+            Scan(b, 22.1);
+
+            var first = SentAlerts(b.Client, "CorrectionUnavailable");
+            Assert.AreEqual(1, first.Count, "alerted once, however many retries fail");
+            StringAssert.Contains(first[0].Message, "could not be read");
+
+            Confirm(b.Client, "1", ("99-999", "1"));   // the operator confirms again: asked afresh, and told afresh
+            WaitForBackgroundLoads(b);
+            Scan(b, 22.1);
+
+            Assert.AreEqual(1, SentAlerts(b.Client, "CorrectionUnavailable").Count);
         }
 
         [TestMethod]
