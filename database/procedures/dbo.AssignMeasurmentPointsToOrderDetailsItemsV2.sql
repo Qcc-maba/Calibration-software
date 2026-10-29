@@ -5,6 +5,13 @@
     On UPDATE a missing PairId keeps the stored one, unlike the other columns here. An app build
     without pairs sends none, and a save from it must not unpair a humidity device's rows. The app
     never unpairs rows, so nothing needs to clear it.
+
+    PairId is read as text and converted with TRY_CONVERT: a value that is not a GUID is stored as
+    no pair rather than failing the whole save with a conversion error. Before anything is written,
+    the save is refused (51000) when it would leave more than two live rows of one device sharing a
+    PairId, or when a row of a pair has no channel - the INSERT below skips such a row, which would
+    store half a pair. The app sends the placeholder channel 99 for "no channel", so it never sends
+    NULL. (Review of PR #43.)
 */
 CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToOrderDetailsItemsV2]
 @LoggedInUserEmail NVARCHAR(255),
@@ -38,7 +45,7 @@ BEGIN
         c.MbaReportNumber,
         c.Tolerance,
         c.NominalValue,
-        c.PairId
+        TRY_CONVERT(UNIQUEIDENTIFIER, NULLIF(LTRIM(RTRIM(c.PairId)), N'')) AS PairId
     INTO #parsedData
     FROM OPENJSON(@Data) 
     WITH (
@@ -67,8 +74,38 @@ BEGIN
         MbaReportNumber NVARCHAR(100),
         Tolerance DECIMAL(18,6),
         NominalValue DECIMAL(18,6),
-        PairId UNIQUEIDENTIFIER
+        PairId NVARCHAR(50)
     ) AS c;
+
+    /* 0. MBA-802: refuse a save that would break a Temperature/RH pair, before writing anything. */
+    IF EXISTS (SELECT 1 FROM #parsedData WHERE PairId IS NOT NULL AND ChannelNumber IS NULL)
+        THROW 51000, 'A row of a Temperature/RH pair has no channel and would not be saved.', 1;
+
+    IF EXISTS (
+        SELECT 1
+        FROM (
+            /* every live row the save leaves with a PairId: the payload's rows, plus stored rows of
+               the same devices that the payload does not touch */
+            SELECT src.OrderDetailsItemId,
+                   COALESCE(src.PairId, dest.PairId) AS PairId
+            FROM #parsedData AS src
+            LEFT JOIN [dbo].[MeasurmentPointsToOrderDetailsItems] AS dest
+                ON dest.MeasurmentPointsToOrderDetailsItemId = src.MeasurmentPointsToOrderDetailsItemId
+               AND dest.IsDeleted = 0
+            UNION ALL
+            SELECT stored.OrderDetailsItemId, stored.PairId
+            FROM [dbo].[MeasurmentPointsToOrderDetailsItems] AS stored
+            WHERE stored.IsDeleted = 0
+              AND stored.PairId IS NOT NULL
+              AND stored.OrderDetailsItemId IN (SELECT OrderDetailsItemId FROM #parsedData)
+              AND NOT EXISTS (SELECT 1 FROM #parsedData AS p
+                              WHERE p.MeasurmentPointsToOrderDetailsItemId = stored.MeasurmentPointsToOrderDetailsItemId)
+        ) AS afterSave
+        WHERE afterSave.PairId IS NOT NULL
+        GROUP BY afterSave.OrderDetailsItemId, afterSave.PairId
+        HAVING COUNT(*) > 2
+    )
+        THROW 51000, 'More than two rows of one device would share a Temperature/RH pair.', 1;
 
     /* 1. UPDATE existing measurement points */
     UPDATE dest
