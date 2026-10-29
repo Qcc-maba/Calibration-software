@@ -187,6 +187,18 @@ namespace Maba.VCT.Core.Device
                 Libs.Trace.Tracer.Info("[WS] SensorsAssociation: DeviceID={0}, LoggerID={1}, BatchID={2}, Units={3}, Resolution={4}",
                     AssociatedDeviceId, AssociatedLoggerId, AssociatedBatchId, AssociatedUnits, AssociatedResolution);
 
+                // MBA-1007: this sensor compensates its channels. Recorded before the channel list is
+                // applied, so a re-init that the list triggers already sees it. Replaced or added exactly
+                // as the channels and their labels are below.
+                var masters = HardwareBL_Settings.Read().SetWebSocketChannelMasters(association.LoggerId,
+                    association.BatchChannels, association.DeviceId,
+                    replace: !string.IsNullOrEmpty(association.BatchChannels) && !HasConfiguredLogger(association.LoggerId));
+                if (masters != null)
+                    Libs.Trace.Tracer.Info("[WS->HW] Compensation from SensorsAssociation: {0}", masters);
+                else if (HardwareBL_Settings.IsWebSocketConfigHeld(association.LoggerId))
+                    Libs.Trace.Tracer.Info("[WS->HW] Compensation sensor {0} for logger '{1}' held until the logger is identified (MBA-1007).",
+                        association.DeviceId, association.LoggerId);
+
                 // MBA-485: the sensor association also carries the channel list — apply it live.
                 if (!string.IsNullOrEmpty(association.BatchChannels))
                 {

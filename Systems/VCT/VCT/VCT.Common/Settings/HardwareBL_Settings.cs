@@ -670,6 +670,45 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             return string.Format("{0} (master {1}): {2}", targetName, id, string.Join(", ", applied));
         }
 
+        /// <summary>
+        /// MBA-1007: records that <paramref name="channelsCsv"/> of logger <paramref name="loggerId"/>
+        /// carry sensor <paramref name="masterId"/>, so their readings are compensated with that sensor's
+        /// certificate rather than the settings file's master. Routed exactly as the channel list is
+        /// (<see cref="ResolveLiveFamilyKey"/>), and held the same way when no logger is identified yet,
+        /// because the first Confirm arrives before identification.
+        /// <para>
+        /// A LoggerConfiguration does not clear the map. The app re-sends LoggerConfiguration and then
+        /// the associations (the graph screen does, mid-run); clearing on the first would compensate the
+        /// scan that lands between them with the file's master. A later association overwrites its
+        /// channels, and a channel that leaves the scan is never read.
+        /// </para>
+        /// Returns a summary for the log, or null when nothing was routed or nothing changed.
+        /// </summary>
+        /// <param name="replace">True for an association that is the whole channel list (no LoggerConfiguration on its connection).</param>
+        public string SetWebSocketChannelMasters(string loggerId, string channelsCsv, string masterId, bool replace)
+        {
+            if (string.IsNullOrWhiteSpace(loggerId) || string.IsNullOrWhiteSpace(masterId)) return null;
+            var id = loggerId.Trim();
+            var master = masterId.Trim();
+            var channels = ParseChannels(channelsCsv);
+
+            var key = ResolveLiveFamilyKey(id);
+            var target = key == null ? null
+                : Families().FirstOrDefault(f => string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase)).Value;
+            if (target == null)
+            {
+                HoldPendingChannelMasters(id, channels, master, replace, DateTime.UtcNow);
+                return null;
+            }
+
+            var before = target.ChannelMasters ?? ChannelMasterMap.Empty;
+            var after = before.With(channels, master, replace);
+            target.ChannelMasters = after;
+            var text = after.ToString();
+            if (text == before.ToString() && string.Equals(after.Last, before.Last, StringComparison.OrdinalIgnoreCase)) return null;
+            return string.Format("{0} (logger {1}): compensation {2}", key, id, text);
+        }
+
         #region configuration that arrives before the logger is identified (MBA-967)
 
         /*  On the operator's first Confirm the app sends LoggerConfiguration, SensorsAssociation and
@@ -700,6 +739,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             public string Rate;
             public string Interval;
             public string Channels;
+            /// <summary>MBA-1007: the sensor on each channel, held with the channel list it came with.</summary>
+            public ChannelMasterMap ChannelMasters = ChannelMasterMap.Empty;
             public DateTime ReceivedUtc;
         }
 
@@ -734,6 +775,22 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
                         ? string.Join(",", UnionChannels(ParseChannels(p.Channels), ParseChannels(channelsCsv)))
                         : channelsCsv;
                 }
+                p.ReceivedUtc = nowUtc;
+                _pendingConfigs[loggerId] = p;
+            }
+        }
+
+        /// <summary>MBA-1007: holds the sensor of <paramref name="channels"/> with the logger's held configuration.</summary>
+        internal static void HoldPendingChannelMasters(string loggerId, IEnumerable<int> channels, string master, bool replace, DateTime nowUtc)
+        {
+            lock (_activeFamiliesLock)
+            {
+                if (!_pendingConfigs.TryGetValue(loggerId, out var p) || nowUtc - p.ReceivedUtc > PendingConfigLifetime)
+                {
+                    p = new PendingWebSocketConfig { LoggerId = loggerId };
+                }
+
+                p.ChannelMasters = (p.ChannelMasters ?? ChannelMasterMap.Empty).With(channels, master, replace);
                 p.ReceivedUtc = nowUtc;
                 _pendingConfigs[loggerId] = p;
             }
@@ -797,7 +854,18 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             {
                 if (string.Equals(fam.Key, familyName, StringComparison.OrdinalIgnoreCase))
                 {
-                    return ApplyTo(fam.Value, fam.Key + " (held until the logger was identified)", p.LoggerId, p.Rate, p.Interval, p.Channels);
+                    var name = fam.Key + " (held until the logger was identified)";
+                    var summary = ApplyTo(fam.Value, name, p.LoggerId, p.Rate, p.Interval, p.Channels);
+
+                    // MBA-1007: the sensors came with the same Confirm, so they replace whatever the
+                    // family was compensating with, the way its channel list was just replaced.
+                    if (p.ChannelMasters != null && !p.ChannelMasters.IsEmpty)
+                    {
+                        fam.Value.ChannelMasters = p.ChannelMasters;
+                        summary = (summary ?? string.Format("{0} (master {1}): ", name, p.LoggerId)) +
+                                  (summary == null ? "" : ", ") + "compensation " + p.ChannelMasters;
+                    }
+                    return summary;
                 }
             }
             return null;

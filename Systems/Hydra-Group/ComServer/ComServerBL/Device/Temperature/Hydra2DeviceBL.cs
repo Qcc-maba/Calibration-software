@@ -135,6 +135,14 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// </para>
         /// </summary>
         private readonly HashSet<int> _disconnectedChannels = new HashSet<int>();
+
+        /// <summary>
+        /// MBA-1007: the sensors whose certificate was looked up since the last init, found or not. A
+        /// sensor the app associates mid-run is loaded at its first reading; one with no certificate on
+        /// file is then not looked up again on every scan. Cleared by every init, which reloads them all,
+        /// so a certificate saved meanwhile is picked up by the next Confirm.
+        /// </summary>
+        private readonly HashSet<string> _certificatesLookedUp = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         #endregion
 
         #region ctor
@@ -216,7 +224,17 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
             ForgetChannelsNoLongerScanned();
 
-            HC.Init(settings.Hydra2type.Masters).GetAwaiter().GetResult();
+            // MBA-1007: the operator's sensors as well as the file's master - the readings are
+            // compensated with the sensor associated with each channel.
+            var certificates = (settings.Hydra2type.Masters ?? new List<string>())
+                .Concat((settings.Hydra2type.ChannelMasters ?? ChannelMasterMap.Empty).AllMasters())
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            lock (_certificatesLookedUp)
+            {
+                _certificatesLookedUp.Clear();
+                _certificatesLookedUp.UnionWith(certificates);
+            }
+            HC.Init(certificates).GetAwaiter().GetResult();
 
             if (this.StateMachine_InitSystem == null)
             {
@@ -971,7 +989,11 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             var channels = new System.Collections.Generic.List<int>();
             var values = new System.Collections.Generic.List<double>();
 
-            var masterID = settings.Hydra2type.Masters.FirstOrDefault();
+            // MBA-1007: each channel is compensated with the sensor the operator associated with it. Only
+            // a client that never associated one (an app from before SensorsAssociation) gets the file's
+            // master, as every channel did until now - 21-449 on the bench, for sensor 31-98.
+            var sensors = settings.Hydra2type.ChannelMasters ?? ChannelMasterMap.Empty;
+            var fileMaster = settings.Hydra2type.Masters?.FirstOrDefault();
             for (int i = 0; i < entry.Measurements.Count && i < settings.Hydra2type.Channels.Count; i++)
             {
                 int channel = settings.Hydra2type.Channels[i];
@@ -985,6 +1007,20 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
                 NoteChannelRestored(channel);
 
+                var masterID = sensors.IsEmpty ? fileMaster : sensors.MasterFor(channel);
+                var source = sensors.IsEmpty ? "settings file" : "sensor";
+
+                // MBA-1007: a sensor with no certificate on file is not compensated with another
+                // sensor's, and its reading is not sent: an uncorrected value in the graph and the DB
+                // cannot be told from a corrected one. The data watchdog is not starved by this -
+                // the scan is still broadcast, as when every sensor is unplugged.
+                if (!sensors.IsEmpty && !EnsureCertificate(masterID))
+                {
+                    Libs.Trace.Tracer.Info("[HYDRA Correction] CH{0} | Raw={1:F4} | NOT SENT: sensor '{2}' has no correction certificate on file",
+                        channel, rawValue, masterID);
+                    continue;
+                }
+
                 // Apply deviation correction before broadcasting
                 var corrected = HC.CalcDeviationForTemperature(rawValue, masterID);
                 // Tracer.Info goes to logs\server.log, which is the file publish-logs.ps1 ships off
@@ -992,8 +1028,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 // "correction.log" - relative to the working directory, which for the service is
                 // system32, and never rotated or deleted. It reached 53 MB on the bench machine
                 // holding nothing that was not already here.
-                Libs.Trace.Tracer.Info("[HYDRA Correction] CH{0} | Raw={1:F4} | Corrected={2:F4} | Status={3} | MasterID={4}",
-                    channel, rawValue, corrected.Item1, corrected.Item2, masterID);
+                Libs.Trace.Tracer.Info("[HYDRA Correction] CH{0} | Raw={1:F4} | Corrected={2:F4} | Status={3} | MasterID={4} | From={5}",
+                    channel, rawValue, corrected.Item1, corrected.Item2, masterID, source);
                 channels.Add(channel);
                 values.Add(corrected.Item1);
             }
@@ -1009,6 +1045,28 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 string.Join(",", values.Select(v => v.ToString(System.Globalization.CultureInfo.InvariantCulture))));
 
             HW_Device.BroadcastAllMeasurements(channels, values, scanTime, measuredAt);
+        }
+
+        /// <summary>
+        /// MBA-1007: whether <paramref name="sensor"/>'s certificate is loaded, loading it the first time
+        /// a sensor associated after the last init is read. One lookup per sensor per init, found or not.
+        /// </summary>
+        private bool EnsureCertificate(string sensor)
+        {
+            if (string.IsNullOrWhiteSpace(sensor)) return false;
+            if (HC.HasCorrectionValues(sensor)) return true;
+
+            bool first;
+            lock (_certificatesLookedUp) { first = _certificatesLookedUp.Add(sensor); }
+            if (!first) return false;
+
+            HC.Init(new List<string> { sensor }).GetAwaiter().GetResult();
+            var loaded = HC.HasCorrectionValues(sensor);
+            Libs.Trace.Tracer.Info(loaded
+                ? "[HYDRA Correction] Sensor '{0}': correction certificate loaded"
+                : "[HYDRA Correction] Sensor '{0}': no correction certificate on file - its channels are not sent until one is saved and the logger is confirmed again",
+                sensor);
+            return loaded;
         }
     }
 

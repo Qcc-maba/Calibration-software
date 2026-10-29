@@ -280,6 +280,20 @@ namespace ComServerBL.Hydra2.DAL.Calibration
             _coefficientsDic[mabaID] = coefficients;
         }
 
+        /// <summary>MBA-1007: whether a correction certificate for <paramref name="mabaID"/> is cached.</summary>
+        public bool HasCorrectionValues(string mabaID)
+        {
+            return !string.IsNullOrEmpty(mabaID)
+                && _correctionValuesDic.TryGetValue(mabaID, out var values)
+                && values != null && values.Count > 0;
+        }
+
+        /// <summary>Puts a certificate straight into the cache, without the database, ordered as a load orders it.</summary>
+        public void SetCorrectionValues(string mabaID, List<CorrectionValues> values)
+        {
+            _correctionValuesDic[mabaID] = values.OrderBy(o => o.TemperatureValue).ToList();
+        }
+
         #endregion
 
         #region Calibration Calculations
