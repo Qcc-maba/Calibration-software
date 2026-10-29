@@ -32,8 +32,15 @@
     MBA-802: a humidity device (secondary category "Humidity") has a second set of Guard Band,
     tolerance and resolution for its %RH readings. They go to HumidityAccuracy, HumidityTolerance
     and HumidityResolution (database/schema/dbo.OrderDetailsItems.Humidity.sql), typed like
-    Accuracy, Tolerance and Resolution, which keep holding the temperature set. Same NULL
-    convention: NULL leaves the column alone.
+    Accuracy, Tolerance and Resolution, which keep holding the temperature set. NULL leaves the
+    column alone, like everywhere here.
+
+    Unlike those, the three humidity parameters are text, so they can also be cleared: an empty
+    string empties the column, the way SpecificationReferenceIds and DiagramMapLink do. As numeric
+    parameters they could not be - N'' does not convert to a number and failed the whole save -
+    so a cleared field came back on reload, and a device moved out of "Humidity" kept its values
+    (review of app PR #160). Anything else is converted with TRY_CONVERT; a value that is not a
+    number leaves the column as it is.
 */
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -85,10 +92,10 @@ CREATE OR ALTER PROCEDURE [dbo].[AssignProductIdentificationData]
 	@Resolution DECIMAL(18,6) = NULL,
 	@SpecificationReferenceIds NVARCHAR(MAX) = NULL,
 	/* MBA-802: the humidity set of a humidity device; the temperature set stays in
-	   @Accuracy, @Tolerance and @Resolution. */
-	@HumidityAccuracy TINYINT = NULL,
-	@HumidityTolerance DECIMAL(18,6) = NULL,
-	@HumidityResolution DECIMAL(18,6) = NULL
+	   @Accuracy, @Tolerance and @Resolution. Text, so '' can clear them (see the header). */
+	@HumidityAccuracy NVARCHAR(50) = NULL,
+	@HumidityTolerance NVARCHAR(50) = NULL,
+	@HumidityResolution NVARCHAR(50) = NULL
 AS
 BEGIN 
 
@@ -174,9 +181,9 @@ BEGIN
 					@Tolerance,
 					@Resolution,
 					NULLIF(@SpecificationReferenceIds, ''),
-					@HumidityAccuracy,
-					@HumidityTolerance,
-					@HumidityResolution
+					TRY_CONVERT(TINYINT, NULLIF(LTRIM(RTRIM(@HumidityAccuracy)), N'')),
+					TRY_CONVERT(DECIMAL(18,6), NULLIF(LTRIM(RTRIM(@HumidityTolerance)), N'')),
+					TRY_CONVERT(DECIMAL(18,6), NULLIF(LTRIM(RTRIM(@HumidityResolution)), N''))
 				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
 
 		END
@@ -234,9 +241,13 @@ BEGIN
 			   document has to be storable, and COALESCE on its own would make that
 			   impossible. Same shape as DiagramMapLink above. */
 			,[SpecificationReferenceIds] = IIF(@SpecificationReferenceIds = '',NULL,COALESCE(@SpecificationReferenceIds,[SpecificationReferenceIds]))
-			,[HumidityAccuracy] = COALESCE(@HumidityAccuracy,[HumidityAccuracy])
-			,[HumidityTolerance] = COALESCE(@HumidityTolerance,[HumidityTolerance])
-			,[HumidityResolution] = COALESCE(@HumidityResolution,[HumidityResolution])
+			/* MBA-802: NULL leaves it, '' clears it, a number sets it, anything else leaves it. */
+			,[HumidityAccuracy] = IIF(LTRIM(RTRIM(@HumidityAccuracy)) = N'', NULL,
+			                          COALESCE(TRY_CONVERT(TINYINT, @HumidityAccuracy), [HumidityAccuracy]))
+			,[HumidityTolerance] = IIF(LTRIM(RTRIM(@HumidityTolerance)) = N'', NULL,
+			                           COALESCE(TRY_CONVERT(DECIMAL(18,6), @HumidityTolerance), [HumidityTolerance]))
+			,[HumidityResolution] = IIF(LTRIM(RTRIM(@HumidityResolution)) = N'', NULL,
+			                            COALESCE(TRY_CONVERT(DECIMAL(18,6), @HumidityResolution), [HumidityResolution]))
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
 	/* MBA-855: one UUT serial per MABA No. A new serial on the device also goes to its sensor
