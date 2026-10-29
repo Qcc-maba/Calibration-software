@@ -156,7 +156,9 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
               read that turns into "none on file" is alerted again, since it asks the operator for something
               else. Kept across re-inits - recovery and reconnects re-init without the operator, and each
               used to repeat the toasts - and cleared by an association, which the app sends on every
-              Confirm and whenever its graph loads, so a reloaded page is told again.
+              Confirm and whenever its graph loads, so a reloaded page is told again. Also cleared when the
+              sensor's certificate loads (background load or init): its readings flow again, so holding them
+              back later is news.
 
             Guarded by _certificateLock; nothing marks a sensor before its load has been attempted, so a scan
             racing a re-init cannot find a sensor "looked up" that was never loaded.  */
@@ -266,6 +268,14 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             lock (_certificateLoadLock)
             {
                 HC.Init(certificates).GetAwaiter().GetResult();
+            }
+            lock (_certificateLock)
+            {
+                // ...but a certificate that loaded did: its channels flow again, and holding them back later is news
+                foreach (var sensor in certificates.Where(HC.HasCorrectionValues))
+                {
+                    _certificatesAlerted.Remove(sensor);
+                }
             }
 
             if (this.StateMachine_InitSystem == null)
@@ -1155,6 +1165,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                     else _certificateRetryUtc[sensor] = DateTime.UtcNow + CertificateRetryInterval;
                     // The next scan's held-back channels get a fresh line, naming the outcome.
                     _certificatesReported.Remove(sensor);
+                    // its channels flow again: should they be held back later, that is news (review of #42)
+                    if (loaded) _certificatesAlerted.Remove(sensor);
                 }
                 Libs.Trace.Tracer.Info(loaded
                     ? "[HYDRA Correction] Sensor '{0}': correction certificate loaded"

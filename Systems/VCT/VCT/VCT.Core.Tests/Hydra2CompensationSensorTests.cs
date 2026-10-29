@@ -430,6 +430,34 @@ namespace Maba.VCT.Core.Tests
         }
 
         [TestMethod]
+        public void ASensorWhoseCertificateLoaded_IsAlertedAgain_IfItIsHeldBackLater()
+        {
+            // Review of #42: the mark outlived the channels coming back. Today a loaded certificate is never
+            // dropped from the cache, so the test evicts it by hand; the rule is that what the operator was told
+            // ends when the sensor's readings flow again.
+            var b = IdentifiedBench();
+            Confirm(b.Client, "1", ("99-999", "1"));
+            WaitForBackgroundLoads(b);   // the read fails
+            Scan(b, 22.1);
+            Assert.AreEqual(1, SentAlerts(b.Client, "CorrectionUnavailable").Count, "test setup: alerted");
+
+            b.Certificates.SetCorrectionValues("99-999", Certificate21_675);
+            b.BL.Invoke("LoadCertificate", "99-999");   // the retry's load finds it
+            Scan(b, 22.1);
+            Assert.AreEqual(21.6, LastScan(b.Client)[1], Tolerance, "test setup: the readings flow again");
+
+            b.Certificates.SetNoCorrectionsOnFile("99-999");   // evicted...
+            b.Certificates.ForgetNoCorrectionsOnFile("99-999");   // ...and not known to be missing either
+            Scan(b, 22.1);   // starts a load, which fails
+            WaitForBackgroundLoads(b);
+            Scan(b, 22.1);
+
+            var again = SentAlerts(b.Client, "CorrectionUnavailable");
+            Assert.AreEqual(1, again.Count, "held back again with the same reason - still news");
+            StringAssert.Contains(again[0].Message, "could not be read");
+        }
+
+        [TestMethod]
         public void AssociatingASensor_StartsLoadingItsCertificateBeforeAnyScan()
         {
             // Re-review of #41 / bench 11:06:24: a sensor switched in mid-run was only looked up by the next

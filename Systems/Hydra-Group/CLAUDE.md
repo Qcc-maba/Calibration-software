@@ -175,8 +175,9 @@ all 21 readings were corrected with 21-449: 22.1 became 22.0701 instead of 22.23
   working logger. Since MBA-1008 the operator is told: a `CorrectionUnavailable` alert per held-back channel,
   sent only once the reason is settled (none on file, or a read failed). A load still running is not alerted.
   Once per sensor and reason: a failed read that turns into "none on file" is alerted again. Re-inits
-  (recovery, reconnects) keep what was alerted; an association clears it, and the app sends one on every
-  Confirm and whenever its graph loads. The app toasts it; an app older than MBA-1008 ignores it.
+  (recovery, reconnects) keep what was alerted; an association clears it (the app sends one on every
+  Confirm and whenever its graph loads), and so does the certificate loading, since the readings flow
+  again. The app toasts it; an app older than MBA-1008 ignores it.
 - **Certificates load at every init**, before the first scan: the file master plus every associated sensor,
   latest version only (`@GetLatestVersionOnly=1`).
   - A sensor is loaded **as soon as it is associated**, in the background (`HardwareBL_DeviceType.ChannelMastersChanged`
