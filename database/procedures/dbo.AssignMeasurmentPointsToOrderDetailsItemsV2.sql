@@ -1,3 +1,11 @@
+/*
+    MBA-802: PairId marks the two rows (Temperature, RH) that are one measuring point of a humidity
+    device; see database/schema/dbo.MeasurmentPointsToOrderDetailsItems.PairId.sql.
+
+    On UPDATE a missing PairId keeps the stored one, unlike the other columns here. An app build
+    without pairs sends none, and a save from it must not unpair a humidity device's rows. The app
+    never unpairs rows, so nothing needs to clear it.
+*/
 CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToOrderDetailsItemsV2]
 @LoggedInUserEmail NVARCHAR(255),
 @Data NVARCHAR(MAX)
@@ -29,7 +37,8 @@ BEGIN
         c.SerialNumber,  -- UUT Serial Number
         c.MbaReportNumber,
         c.Tolerance,
-        c.NominalValue
+        c.NominalValue,
+        c.PairId
     INTO #parsedData
     FROM OPENJSON(@Data) 
     WITH (
@@ -57,7 +66,8 @@ BEGIN
         SerialNumber NVARCHAR(100),
         MbaReportNumber NVARCHAR(100),
         Tolerance DECIMAL(18,6),
-        NominalValue DECIMAL(18,6)
+        NominalValue DECIMAL(18,6),
+        PairId UNIQUEIDENTIFIER
     ) AS c;
 
     /* 1. UPDATE existing measurement points */
@@ -76,6 +86,7 @@ BEGIN
         ,dest.MbaReportNumber           = src.MbaReportNumber
         ,dest.Tolerance                 = src.Tolerance
         ,dest.NominalValue              = src.NominalValue
+        ,dest.PairId                    = COALESCE(src.PairId, dest.PairId)
         ,dest.UpdatedDate               = GETDATE()
         ,dest.UpdateUserID              = @LoggedInUserId
     FROM [dbo].[MeasurmentPointsToOrderDetailsItems] dest
@@ -90,14 +101,14 @@ BEGIN
         MeasurmentPointCoordX, MeasurmentPointCoordY, ChannelNumber, UpdateUserID,
         MasterValue, MasterValueUnitId, AdditionalValue, AdditionalValueUnitId,
         StabilityValue, UncertancyValue, MeasuredValue, MeasuredValueUnitId,
-        SerialNumber, MbaReportNumber, Tolerance, NominalValue
+        SerialNumber, MbaReportNumber, Tolerance, NominalValue, PairId
     )
-    SELECT 
+    SELECT
         src.OrderDetailsItemId, src.SensorMeasurementDeviceId, src.MeasurmentPointName,
         src.MeasurmentPointCoordX, src.MeasurmentPointCoordY, src.ChannelNumber, @LoggedInUserId,
         src.MasterValue, src.MasterValueUnitId, src.AdditionalValue, src.AdditionalValueUnitId,
         src.StabilityValue, src.UncertancyValue, src.MeasuredValue, src.MeasuredValueUnitId,
-        src.SerialNumber, src.MbaReportNumber, src.Tolerance, src.NominalValue
+        src.SerialNumber, src.MbaReportNumber, src.Tolerance, src.NominalValue, src.PairId
     FROM #parsedData src
     LEFT JOIN [dbo].[MeasurmentPointsToOrderDetailsItems] dest
         ON dest.MeasurmentPointsToOrderDetailsItemId = src.MeasurmentPointsToOrderDetailsItemId

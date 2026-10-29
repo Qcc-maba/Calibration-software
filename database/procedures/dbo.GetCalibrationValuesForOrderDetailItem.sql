@@ -19,6 +19,9 @@
 
     Checked on STAGE: master 31-77 reading 23.0 returns 23.001792, which is 23.0 minus the
     deviation interpolated between its points at 0.018 (-0.080) and 49.963 (+0.090005).
+
+    MBA-802: also returns PairId, which marks the Temperature and RH rows of one measuring point on
+    a humidity device (NULL on every other row). The app pairs rows by it instead of by channel.
 */
 CREATE OR ALTER PROCEDURE [dbo].[GetCalibrationValuesForOrderDetailItem]
 @OrderDetailId INT, 
@@ -97,7 +100,8 @@ BEGIN
            this device and point - raised separately. */
         ,CAST(NULL AS DECIMAL(18,6)) as DriftFromLastCalibration
         ,combined.StabilityValue
-        ,combined.[MeasurmentPointsToOrderDetailsItemId]  
+        ,combined.[MeasurmentPointsToOrderDetailsItemId]
+        ,combined.[PairId]
     FROM [dbo].[OrderDetailsItems] as itm
     JOIN [dbo].[OrderDetails] as od ON itm.OrderDetailId = od.OrderDetailId
     JOIN [dbo].[OrderWorkPlans] as wp ON wp.OrderWorkPlanId = od.OrderWorkPlanId
@@ -117,6 +121,7 @@ BEGIN
             mpo.MeasurmentPointsToOrderDetailsItemId,
             mpo.SerialNumber,
             mpo.MbaReportNumber,
+            mpo.PairId,
             COALESCE(mpo.Tolerance, evnc.Tolerance) as Tolerance,
             COALESCE(mpo.NominalValue, evnc.NominalValue) as NominalValue
         FROM (
