@@ -136,13 +136,31 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// </summary>
         private readonly HashSet<int> _disconnectedChannels = new HashSet<int>();
 
-        /// <summary>
-        /// MBA-1007: the sensors whose certificate was looked up since the last init, found or not. A
-        /// sensor the app associates mid-run is loaded at its first reading; one with no certificate on
-        /// file is then not looked up again on every scan. Cleared by every init, which reloads them all,
-        /// so a certificate saved meanwhile is picked up by the next Confirm.
-        /// </summary>
-        private readonly HashSet<string> _certificatesLookedUp = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        /*  MBA-1007: loading the certificate of a sensor the app associates mid-run, without a re-init.
+            Every init loads them all before the first scan; these cover what happens between inits.
+
+            - A missing certificate is loaded in the background, never on the poll thread (review of #41):
+              a load is two queries of up to 30 s each, and a poll stalled that long lets the 60 s data
+              watchdog reset a working logger. Until it arrives, that sensor's channels are not sent.
+            - "No certificate on file" is an answer (CalibrationRepository.IsKnownToHaveNoCorrections) and is
+              not asked again until the next init. A failed read is not an answer: it is retried, at most
+              every CertificateRetryInterval. Before, a single timeout during Confirm dropped that sensor's
+              channels for the whole run.
+            - Loads are serialised (_certificateLoadLock), so an init and a background load never fetch the
+              same certificate at once.
+            - Each sensor's channels held back are logged once per init, not per channel per scan - three
+              channels at a 2 s rate were about 130,000 identical lines a day.
+
+            Guarded by _certificateLock; nothing marks a sensor before its load has been attempted, so a scan
+            racing a re-init cannot find a sensor "looked up" that was never loaded.  */
+        private readonly object _certificateLock = new object();
+        private readonly object _certificateLoadLock = new object();
+        private readonly HashSet<string> _certificatesLoading = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DateTime> _certificateRetryUtc = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _certificatesReported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>How soon a certificate whose load failed is tried again.</summary>
+        internal static readonly TimeSpan CertificateRetryInterval = TimeSpan.FromSeconds(30);
         #endregion
 
         #region ctor
@@ -229,12 +247,15 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             var certificates = (settings.Hydra2type.Masters ?? new List<string>())
                 .Concat((settings.Hydra2type.ChannelMasters ?? ChannelMasterMap.Empty).AllMasters())
                 .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-            lock (_certificatesLookedUp)
+            lock (_certificateLock)
             {
-                _certificatesLookedUp.Clear();
-                _certificatesLookedUp.UnionWith(certificates);
+                _certificateRetryUtc.Clear();
+                _certificatesReported.Clear();
             }
-            HC.Init(certificates).GetAwaiter().GetResult();
+            lock (_certificateLoadLock)
+            {
+                HC.Init(certificates).GetAwaiter().GetResult();
+            }
 
             if (this.StateMachine_InitSystem == null)
             {
@@ -994,6 +1015,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             // master, as every channel did until now - 21-449 on the bench, for sensor 31-98.
             var sensors = settings.Hydra2type.ChannelMasters ?? ChannelMasterMap.Empty;
             var fileMaster = settings.Hydra2type.Masters?.FirstOrDefault();
+            var heldBack = new List<int>();
             for (int i = 0; i < entry.Measurements.Count && i < settings.Hydra2type.Channels.Count; i++)
             {
                 int channel = settings.Hydra2type.Channels[i];
@@ -1010,14 +1032,13 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 var masterID = sensors.IsEmpty ? fileMaster : sensors.MasterFor(channel);
                 var source = sensors.IsEmpty ? "settings file" : "sensor";
 
-                // MBA-1007: a sensor with no certificate on file is not compensated with another
+                // MBA-1007: a sensor whose certificate is not loaded is not compensated with another
                 // sensor's, and its reading is not sent: an uncorrected value in the graph and the DB
                 // cannot be told from a corrected one. The data watchdog is not starved by this -
                 // the scan is still broadcast, as when every sensor is unplugged.
                 if (!sensors.IsEmpty && !EnsureCertificate(masterID))
                 {
-                    Libs.Trace.Tracer.Info("[HYDRA Correction] CH{0} | Raw={1:F4} | NOT SENT: sensor '{2}' has no correction certificate on file",
-                        channel, rawValue, masterID);
+                    heldBack.Add(channel);
                     continue;
                 }
 
@@ -1034,6 +1055,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 values.Add(corrected.Item1);
             }
 
+            ReportHeldBack(heldBack, sensors);
+
             DateTime? scanTime = entry.LogDate == default(DateTime) ? (DateTime?)null : entry.LogDate;
             var measuredAt = ScanTimeOnPcClock(entry.LogDate, _loggerClockOffset);
 
@@ -1048,25 +1071,84 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         }
 
         /// <summary>
-        /// MBA-1007: whether <paramref name="sensor"/>'s certificate is loaded, loading it the first time
-        /// a sensor associated after the last init is read. One lookup per sensor per init, found or not.
+        /// MBA-1007: whether <paramref name="sensor"/>'s certificate is loaded. When it is not, and the
+        /// database has not answered "none on file", a background load is started (see the notes on
+        /// _certificateLock) and this scan goes without it. Never blocks the poll thread.
         /// </summary>
         private bool EnsureCertificate(string sensor)
         {
             if (string.IsNullOrWhiteSpace(sensor)) return false;
             if (HC.HasCorrectionValues(sensor)) return true;
+            if (HC.IsKnownToHaveNoCorrections(sensor)) return false;
 
-            bool first;
-            lock (_certificatesLookedUp) { first = _certificatesLookedUp.Add(sensor); }
-            if (!first) return false;
+            lock (_certificateLock)
+            {
+                if (_certificatesLoading.Contains(sensor)) return false;
+                if (_certificateRetryUtc.TryGetValue(sensor, out var retryAt) && DateTime.UtcNow < retryAt) return false;
+                _certificatesLoading.Add(sensor);
+            }
 
-            HC.Init(new List<string> { sensor }).GetAwaiter().GetResult();
-            var loaded = HC.HasCorrectionValues(sensor);
-            Libs.Trace.Tracer.Info(loaded
-                ? "[HYDRA Correction] Sensor '{0}': correction certificate loaded"
-                : "[HYDRA Correction] Sensor '{0}': no correction certificate on file - its channels are not sent until one is saved and the logger is confirmed again",
-                sensor);
-            return loaded;
+            System.Threading.Tasks.Task.Run(() => LoadCertificate(sensor));
+            return false;
+        }
+
+        private void LoadCertificate(string sensor)
+        {
+            try
+            {
+                lock (_certificateLoadLock)
+                {
+                    HC.Init(new List<string> { sensor }).GetAwaiter().GetResult();
+                }
+            }
+            catch (Exception ex)
+            {
+                Libs.Trace.Tracer.Info("[HYDRA Correction] Sensor '{0}': loading its certificate failed: {1}", sensor, ex.Message);
+            }
+            finally
+            {
+                var loaded = HC.HasCorrectionValues(sensor);
+                var none = !loaded && HC.IsKnownToHaveNoCorrections(sensor);
+                lock (_certificateLock)
+                {
+                    _certificatesLoading.Remove(sensor);
+                    if (loaded || none) _certificateRetryUtc.Remove(sensor);
+                    else _certificateRetryUtc[sensor] = DateTime.UtcNow + CertificateRetryInterval;
+                    // The next scan's held-back channels get a fresh line, naming the outcome.
+                    _certificatesReported.Remove(sensor);
+                }
+                Libs.Trace.Tracer.Info(loaded
+                    ? "[HYDRA Correction] Sensor '{0}': correction certificate loaded"
+                    : none
+                        ? "[HYDRA Correction] Sensor '{0}': no correction certificate on file"
+                        : "[HYDRA Correction] Sensor '{0}': certificate could not be read - retrying in {1:F0} s",
+                    sensor, CertificateRetryInterval.TotalSeconds);
+            }
+        }
+
+        /// <summary>
+        /// MBA-1007: one line per sensor per init for the channels held back because its certificate is not
+        /// loaded, saying why. Logged again only once the reason has changed (a load attempt finished).
+        /// </summary>
+        private void ReportHeldBack(List<int> heldBack, ChannelMasterMap sensors)
+        {
+            if (heldBack.Count == 0) return;
+
+            foreach (var group in heldBack.GroupBy(ch => sensors.MasterFor(ch) ?? "", StringComparer.OrdinalIgnoreCase))
+            {
+                var sensor = group.Key;
+                bool first;
+                lock (_certificateLock) { first = _certificatesReported.Add(sensor); }
+                if (!first) continue;
+
+                string why;
+                if (HC.IsKnownToHaveNoCorrections(sensor))
+                    why = "no correction certificate on file - not sent until one is saved and the logger is confirmed again";
+                else
+                    why = "correction certificate not loaded yet - not sent until it is";
+                Libs.Trace.Tracer.Info("[HYDRA Correction] CH{0} | NOT SENT: sensor '{1}': {2}",
+                    string.Join(",", group), sensor, why);
+            }
         }
     }
 

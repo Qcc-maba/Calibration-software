@@ -263,6 +263,81 @@ namespace Maba.VCT.Core.Tests
         }
 
         [TestMethod]
+        public void ANewConfirmThatLeavesAChannelUnnamed_CompensatesItWithTheSensorItIsLabelledWith()
+        {
+            // Review of #41: run 1 had 31-98 on 11-14; run 2 associated 21-675 with 11-13 only. Channel 14's
+            // label was cleared, so it went out as 21-675 - and was corrected with 31-98's certificate.
+            var b = IdentifiedBench();
+            b.Certificates.SetCorrectionValues("31-98", Certificate31_98);
+            b.Certificates.SetCorrectionValues("21-675", Certificate21_675);
+            Confirm(b.Client, "11,12,13,14", ("31-98", "11,12,13,14"));
+            Scan(b, 22.1, 22.1, 22.1, 22.1);
+            Assert.AreEqual(22.233620, LastScan(b.Client)[14], Tolerance, "test setup: 31-98 first");
+
+            Confirm(b.Client, "11,12,13,14", ("21-675", "11,12,13"));
+            Scan(b, 22.1, 22.1, 22.1, 22.1);
+
+            Assert.AreEqual(21.6, LastScan(b.Client)[14], Tolerance, "channel 14 is labelled 21-675 now, so it is corrected as 21-675");
+        }
+
+        [TestMethod]
+        public void NoCertificateOnFile_IsNotAskedAgainOnEveryScan()
+        {
+            var b = IdentifiedBench();
+            b.Certificates.SetNoCorrectionsOnFile("99-999");
+            Confirm(b.Client, "1", ("99-999", "1"));
+
+            Scan(b, 22.1);
+            Scan(b, 22.1);
+
+            Assert.IsFalse(LastScan(b.Client).ContainsKey(1));
+            Assert.AreEqual(0, ((HashSet<string>)b.BL.GetField("_certificatesLoading")).Count,
+                "the database already answered: nothing to load");
+        }
+
+        [TestMethod]
+        public void AFailedCertificateRead_IsRetried_NotTakenForNoCertificate()
+        {
+            // Review of #41: one DB timeout during Confirm used to drop the sensor's channels for the whole
+            // run. The test's connection string points nowhere, so every read here fails.
+            var b = IdentifiedBench();
+            Confirm(b.Client, "1", ("99-999", "1"));
+
+            Scan(b, 22.1);
+            WaitForBackgroundLoads(b);
+            var retry = (Dictionary<string, DateTime>)b.BL.GetField("_certificateRetryUtc");
+            Assert.IsTrue(retry.ContainsKey("99-999"), "a failed read is scheduled again");
+            Assert.IsFalse(b.Certificates.IsKnownToHaveNoCorrections("99-999"), "a failed read is not an answer");
+
+            Scan(b, 22.1);
+            Assert.AreEqual(0, ((HashSet<string>)b.BL.GetField("_certificatesLoading")).Count, "not again before the retry interval");
+
+            // The retry is due: the next scan reads again, fails again, and is scheduled again.
+            var lockObject = b.BL.GetField("_certificateLock");
+            lock (lockObject) { retry["99-999"] = DateTime.UtcNow.AddSeconds(-1); }
+            Scan(b, 22.1);
+            WaitForBackgroundLoads(b);
+            lock (lockObject)
+            {
+                Assert.IsTrue(retry["99-999"] > DateTime.UtcNow, "read again once due, and rescheduled after failing");
+            }
+            Assert.IsFalse(LastScan(b.Client).ContainsKey(1), "still nothing to compensate with, so still not sent");
+        }
+
+        private static void WaitForBackgroundLoads(Bench b)
+        {
+            var loading = (HashSet<string>)b.BL.GetField("_certificatesLoading");
+            var lockObject = b.BL.GetField("_certificateLock");
+            var deadline = DateTime.UtcNow.AddSeconds(60);
+            while (DateTime.UtcNow < deadline)
+            {
+                lock (lockObject) { if (loading.Count == 0) return; }
+                System.Threading.Thread.Sleep(20);
+            }
+            Assert.Fail("test setup: the background certificate load did not finish");
+        }
+
+        [TestMethod]
         public void AnAppThatNeverAssociatesASensor_GetsTheFilesMaster_AsBefore()
         {
             var b = IdentifiedBench();
@@ -355,6 +430,36 @@ namespace Maba.VCT.Core.Tests
             var attributes = typeof(HardwareBL_DeviceType).GetProperty(nameof(HardwareBL_DeviceType.ChannelMasters)).GetCustomAttributes(true);
 
             Assert.IsTrue(attributes.Any(a => a.GetType().Name == "JsonIgnoreAttribute"));
+        }
+
+        [TestMethod]
+        public void ALoggerConfiguration_ForgetsTheChannels_ButKeepsTheLastSensor()
+        {
+            var s = HardwareBL_Settings.Read();
+            HardwareBL_Settings.RegisterActiveFamily("Hydra2");
+            s.SetWebSocketChannelMasters("21-337", "1,2", "21-675", replace: false);
+            s.SetWebSocketChannelMasters("21-337", "14", "31-98", replace: false);
+
+            StringAssert.Contains(s.ClearWebSocketChannelMasters("21-337"), "31-98");
+
+            var map = s.Hydra2type.ChannelMasters;
+            Assert.AreEqual(0, map.ByChannel.Count);
+            Assert.AreEqual("31-98", map.MasterFor(1), "until the associations follow, every channel is the last sensor's - as its label");
+            Assert.IsNull(s.ClearWebSocketChannelMasters("21-337"), "nothing left to clear");
+        }
+
+        [TestMethod]
+        public void AFamilyThatCompensatesWithItsFileMaster_RecordsNoSensor()
+        {
+            // Agilent34401aBL still compensates with Masters[0]; recording 31-98 for it would put a sensor in
+            // the log that no reading is corrected with.
+            var s = HardwareBL_Settings.Read();
+            HardwareBL_Settings.RegisterActiveFamily("Agilent");
+
+            Assert.IsNull(s.SetWebSocketChannelMasters("21-337", "1", "31-98", replace: false));
+
+            Assert.IsTrue(s.Agilent.ChannelMasters.IsEmpty);
+            Assert.IsFalse(HardwareBL_Settings.IsWebSocketConfigHeld("21-337"), "routed to a live family, so not held either");
         }
 
         [TestMethod]

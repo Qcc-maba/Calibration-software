@@ -251,6 +251,12 @@ namespace Maba.VCT.Core.Device
                     ClearChannelLabels(cfg.LoggerId, cfg.BatchChannels);
                     MarkLoggerConfigured(cfg.LoggerId);
 
+                    // MBA-1007 (review of #41): and the sensor each channel was compensated with, for the
+                    // same reason - keeping the last one, which the cleared channels are labelled with.
+                    var clearedMasters = settings.ClearWebSocketChannelMasters(cfg.LoggerId);
+                    if (clearedMasters != null)
+                        Libs.Trace.Tracer.Info("[WS->HW] {0}", clearedMasters);
+
                     var summary = settings.ApplyWebSocketConfig(cfg.LoggerId, cfg.Rate, cfg.Interval, cfg.BatchChannels);
                     if (summary != null)
                     {

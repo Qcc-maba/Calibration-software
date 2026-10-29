@@ -40,7 +40,33 @@ namespace ComServerBL.Hydra2.DAL.Calibration
         private readonly ConcurrentDictionary<string, List<CorrectionValues>> _correctionValuesDic = new ConcurrentDictionary<string, List<CorrectionValues>>();
         private readonly ConcurrentDictionary<string, SensorCoefficients> _coefficientsDic = new ConcurrentDictionary<string, SensorCoefficients>();
 
+        /// <summary>MBA-1007: sensors whose last load answered "no certificate on file", as opposed to failing.</summary>
+        private readonly ConcurrentDictionary<string, bool> _noCorrectionsOnFile = new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+        private static readonly object _correctionLogLock = new object();
+
         #endregion
+
+        /// <summary>
+        /// MBA-1007: one writer at a time for correction.log, and never an exception. Every BL's repository
+        /// writes this one file while loading certificates; two loads at once (an init beside a background
+        /// load, or two instruments) threw "being used by another process" out of the load - and out of a
+        /// BL's init. A line lost is a diagnostic lost, nothing more.
+        /// </summary>
+        private static void AppendCorrectionLog(string text)
+        {
+            try
+            {
+                lock (_correctionLogLock)
+                {
+                    System.IO.File.AppendAllText("correction.log", text);
+                }
+            }
+            catch (Exception e)
+            {
+                Trace.WriteLine($"CalibrationRepository: correction.log not written: {e.Message}");
+            }
+        }
 
         #region Properties
 
@@ -98,7 +124,7 @@ namespace ComServerBL.Hydra2.DAL.Calibration
                     var cols = new List<string>();
                     for (int c = 0; c < dbResults.FieldCount; c++)
                         cols.Add($"{dbResults.GetName(c)}({dbResults.GetFieldType(c).Name})");
-                    System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + " SP columns: " + string.Join(", ", cols) + Environment.NewLine);
+                    AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + " SP columns: " + string.Join(", ", cols) + Environment.NewLine);
 
                     // Resolve column indices by name
                     int colValue1 = dbResults.GetOrdinal("Value1");
@@ -126,7 +152,7 @@ namespace ComServerBL.Hydra2.DAL.Calibration
             }
             catch (Exception e)
             {
-                System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + $" GetCorrectionValuesAsync ERROR: {e.Message}" + Environment.NewLine);
+                AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + $" GetCorrectionValuesAsync ERROR: {e.Message}" + Environment.NewLine);
                 Trace.WriteLine($"CalibrationRepository.GetCorrectionValuesAsync error: {e.Message}");
                 return null;
             }
@@ -171,7 +197,7 @@ namespace ComServerBL.Hydra2.DAL.Calibration
             }
             catch (Exception e)
             {
-                System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + $" GetSensorCoefficientsAsync ERROR for '{mabaID}': {e.Message}" + Environment.NewLine);
+                AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + $" GetSensorCoefficientsAsync ERROR for '{mabaID}': {e.Message}" + Environment.NewLine);
                 Trace.WriteLine($"CalibrationRepository.GetSensorCoefficientsAsync error for '{mabaID}': {e.Message}");
                 return null;
             }
@@ -191,14 +217,14 @@ namespace ComServerBL.Hydra2.DAL.Calibration
 
             var initMsg = $"CalibrationRepository.InitMasters: loading {masters.Count} master(s) from DB (one-time) using SP={ProcedureName}";
             Trace.WriteLine(initMsg);
-            System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + " " + initMsg + Environment.NewLine);
+            AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + " " + initMsg + Environment.NewLine);
             bool allLoaded = true;
             foreach (string master in masters)
             {
                 var result = await LoadCorrectionValues(ProcedureName, ParameterName, master);
                 var masterMsg = $"  Master '{master}' -> {(result ? "loaded OK" : "FAILED")}";
                 Trace.WriteLine(masterMsg);
-                System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + " " + masterMsg + Environment.NewLine);
+                AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + " " + masterMsg + Environment.NewLine);
                 if (!result)
                     allLoaded = false;
 
@@ -208,7 +234,7 @@ namespace ComServerBL.Hydra2.DAL.Calibration
             }
             var doneMsg = $"CalibrationRepository.InitMasters: done. Cache has {_correctionValuesDic.Count} sensor(s). All loaded={allLoaded}";
             Trace.WriteLine(doneMsg);
-            System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + " " + doneMsg + Environment.NewLine);
+            AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + " " + doneMsg + Environment.NewLine);
             return allLoaded;
         }
 
@@ -220,9 +246,13 @@ namespace ComServerBL.Hydra2.DAL.Calibration
 
                 if (correctionValues == null || correctionValues.Count == 0)
                 {
-                    System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + $" LoadCorrectionValues: '{loggerName}' returned {(correctionValues == null ? "null" : "0 rows")} from SP={procedureName}" + Environment.NewLine);
+                    // MBA-1007: 0 rows is an answer - no certificate on file. null is a failed read (the
+                    // query threw, or returned nothing at all), which must not be taken for that answer.
+                    if (correctionValues != null) _noCorrectionsOnFile[loggerName] = true;
+                    AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + $" LoadCorrectionValues: '{loggerName}' returned {(correctionValues == null ? "null" : "0 rows")} from SP={procedureName}" + Environment.NewLine);
                     return false;
                 }
+                _noCorrectionsOnFile.TryRemove(loggerName, out _);
 
                 bool isTemperatureOnly = correctionValues[0].HumidityValue == 0 &&
                     correctionValues.All(cv => cv.HumidityValue == 0);
@@ -239,7 +269,7 @@ namespace ComServerBL.Hydra2.DAL.Calibration
             }
             catch (Exception e)
             {
-                System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + $" LoadCorrectionValues ERROR: {e.Message}" + Environment.NewLine);
+                AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + $" LoadCorrectionValues ERROR: {e.Message}" + Environment.NewLine);
                 Trace.WriteLine($"CalibrationRepository.LoadCorrectionValues error: {e.Message}");
                 return false;
             }
@@ -264,7 +294,7 @@ namespace ComServerBL.Hydra2.DAL.Calibration
                 msg = $"  Master '{mabaID}' -> ITS-90 coefficients loaded (RTP={coefficients.RTP})";
             }
             Trace.WriteLine(msg);
-            System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + " " + msg + Environment.NewLine);
+            AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + " " + msg + Environment.NewLine);
             return coefficients != null;
         }
 
@@ -292,6 +322,23 @@ namespace ComServerBL.Hydra2.DAL.Calibration
         public void SetCorrectionValues(string mabaID, List<CorrectionValues> values)
         {
             _correctionValuesDic[mabaID] = values.OrderBy(o => o.TemperatureValue).ToList();
+            _noCorrectionsOnFile.TryRemove(mabaID, out _);
+        }
+
+        /// <summary>
+        /// MBA-1007: whether the database answered that <paramref name="mabaID"/> has no certificate. False
+        /// when it was never asked, or the read failed - both are worth asking again.
+        /// </summary>
+        public bool IsKnownToHaveNoCorrections(string mabaID)
+        {
+            return !string.IsNullOrEmpty(mabaID) && _noCorrectionsOnFile.ContainsKey(mabaID);
+        }
+
+        /// <summary>Records "no certificate on file" for <paramref name="mabaID"/> without the database.</summary>
+        public void SetNoCorrectionsOnFile(string mabaID)
+        {
+            _correctionValuesDic.TryRemove(mabaID, out _);
+            _noCorrectionsOnFile[mabaID] = true;
         }
 
         #endregion

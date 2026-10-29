@@ -91,6 +91,16 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             return new ChannelMasterMap(next, master);
         }
 
+        /// <summary>
+        /// A copy with no channel associated, keeping <see cref="Last"/>. What a LoggerConfiguration leaves:
+        /// it clears the logger's channel labels, so until the associations that follow it arrive every
+        /// channel is labelled with the last association - and compensated with the same sensor.
+        /// </summary>
+        public ChannelMasterMap WithoutChannels()
+        {
+            return ByChannel.Count == 0 ? this : new ChannelMasterMap(new Dictionary<int, string>(), Last);
+        }
+
         /// <summary>For the log: "11,12,13=31-98; 14=21-675".</summary>
         public override string ToString()
         {

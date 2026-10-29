@@ -70,6 +70,12 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations
             return _repository.HasCorrectionValues(sensorID);
         }
 
+        /// <summary>MBA-1007: whether the database answered that <paramref name="sensorID"/> has no certificate (not merely failed to say).</summary>
+        public bool IsKnownToHaveNoCorrections(string sensorID)
+        {
+            return _repository.IsKnownToHaveNoCorrections(sensorID);
+        }
+
         #endregion
 
         #region Process Results

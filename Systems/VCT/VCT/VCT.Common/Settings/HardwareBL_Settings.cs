@@ -671,16 +671,23 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         }
 
         /// <summary>
+        /// MBA-1007: the families whose BL compensates each channel with its own associated sensor. The
+        /// others still compensate with <see cref="HardwareBL_DeviceType.Masters"/> (Agilent34401aBL among
+        /// them), so a sensor is not recorded for them - the log would name a sensor that is not used.
+        /// </summary>
+        public static readonly IReadOnlyCollection<string> ChannelMasterFamilies =
+            new HashSet<string>(new[] { "Hydra2" }, StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
         /// MBA-1007: records that <paramref name="channelsCsv"/> of logger <paramref name="loggerId"/>
         /// carry sensor <paramref name="masterId"/>, so their readings are compensated with that sensor's
         /// certificate rather than the settings file's master. Routed exactly as the channel list is
         /// (<see cref="ResolveLiveFamilyKey"/>), and held the same way when no logger is identified yet,
         /// because the first Confirm arrives before identification.
         /// <para>
-        /// A LoggerConfiguration does not clear the map. The app re-sends LoggerConfiguration and then
-        /// the associations (the graph screen does, mid-run); clearing on the first would compensate the
-        /// scan that lands between them with the file's master. A later association overwrites its
-        /// channels, and a channel that leaves the scan is never read.
+        /// The map is per family, not per connection like the labels: a reading is compensated once, in the
+        /// BL, before it is broadcast to every client. So, like the channel list, the last client to
+        /// configure the logger decides.
         /// </para>
         /// Returns a summary for the log, or null when nothing was routed or nothing changed.
         /// </summary>
@@ -692,12 +699,9 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             var master = masterId.Trim();
             var channels = ParseChannels(channelsCsv);
 
-            var key = ResolveLiveFamilyKey(id);
-            var target = key == null ? null
-                : Families().FirstOrDefault(f => string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase)).Value;
-            if (target == null)
+            if (!TryRouteChannelMasters(id, out var key, out var target))
             {
-                HoldPendingChannelMasters(id, channels, master, replace, DateTime.UtcNow);
+                if (key == null) HoldPendingChannelMasters(id, m => m.With(channels, master, replace), DateTime.UtcNow);
                 return null;
             }
 
@@ -707,6 +711,48 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             var text = after.ToString();
             if (text == before.ToString() && string.Equals(after.Last, before.Last, StringComparison.OrdinalIgnoreCase)) return null;
             return string.Format("{0} (logger {1}): compensation {2}", key, id, text);
+        }
+
+        /// <summary>
+        /// MBA-1007 (review of #41): a LoggerConfiguration forgets which sensor each channel carried, keeping
+        /// the last one. It clears the logger's channel labels too, so a channel no association names again
+        /// was labelled with the last association but still compensated with its old sensor - run 1 had
+        /// 31-98 on 11-14, run 2 associated 21-675 with 11-13 only, and channel 14 was shown as 21-675 and
+        /// corrected as 31-98. Keeping <see cref="ChannelMasterMap.Last"/> means a scan that lands between
+        /// the configuration and its associations (the graph screen re-sends both mid-run) is compensated
+        /// with the previous sensor, the one it is labelled with, never with the settings file's master.
+        /// </summary>
+        public string ClearWebSocketChannelMasters(string loggerId)
+        {
+            if (string.IsNullOrWhiteSpace(loggerId)) return null;
+            var id = loggerId.Trim();
+
+            if (!TryRouteChannelMasters(id, out var key, out var target))
+            {
+                if (key == null) HoldPendingChannelMasters(id, m => m.WithoutChannels(), DateTime.UtcNow);
+                return null;
+            }
+
+            var before = target.ChannelMasters ?? ChannelMasterMap.Empty;
+            if (before.ByChannel.Count == 0) return null;
+            target.ChannelMasters = before.WithoutChannels();
+            return string.Format("{0} (logger {1}): compensation per channel cleared, {2} until the sensors are associated again",
+                key, id, before.Last ?? "the settings file's master");
+        }
+
+        /// <summary>
+        /// MBA-1007: the family a logger's sensors are recorded on. False with a null key when no logger is
+        /// identified yet (the caller holds them), false with a key when that family does not compensate per
+        /// channel (<see cref="ChannelMasterFamilies"/>).
+        /// </summary>
+        private bool TryRouteChannelMasters(string loggerId, out string key, out HardwareBL_DeviceType target)
+        {
+            key = ResolveLiveFamilyKey(loggerId);
+            target = null;
+            if (key == null || !ChannelMasterFamilies.Contains(key)) return false;
+            var k = key;
+            target = Families().FirstOrDefault(f => string.Equals(f.Key, k, StringComparison.OrdinalIgnoreCase)).Value;
+            return target != null;
         }
 
         #region configuration that arrives before the logger is identified (MBA-967)
@@ -780,8 +826,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             }
         }
 
-        /// <summary>MBA-1007: holds the sensor of <paramref name="channels"/> with the logger's held configuration.</summary>
-        internal static void HoldPendingChannelMasters(string loggerId, IEnumerable<int> channels, string master, bool replace, DateTime nowUtc)
+        /// <summary>MBA-1007: applies <paramref name="change"/> to the sensors held with the logger's held configuration.</summary>
+        internal static void HoldPendingChannelMasters(string loggerId, Func<ChannelMasterMap, ChannelMasterMap> change, DateTime nowUtc)
         {
             lock (_activeFamiliesLock)
             {
@@ -790,7 +836,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
                     p = new PendingWebSocketConfig { LoggerId = loggerId };
                 }
 
-                p.ChannelMasters = (p.ChannelMasters ?? ChannelMasterMap.Empty).With(channels, master, replace);
+                p.ChannelMasters = change(p.ChannelMasters ?? ChannelMasterMap.Empty);
                 p.ReceivedUtc = nowUtc;
                 _pendingConfigs[loggerId] = p;
             }
@@ -859,7 +905,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
 
                     // MBA-1007: the sensors came with the same Confirm, so they replace whatever the
                     // family was compensating with, the way its channel list was just replaced.
-                    if (p.ChannelMasters != null && !p.ChannelMasters.IsEmpty)
+                    if (p.ChannelMasters != null && !p.ChannelMasters.IsEmpty && ChannelMasterFamilies.Contains(fam.Key))
                     {
                         fam.Value.ChannelMasters = p.ChannelMasters;
                         summary = (summary ?? string.Format("{0} (master {1}): ", name, p.LoggerId)) +
