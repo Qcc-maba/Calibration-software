@@ -284,8 +284,9 @@ namespace Maba.VCT.Core.Tests
         public void NoCertificateOnFile_IsNotAskedAgainOnEveryScan()
         {
             var b = IdentifiedBench();
-            b.Certificates.SetNoCorrectionsOnFile("99-999");
             Confirm(b.Client, "1", ("99-999", "1"));
+            WaitForBackgroundLoads(b);
+            b.Certificates.SetNoCorrectionsOnFile("99-999");   // what the database answered
 
             Scan(b, 22.1);
             Scan(b, 22.1);
@@ -322,6 +323,45 @@ namespace Maba.VCT.Core.Tests
                 Assert.IsTrue(retry["99-999"] > DateTime.UtcNow, "read again once due, and rescheduled after failing");
             }
             Assert.IsFalse(LastScan(b.Client).ContainsKey(1), "still nothing to compensate with, so still not sent");
+        }
+
+        [TestMethod]
+        public void AssociatingASensor_StartsLoadingItsCertificateBeforeAnyScan()
+        {
+            // Re-review of #41 / bench 11:06:24: a sensor switched in mid-run was only looked up by the next
+            // scan, which therefore went out without its channels.
+            var b = IdentifiedBench();
+
+            Confirm(b.Client, "1", ("99-999", "1"));
+            WaitForBackgroundLoads(b);
+
+            var retry = (Dictionary<string, DateTime>)b.BL.GetField("_certificateRetryUtc");
+            lock (b.BL.GetField("_certificateLock"))
+            {
+                Assert.IsTrue(retry.ContainsKey("99-999"), "a load was attempted on the association itself, with no scan at all");
+            }
+        }
+
+        [TestMethod]
+        public void ConfirmingAgain_AsksAgainAboutASensorThatHadNoCertificate()
+        {
+            // Re-review of #41: a "none on file" answer was never asked again on a Confirm with the same
+            // setup (no re-init), so a certificate saved later stayed unused until the service restarted -
+            // while the log told the operator that confirming again was enough.
+            var b = IdentifiedBench();
+            Confirm(b.Client, "1", ("99-999", "1"));
+            WaitForBackgroundLoads(b);
+            b.Certificates.SetNoCorrectionsOnFile("99-999");
+            Scan(b, 22.1);
+            Assert.IsFalse(LastScan(b.Client).ContainsKey(1), "test setup: held back, none on file");
+
+            Confirm(b.Client, "1", ("99-999", "1"));
+
+            Assert.IsFalse(b.Certificates.IsKnownToHaveNoCorrections("99-999"), "the new Confirm asks again");
+            WaitForBackgroundLoads(b);
+            b.Certificates.SetCorrectionValues("99-999", Certificate21_675);   // saved meanwhile, and found
+            Scan(b, 22.1);
+            Assert.AreEqual(21.6, LastScan(b.Client)[1], Tolerance);
         }
 
         private static void WaitForBackgroundLoads(Bench b)

@@ -169,6 +169,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         {
             HC = new HydraCalculations(new ComServerBL.Hydra2.DAL.Calibration.CalibrationRepository());
             settings = parent.DeviceSettings;
+            settings.Hydra2type.ChannelMastersChanged += OnChannelMastersChanged;
         }
 
         #endregion
@@ -1090,6 +1091,33 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
             System.Threading.Tasks.Task.Run(() => LoadCertificate(sensor));
             return false;
+        }
+
+        /// <summary>
+        /// MBA-1007 (re-review of #41): the app associated sensors (every association of every Confirm).
+        /// Each one is asked about afresh and its certificate fetched now, in the background:
+        /// <list type="bullet">
+        /// <item>A sensor answered "none on file" is asked again. A Confirm with the same setup does not
+        /// re-init the logger, so before this a certificate saved after that answer stayed unused until the
+        /// service restarted - while the log told the operator that confirming again was enough.</item>
+        /// <item>A sensor switched in mid-run is loaded before the next scan instead of by it, so its
+        /// channels are no longer held back for that scan (bench, 2026-10-29 11:06:24).</item>
+        /// </list>
+        /// A certificate already loaded is kept, as before; the next init reloads it.
+        /// </summary>
+        private void OnChannelMastersChanged(ChannelMasterMap sensors)
+        {
+            foreach (var sensor in sensors.AllMasters())
+            {
+                if (string.IsNullOrWhiteSpace(sensor) || HC.HasCorrectionValues(sensor)) continue;
+                HC.ForgetNoCorrectionsOnFile(sensor);
+                lock (_certificateLock)
+                {
+                    _certificateRetryUtc.Remove(sensor);
+                    _certificatesReported.Remove(sensor);
+                }
+                EnsureCertificate(sensor);
+            }
         }
 
         private void LoadCertificate(string sensor)

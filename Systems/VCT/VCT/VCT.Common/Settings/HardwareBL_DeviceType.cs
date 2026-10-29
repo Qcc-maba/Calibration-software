@@ -29,7 +29,24 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         /// Empty until the app associates a sensor, and then the file's master is used, as before.
         /// </summary>
         [JsonIgnore]
-        public ChannelMasterMap ChannelMasters { get; set; } = ChannelMasterMap.Empty;
+        public ChannelMasterMap ChannelMasters
+        {
+            get { return _channelMasters; }
+            set
+            {
+                _channelMasters = value ?? ChannelMasterMap.Empty;
+                ChannelMastersChanged?.Invoke(_channelMasters);
+            }
+        }
+        private ChannelMasterMap _channelMasters = ChannelMasterMap.Empty;
+
+        /// <summary>
+        /// MBA-1007 (re-review of #41): raised on every assignment, on the WebSocket thread, even when the
+        /// map is unchanged - each association of a Confirm assigns. The BL uses it to load the sensors'
+        /// certificates as they are associated, rather than at the next scan, and to ask again about a
+        /// sensor that had none: a Confirm with the same setup does not re-init, so nothing else would.
+        /// </summary>
+        public event Action<ChannelMasterMap> ChannelMastersChanged;
 
         public HardwareBL_DeviceType()
         {

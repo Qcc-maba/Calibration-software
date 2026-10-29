@@ -334,6 +334,15 @@ namespace ComServerBL.Hydra2.DAL.Calibration
             return !string.IsNullOrEmpty(mabaID) && _noCorrectionsOnFile.ContainsKey(mabaID);
         }
 
+        /// <summary>
+        /// MBA-1007: forgets a "no certificate on file" answer, so the next load asks again - for a
+        /// sensor associated anew, whose certificate may have been saved since.
+        /// </summary>
+        public void ForgetNoCorrectionsOnFile(string mabaID)
+        {
+            if (!string.IsNullOrEmpty(mabaID)) _noCorrectionsOnFile.TryRemove(mabaID, out _);
+        }
+
         /// <summary>Records "no certificate on file" for <paramref name="mabaID"/> without the database.</summary>
         public void SetNoCorrectionsOnFile(string mabaID)
         {

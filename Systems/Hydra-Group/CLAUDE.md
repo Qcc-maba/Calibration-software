@@ -176,10 +176,15 @@ all 21 readings were corrected with 21-449: 22.1 became 22.0701 instead of 22.23
   `AlertType` on both sides (see `Systems/VCT/CLAUDE.md`).
 - **Certificates load at every init**, before the first scan: the file master plus every associated sensor,
   latest version only (`@GetLatestVersionOnly=1`).
-  - A sensor associated mid-run is loaded **in the background**, never on the poll thread. A load is two
-    queries of up to 30 s each, which could let the data watchdog reset the logger.
-  - "No certificate on file" (0 rows) is an answer, `CalibrationRepository.IsKnownToHaveNoCorrections`. It is
-    not asked again until the next init.
+  - A sensor is loaded **as soon as it is associated**, in the background (`HardwareBL_DeviceType.ChannelMastersChanged`
+    → `Hydra2DeviceBL.OnChannelMastersChanged`). It is never loaded on the poll thread: a load is two queries of up
+    to 30 s each, which could let the data watchdog reset the logger. A sensor switched in mid-run is therefore
+    usually loaded before the next scan, rather than missing it.
+  - "No certificate on file" (0 rows) is an answer, `CalibrationRepository.IsKnownToHaveNoCorrections`, and
+    scans don't ask again. **Every association does** (re-review of #41). A Confirm with the same setup does not
+    re-init the logger, so without that, a certificate saved after a "none" stayed unused until the service
+    restarted.
+  - A certificate already loaded is kept until the next init.
   - A failed read is retried every `CertificateRetryInterval` (30 s).
   - The held-back channels are logged once per sensor per init, and again after each load attempt:
     `[HYDRA Correction] CH11,12 | NOT SENT: sensor '99-1': ...`.

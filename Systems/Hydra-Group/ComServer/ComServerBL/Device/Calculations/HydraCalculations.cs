@@ -76,6 +76,12 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations
             return _repository.IsKnownToHaveNoCorrections(sensorID);
         }
 
+        /// <summary>MBA-1007: forgets a "no certificate on file" answer, so the next load asks again.</summary>
+        public void ForgetNoCorrectionsOnFile(string sensorID)
+        {
+            _repository.ForgetNoCorrectionsOnFile(sensorID);
+        }
+
         #endregion
 
         #region Process Results
