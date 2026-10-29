@@ -390,6 +390,46 @@ namespace Maba.VCT.Core.Tests
         }
 
         [TestMethod]
+        public void AFailedReadThatTurnsIntoNoneOnFile_IsAlertedAgain_WithTheNewReason()
+        {
+            // Review of #42: the first reason stuck, so the operator kept waiting for a retry that could not
+            // help, when what was needed was a certificate saved and the logger confirmed again.
+            var b = IdentifiedBench();
+            Confirm(b.Client, "1", ("99-999", "1"));
+            WaitForBackgroundLoads(b);   // the read fails: the test's connection string points nowhere
+            Scan(b, 22.1);
+            StringAssert.Contains(SentAlerts(b.Client, "CorrectionUnavailable").Single().Message, "could not be read");
+
+            b.Certificates.SetNoCorrectionsOnFile("99-999");   // what the retry's read answered
+            Scan(b, 22.1);
+            Scan(b, 22.1);
+
+            var again = SentAlerts(b.Client, "CorrectionUnavailable");
+            Assert.AreEqual(1, again.Count, "alerted once more, with the new reason - not again per scan");
+            StringAssert.Contains(again[0].Message, "no correction certificate on file");
+        }
+
+        [TestMethod]
+        public void AReinitWithoutTheOperator_DoesNotRepeatTheAlert()
+        {
+            // Review of #42: power-cycle recovery and reconnects re-init the BL, and each one used to send the
+            // held-back alerts again - a burst of toasts on every recovery of a flaky link.
+            var b = IdentifiedBench();
+            Confirm(b.Client, "1,2", ("99-999", "1,2"));
+            WaitForBackgroundLoads(b);
+            b.Certificates.SetNoCorrectionsOnFile("99-999");
+            Scan(b, 22.1, 22.1);
+            Assert.AreEqual(2, SentAlerts(b.Client, "CorrectionUnavailable").Count, "test setup: alerted");
+
+            Assert.IsTrue(b.Fluke.ReinitializeBL("test"));
+            WaitForBackgroundLoads(b);
+            b.Certificates.SetNoCorrectionsOnFile("99-999");   // the init's read gives the same answer
+            Scan(b, 22.1, 22.1);
+
+            Assert.AreEqual(0, SentAlerts(b.Client, "CorrectionUnavailable").Count, "same sensor, same reason: told already");
+        }
+
+        [TestMethod]
         public void AssociatingASensor_StartsLoadingItsCertificateBeforeAnyScan()
         {
             // Re-review of #41 / bench 11:06:24: a sensor switched in mid-run was only looked up by the next

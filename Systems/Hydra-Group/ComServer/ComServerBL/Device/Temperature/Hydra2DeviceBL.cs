@@ -150,9 +150,13 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
               same certificate at once.
             - Each sensor's channels held back are logged once per init, not per channel per scan - three
               channels at a 2 s rate were about 130,000 identical lines a day.
-            - MBA-1008: the operator is told too, with a CorrectionUnavailable alert per held-back channel -
-              once per sensor per init or association, and only once the reason is settled (the database
-              answered "none", or a read failed). A load still running is not alerted; it usually succeeds.
+            - MBA-1008: the operator is told too, with a CorrectionUnavailable alert per held-back channel,
+              only once the reason is settled (the database answered "none", or a read failed); a load still
+              running is not alerted, it usually succeeds. Once per sensor and reason (review of #42): a failed
+              read that turns into "none on file" is alerted again, since it asks the operator for something
+              else. Kept across re-inits - recovery and reconnects re-init without the operator, and each
+              used to repeat the toasts - and cleared by an association, which the app sends on every
+              Confirm and whenever its graph loads, so a reloaded page is told again.
 
             Guarded by _certificateLock; nothing marks a sensor before its load has been attempted, so a scan
             racing a re-init cannot find a sensor "looked up" that was never loaded.  */
@@ -161,7 +165,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         private readonly HashSet<string> _certificatesLoading = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DateTime> _certificateRetryUtc = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _certificatesReported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<string> _certificatesAlerted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Per sensor, the reason last alerted: true for "none on file", false for a failed read.</summary>
+        private readonly Dictionary<string, bool> _certificatesAlerted = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>How soon a certificate whose load failed is tried again.</summary>
         internal static readonly TimeSpan CertificateRetryInterval = TimeSpan.FromSeconds(30);
@@ -256,7 +261,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             {
                 _certificateRetryUtc.Clear();
                 _certificatesReported.Clear();
-                _certificatesAlerted.Clear();
+                // _certificatesAlerted is kept: a re-init alone does not change what the operator was told
             }
             lock (_certificateLoadLock)
             {
@@ -1163,22 +1168,27 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// <summary>
         /// MBA-1007: one line per sensor per init for the channels held back because its certificate is not
         /// loaded, saying why. Logged again only once the reason has changed (a load attempt finished).
-        /// MBA-1008: and alerted to the app, once per sensor until the next init or association.
+        /// MBA-1008: and alerted to the app, once per sensor and reason until the next association.
         /// </summary>
         private void ReportHeldBack(List<int> heldBack, ChannelMasterMap sensors)
         {
             if (heldBack.Count == 0) return;
 
+            // a non-empty map names a sensor for every channel (MasterFor falls back to Last)
             foreach (var group in heldBack.GroupBy(ch => sensors.MasterFor(ch) ?? "", StringComparer.OrdinalIgnoreCase))
             {
                 var sensor = group.Key;
-                var none = HC.IsKnownToHaveNoCorrections(sensor);
-                bool first, alert;
+                bool none, first, alert;
                 lock (_certificateLock)
                 {
+                    // read under the lock with the marks, so an association clearing both cannot fall between
+                    // them and leave a stale reason marked as told (review of #42)
+                    none = HC.IsKnownToHaveNoCorrections(sensor);
                     first = _certificatesReported.Add(sensor);
                     // a load still running is not alerted yet: the scan after it ends is
-                    alert = (none || _certificateRetryUtc.ContainsKey(sensor)) && _certificatesAlerted.Add(sensor);
+                    var settled = none || _certificateRetryUtc.ContainsKey(sensor);
+                    alert = settled && (!_certificatesAlerted.TryGetValue(sensor, out var alertedNone) || alertedNone != none);
+                    if (alert) _certificatesAlerted[sensor] = none;
                 }
 
                 if (first)

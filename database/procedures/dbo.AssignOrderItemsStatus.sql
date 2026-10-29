@@ -20,8 +20,19 @@
         'Provided user does not exist'
         'Provided user is not active'
 
-    Nothing else changed: the status and category lookups, the history insert and the update are
-    the STAGE body as it was.
+    Review of PR #42, two more guards:
+    - A status name that matches no row left @StatusId NULL; the insert then wrote a history row
+      with no status, and the update set the line's current status to NULL - wiping it silently.
+      It now throws 'Provided status does not exist' (also matched by the web app).
+    - The user is looked up with TOP (1), the active row first. Users.Email has no unique index, so
+      a retired account kept next to the live one would have failed the scalar subquery with
+      "Subquery returned more than 1 value". STAGE has no such duplicates today (checked 2026-10-29).
+
+    Otherwise the category check, the history insert and the update are the STAGE body as it was.
+
+    Deployed: STAGE 2026-10-29. PROD: not compared and not deployed - the read of the PROD
+    definition was refused on 2026-10-29. Diff OBJECT_DEFINITION on PROD against this file before
+    deploying there; this CREATE OR ALTER replaces whatever PROD has.
 */
 CREATE OR ALTER PROCEDURE [dbo].[AssignOrderItemsStatus]
 @UserEmail NVARCHAR(50),
@@ -39,7 +50,11 @@ AS
 BEGIN
 SET NOCOUNT ON;
 
-DECLARE @UserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @UserEmail)
+DECLARE @UserId INT;
+SELECT TOP (1) @UserId = ID
+FROM [dbo].[Users]
+WHERE Email = @UserEmail
+ORDER BY IsActive DESC;
 
 DECLARE @StatusId INT,@StatusCategoryId INT
 
@@ -62,6 +77,9 @@ THROW 51000, 'Provided user is not active', 1;
 
 IF @StatusCategoryName NOT IN (N'ReportStatus',N'CalibrationStatuses')
 THROW 51000, 'Incorrect ReportStatus or CalibrationStatus provided', 1;
+
+IF @StatusId IS NULL
+THROW 51000, 'Provided status does not exist', 1;
 
 IF NOT EXISTS
 (SELECT 1 FROM [dbo].[OrderItemsStatusesHistory] WHERE [OrderDetailsItemId] = @OrderDetailsItemId
