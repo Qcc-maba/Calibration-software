@@ -145,6 +145,90 @@ that send time, and evenly spaced scans showed up 29/30/31 s apart.
   reconnect sends the three commands again rather than an init (a stop made while the link was down sent
   nothing, and the logger kept scanning) - until a `Status:"Start"` re-inits it. Details in `Systems/VCT/CLAUDE.md`.
 
+## Each Hydra 2625A channel is compensated with its own sensor (MBA-1007)
+
+Until MBA-1007 every reading was compensated with `Hydra2type.Masters[0]` from `HydraBL_Settings.json`,
+whatever sensor the operator chose. On the bench (2026-10-28) the operator chose 31-98 on channels 11-13 and
+all 21 readings were corrected with 21-449: 22.1 became 22.0701 instead of 22.2336.
+
+- **The sensor comes from the app's `SensorsAssociation`** (`DeviceID` on its `BatchChannels`), into
+  `HardwareBL_DeviceType.ChannelMasters` via `HardwareBL_Settings.SetWebSocketChannelMasters`. It is routed and
+  held until identification exactly like the channel list, added or replaced exactly like the channels and
+  labels, and never saved to the file (`[JsonIgnore]`). A channel no association named uses the last
+  association's sensor, because that is the label it reaches the app under.
+- **`Masters` keeps two other jobs:** it routes a logger's messages to a family, and it compensates for an
+  app that sends no association at all. Do not put an operator's sensor into it.
+- **Only families listed in `HardwareBL_Settings.ChannelMasterFamilies` (Hydra2) record a sensor.** The others,
+  `Agilent34401aBL` among them, still compensate with `Masters[0]`. Recording a sensor for them would only make
+  the log name a sensor that no reading is corrected with.
+- **The map is per family, not per connection like the labels.** A reading is compensated once, in the BL,
+  before it is broadcast to every client. So the last client to configure the logger decides, as it already
+  does for the channel list.
+- **A LoggerConfiguration clears the per-channel sensors but keeps the last one** (`ClearWebSocketChannelMasters`,
+  review of #41).
+  - This mirrors the labels. Without it, run 1 with 31-98 on 11-14 followed by run 2 with 21-675 on 11-13 left
+    channel 14 shown as 21-675 and corrected as 31-98.
+  - Keeping `Last` means a scan that lands between a re-sent LoggerConfiguration and its associations (the graph
+    screen does that mid-run) uses the previous sensor, never the file's master.
+- **No certificate, no reading.** A sensor whose certificate isn't loaded is not compensated with another's,
+  and its channels are not sent. The scan itself is still broadcast, so the data watchdog does not reset a
+  working logger. With the current app nothing shows on screen (decision 2026-10-29); an alert needs a new
+  `AlertType` on both sides (see `Systems/VCT/CLAUDE.md`).
+- **Certificates load at every init**, before the first scan: the file master plus every associated sensor,
+  latest version only (`@GetLatestVersionOnly=1`).
+  - A sensor is loaded **as soon as it is associated**, in the background (`HardwareBL_DeviceType.ChannelMastersChanged`
+    → `Hydra2DeviceBL.OnChannelMastersChanged`). It is never loaded on the poll thread: a load is two queries of up
+    to 30 s each, which could let the data watchdog reset the logger. A sensor switched in mid-run is therefore
+    usually loaded before the next scan, rather than missing it.
+  - "No certificate on file" (0 rows) is an answer, `CalibrationRepository.IsKnownToHaveNoCorrections`, and
+    scans don't ask again. **Every association does** (re-review of #41). A Confirm with the same setup does not
+    re-init the logger, so without that, a certificate saved after a "none" stayed unused until the service
+    restarted.
+  - A certificate already loaded is kept until the next init.
+  - A failed read is retried every `CertificateRetryInterval` (30 s).
+  - The held-back channels are logged once per sensor per init, and again after each load attempt:
+    `[HYDRA Correction] CH11,12 | NOT SENT: sensor '99-1': ...`.
+- **`correction.log` writes are serialised and never throw** (`CalibrationRepository.AppendCorrectionLog`).
+  Two loads at once, from an init and a background load or from two instruments, used to throw "being used by
+  another process" out of a BL's init.
+- **The log is the validation record:** `[HYDRA Correction] CH11 | Raw=22.1000 | Corrected=22.2336 | Status=OK | MasterID=31-98 | From=sensor`.
+  `From=settings file` means the app associated nothing. `scripts/Get-HydraCompensationPairs.ps1` turns
+  `server.log` into the raw → compensated table for a time range and checks each pair against
+  `dbo.fnMasterValueAfterCorrection` (read-only).
+- **Bench-verified on STAGE 2026-10-29:** sensor 31-98 on channels 11-13 gave 54/54 readings `From=sensor`.
+  Raw 22.2-22.7 °C matched 31-98's certificate equation to within 6e-5, which is the log's 4-decimal rounding.
+
+## The VCT ignores the certificate's equation (open, found under MBA-1007)
+
+A certificate (`dbo.MeasurementDevicesCorrections`, one row per range, newest `CorVersion` only) is a
+**piecewise-linear fit**: each row covers `[Value1, Value2]` with its own `Equation` (`x * (slope)  + const`),
+and `Deviation` is only that equation evaluated at `Value1`. Every row on STAGE carries an `Equation`: 31,455
+rows over 1,435 devices.
+
+There are three implementations of the compensation, and the VCT is the one that disagrees:
+
+| Where | Model |
+|---|---|
+| `dbo.fnMasterValueAfterCorrection` (sensors-table "master after correction", computed when read) | Evaluates the containing range's equation and continues the nearest range past either end. This is the reference implementation; tests are in `database/tests/Test-fnMasterValueAfterCorrection.sql`. |
+| App `src/lib/helpers/master-sensor-compensation.ts` | The matching range's equation, falling back to point interpolation. It only parses `x * (a) ± b`; the SQL handles nine shapes. |
+| VCT `CalibrationRepository.CalcDeviationForTemperature` | **Interpolates between `(Value1, Deviation)` points and ignores `Equation`**, although `GetMeasurementDevicesCorrections` returns it on STAGE. |
+
+Inside a range the results agree to about 1e-5. They differ at the certificate's ends: above the last `Value1` the VCT holds the last deviation flat.
+For 31-98 that gives 249.96 → 250.540 against the certificate's 250.430, the same fault Nofar caught in the SQL under MBA-811.
+Further faults in the VCT, not yet measured:
+
+- **`Value2` is read as humidity.** For temperature it is the range end, so `CalculateCornersValues` adds four
+  invented corner points 10° beyond each end, and those points feed the interpolation near the ends.
+- **A reading exactly on the last point** returns `Deviation`, not `value - Deviation`.
+
+To fix: evaluate the range's equation as the SQL function does, read `Value2` as the range end, and reuse the
+SQL test cases. Check first that PROD's `GetMeasurementDevicesCorrections` also returns `Equation`; only STAGE
+was read.
+
+Nothing stores compensated values. The live readings go to the graph and the Excel export (MBA-485/886).
+`MasterValue` on measurement points is raw and is compensated on read, while the precision flow's `MeasuredValue` is the graph average, which the VCT has already compensated.
+Nothing records which is which, so storing a VCT-compensated value as `MasterValue` would compensate it twice (MBA-1008).
+
 ## The Meatest M-142 cannot do GPIB — and only the M-142
 
 A bit-level corruption on the GPIB bus was attributed first to one instrument, then to the adapter,

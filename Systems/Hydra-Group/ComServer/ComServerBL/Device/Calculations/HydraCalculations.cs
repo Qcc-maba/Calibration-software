@@ -64,6 +64,24 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations
             return _repository.CalcDeviationForTemperature(value, sensorID);
         }
 
+        /// <summary>MBA-1007: whether <paramref name="sensorID"/>'s correction certificate is loaded.</summary>
+        public bool HasCorrectionValues(string sensorID)
+        {
+            return _repository.HasCorrectionValues(sensorID);
+        }
+
+        /// <summary>MBA-1007: whether the database answered that <paramref name="sensorID"/> has no certificate (not merely failed to say).</summary>
+        public bool IsKnownToHaveNoCorrections(string sensorID)
+        {
+            return _repository.IsKnownToHaveNoCorrections(sensorID);
+        }
+
+        /// <summary>MBA-1007: forgets a "no certificate on file" answer, so the next load asks again.</summary>
+        public void ForgetNoCorrectionsOnFile(string sensorID)
+        {
+            _repository.ForgetNoCorrectionsOnFile(sensorID);
+        }
+
         #endregion
 
         #region Process Results
