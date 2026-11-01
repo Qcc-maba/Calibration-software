@@ -31,10 +31,10 @@ BEGIN
 
     DECLARE @Changed INT;
 
+    /* UpdatedDate / UpdateUserID are left alone: DBA/sql/02_usp_SyncHealthCheck.sql reads
+       MAX(UpdatedDate) on this table as the last sync time, and a signature is not a sync */
     UPDATE dbo.OrderDetailsItems
-    SET RemarksLockedDate = CASE WHEN @IsLocked = 1 THEN GETDATE() ELSE NULL END,
-        UpdatedDate       = GETDATE(),
-        UpdateUserID      = @UserId
+    SET RemarksLockedDate = CASE WHEN @IsLocked = 1 THEN GETDATE() ELSE NULL END
     WHERE OrderDetailsItemId = @OrderDetailsItemId
       AND (   (@IsLocked = 1 AND RemarksLockedDate IS NULL)
            OR (@IsLocked = 0 AND RemarksLockedDate IS NOT NULL));

@@ -70,6 +70,10 @@ INSERT @Out SELECT N'1 render', N'{1} is not replaced inside {10}', N'x1 y{10}..
        dbo.fnRenderRemarkTemplate(N'x{1} y{10}', N'["1"]'),
        CASE WHEN dbo.fnRenderRemarkTemplate(N'x{1} y{10}', N'["1"]') = N'x1 y{10}' THEN N'PASS' ELSE N'FAIL' END;
 
+INSERT @Out SELECT N'1 render', N'a value containing {2} is printed as typed', N'a={2} b=x',
+       dbo.fnRenderRemarkTemplate(N'a={1} b={2}', N'["{2}","x"]'),
+       CASE WHEN dbo.fnRenderRemarkTemplate(N'a={1} b={2}', N'["{2}","x"]') = N'a={2} b=x' THEN N'PASS' ELSE N'FAIL' END;
+
 INSERT @Out SELECT N'1 render', N'NULL values leave the template', N'OFFSET = {1}',
        dbo.fnRenderRemarkTemplate(N'OFFSET = {1}', NULL),
        CASE WHEN dbo.fnRenderRemarkTemplate(N'OFFSET = {1}', NULL) = N'OFFSET = {1}' THEN N'PASS' ELSE N'FAIL' END;
@@ -174,15 +178,33 @@ BEGIN
                 THEN N'PASS' ELSE N'FAIL' END
     FROM #S;
 
+    /* a change in letter case only is a change */
+    DELETE #S;
+    SET @T = CONCAT(N'[{"PredefinedRemarkId":', @R1, N',"Values":["7"]},',
+                    N'{"Text":"הערה חופשית - FREE text"},',
+                    N'{"PredefinedRemarkId":', @R2, N',"TextHEB":"בוצע כיוון לבקר.","TextENG":"Controller adjusted."},',
+                    N'{"PredefinedRemarkId":', @R2, N',"TextHEB":"כיוון בלי תרגום"}]');
+    INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @Item, N'Report', NULL, @T, 1;
+    INSERT @Out SELECT N'2 save', N'a change in letter case only is saved', N'Saved, FREE stored',
+           CONCAT(MIN(Outcome), N', ', (SELECT TextENG FROM dbo.CalibrationRemarks
+                                        WHERE OrderDetailsItemId = @Item AND Scope = N'Report'
+                                          AND DisplayOrder = 2 AND IsDeleted = 0)),
+           CASE WHEN MIN(Outcome) = N'Saved'
+                 AND (SELECT TextENG COLLATE Latin1_General_100_BIN2 FROM dbo.CalibrationRemarks
+                      WHERE OrderDetailsItemId = @Item AND Scope = N'Report' AND DisplayOrder = 2 AND IsDeleted = 0)
+                     = N'הערה חופשית - FREE text'
+                THEN N'PASS' ELSE N'FAIL' END
+    FROM #S;
+
     /* a changed set replaces the old one; the old rows are kept, soft-deleted */
     DELETE #S;
     SET @T = CONCAT(N'[{"PredefinedRemarkId":', @R2, N'}]');
     INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @Item, N'Report', NULL, @T, 1;
-    INSERT @Out SELECT N'2 save', N'a new set replaces the old; history kept', N'1 live, 4 soft-deleted',
+    INSERT @Out SELECT N'2 save', N'a new set replaces the old; history kept', N'1 live, 8 soft-deleted',
            CONCAT(SUM(CASE WHEN IsDeleted = 0 THEN 1 ELSE 0 END), N' live, ',
                   SUM(CASE WHEN IsDeleted = 1 THEN 1 ELSE 0 END), N' soft-deleted'),
            CASE WHEN SUM(CASE WHEN IsDeleted = 0 THEN 1 ELSE 0 END) = 1
-                 AND SUM(CASE WHEN IsDeleted = 1 THEN 1 ELSE 0 END) = 4 THEN N'PASS' ELSE N'FAIL' END
+                 AND SUM(CASE WHEN IsDeleted = 1 THEN 1 ELSE 0 END) = 8 THEN N'PASS' ELSE N'FAIL' END
     FROM dbo.CalibrationRemarks WHERE OrderDetailsItemId = @Item AND Scope = N'Report';
 
     /* a retired list row on the section already: saving it again is allowed */
@@ -287,7 +309,9 @@ BEGIN
         (N'report remark given a cycle',                 N'Report', 1, N'[]'),
         (N'cycle remark without a cycle',                N'Cycle',  0, N'[]'),
         (N'cycle that does not exist',                   N'Cycle',  1, N'[]'),
-        (N'unknown scope',                               N'Other',  0, N'[]');
+        (N'unknown scope',                               N'Other',  0, N'[]'),
+        (N'misspelled key (TextEng)',                    N'Report', 0, N'[{"PredefinedRemarkId":#R1,"TextHEB":"x","TextEng":"y"}]'),
+        (N'Values given as a string, not an array',      N'Report', 0, N'[{"PredefinedRemarkId":#R1,"Values":"15"}]');
 
     DECLARE @Seq INT = 1, @Max INT = (SELECT MAX(Seq) FROM @Case), @Sc NVARCHAR(10), @Uc BIT, @J NVARCHAR(MAX),
             @CycleArg DATETIME2(0);
@@ -331,7 +355,7 @@ END;
 IF @Item IS NOT NULL
 BEGIN
     DECLARE @NewCycle DATETIME2(0) = DATEADD(YEAR, -40, @Cycle);
-    DECLARE @M TABLE (Moved INT, Replaced INT);
+    DECLARE @M TABLE (Moved INT);
 
     BEGIN TRANSACTION;
     INSERT dbo.PredefinedRemarks (SecondaryCategoryId, Scope, TextHEB, TextENG, DefaultValues, DisplayOrder)
@@ -341,24 +365,20 @@ BEGIN
     DELETE #S;
     INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @Item, N'Cycle', @Cycle, @T, 1;
 
-    /* a cycle deleted earlier at the new time, with a remark still on it: the app revives such a row */
+    /* what the app does: insert the new cycle row, move, soft-delete the old row */
     INSERT dbo.CalibrationCycles (OrderDetailsItemId, CalibrationCycleStartDate, CalibrationCycleEndDate,
                                   CalibrationCycleStatusId, CreatedUserID, CreatedDate, IsDeleted)
     SELECT OrderDetailsItemId, @NewCycle, CalibrationCycleEndDate, CalibrationCycleStatusId, CreatedUserID, GETDATE(), 0
     FROM dbo.CalibrationCycles WHERE OrderDetailsItemId = @Item AND CalibrationCycleStartDate = @Cycle;
-    DELETE #S;
-    INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @Item, N'Cycle', @NewCycle, N'[{"Text":"ישן"}]', 1;
-
     INSERT @M EXEC dbo.MoveCalibrationCycleRemarks @Email, @Item, @Cycle, @NewCycle;
     UPDATE dbo.CalibrationCycles SET IsDeleted = 1 WHERE OrderDetailsItemId = @Item AND CalibrationCycleStartDate = @Cycle;
     DELETE #G;
     INSERT #G EXEC dbo.GetCalibrationRemarks @Item;
 
-    INSERT @Out SELECT N'5 move', N'remarks follow the new start time; old ones on it retired',
-           N'Moved 2, Replaced 1; 2 rows on the new time, texts kept',
-           CONCAT(N'Moved ', (SELECT Moved FROM @M), N', Replaced ', (SELECT Replaced FROM @M), N'; ',
-                  COUNT(*), N' rows on the new time'),
-           CASE WHEN (SELECT Moved FROM @M) = 2 AND (SELECT Replaced FROM @M) = 1
+    INSERT @Out SELECT N'5 move', N'remarks follow the new start time, texts kept',
+           N'Moved 2; 2 rows on the new time',
+           CONCAT(N'Moved ', (SELECT Moved FROM @M), N'; ', COUNT(*), N' rows on the new time'),
+           CASE WHEN (SELECT Moved FROM @M) = 2
                  AND COUNT(*) = 2
                  AND MAX(CASE WHEN DisplayOrder = 1 THEN TextENG END) = N'Tested under loaded conditions.'
                  AND MAX(CASE WHEN DisplayOrder = 2 THEN TextHEB END) = N'מחזור'
@@ -368,9 +388,9 @@ BEGIN
     DELETE @M;
     INSERT @M EXEC dbo.MoveCalibrationCycleRemarks @Email, @Item, @Cycle, @NewCycle;
     INSERT @M EXEC dbo.MoveCalibrationCycleRemarks @Email, @Item, @NewCycle, @NewCycle;
-    INSERT @Out SELECT N'5 move', N'nothing left to move / same time: writes nothing', N'0 0, 0 0',
-           (SELECT STRING_AGG(CONCAT(Moved, N' ', Replaced), N', ') FROM @M),
-           CASE WHEN NOT EXISTS (SELECT 1 FROM @M WHERE Moved <> 0 OR Replaced <> 0) AND (SELECT COUNT(*) FROM @M) = 2
+    INSERT @Out SELECT N'5 move', N'nothing left to move / same time: writes nothing', N'0, 0',
+           (SELECT STRING_AGG(CAST(Moved AS NVARCHAR(10)), N', ') FROM @M),
+           CASE WHEN NOT EXISTS (SELECT 1 FROM @M WHERE Moved <> 0) AND (SELECT COUNT(*) FROM @M) = 2
                 THEN N'PASS' ELSE N'FAIL' END;
     ROLLBACK TRANSACTION;
 
@@ -389,6 +409,82 @@ BEGIN
     IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
     INSERT @Out SELECT N'5 move', N'refused before the new cycle row exists', N'an error',
            ISNULL(LEFT(@Err, 60), N'accepted'), CASE WHEN @Err LIKE N'%insert it before%' THEN N'PASS' ELSE N'FAIL' END;
+END;
+
+
+/* =============================================================================================
+   Section 6 - deleting a cycle retires its remarks, so a cycle added again at the same start time
+   (dbo.AddCalibrationCycle revives the deleted row) starts with none; and the sub-domain check
+   ============================================================================================= */
+IF @Item IS NOT NULL
+BEGIN
+    BEGIN TRANSACTION;
+    DELETE #S;
+    INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @Item, N'Cycle', @Cycle, N'[{"Text":"ישן"}]', 1;
+    EXEC dbo.DeleteCalibrationCycle @Email, @Item, @Cycle;
+    DECLARE @EndDate DATETIME2(0) = (SELECT CalibrationCycleEndDate FROM dbo.CalibrationCycles
+                                     WHERE OrderDetailsItemId = @Item AND CalibrationCycleStartDate = @Cycle);
+    EXEC dbo.AddCalibrationCycle @Email, @Item, @Cycle, @EndDate, N'test', NULL, NULL, NULL;
+    DELETE #G;
+    INSERT #G EXEC dbo.GetCalibrationRemarks @Item;
+    INSERT @Out SELECT N'6 delete', N'delete + add at the same time: old remarks do not come back',
+           N'cycle live again, 0 remarks on it',
+           CONCAT(N'cycle IsDeleted=', (SELECT CAST(IsDeleted AS NVARCHAR(1)) FROM dbo.CalibrationCycles
+                                        WHERE OrderDetailsItemId = @Item AND CalibrationCycleStartDate = @Cycle),
+                  N', ', COUNT(*), N' remarks'),
+           CASE WHEN COUNT(*) = 0
+                 AND (SELECT IsDeleted FROM dbo.CalibrationCycles
+                      WHERE OrderDetailsItemId = @Item AND CalibrationCycleStartDate = @Cycle) = 0
+                THEN N'PASS' ELSE N'FAIL' END
+    FROM #G WHERE Scope = N'Cycle' AND CalibrationCycleStartDate = @Cycle;
+    ROLLBACK TRANSACTION;
+END;
+
+/* a list remark from another sub-domain than the line's is refused - needs a line that has one */
+DECLARE @CatItem INT, @LineCat INT;
+SELECT TOP (1) @CatItem = odi.OrderDetailsItemId, @LineCat = od.SecondaryCategoryId
+FROM dbo.OrderDetailsItems AS odi
+JOIN dbo.OrderDetails AS od ON od.OrderDetailId = odi.OrderDetailId
+WHERE odi.IsDeleted = 0 AND od.SecondaryCategoryId IS NOT NULL AND odi.RemarksLockedDate IS NULL
+  AND (SELECT COUNT(*) FROM dbo.OrderDetailsItems AS x WHERE x.OrderDetailsItemId = odi.OrderDetailsItemId) = 1
+ORDER BY odi.OrderDetailsItemId DESC;
+
+IF @CatItem IS NULL
+    INSERT @Out VALUES (N'6 subdomain', N'no line with a sub-domain in this database', N'-', N'-', N'SKIPPED');
+ELSE
+BEGIN
+    DECLARE @OtherCat INT = (SELECT MIN(ID) FROM dbo.SecondaryCategories WHERE IsDeleted = 0 AND ID <> @LineCat);
+    DECLARE @OkErr NVARCHAR(400);
+    SET @Err = NULL;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        INSERT dbo.PredefinedRemarks (SecondaryCategoryId, Scope, TextHEB, TextENG, DefaultValues, DisplayOrder)
+        VALUES (@LineCat, N'Report', N'שלי', N'Mine', NULL, 1);
+        SET @T = CONCAT(N'[{"PredefinedRemarkId":', SCOPE_IDENTITY(), N'}]');
+        DELETE #S;
+        INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @CatItem, N'Report', NULL, @T, 0;
+    END TRY
+    BEGIN CATCH
+        SET @OkErr = ERROR_MESSAGE();
+    END CATCH;
+    IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        INSERT dbo.PredefinedRemarks (SecondaryCategoryId, Scope, TextHEB, TextENG, DefaultValues, DisplayOrder)
+        VALUES (@OtherCat, N'Report', N'של אחר', N'Other', NULL, 1);
+        SET @T = CONCAT(N'[{"PredefinedRemarkId":', SCOPE_IDENTITY(), N'}]');
+        INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @CatItem, N'Report', NULL, @T, 0;
+    END TRY
+    BEGIN CATCH
+        SET @Err = ERROR_MESSAGE();
+    END CATCH;
+    IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+
+    INSERT @Out SELECT N'6 subdomain', N'own sub-domain accepted, another refused',
+           N'accepted + refused', CONCAT(ISNULL(LEFT(@OkErr, 30), N'accepted'), N' + ', ISNULL(LEFT(@Err, 40), N'accepted')),
+           CASE WHEN @OkErr IS NULL AND @Err LIKE N'%another sub-domain%' THEN N'PASS' ELSE N'FAIL' END;
 END;
 
 

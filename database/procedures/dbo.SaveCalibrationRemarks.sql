@@ -64,9 +64,6 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM dbo.OrderDetailsItems
                    WHERE OrderDetailsItemId = @OrderDetailsItemId AND IsDeleted = 0)
         THROW 51000, 'Unknown OrderDetailsItemId.', 1;
-    IF EXISTS (SELECT 1 FROM dbo.OrderDetailsItems
-               WHERE OrderDetailsItemId = @OrderDetailsItemId AND RemarksLockedDate IS NOT NULL)
-        THROW 51000, 'The report is signed: its remarks can no longer be changed.', 1;
     IF @Scope = N'Cycle'
        AND NOT EXISTS (SELECT 1 FROM dbo.CalibrationCycles
                        WHERE OrderDetailsItemId = @OrderDetailsItemId
@@ -95,6 +92,18 @@ BEGIN
 
     IF EXISTS (SELECT 1 FROM #In WHERE IsObject = 0)
         THROW 51000, 'Every remark must be a JSON object.', 1;
+    /* JSON paths are case-sensitive, so a misspelled key ("TextEng") would silently read as absent;
+       the key names are compared in binary for the same reason */
+    IF EXISTS (SELECT 1 FROM OPENJSON(@Remarks) AS e
+               CROSS APPLY OPENJSON(e.[value]) AS k
+               WHERE e.[type] = 5
+                 AND k.[key] COLLATE Latin1_General_100_BIN2
+                     NOT IN (N'PredefinedRemarkId', N'Values', N'TextHEB', N'TextENG', N'Text'))
+        THROW 51000, 'Unknown key in a remark: only PredefinedRemarkId, Values, TextHEB, TextENG and Text are read.', 1;
+    IF EXISTS (SELECT 1 FROM OPENJSON(@Remarks) AS e
+               CROSS APPLY OPENJSON(e.[value]) AS k
+               WHERE e.[type] = 5 AND k.[key] COLLATE Latin1_General_100_BIN2 = N'Values' AND k.[type] <> 4)
+        THROW 51000, 'Values must be a JSON array.', 1;
     IF EXISTS (SELECT 1 FROM #In WHERE PredefinedRemarkId IS NULL AND InText IS NULL)
         THROW 51000, 'A remark needs PredefinedRemarkId or a non-empty Text.', 1;
     IF EXISTS (SELECT 1 FROM #In WHERE PredefinedRemarkId IS NOT NULL AND InText IS NOT NULL)
@@ -105,8 +114,6 @@ BEGIN
         THROW 51000, 'A customized remark needs TextHEB.', 1;
     IF EXISTS (SELECT 1 FROM #In WHERE InTextHEB IS NOT NULL AND HasValues = 1)
         THROW 51000, 'A customized remark carries its own texts; send Values or TextHEB, not both.', 1;
-    IF EXISTS (SELECT 1 FROM #In WHERE HasValues = 1 AND LEFT(LTRIM(InValues), 1) <> N'[')
-        THROW 51000, 'Values must be a JSON array.', 1;
 
     IF EXISTS (SELECT 1 FROM #In AS i
                LEFT JOIN dbo.PredefinedRemarks AS p ON p.PredefinedRemarkId = i.PredefinedRemarkId
@@ -122,6 +129,17 @@ BEGIN
                                             AND r.PredefinedRemarkId = p.PredefinedRemarkId
                                             AND r.IsDeleted = 0))))
         THROW 51000, 'Unknown PredefinedRemarkId, one from the other scope, or one that is no longer active.', 1;
+
+    /* a list remark must come from the line's own sub-domain - when the line has one: on STAGE
+       4,781 of 5,918 lines carry no SecondaryCategoryId (01/11), and those are not checked */
+    IF EXISTS (SELECT 1 FROM #In AS i
+               JOIN dbo.PredefinedRemarks AS p ON p.PredefinedRemarkId = i.PredefinedRemarkId
+               WHERE EXISTS (SELECT 1 FROM dbo.OrderDetailsItems AS odi
+                             JOIN dbo.OrderDetails AS od ON od.OrderDetailId = odi.OrderDetailId
+                             WHERE odi.OrderDetailsItemId = @OrderDetailsItemId AND odi.IsDeleted = 0
+                               AND od.SecondaryCategoryId IS NOT NULL
+                               AND od.SecondaryCategoryId <> p.SecondaryCategoryId))
+        THROW 51000, 'A list remark from another sub-domain than the order line''s.', 1;
 
     /* ---- values: sent, else the row's default ----------------------------------------------- */
     DROP TABLE IF EXISTS #Val;
@@ -167,6 +185,11 @@ BEGIN
 
     BEGIN TRANSACTION;
 
+    /* checked here, holding the line, so a save cannot slip in after dbo.SetCalibrationRemarksLock */
+    IF EXISTS (SELECT 1 FROM dbo.OrderDetailsItems WITH (UPDLOCK, HOLDLOCK)
+               WHERE OrderDetailsItemId = @OrderDetailsItemId AND RemarksLockedDate IS NOT NULL)
+        THROW 51000, 'The report is signed: its remarks can no longer be changed.', 1;
+
     DROP TABLE IF EXISTS #Old;
     SELECT r.CalibrationRemarkId, r.DisplayOrder, r.PredefinedRemarkId,
            ValuesJson = r.ValuesJson COLLATE DATABASE_DEFAULT, r.IsCustomized,
@@ -179,11 +202,21 @@ BEGIN
            OR (@CalibrationCycleStartDate IS NULL AND r.CalibrationCycleStartDate IS NULL))
       AND r.IsDeleted = 0;
 
+    /* compared in binary: the database collation ignores case and accents, and "sensor" -> "Sensor"
+       is a change the calibrator expects to be saved */
     DECLARE @NoChange BIT =
         CASE WHEN (SELECT COUNT(*) FROM #Old) = (SELECT COUNT(*) FROM #New)
-              AND NOT EXISTS (SELECT DisplayOrder, PredefinedRemarkId, ValuesJson, IsCustomized, TextHEB, TextENG FROM #New
+              AND NOT EXISTS (SELECT DisplayOrder, PredefinedRemarkId, IsCustomized,
+                                     ValuesJson COLLATE Latin1_General_100_BIN2,
+                                     TextHEB    COLLATE Latin1_General_100_BIN2,
+                                     TextENG    COLLATE Latin1_General_100_BIN2
+                              FROM #New
                               EXCEPT
-                              SELECT DisplayOrder, PredefinedRemarkId, ValuesJson, IsCustomized, TextHEB, TextENG FROM #Old)
+                              SELECT DisplayOrder, PredefinedRemarkId, IsCustomized,
+                                     ValuesJson COLLATE Latin1_General_100_BIN2,
+                                     TextHEB    COLLATE Latin1_General_100_BIN2,
+                                     TextENG    COLLATE Latin1_General_100_BIN2
+                              FROM #Old)
              THEN 1 ELSE 0 END;
 
     IF @Apply = 1 AND @NoChange = 0
