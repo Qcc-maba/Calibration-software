@@ -324,6 +324,74 @@ BEGIN
 END;
 
 
+/* =============================================================================================
+   Section 5 - a cycle's start time changes: its remarks follow it
+   The app inserts the new cycle row, moves points and remarks, then soft-deletes the old row.
+   ============================================================================================= */
+IF @Item IS NOT NULL
+BEGIN
+    DECLARE @NewCycle DATETIME2(0) = DATEADD(YEAR, -40, @Cycle);
+    DECLARE @M TABLE (Moved INT, Replaced INT);
+
+    BEGIN TRANSACTION;
+    INSERT dbo.PredefinedRemarks (SecondaryCategoryId, Scope, TextHEB, TextENG, DefaultValues, DisplayOrder)
+    VALUES (@Cat, N'Cycle', N'נבדק עם מטען.', N'Tested under loaded conditions.', NULL, 1);
+    SET @RCycle = SCOPE_IDENTITY();
+    SET @T = CONCAT(N'[{"PredefinedRemarkId":', @RCycle, N'},{"Text":"מחזור"}]');
+    DELETE #S;
+    INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @Item, N'Cycle', @Cycle, @T, 1;
+
+    /* a cycle deleted earlier at the new time, with a remark still on it: the app revives such a row */
+    INSERT dbo.CalibrationCycles (OrderDetailsItemId, CalibrationCycleStartDate, CalibrationCycleEndDate,
+                                  CalibrationCycleStatusId, CreatedUserID, CreatedDate, IsDeleted)
+    SELECT OrderDetailsItemId, @NewCycle, CalibrationCycleEndDate, CalibrationCycleStatusId, CreatedUserID, GETDATE(), 0
+    FROM dbo.CalibrationCycles WHERE OrderDetailsItemId = @Item AND CalibrationCycleStartDate = @Cycle;
+    DELETE #S;
+    INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @Item, N'Cycle', @NewCycle, N'[{"Text":"ישן"}]', 1;
+
+    INSERT @M EXEC dbo.MoveCalibrationCycleRemarks @Email, @Item, @Cycle, @NewCycle;
+    UPDATE dbo.CalibrationCycles SET IsDeleted = 1 WHERE OrderDetailsItemId = @Item AND CalibrationCycleStartDate = @Cycle;
+    DELETE #G;
+    INSERT #G EXEC dbo.GetCalibrationRemarks @Item;
+
+    INSERT @Out SELECT N'5 move', N'remarks follow the new start time; old ones on it retired',
+           N'Moved 2, Replaced 1; 2 rows on the new time, texts kept',
+           CONCAT(N'Moved ', (SELECT Moved FROM @M), N', Replaced ', (SELECT Replaced FROM @M), N'; ',
+                  COUNT(*), N' rows on the new time'),
+           CASE WHEN (SELECT Moved FROM @M) = 2 AND (SELECT Replaced FROM @M) = 1
+                 AND COUNT(*) = 2
+                 AND MAX(CASE WHEN DisplayOrder = 1 THEN TextENG END) = N'Tested under loaded conditions.'
+                 AND MAX(CASE WHEN DisplayOrder = 2 THEN TextHEB END) = N'מחזור'
+                THEN N'PASS' ELSE N'FAIL' END
+    FROM #G WHERE Scope = N'Cycle' AND CalibrationCycleStartDate = @NewCycle;
+
+    DELETE @M;
+    INSERT @M EXEC dbo.MoveCalibrationCycleRemarks @Email, @Item, @Cycle, @NewCycle;
+    INSERT @M EXEC dbo.MoveCalibrationCycleRemarks @Email, @Item, @NewCycle, @NewCycle;
+    INSERT @Out SELECT N'5 move', N'nothing left to move / same time: writes nothing', N'0 0, 0 0',
+           (SELECT STRING_AGG(CONCAT(Moved, N' ', Replaced), N', ') FROM @M),
+           CASE WHEN NOT EXISTS (SELECT 1 FROM @M WHERE Moved <> 0 OR Replaced <> 0) AND (SELECT COUNT(*) FROM @M) = 2
+                THEN N'PASS' ELSE N'FAIL' END;
+    ROLLBACK TRANSACTION;
+
+    SET @Err = NULL;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        INSERT dbo.PredefinedRemarks (SecondaryCategoryId, Scope, TextHEB, TextENG, DefaultValues, DisplayOrder)
+        VALUES (@Cat, N'Cycle', N'נבדק עם מטען.', N'Tested under loaded conditions.', NULL, 1);
+        SET @T = CONCAT(N'[{"PredefinedRemarkId":', SCOPE_IDENTITY(), N'}]');
+        INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @Item, N'Cycle', @Cycle, @T, 1;
+        INSERT @M EXEC dbo.MoveCalibrationCycleRemarks @Email, @Item, @Cycle, @NewCycle;  -- new row not inserted
+    END TRY
+    BEGIN CATCH
+        SET @Err = ERROR_MESSAGE();
+    END CATCH;
+    IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+    INSERT @Out SELECT N'5 move', N'refused before the new cycle row exists', N'an error',
+           ISNULL(LEFT(@Err, 60), N'accepted'), CASE WHEN @Err LIKE N'%insert it before%' THEN N'PASS' ELSE N'FAIL' END;
+END;
+
+
 /* ============================================================================================= */
 SELECT Section, Test, Expected, Actual, Result FROM @Out ORDER BY Seq;
 
