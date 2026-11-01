@@ -183,11 +183,19 @@ BEGIN
                                                WITHIN GROUP (ORDER BY x.Idx) + N']'
                  FROM #Val AS x WHERE x.DisplayOrder = i.DisplayOrder) AS v;
 
+    /* the primary key is (OrderDetailId, OrderDetailsItemId) and nothing is indexed on
+       OrderDetailsItemId alone: look the order lines up first, so the locked read below is a seek
+       on the key and holds only this line, not every row a scan would read */
+    DECLARE @Lines TABLE (OrderDetailId INT NOT NULL PRIMARY KEY);
+    INSERT @Lines SELECT DISTINCT OrderDetailId FROM dbo.OrderDetailsItems WHERE OrderDetailsItemId = @OrderDetailsItemId;
+
     BEGIN TRANSACTION;
 
     /* checked here, holding the line, so a save cannot slip in after dbo.SetCalibrationRemarksLock */
-    IF EXISTS (SELECT 1 FROM dbo.OrderDetailsItems WITH (UPDLOCK, HOLDLOCK)
-               WHERE OrderDetailsItemId = @OrderDetailsItemId AND RemarksLockedDate IS NOT NULL)
+    IF EXISTS (SELECT 1 FROM @Lines AS l
+               JOIN dbo.OrderDetailsItems AS odi WITH (UPDLOCK, HOLDLOCK)
+                 ON odi.OrderDetailId = l.OrderDetailId AND odi.OrderDetailsItemId = @OrderDetailsItemId
+               WHERE odi.RemarksLockedDate IS NOT NULL)
         THROW 51000, 'The report is signed: its remarks can no longer be changed.', 1;
 
     DROP TABLE IF EXISTS #Old;

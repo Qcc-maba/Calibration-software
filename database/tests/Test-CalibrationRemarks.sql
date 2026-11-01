@@ -70,6 +70,10 @@ INSERT @Out SELECT N'1 render', N'{1} is not replaced inside {10}', N'x1 y{10}..
        dbo.fnRenderRemarkTemplate(N'x{1} y{10}', N'["1"]'),
        CASE WHEN dbo.fnRenderRemarkTemplate(N'x{1} y{10}', N'["1"]') = N'x1 y{10}' THEN N'PASS' ELSE N'FAIL' END;
 
+INSERT @Out SELECT N'1 render', N'braces that are not a number stay as text', N'a {ab} x {} {99}',
+       dbo.fnRenderRemarkTemplate(N'a {ab} {1} {} {99}', N'["x"]'),
+       CASE WHEN dbo.fnRenderRemarkTemplate(N'a {ab} {1} {} {99}', N'["x"]') = N'a {ab} x {} {99}' THEN N'PASS' ELSE N'FAIL' END;
+
 INSERT @Out SELECT N'1 render', N'a value containing {2} is printed as typed', N'a={2} b=x',
        dbo.fnRenderRemarkTemplate(N'a={1} b={2}', N'["{2}","x"]'),
        CASE WHEN dbo.fnRenderRemarkTemplate(N'a={1} b={2}', N'["{2}","x"]') = N'a={2} b=x' THEN N'PASS' ELSE N'FAIL' END;

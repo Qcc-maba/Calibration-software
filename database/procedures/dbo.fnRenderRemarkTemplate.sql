@@ -42,8 +42,9 @@ BEGIN
         SET @Number = CASE WHEN @Close > @Open + 1 AND @Close - @Open <= 4
                            THEN SUBSTRING(@Template, @Open + 1, @Close - @Open - 1) END;
 
+        /* TRY_CAST: the parts of an AND may run in any order, so a plain CAST could meet "{ab}" */
         IF @Number IS NOT NULL AND @Number NOT LIKE N'%[^0-9]%'
-           AND CAST(@Number AS INT) BETWEEN 1 AND @Count
+           AND TRY_CAST(@Number AS INT) BETWEEN 1 AND @Count
         BEGIN
             SET @Result += SUBSTRING(@Template, @Pos, @Open - @Pos)
                          + ISNULL(JSON_VALUE(@Values, CONCAT(N'$[', CAST(@Number AS INT) - 1, N']')), N'');
