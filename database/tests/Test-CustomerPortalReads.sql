@@ -10,9 +10,11 @@
     Run against a database where the procedures and dbo.GetPortalCustomerIds are deployed.
     Anything other than 'PASS' in Result is a failure; 'SKIP' says why the case could not run.
 
-    Every case runs in its own transaction and is rolled back. Only the inactive-contact case
-    writes anything (it deactivates one address for the length of its transaction), but the
-    pattern is kept for every case so the file can never leave a trace. Results are kept in a
+    Every case runs in its own transaction and is rolled back. Two kinds of case write anything:
+    the inactive-contact case sets IsActive = 0 on the contact rows of one address, and every
+    GetCustomerUpcommingCalibrationInfo case inserts up to three dbo.CalibratorsToWorkPlan rows
+    (see @OwnOrder below). Both last only as long as their transaction; the pattern is kept for
+    every case so the file can never leave a trace. Results are kept in a
     table variable, which a rollback does not touch; a temp table's rows do not survive it, so
     each case counts what it needs before it rolls back.
 
@@ -33,10 +35,15 @@
         @OwnItem     a live item of a customer in @Me's set
         @ForeignItem a live item of a customer outside it - live by every filter the procedures
                      apply, so an empty result can only come from the ownership check
-        @Inactive    an active address of somebody else; the inactive case deactivates all of its
+        @Inactive    an active address of somebody else, outside @Me's set, preferring one whose
+                     customers have a site and a report; the inactive case deactivates all of its
                      contact rows inside the transaction. STAGE has no address whose rows are all
-                     inactive (2026-11-02), so the case makes one rather than SKIP. A control row
-                     shows the same address does see devices while it is active.
+                     inactive (2026-11-02), so the case makes one rather than SKIP. Each procedure
+                     is first run for it while still active, as a control: the 0 rows after
+                     deactivating it mean something only where there were rows before.
+        @InactiveItem, @InactiveOrder
+                     a live item and an open order of @Inactive's set, so that the device-detail
+                     and upcoming-visit controls have something of its own to show
         @Staff       an MBA user (dbo.Users) who is not a customer contact and is mapped to no
                      customer. Users.CustomerId is the documented staff path of GetCustomerProfile,
                      GetCustomerSupportData, GetCustomerSites and GetCustomerContacts - a user
@@ -48,11 +55,13 @@
         @OwnOrder, @ForeignOrder, @Calibrator
                      an open order of the set, one of another customer, and a calibrator. STAGE has
                      no calibrator visit dated today or later (2026-11-02), so the upcoming-visit
-                     cases book two inside their transaction: one on @OwnOrder in two days and an
-                     earlier one on @ForeignOrder tomorrow. Only the first may reach @Me.
+                     cases book them inside their transaction: one on @OwnOrder in two days, an
+                     earlier one on @ForeignOrder tomorrow, and one on @InactiveOrder in three
+                     days. Only the first may reach @Me, only the last @Inactive.
 
     Cases
-        R1  @Unknown, @Staff and @Inactive get no rows from every procedure.
+        R1  @Unknown, @Staff and @Inactive get no rows from every procedure. For @Inactive the
+            row also shows what it got while active; with nothing then, the case is a SKIP.
         R2  every row @Me gets maps back to a customer of the set: through the customer or item id
             where the result has one, otherwise through the order number, the report path, the
             calibrator assignment or the serial + customer name it carries.
@@ -63,11 +72,14 @@
             createPortalRequest accepts a site only if it is in this list.
         R6  GetCustomerDashboardData: the search text is searched for, not executed.
 
-    The two *FromPriority procedures read Priority over the linked server. When it does not answer,
-    their R2 case is a SKIP. GetCustomerQuotesFromPriority fills a temp table with INSERT ... EXEC
-    of its own, and SQL Server does not allow that inside the harness's INSERT ... EXEC (error
-    8164), so its R2 rows cannot be captured from T-SQL and the case reports SKIP. Its R1 cases do
-    run: for those callers it returns before reaching that statement.
+    The two *FromPriority procedures read Priority over the linked server, for the set's primary
+    customer only (IsPrimary in dbo.GetPortalCustomerIds), so their R2 check maps rows to that
+    customer's documents. When Priority does not answer, the R2 case is a SKIP.
+    GetCustomerQuotesFromPriority fills a temp table with INSERT ... EXEC of its own, and SQL
+    Server does not allow that inside the harness's INSERT ... EXEC (error 8164), so its R2 rows
+    cannot be captured from T-SQL and the case reports SKIP. Its R1 cases do run: for those
+    callers it returns before reaching that statement. The same 8164 serves as @Inactive's
+    control there - while active it gets as far as reading Priority.
 */
 SET NOCOUNT ON;
 SET XACT_ABORT OFF;   /* a failing procedure must not take the harness down with it */
@@ -152,7 +164,7 @@ CREATE TABLE #Det (id INT, deviceStatus NVARCHAR(402), deviceStatusHeb NVARCHAR(
 DECLARE @Me NVARCHAR(100), @Inactive NVARCHAR(100), @Staff NVARCHAR(100),
         @Unknown NVARCHAR(100) = N'nobody.mba1014@example.invalid',
         @OwnItem INT, @ForeignItem INT, @ForeignReportItem INT, @ForeignSite INT,
-        @OwnOrder INT, @ForeignOrder INT, @Calibrator INT;
+        @OwnOrder INT, @ForeignOrder INT, @Calibrator INT, @InactiveItem INT, @InactiveOrder INT;
 
 /* live = what the device screens show: nothing cancelled or deleted at any level */
 DROP TABLE IF EXISTS #Live;
@@ -203,7 +215,7 @@ ORDER BY MAX(f.HasSite) DESC, MAX(f.HasReport) DESC, COUNT(*), s.Email;
 /* @Me's set, its items and its orders - what every R2 check maps a row back to. Items are taken
    without the live filters: an item of the set is the caller's whatever its state. */
 DROP TABLE IF EXISTS #Mine;
-SELECT CustomerId INTO #Mine FROM dbo.GetPortalCustomerIds(@Me);
+SELECT CustomerId, IsPrimary INTO #Mine FROM dbo.GetPortalCustomerIds(@Me);
 
 DROP TABLE IF EXISTS #MineItems;
 SELECT it.OrderDetailsItemId AS ItemId, c.CustomerName, it.SerialNumber, it.MbaReportNumber, wp.OrderNumber
@@ -260,16 +272,32 @@ FROM dbo.CustomerSites AS cs
 WHERE cs.CustomerId NOT IN (SELECT CustomerId FROM #Mine) AND ISNULL(cs.IsDeleted, 0) = 0
 ORDER BY cs.CustomerSiteId;
 
-/* somebody else's active address with live items, and no staff account: once deactivated, no
-   path in any procedure may resolve it */
+/* somebody else's active address with live items, outside @Me's set, and no staff account: once
+   deactivated, no path in any procedure may resolve it. One whose customer has a site and a
+   report gives the controls the most to show. */
 SELECT TOP (1) @Inactive = LOWER(LTRIM(RTRIM(cc.CustomerContactEmail)))
 FROM dbo.CustomerContacts AS cc
 WHERE cc.IsDeleted = 0 AND cc.IsActive = 1 AND cc.CustomerContactEmail LIKE N'%_@_%'
   AND cc.CustomerId IN (SELECT CustomerId FROM #Live)
+  AND cc.CustomerId NOT IN (SELECT CustomerId FROM #Mine)
   AND LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))) <> ISNULL(@Me, N'')
   AND NOT EXISTS (SELECT 1 FROM dbo.Users AS u
                   WHERE LOWER(LTRIM(RTRIM(u.Email))) = LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))))
-ORDER BY LOWER(LTRIM(RTRIM(cc.CustomerContactEmail)));
+ORDER BY CASE WHEN EXISTS (SELECT 1 FROM dbo.CustomerSites AS cs
+                           WHERE cs.CustomerId = cc.CustomerId AND ISNULL(cs.IsDeleted, 0) = 0) THEN 0 ELSE 1 END,
+         CASE WHEN EXISTS (SELECT 1 FROM #Live AS l
+                           WHERE l.CustomerId = cc.CustomerId AND LEN(l.MbaReportNumber) > 0) THEN 0 ELSE 1 END,
+         LOWER(LTRIM(RTRIM(cc.CustomerContactEmail)));
+
+SELECT TOP (1) @InactiveItem = l.ItemId
+FROM #Live AS l
+WHERE l.CustomerId IN (SELECT CustomerId FROM dbo.GetPortalCustomerIds(@Inactive))
+ORDER BY l.ItemId;
+
+SELECT TOP (1) @InactiveOrder = wp.OrderWorkPlanId
+FROM dbo.OrderWorkPlans AS wp
+WHERE wp.CustomerId IN (SELECT CustomerId FROM dbo.GetPortalCustomerIds(@Inactive)) AND wp.IsCancelled = 0
+ORDER BY wp.OrderWorkPlanId;
 
 SELECT TOP (1) @Staff = LOWER(LTRIM(RTRIM(u.Email)))
 FROM dbo.Users AS u
@@ -278,8 +306,9 @@ WHERE u.Email LIKE N'%_@_%' AND u.CustomerId IS NULL
                   WHERE LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))) = LOWER(LTRIM(RTRIM(u.Email))))
 ORDER BY u.ID;
 
-/* Priority: the invoice and quote numbers of the set's customers, read directly. If the linked
-   server does not answer, the *FromPriority R2 cases SKIP. */
+/* Priority: the invoice and quote numbers of the set's primary customer - the only one the
+   *FromPriority procedures read - straight from Priority. A row of another set customer is then
+   as wrong as one from outside the set. If the linked server does not answer, those R2 cases SKIP. */
 DECLARE @PriorityUp BIT = 0, @Custs NVARCHAR(MAX), @Sql NVARCHAR(MAX);
 DROP TABLE IF EXISTS #MineInvoices;
 CREATE TABLE #MineInvoices (DocNo NVARCHAR(50));
@@ -288,7 +317,7 @@ CREATE TABLE #MineQuotes (DocNo NVARCHAR(50));
 
 SELECT @Custs = STRING_AGG(CAST(TRY_CONVERT(INT, c.CustomerIdFromSource) AS NVARCHAR(20)), N',')
 FROM dbo.Customers AS c
-INNER JOIN #Mine AS m ON m.CustomerId = c.CustomerId
+INNER JOIN #Mine AS m ON m.CustomerId = c.CustomerId AND m.IsPrimary = 1
 WHERE TRY_CONVERT(INT, c.CustomerIdFromSource) IS NOT NULL;
 
 BEGIN TRY
@@ -311,29 +340,6 @@ INSERT @Out SELECT N'0 fixtures', N'Priority linked server answers', N'yes',
        IIF(@PriorityUp = 1, N'yes', N'no'), IIF(@PriorityUp = 1, N'PASS', N'SKIP - *FromPriority R2 cases skip');
 
 DECLARE @N INT, @M INT, @Bad INT, @Err INT, @Msg NVARCHAR(4000);
-
-/* control for the inactive case: while still active, @Inactive does see devices, so the zero R1
-   expects after deactivating it can only come from the IsActive filter */
-IF @Inactive IS NULL
-    INSERT @Out SELECT N'0 fixtures', N'@Inactive sees devices while active (control for R1)', N'> 0 rows', N'-',
-           N'SKIP - no such address';
-ELSE
-BEGIN
-    BEGIN TRY
-        BEGIN TRAN;
-        TRUNCATE TABLE #Dev;
-        INSERT #Dev EXEC dbo.GetCustomerDeviceList @LoggedInUserEmail = @Inactive;
-        SELECT @N = COUNT(*) FROM #Dev;
-        ROLLBACK;
-        INSERT @Out SELECT N'0 fixtures', N'@Inactive sees devices while active (control for R1)', N'> 0 rows',
-               CONCAT(@N, N' rows'), IIF(@N > 0, N'PASS', N'FAIL');
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK;
-        INSERT @Out SELECT N'0 fixtures', N'@Inactive sees devices while active (control for R1)', N'no error',
-               LEFT(ERROR_MESSAGE(), 80), N'FAIL';
-    END CATCH;
-END;
 
 
 /* =============================================================================================
@@ -388,8 +394,8 @@ INSERT @Procs (ProcName, Tmp, Extra, NeedsPriority, OwnershipCheck) VALUES
  N'SELECT @Bad = COUNT(*) FROM #Dev AS r WHERE NOT EXISTS (SELECT 1 FROM #MineItems AS m WHERE m.ItemId = r.id);'),
 (N'GetCustomerCalibrationReports', N'#Rep', N'', 0,
  N'SELECT @Bad = COUNT(*) FROM #Rep AS r WHERE NOT EXISTS (SELECT 1 FROM #MineItems AS m WHERE m.ItemId = r.id);'),
-/* asked for @Me's own item; the other callers ask for the same item and must not get it */
-(N'GetCustomerDeviceDetail', N'#Det', N', @OrderDetailsItemId = @OwnItem', 0,
+/* @Item is @Me's own item, and @InactiveItem for @Inactive; the other callers ask for @Me's */
+(N'GetCustomerDeviceDetail', N'#Det', N', @OrderDetailsItemId = @Item', 0,
  N'SELECT @Bad = COUNT(*) FROM #Det AS r WHERE NOT EXISTS (SELECT 1 FROM #MineItems AS m WHERE m.ItemId = r.id);');
 
 /* the card shows the nearest visit, so a foreign visit booked earlier than the caller's own is the
@@ -398,7 +404,10 @@ UPDATE @Procs SET Setup =
  N'IF @OwnOrder IS NOT NULL AND @ForeignOrder IS NOT NULL AND @Calibrator IS NOT NULL
        INSERT dbo.CalibratorsToWorkPlan (OrderWorkPlanId, CalibratorId, AssigmentDate)
        VALUES (@OwnOrder,     @Calibrator, DATEADD(DAY, 2, CAST(GETDATE() AS DATE))),
-              (@ForeignOrder, @Calibrator, DATEADD(DAY, 1, CAST(GETDATE() AS DATE))); '
+              (@ForeignOrder, @Calibrator, DATEADD(DAY, 1, CAST(GETDATE() AS DATE)));
+   IF @InactiveOrder IS NOT NULL AND @Calibrator IS NOT NULL
+       INSERT dbo.CalibratorsToWorkPlan (OrderWorkPlanId, CalibratorId, AssigmentDate)
+       VALUES (@InactiveOrder, @Calibrator, DATEADD(DAY, 3, CAST(GETDATE() AS DATE))); '
 WHERE ProcName = N'GetCustomerUpcommingCalibrationInfo';
 
 DECLARE @Callers TABLE (K INT IDENTITY, Kind NVARCHAR(20), Email NVARCHAR(100), Deactivate BIT);
@@ -410,7 +419,9 @@ INSERT @Callers (Kind, Email, Deactivate) VALUES
 
 DECLARE @p INT = 1, @c INT, @Proc SYSNAME, @Tmp SYSNAME, @Extra NVARCHAR(200), @NeedsPriority BIT,
         @Check NVARCHAR(MAX), @Setup NVARCHAR(MAX), @Kind NVARCHAR(20), @Who NVARCHAR(100), @Deactivate BIT,
-        @Test NVARCHAR(100);
+        @Test NVARCHAR(100), @Item INT, @NActive INT, @ErrActive INT, @Control NVARCHAR(40),
+        @Params NVARCHAR(400) = N'@Who NVARCHAR(100), @Item INT, @OwnOrder INT, @ForeignOrder INT,
+                                  @InactiveOrder INT, @Calibrator INT, @N INT OUTPUT, @Bad INT OUTPUT';
 
 WHILE @p <= (SELECT COUNT(*) FROM @Procs)
 BEGIN
@@ -431,21 +442,36 @@ BEGIN
             INSERT @Out SELECT N'R2 own set', @Test, N'0 foreign', N'-', N'SKIP - Priority not reachable';
         ELSE
         BEGIN
-            SELECT @N = NULL, @Bad = NULL, @Err = NULL, @Msg = NULL;
+            SELECT @N = NULL, @Bad = NULL, @Err = NULL, @Msg = NULL, @NActive = NULL, @ErrActive = NULL;
+            SET @Item = IIF(@Deactivate = 1, @InactiveItem, @OwnItem);
             SET @Sql = CONCAT(@Setup,
                               N'TRUNCATE TABLE ', @Tmp, N'; ',
                               N'INSERT ', @Tmp, N' EXEC dbo.', @Proc, N' @LoggedInUserEmail = @Who', @Extra, N'; ',
                               N'SELECT @N = COUNT(*) FROM ', @Tmp, N'; ',
                               IIF(@Kind = N'@Me', @Check, N''));
+
+            /* control: the same call while @Inactive is still active */
+            IF @Deactivate = 1
+            BEGIN
+                BEGIN TRY
+                    BEGIN TRAN;
+                    EXEC sp_executesql @Sql, @Params,
+                         @Who, @Item, @OwnOrder, @ForeignOrder, @InactiveOrder, @Calibrator, @NActive OUTPUT, @Bad OUTPUT;
+                    ROLLBACK;
+                END TRY
+                BEGIN CATCH
+                    SET @ErrActive = ERROR_NUMBER();
+                    IF @@TRANCOUNT > 0 ROLLBACK;
+                END CATCH;
+            END;
+
             BEGIN TRY
                 BEGIN TRAN;
                 IF @Deactivate = 1
                     UPDATE dbo.CustomerContacts SET IsActive = 0
                     WHERE IsDeleted = 0 AND LOWER(LTRIM(RTRIM(CustomerContactEmail))) = @Who;
-                EXEC sp_executesql @Sql,
-                     N'@Who NVARCHAR(100), @OwnItem INT, @OwnOrder INT, @ForeignOrder INT, @Calibrator INT,
-                       @N INT OUTPUT, @Bad INT OUTPUT',
-                     @Who, @OwnItem, @OwnOrder, @ForeignOrder, @Calibrator, @N OUTPUT, @Bad OUTPUT;
+                EXEC sp_executesql @Sql, @Params,
+                     @Who, @Item, @OwnOrder, @ForeignOrder, @InactiveOrder, @Calibrator, @N OUTPUT, @Bad OUTPUT;
                 ROLLBACK;
             END TRY
             BEGIN CATCH
@@ -453,7 +479,21 @@ BEGIN
                 IF @@TRANCOUNT > 0 ROLLBACK;
             END CATCH;
 
-            IF @Kind <> N'@Me'
+            /* 8164 while active means the call got as far as reading Priority */
+            SET @Control = CASE WHEN @ErrActive = 8164         THEN N'reached Priority'
+                                WHEN @ErrActive IS NOT NULL    THEN CONCAT(N'error ', @ErrActive)
+                                ELSE CONCAT(@NActive, N' rows') END;
+
+            IF @Deactivate = 1
+                INSERT @Out SELECT N'R1 refuse', @Test, N'0 rows (> 0 while active)',
+                       IIF(@Err IS NULL, CONCAT(@N, N' rows (', @Control, N' while active)'),
+                           LEFT(CONCAT(@Err, N' ', @Msg), 80)),
+                       CASE WHEN @Err IS NOT NULL OR @N > 0               THEN N'FAIL'
+                            WHEN @ErrActive = 8164 OR @NActive > 0        THEN N'PASS'
+                            WHEN @NeedsPriority = 1 AND @PriorityUp = 0   THEN N'SKIP - Priority not reachable'
+                            WHEN @ErrActive IS NOT NULL                   THEN N'FAIL - control errored'
+                            ELSE N'SKIP - @Inactive sees nothing here even while active' END;
+            ELSE IF @Kind <> N'@Me'
                 INSERT @Out SELECT N'R1 refuse', @Test, N'0 rows',
                        IIF(@Err IS NULL, CONCAT(@N, N' rows'), LEFT(CONCAT(@Err, N' ', @Msg), 80)),
                        IIF(@Err IS NULL AND @N = 0, N'PASS', N'FAIL');
@@ -484,8 +524,11 @@ BEGIN TRY
     INSERT #Det EXEC dbo.GetCustomerDeviceDetail @LoggedInUserEmail = @Me, @OrderDetailsItemId = @OwnItem;
     SELECT @M = COUNT(*) FROM #Det WHERE id = @OwnItem;
     ROLLBACK;
+    /* with no caller or no foreign item the 0 below would prove nothing */
     INSERT @Out SELECT N'R3 detail', N'another customer''s live item -> 0 rows', N'0 rows',
-           CONCAT(@N, N' rows'), IIF(@N = 0, N'PASS', N'FAIL');
+           CONCAT(@N, N' rows'),
+           CASE WHEN @Me IS NULL OR @ForeignItem IS NULL THEN N'SKIP - fixture missing'
+                WHEN @N = 0 THEN N'PASS' ELSE N'FAIL' END;
     INSERT @Out SELECT N'R3 detail', N'own live item -> exactly that item', N'1 row',
            CONCAT(@M, N' rows'), IIF(@M = 1, N'PASS', N'FAIL');
 END TRY
@@ -518,7 +561,8 @@ BEGIN TRY
            CASE WHEN @Bad > 0 THEN N'FAIL' WHEN @N = 0 THEN N'SKIP - @Me has no reports' ELSE N'PASS' END;
     INSERT @Out SELECT N'R4 reports', N'another customer''s report is not listed', N'0 rows',
            IIF(@ForeignReportItem IS NULL, N'-', CONCAT(@M, N' rows')),
-           CASE WHEN @ForeignReportItem IS NULL THEN N'SKIP - no foreign report in the data'
+           CASE WHEN @Me IS NULL THEN N'SKIP - fixture missing'
+                WHEN @ForeignReportItem IS NULL THEN N'SKIP - no foreign report in the data'
                 WHEN @M = 0 THEN N'PASS' ELSE N'FAIL' END;
 END TRY
 BEGIN CATCH
@@ -547,7 +591,8 @@ BEGIN TRY
            CASE WHEN @Bad > 0 THEN N'FAIL' WHEN @N = 0 THEN N'SKIP - @Me has no sites' ELSE N'PASS' END;
     INSERT @Out SELECT N'R5 sites', N'another customer''s site is not listed', N'0 rows',
            IIF(@ForeignSite IS NULL, N'-', CONCAT(@M, N' rows')),
-           CASE WHEN @ForeignSite IS NULL THEN N'SKIP - no foreign site in the data'
+           CASE WHEN @Me IS NULL THEN N'SKIP - fixture missing'
+                WHEN @ForeignSite IS NULL THEN N'SKIP - no foreign site in the data'
                 WHEN @M = 0 THEN N'PASS' ELSE N'FAIL' END;
 END TRY
 BEGIN CATCH
@@ -576,7 +621,8 @@ BEGIN CATCH
 END CATCH;
 INSERT @Out SELECT N'R6 search', N'search text with an apostrophe is searched for, not executed', N'0 rows, no error',
        IIF(@Err IS NULL, CONCAT(@N, N' rows'), LEFT(CONCAT(N'error ', @Err, N': ', @Msg), 80)),
-       IIF(@Err IS NULL AND @N = 0, N'PASS', N'FAIL');
+       CASE WHEN @Me IS NULL THEN N'SKIP - fixture missing'
+            WHEN @Err IS NULL AND @N = 0 THEN N'PASS' ELSE N'FAIL' END;
 
 
 SELECT Seq, Section, Test, Expected, Actual, Result FROM @Out ORDER BY Seq;
