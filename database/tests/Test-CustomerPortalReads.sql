@@ -23,7 +23,12 @@
     Fixtures are picked from the data, never hard-coded - identities differ between STAGE and PROD.
     No address is printed; the output names cases, not people.
 
-        @Me          an active address whose portal set holds live items under two customers,
+    A local copy made by Copy-CalibratorStageLocal.ps1 scrambles every contact to an address of its
+    own, so no address there serves two customers and @Me is not found: most cases then SKIP and
+    the fixture row FAILs. Run it against STAGE, or share one address between two customers'
+    contacts in the local copy first.
+
+        @Me         an active address whose portal set holds live items under two customers,
                      preferring a set that also has a site and a report
         @OwnItem     a live item of a customer in @Me's set
         @ForeignItem a live item of a customer outside it - live by every filter the procedures
@@ -35,7 +40,10 @@
         @Staff       an MBA user (dbo.Users) who is not a customer contact and is mapped to no
                      customer. Users.CustomerId is the documented staff path of GetCustomerProfile,
                      GetCustomerSupportData, GetCustomerSites and GetCustomerContacts - a user
-                     carrying one is meant to see that customer - so it is left out here.
+                     carrying one is meant to see that customer - so it is left out here. That
+                     path cannot be reached from the portal: dbo.CreateCustomerPortalOtp signs in
+                     only addresses found in dbo.CustomerContacts or Priority's PHONEBOOK, never
+                     in dbo.Users, so a staff-only address never gets a customer session.
         @Unknown     an address that exists nowhere
         @OwnOrder, @ForeignOrder, @Calibrator
                      an open order of the set, one of another customer, and a calibrator. STAGE has
