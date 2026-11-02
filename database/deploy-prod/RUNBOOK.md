@@ -1,5 +1,12 @@
 # Deploying STAGE → PROD
 
+> **Historical record. Do not rerun.** Tranches A, B and C were applied to PROD on 2026-08-31, and the
+> later files on the dates given below. Every object here is a snapshot of STAGE from 30/08 or the day the
+> file was added, and many have changed since: rerunning `02-tranche-B-changed.sql` today would roll
+> 28 procedures back, among them `GetCustomerDashboardData` to a version with the dashboard-search SQL
+> injection fixed in MBA-1016. PROD deploys now go one object at a time from `database/procedures/`, by the
+> deploy checklist in `GIT_ROOT\STATUS.md`, gated by `database/Compare-Schema.ps1 -FailOnUnexpected`.
+
 Handover for whoever runs this. Everything needed is in this folder. Written to be followed by a
 person with SSMS; nothing here assumes you were in the conversation that produced it.
 
