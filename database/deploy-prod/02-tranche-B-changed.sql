@@ -1,4 +1,9 @@
 /*
+    HISTORICAL RECORD - DO NOT RERUN. Applied to PROD on 2026-08-31 (see RUNBOOK.md). These bodies are
+    STAGE as of 30/08/2026; most have changed since, and rerunning this file rolls them back on PROD -
+    GetCustomerDashboardData included, to the version with the search injection fixed in MBA-1016.
+    Deploy from database/procedures/ instead.
+
     Tranche B - objects that already exist on PROD with a different body. Run this LAST.
     ---------------------------------------------------------------------------------------------
     This is the only tranche that can break something that works today. Every statement is
