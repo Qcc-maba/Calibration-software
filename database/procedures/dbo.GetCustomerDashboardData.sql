@@ -72,7 +72,8 @@ SELECT wp.OrderWorkPlanId
 FROM [dbo].[OrderWorkPlans] as wp
 JOIN dbo.GetPortalCustomerIds(@LoggedInUserEmail) as mine ON mine.CustomerId = wp.[CustomerId]
 
-/* MBA-1016: only a column name from this list reaches the statement, never the caller's text. */
+/* MBA-1016: only a column name from this list reaches the statement, never the caller's text.
+   Keep it in step with the final SELECT of @sql below: a column missing here sorts by CalibratioinDate, silently. */
 DECLARE @SortColumn SYSNAME =
 COALESCE(
 (SELECT c.Name
@@ -149,6 +150,7 @@ COALESCE(NULLIF(d.DeviceStatus,N''''),N''לא ניתן לקבוע'') as DeviceSt
 ,COALESCE(SUM(IIF(d.IsLatestOrder = 1 AND d.DeviceStatus=N'''+N'מחכה לכיול'+''',1,NULL)) OVER( ORDER BY d.DeviceStatus),0) as DevicesWaitingForCalibrationCount
 FROM ds as d
 )
+/* MBA-1016: adding or renaming an output column? Update the @SortColumn allow-list too. */
 SELECT
  ds.DeviceStatus
 ,ds.CalibratioinDate
