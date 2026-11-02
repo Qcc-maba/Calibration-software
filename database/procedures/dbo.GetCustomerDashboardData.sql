@@ -32,6 +32,19 @@ GO
         row belongs to. The front end has to render it (MBA-942).
 
     @SourceId is removed. It was assigned from the contact row and never read.
+
+    2026-11-02 - MBA-1016: caller text no longer becomes part of the statement.
+    ---------------------------------------------------------------------------------
+    @GlobalSearch is the portal's dashboard search box and was pasted into the dynamic SQL
+    between quotes. On STAGE a search for O'Brien failed with error 102, and a lone ' with
+    error 105 - and 100 characters were enough to close the statement and run another one
+    under the app's login, past the per-customer scope above (SEC-15).
+
+      * The search text, page number and page size are now sp_executesql parameters.
+      * @OrderBy is looked up in the list of output columns and only the listed name, quoted,
+        reaches the statement. Anything else sorts by CalibratioinDate instead of failing.
+
+    Output, paging, NULL = no search, and LIKE wildcards in the search text behave as before.
 */
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -58,6 +71,18 @@ INSERT #CustomerOrdersIds(OrderWorkPlanId)
 SELECT wp.OrderWorkPlanId
 FROM [dbo].[OrderWorkPlans] as wp
 JOIN dbo.GetPortalCustomerIds(@LoggedInUserEmail) as mine ON mine.CustomerId = wp.[CustomerId]
+
+/* MBA-1016: only a column name from this list reaches the statement, never the caller's text. */
+DECLARE @SortColumn SYSNAME =
+COALESCE(
+(SELECT c.Name
+ FROM (VALUES (N'DeviceStatus'),(N'CalibratioinDate'),(N'NextCalibrationDate'),(N'CalibratioinLocation')
+             ,(N'DeviceDescription'),(N'SerialNumber'),(N'ActualReturnDate'),(N'CalibratorId')
+             ,(N'CalibratorFirstName'),(N'CalibratorLastName'),(N'CalibratorPhoneNumber')
+             ,(N'CalibratorAssigmentDate'),(N'CustomerName'),(N'OverallDevicesCount'),(N'ExpiredevicesCount')
+             ,(N'CalibratedDevicesCount'),(N'DevicesWaitingForCalibrationCount'),(N'ItemsCount')) as c(Name)
+ WHERE c.Name = LTRIM(RTRIM(@OrderBy)))
+,N'CalibratioinDate')
 
 DECLARE @sql NVARCHAR(MAX) =
 CONCAT(
@@ -145,8 +170,10 @@ SELECT
 ,SUM(IsLatestOrder) OVER( ORDER BY ds.DeviceStatus) as ItemsCount
 FROM devices_cnt as ds
 WHERE ds.IsLatestOrder = 1'
-,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ds.DeviceDescription,ds.SerialNumber,ds.CalibratorFirstName,ds.CalibratorLastName,ds.CalibratorPhoneNumber) LIKE N''%'+ @GlobalSearch +'%'''ELSE ' ' END
-,'ORDER BY ' , @OrderBy , CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END , ' OFFSET ',(@PageNumber -1) * @RowsOfPage,' ROWS FETCH NEXT ', @RowsOfPage ,'ROWS ONLY OPTION(RECOMPILE); ')
+,CASE WHEN @GlobalSearch IS NOT NULL THEN ' AND CONCAT(ds.DeviceDescription,ds.SerialNumber,ds.CalibratorFirstName,ds.CalibratorLastName,ds.CalibratorPhoneNumber) LIKE N''%'' + @GlobalSearch + N''%'' ' ELSE ' ' END
+,'ORDER BY ' , QUOTENAME(@SortColumn) , CASE WHEN @OrderByAsc = 1 THEN ' ASC' WHEN @OrderByAsc = 0 THEN ' DESC'  ELSE '' END , ' OFFSET (@PageNumber - 1) * @RowsOfPage ROWS FETCH NEXT @RowsOfPage ROWS ONLY OPTION(RECOMPILE); ')
 
-EXEC (@sql)
+EXEC sp_executesql @sql
+    ,N'@GlobalSearch NVARCHAR(200), @PageNumber INT, @RowsOfPage INT'
+    ,@GlobalSearch = @GlobalSearch, @PageNumber = @PageNumber, @RowsOfPage = @RowsOfPage
 GO
