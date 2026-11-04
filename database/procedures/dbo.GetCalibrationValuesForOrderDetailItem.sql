@@ -22,6 +22,8 @@
 
     MBA-802: also returns PairId, which marks the Temperature and RH rows of one measuring point on
     a humidity device (NULL on every other row). The app pairs rows by it instead of by channel.
+    The compensation quantity falls back to the row's measured unit when it has no master unit, so
+    an RH row is never compensated with a temperature curve (see the OUTER APPLY below).
 */
 CREATE OR ALTER PROCEDURE [dbo].[GetCalibrationValuesForOrderDetailItem]
 @OrderDetailId INT, 
@@ -159,7 +161,13 @@ BEGIN
 
         Where the master holds no certificate for that quantity the function now returns nothing,
         which is the honest answer: MasterValueAfterCorrection is NULL and the screen shows a dash
-        instead of the other quantity's number.  */
+        instead of the other quantity's number.
+
+        MBA-802: when the row has no MasterValueUnitId, its own MeasuredValueUnitId says the
+        quantity. The sensors table's Temperature/RH pairs set the measured unit and, until now,
+        not the master one, so the RH row of a pair fell back to "whichever the master has most of"
+        - a temperature curve on a humidity reading. Rows with neither unit (the older temperature
+        rows) keep that fallback, as before.  */
     OUTER APPLY dbo.fnMasterValueAfterCorrection(
         md.ID,
         combined.[MasterValue],
@@ -168,7 +176,7 @@ BEGIN
          JOIN dbo.MeasurementDeviceUnits AS u
            ON LTRIM(RTRIM(u.ShortNameEn)) = LTRIM(RTRIM(m.NameEn))
           AND ISNULL(u.IsDeleted, 0) = 0
-         WHERE u.MeasurementDeviceUnitId = combined.[MasterValueUnitId])) AS mvc
+         WHERE u.MeasurementDeviceUnitId = COALESCE(combined.[MasterValueUnitId], combined.[MeasuredValueUnitId]))) AS mvc
     /* the third argument is passed explicitly: an inline table-valued function does not
        apply parameter defaults the way a stored procedure does, and omitting it fails the
        whole call with "an insufficient number of arguments". */
