@@ -10,21 +10,25 @@
     These are the values of PT100.xls, sheet "סדר הרגשים", copied from the cells (not retyped),
     with the certificate number and update date of each row kept in the table below. Left out:
       - 21-48, 21-169 (TC-R thermocouples) and 21-100 (Pt-100 ASTM): all six values are 0 there.
-      - 21-500: two live devices carry that MabaID on STAGE (691, 4645) - waiting for Nofar to say
-        which one; dbo.SaveSensorCoefficients refuses an ambiguous MabaID.
     21-214 is included and reports NoChange (same values as the earlier seed).
 
-    NOT YET CONFIRMED: a plausibility check against a typical sensor curve puts these sensors off by
-    degrees in part of the range - 21-290, 21-347, 21-697, 21-699, 21-186 (above 0 C) and 21-344,
-    21-291, 21-308, 21-343, 21-235 (below 0 C). They are loaded as PT100.xls has them; Nofar is
-    checking them against the certificates (Jira, 2026-11-05). A corrected set is a new run of
-    this script: the procedure adds a row when the values differ, and the station reads the newest.
+    WHICH DEVICE: a MabaID held by one live device is that device. When more than one live device
+    carries it (21-500 on STAGE: the Hart sensor 691 and a test record 4645 called "test third"),
+    the device whose LastCalibrationReport is the row's certificate is taken ('/' and '-' count as
+    the same: 2506006/36 = 2506006-36). If that does not leave exactly one, nothing is saved.
+
+    NOT YET CONFIRMED: against a typical sensor curve, 21-290, 21-347, 21-697, 21-699, 21-186
+    (above their range) and 21-344, 21-291, 21-308, 21-343, 21-235 (below theirs) are off by
+    degrees OUTSIDE the working range recorded for them, and within ~0.2 C inside it. They are
+    loaded as PT100.xls has them; Nofar is confirming the ranges and values (Jira 38168,
+    2026-11-05). A corrected set is a new run of this script: the procedure adds a row when the
+    values differ, and the station reads the newest.
 
     Run it on a server only after dbo.ConversionParameters' MBA-816 columns and
     dbo.SaveSensorCoefficients are there (PROD did not have them on 2026-11-05).
 
     @Apply = 0 (default) reports what would be saved and writes nothing. Before anything is saved,
-    every MabaID must name exactly one live device; otherwise the script stops and saves nothing.
+    every row must resolve to exactly one live device; otherwise the script stops and saves nothing.
     Each sensor is saved in its own transaction, so a re-run after a failure picks up where it
     stopped: sensors already saved report NoChange.
 */
@@ -44,7 +48,8 @@ DECLARE @Sensors TABLE
     B7          DECIMAL(35,15) NOT NULL,
     C7          DECIMAL(35,15) NOT NULL,
     Certificate NVARCHAR(50)   NOT NULL,   /* PT100.xls "מספר דוח" */
-    UpdatedOn   DATE           NOT NULL    /* PT100.xls "תאריך עדכון" */
+    UpdatedOn   DATE           NOT NULL,   /* PT100.xls "תאריך עדכון" */
+    DeviceId    INT            NULL        /* resolved below */
 );
 
 INSERT @Sensors (MabaID, RTP, A4, B4, A7, B7, C7, Certificate, UpdatedOn)
@@ -73,22 +78,31 @@ VALUES
     (N'21-697', 100.0179, -0.019599547862, -0.000623988893, -0.023584746183, 0.055983632412, -0.273125474463, N'2409009/89', '2024-08-20'),
     (N'21-698', 100.013096, -0.01881581, 0.00048811128312, -0.02049041, 0.002207927776, -0.00181614, N'2409009', '2024-09-04'),
     (N'21-699', 100.0102, -0.019440355759, -0.000504030812, -0.020942198254, 0.030826444019, -0.180754199331, N'2409009/90', '2024-08-21'),
-    (N'21-700', 100.0164, -0.01884546, -0.00095323517363, -0.01981613, -0.00022597604, 0.000076420023, N'2409009/91', '2024-09-16');
+    (N'21-700', 100.0164, -0.01884546, -0.00095323517363, -0.01981613, -0.00022597604, 0.000076420023, N'2409009/91', '2024-09-16'),
+    (N'21-500', 100.0262595, -0.0006576398, 0.0001854253, -0.0009781228, 0.0003676114, -0.0001437249, N'2506006-36', '2025-06-18');
 
-/* ---- every MabaID must name exactly one live device, or nothing is saved ---- */
+/* ---- every row must resolve to exactly one live device, or nothing is saved ---- */
+UPDATE s
+SET DeviceId = pick.DeviceId
+FROM @Sensors AS s
+CROSS APPLY (SELECT COUNT(*) AS Live, MIN(m.ID) AS OnlyId,
+                    SUM(m.CertMatch) AS CertMatches,
+                    MIN(CASE WHEN m.CertMatch = 1 THEN m.ID END) AS CertId
+             FROM (SELECT md.ID,
+                          CASE WHEN REPLACE(LTRIM(RTRIM(md.LastCalibrationReport)), N'-', N'/')
+                                    = REPLACE(s.Certificate, N'-', N'/') COLLATE DATABASE_DEFAULT
+                               THEN 1 ELSE 0 END AS CertMatch
+                   FROM dbo.MeasurementDevices AS md
+                   WHERE LTRIM(RTRIM(md.MabaID)) = s.MabaID COLLATE DATABASE_DEFAULT
+                     AND md.IsDeleted = 0) AS m) AS d
+CROSS APPLY (SELECT CASE WHEN d.Live = 1 THEN d.OnlyId
+                         WHEN d.Live > 1 AND d.CertMatches = 1 THEN d.CertId END AS DeviceId) AS pick;
+
 DECLARE @Unresolved NVARCHAR(MAX) =
-(
-    SELECT STRING_AGG(CONCAT(s.MabaID, N' (', d.Live, N' live)'), N', ')
-    FROM @Sensors AS s
-    CROSS APPLY (SELECT COUNT(*) AS Live
-                 FROM dbo.MeasurementDevices AS md
-                 WHERE LTRIM(RTRIM(md.MabaID)) = s.MabaID COLLATE DATABASE_DEFAULT
-                   AND md.IsDeleted = 0) AS d
-    WHERE d.Live <> 1
-);
+    (SELECT STRING_AGG(s.MabaID, N', ') FROM @Sensors AS s WHERE s.DeviceId IS NULL);
 IF @Unresolved IS NOT NULL
 BEGIN
-    DECLARE @Message NVARCHAR(2048) = CONCAT(N'Nothing saved - these MabaIDs do not name exactly one live device: ', @Unresolved);
+    DECLARE @Message NVARCHAR(2048) = CONCAT(N'Nothing saved - no single live device for: ', @Unresolved);
     THROW 51000, @Message, 1;
 END;
 
@@ -104,23 +118,24 @@ CREATE TABLE #Outcome
     OrderDetailsItemId    INT
 );
 
-DECLARE @MabaID NVARCHAR(50), @RTP DECIMAL(35,15), @A4 DECIMAL(35,15), @B4 DECIMAL(35,15),
+DECLARE @MabaID NVARCHAR(50), @DeviceId INT, @RTP DECIMAL(35,15), @A4 DECIMAL(35,15), @B4 DECIMAL(35,15),
         @A7 DECIMAL(35,15), @B7 DECIMAL(35,15), @C7 DECIMAL(35,15);
 
 DECLARE sensor CURSOR LOCAL FAST_FORWARD FOR
-    SELECT MabaID, RTP, A4, B4, A7, B7, C7 FROM @Sensors ORDER BY MabaID;
+    SELECT MabaID, DeviceId, RTP, A4, B4, A7, B7, C7 FROM @Sensors ORDER BY MabaID;
 OPEN sensor;
-FETCH NEXT FROM sensor INTO @MabaID, @RTP, @A4, @B4, @A7, @B7, @C7;
+FETCH NEXT FROM sensor INTO @MabaID, @DeviceId, @RTP, @A4, @B4, @A7, @B7, @C7;
 WHILE @@FETCH_STATUS = 0
 BEGIN
     INSERT #Outcome
     EXEC dbo.SaveSensorCoefficients
-        @LoggedInUserEmail = @LoggedInUserEmail,
-        @MabaID            = @MabaID,
+        @LoggedInUserEmail    = @LoggedInUserEmail,
+        @MabaID               = @MabaID,
+        @MeasurementDevicesId = @DeviceId,
         @RTP = @RTP, @A4 = @A4, @B4 = @B4, @A7 = @A7, @B7 = @B7, @C7 = @C7,
-        @Apply             = @Apply;
+        @Apply                = @Apply;
 
-    FETCH NEXT FROM sensor INTO @MabaID, @RTP, @A4, @B4, @A7, @B7, @C7;
+    FETCH NEXT FROM sensor INTO @MabaID, @DeviceId, @RTP, @A4, @B4, @A7, @B7, @C7;
 END;
 CLOSE sensor;
 DEALLOCATE sensor;
