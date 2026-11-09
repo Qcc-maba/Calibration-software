@@ -173,9 +173,38 @@ Priority's log is the only real progress there is.
   also fixes the `CDATE` ordering without touching the view.
 - **Never delete.** A step that disappears upstream is reported by a full refresh, not removed.
 
+### Phase 2: the outbox (report-only)
+
+The app reports its own calibration steps through one procedure, which checks them and records them.
+Nothing is sent to Priority yet, in any mode.
+
+| Object | File | Purpose |
+|---|---|---|
+| `dbo.PriorityStatusWriteMode` | `database/procedures/dbo.PriorityStatusWriteMode.table.sql` | one-row switch: `Off` (kill switch) or `ReportOnly`. A CHECK constraint makes `Send` impossible until phase 3 adds the sender |
+| `dbo.PriorityStatusOutbox` | `database/procedures/dbo.PriorityStatusOutbox.table.sql` | one row per app event, key `(Doc, StatusCode, EventKey)` for accepted rows; refused rows kept with their reason |
+| `dbo.RecordPriorityStatusEvent` | `database/procedures/dbo.RecordPriorityStatusEvent.sql` | the app's only entry point; returns `OutboxId, Doc, StatusCode, State, Reason, IsDuplicate` |
+| test | `database/tests/Test-RecordPriorityStatusEvent.sql` | 28 checks, all inside a rolled-back transaction |
+
+The rules the procedure enforces:
+- **Idempotency** by the app's `EventKey`.
+- **Only the app's codes:** Priority's own codes (`AA`, `TX`, `PI`, `CO`, `KM`) are refused.
+- **Ownership:** a calibration belongs to the program it was opened in. `AC` is refused when MABA 2000
+  already worked on the `Doc`, and every other code needs the app's `AC`. This is the "one device, one
+  program" rule.
+- **One `AC` and one `CD` per `Doc`.**
+- **Nothing but update-report codes after `TX`.**
+- **The signature chain:** `H1` needs a report, `H2` and `HR` need `H1`, and after `HR` a new report.
+- **Holds:** no hold twice in a row, and resume only after a hold.
+
+A refusal is returned, not thrown, so a user's action never fails because of Priority reporting.
+
 ### Not in this change
 
 - The roll-up of device statuses into `OrderWorkPlans.OrderOverallStatusId` (needs a decision on the
   rule, and on the `CO` meaning, asked on MBA-911).
-- Writing statuses back to Priority (outbox and sender: phases 2 and 3 of MBA-911). The sender waits for
-  STAGE to move to Priority's test company `s190225`.
+- Sending to Priority (phase 3): the sender, the `Send` mode and the sending states. It waits for STAGE
+  to move to Priority's test company `s190225`. Before sending, phase 3 must also re-check ownership:
+  the log mirror is refreshed hourly, so a MABA 2000 start in the last hour is not visible to the
+  outbox.
+- Reopening a calibration after it was completed (MABA 2000 sometimes records a second `AC`). The
+  outbox allows one `AC` per `Doc` until the lab says how reopening should work.
