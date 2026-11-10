@@ -150,15 +150,30 @@ learn:
   `UDATE`, so an edit there may never show in an incremental run.
 - Everything inside one `OPENQUERY` (session1 decision 19); text columns `COLLATE DATABASE_DEFAULT`;
   display text through `dbo.fnUnreverseVisualText`, identifiers (`SERNUM`) never.
+- **`system.dbo.tabula_hebconvert` throws on NULL** (`NullReferenceException` in
+  `HebrewFilterFull`), and a device with no `MBA_SERNUMBERS` row has a NULL `SERNDES` after the
+  `LEFT JOIN`. Wrap it: `tabula_hebconvert(ISNULL(m.SERNDES, ''))`. Without that, one such device
+  fails the whole run.
 - `MERGE` that writes only rows that differ, so a second run reports zero. Never deletes: a device that
   disappears upstream is reported.
 - SQL Agent: hourly beside the MBA-911 job, plus the nightly full run (`database/jobs/Setup-SqlAgentJobs.sql`).
 
-**What it loads:** every device of every customer we hold, cancelled ones flagged (about 662k rows).
-That turns "which devices go in" from a schema decision into a display filter in the view (point 5),
-so changing the answer later is one `WHERE`, not a reload. To measure before committing: how long the
-full pull takes over the linked server. If it is too slow, the fallback is devices of customers that
-have portal contacts.
+**What it loads:** the devices of active customers that are not cancelled - 592,157 of 662,117
+(Priority, 2026-11-10: 633,462 not cancelled; 6,010 of 6,504 customers active by
+`CUSTSTATS.INACTIVE`). A device already held that is cancelled later is still updated by the
+incremental run and gets `IsInactiveInSource = 1`; nothing is deleted. Cancelled devices and inactive
+customers are never shown, so they are not copied.
+
+Limiting the load to customers with portal contacts was considered and rejected: the portal is not
+released yet, and most customers are expected to use it once it is, so that rule would grow to nearly
+the whole register while adding a membership rule and an onboarding delay. Protection belongs in the
+read path (point 7), not in the row count.
+
+Measured 2026-11-10, directly on Priority (AWS was unreachable from the workstation): the full query
+(SERNUMBERS + MBA_SERNUMBERS + MNFCTR + `tabula_hebconvert`) takes **9.3 s** on Priority's side and
+returns about **50 MB**. Still to measure on STAGE: the same pull across the AWS - Priority link. If
+it is too slow, the nightly full run becomes weekly and the hourly incremental carries the rest (about
+950 devices change a day).
 
 #### 4. A device typed in the portal joins Priority
 
@@ -197,12 +212,29 @@ rules live only here:
 - `dbo.GetPortalCustomerIds` keeps counting devices through order lines: no change to sign-in in this
   work.
 
-#### 7. Order of work
+#### 7. Who can read a device
+
+The table will hold the asset list of every active customer, so one portal procedure with a wrong
+customer filter would show one customer another's devices. The rules that prevent it:
+
+1. **The portal's SQL login can only `EXECUTE` procedures** - no `SELECT` on tables or on
+   `dbo.vwCustomerDevices`. Not verified yet; check it before phase 2. If the login can read tables,
+   every filter below can be bypassed.
+2. **One filter, in one place.** Every portal procedure that returns devices filters through
+   `dbo.GetPortalCustomerIds(@Email)`. No procedure writes its own customer filter.
+3. **`@Email` comes from the app's signed-in session, never from the browser.** App side; confirm with
+   the portal developer for the device procedures.
+4. **A test that fails on a leak.** A `database/tests` file calls each portal device procedure as a
+   contact of customer A and asserts that no row of customer B comes back.
+5. **Later, if 1-4 prove insufficient:** row-level security on `CustomerDevices`, so SQL Server filters
+   rows even when a procedure forgets to.
+
+#### 8. Order of work
 
 | Phase | Content | Visible to customers |
 |---|---|---|
 | 1 | table changes, refresh, view, SQL Agent job, a `database/tests` file; STAGE, then PROD | no |
-| 2 | list and detail procedures read the view; the app switches its route (portal developer) | same list, stable ids |
+| 2 | check the portal login (point 7.1); list and detail procedures read the view, with the leak test (point 7.4); the app switches its route (portal developer) | same list, stable ids |
 | 3 | `AssignCustomerDevicesData` follows the ownership rules and the duplicate check; the add-device form is wired | the form works |
 | 4 | requests reference a device | requests for new devices |
 
@@ -217,14 +249,14 @@ status by `Doc`.
 
 ### Open questions (for MBA-996)
 
-1. **Load everything, filter in the view** (point 3): accepted, subject to measuring the full pull?
-2. **Portal edits to Priority-owned fields** of a registered device are refused (point 2): accepted?
-3. **The 134 calibrations on two order lines:** a sync defect to fix, or a real business case (the same
+1. **Portal edits to Priority-owned fields** of a registered device are refused (point 2): accepted?
+2. **The 134 calibrations on two order lines:** a sync defect to fix, or a real business case (the same
    device on two order lines)? The view must show one visit per `Doc` until this is settled.
-4. **Whether this is one ticket or two:** phases 1-2 could be split out of MBA-996's add-device form.
+3. **Whether this is one ticket or two:** phases 1-2 could be split out of MBA-996's add-device form.
 
 Settled by this design: a device that moved shows only its visits under the caller's customers
-(point 5), and the portal's device id becomes `CustomerDeviceID` (point 6).
+(point 5), the portal's device id becomes `CustomerDeviceID` (point 6), and the load covers every
+active customer's live devices, protected in the read path (points 3 and 7; decided 2026-11-10).
 
 ---
 
