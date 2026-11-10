@@ -31,14 +31,42 @@ namespace ComServerBL.Hydra2.DAL.Calibration
         public const string DEFAULT_PROCEDURE_NAME = "GetMeasurementDevicesCorrections";
         public const string DEFAULT_PARAMETER_NAME = "@MabaID";
         public const string PARAM_LATEST_VERSION_ONLY = "@GetLatestVersionOnly";
+        public const string COEFFICIENTS_PROCEDURE_NAME = "GetSensorCoefficients";
 
         #endregion
 
         #region Members
 
         private readonly ConcurrentDictionary<string, List<CorrectionValues>> _correctionValuesDic = new ConcurrentDictionary<string, List<CorrectionValues>>();
+        private readonly ConcurrentDictionary<string, SensorCoefficients> _coefficientsDic = new ConcurrentDictionary<string, SensorCoefficients>();
+
+        /// <summary>MBA-1007: sensors whose last load answered "no certificate on file", as opposed to failing.</summary>
+        private readonly ConcurrentDictionary<string, bool> _noCorrectionsOnFile = new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+        private static readonly object _correctionLogLock = new object();
 
         #endregion
+
+        /// <summary>
+        /// MBA-1007: one writer at a time for correction.log, and never an exception. Every BL's repository
+        /// writes this one file while loading certificates; two loads at once (an init beside a background
+        /// load, or two instruments) threw "being used by another process" out of the load - and out of a
+        /// BL's init. A line lost is a diagnostic lost, nothing more.
+        /// </summary>
+        private static void AppendCorrectionLog(string text)
+        {
+            try
+            {
+                lock (_correctionLogLock)
+                {
+                    System.IO.File.AppendAllText("correction.log", text);
+                }
+            }
+            catch (Exception e)
+            {
+                Trace.WriteLine($"CalibrationRepository: correction.log not written: {e.Message}");
+            }
+        }
 
         #region Properties
 
@@ -86,41 +114,91 @@ namespace ComServerBL.Hydra2.DAL.Calibration
                     return null;
                 }
 
-                var correctionValues = new List<CorrectionValues>();
-
-                // Log column schema on first read
-                var cols = new List<string>();
-                for (int c = 0; c < dbResults.FieldCount; c++)
-                    cols.Add($"{dbResults.GetName(c)}({dbResults.GetFieldType(c).Name})");
-                System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + " SP columns: " + string.Join(", ", cols) + Environment.NewLine);
-
-                // Resolve column indices by name
-                int colValue1 = dbResults.GetOrdinal("Value1");
-                int colDeviation = dbResults.GetOrdinal("Deviation");
-                int colValue2 = -1;
-                try { colValue2 = dbResults.GetOrdinal("Value2"); } catch { }
-
-                while (dbResults.Read())
+                // The connector keeps one connection open and the station's has no MARS, so a reader
+                // left open makes the next procedure on it fail ("already an open DataReader").
+                using (dbResults)
                 {
-                    double temperature = dbResults.IsDBNull(colValue1) ? 0 : Convert.ToDouble(dbResults.GetValue(colValue1));
-                    double deviation = dbResults.IsDBNull(colDeviation) ? 0 : Convert.ToDouble(dbResults.GetValue(colDeviation));
-                    double humidity = (colValue2 >= 0 && !dbResults.IsDBNull(colValue2)) ? Convert.ToDouble(dbResults.GetValue(colValue2)) : 0;
+                    var correctionValues = new List<CorrectionValues>();
 
-                    var cv = new CorrectionValues
+                    // Log column schema on first read
+                    var cols = new List<string>();
+                    for (int c = 0; c < dbResults.FieldCount; c++)
+                        cols.Add($"{dbResults.GetName(c)}({dbResults.GetFieldType(c).Name})");
+                    AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + " SP columns: " + string.Join(", ", cols) + Environment.NewLine);
+
+                    // Resolve column indices by name
+                    int colValue1 = dbResults.GetOrdinal("Value1");
+                    int colDeviation = dbResults.GetOrdinal("Deviation");
+                    int colValue2 = -1;
+                    try { colValue2 = dbResults.GetOrdinal("Value2"); } catch { }
+
+                    while (dbResults.Read())
                     {
-                        TemperatureValue = temperature,
-                        Deviation = deviation,
-                        HumidityValue = humidity
-                    };
-                    correctionValues.Add(cv);
-                }
+                        double temperature = dbResults.IsDBNull(colValue1) ? 0 : Convert.ToDouble(dbResults.GetValue(colValue1));
+                        double deviation = dbResults.IsDBNull(colDeviation) ? 0 : Convert.ToDouble(dbResults.GetValue(colDeviation));
+                        double humidity = (colValue2 >= 0 && !dbResults.IsDBNull(colValue2)) ? Convert.ToDouble(dbResults.GetValue(colValue2)) : 0;
 
-                return correctionValues;
+                        var cv = new CorrectionValues
+                        {
+                            TemperatureValue = temperature,
+                            Deviation = deviation,
+                            HumidityValue = humidity
+                        };
+                        correctionValues.Add(cv);
+                    }
+
+                    return correctionValues;
+                }
             }
             catch (Exception e)
             {
-                System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + $" GetCorrectionValuesAsync ERROR: {e.Message}" + Environment.NewLine);
+                AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + $" GetCorrectionValuesAsync ERROR: {e.Message}" + Environment.NewLine);
                 Trace.WriteLine($"CalibrationRepository.GetCorrectionValuesAsync error: {e.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// The sensor's current ITS-90 coefficients from dbo.GetSensorCoefficients (MBA-816), or null
+        /// when none are on file. Most masters are not precision resistance sensors, so "none" is the
+        /// usual answer. A MabaID held by two live devices makes the procedure raise; that is logged
+        /// and also treated as none, since converting with either one's coefficients would be a guess.
+        /// </summary>
+        public async Task<SensorCoefficients> GetSensorCoefficientsAsync(string mabaID)
+        {
+            try
+            {
+                var parameter = this.Connector.CreateParameter(DEFAULT_PARAMETER_NAME, mabaID);
+
+                DbDataReader dbResults = await this.Connector.RunProcedureAsync(
+                    COEFFICIENTS_PROCEDURE_NAME,
+                    new IDataParameter[] { parameter });
+
+                if (dbResults == null)
+                {
+                    return null;
+                }
+
+                using (dbResults)
+                {
+                    if (!dbResults.Read())
+                    {
+                        return null;
+                    }
+
+                    return new SensorCoefficients(
+                        Convert.ToDouble(dbResults["RTP"]),
+                        Convert.ToDouble(dbResults["A4"]),
+                        Convert.ToDouble(dbResults["B4"]),
+                        Convert.ToDouble(dbResults["A7"]),
+                        Convert.ToDouble(dbResults["B7"]),
+                        Convert.ToDouble(dbResults["C7"]));
+                }
+            }
+            catch (Exception e)
+            {
+                AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + $" GetSensorCoefficientsAsync ERROR for '{mabaID}': {e.Message}" + Environment.NewLine);
+                Trace.WriteLine($"CalibrationRepository.GetSensorCoefficientsAsync error for '{mabaID}': {e.Message}");
                 return null;
             }
         }
@@ -139,20 +217,24 @@ namespace ComServerBL.Hydra2.DAL.Calibration
 
             var initMsg = $"CalibrationRepository.InitMasters: loading {masters.Count} master(s) from DB (one-time) using SP={ProcedureName}";
             Trace.WriteLine(initMsg);
-            System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + " " + initMsg + Environment.NewLine);
+            AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + " " + initMsg + Environment.NewLine);
             bool allLoaded = true;
             foreach (string master in masters)
             {
                 var result = await LoadCorrectionValues(ProcedureName, ParameterName, master);
                 var masterMsg = $"  Master '{master}' -> {(result ? "loaded OK" : "FAILED")}";
                 Trace.WriteLine(masterMsg);
-                System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + " " + masterMsg + Environment.NewLine);
+                AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + " " + masterMsg + Environment.NewLine);
                 if (!result)
                     allLoaded = false;
+
+                // Not part of allLoaded: a master with no ITS-90 coefficients is normal for every
+                // sensor that is not a precision resistance thermometer.
+                await LoadSensorCoefficients(master);
             }
             var doneMsg = $"CalibrationRepository.InitMasters: done. Cache has {_correctionValuesDic.Count} sensor(s). All loaded={allLoaded}";
             Trace.WriteLine(doneMsg);
-            System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + " " + doneMsg + Environment.NewLine);
+            AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + " " + doneMsg + Environment.NewLine);
             return allLoaded;
         }
 
@@ -164,9 +246,13 @@ namespace ComServerBL.Hydra2.DAL.Calibration
 
                 if (correctionValues == null || correctionValues.Count == 0)
                 {
-                    System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + $" LoadCorrectionValues: '{loggerName}' returned {(correctionValues == null ? "null" : "0 rows")} from SP={procedureName}" + Environment.NewLine);
+                    // MBA-1007: 0 rows is an answer - no certificate on file. null is a failed read (the
+                    // query threw, or returned nothing at all), which must not be taken for that answer.
+                    if (correctionValues != null) _noCorrectionsOnFile[loggerName] = true;
+                    AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + $" LoadCorrectionValues: '{loggerName}' returned {(correctionValues == null ? "null" : "0 rows")} from SP={procedureName}" + Environment.NewLine);
                     return false;
                 }
+                _noCorrectionsOnFile.TryRemove(loggerName, out _);
 
                 bool isTemperatureOnly = correctionValues[0].HumidityValue == 0 &&
                     correctionValues.All(cv => cv.HumidityValue == 0);
@@ -183,10 +269,85 @@ namespace ComServerBL.Hydra2.DAL.Calibration
             }
             catch (Exception e)
             {
-                System.IO.File.AppendAllText("correction.log", DateTime.Now.ToString("HH:mm:ss") + $" LoadCorrectionValues ERROR: {e.Message}" + Environment.NewLine);
+                AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + $" LoadCorrectionValues ERROR: {e.Message}" + Environment.NewLine);
                 Trace.WriteLine($"CalibrationRepository.LoadCorrectionValues error: {e.Message}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Reloads the master's ITS-90 coefficients into the cache, so coefficients saved since the
+        /// last init are picked up by the next one. No set on file removes any cached one.
+        /// </summary>
+        public async Task<bool> LoadSensorCoefficients(string mabaID)
+        {
+            var coefficients = await GetSensorCoefficientsAsync(mabaID);
+            string msg;
+            if (coefficients == null)
+            {
+                _coefficientsDic.TryRemove(mabaID, out _);
+                msg = $"  Master '{mabaID}' -> no ITS-90 coefficients on file";
+            }
+            else
+            {
+                _coefficientsDic[mabaID] = coefficients;
+                msg = $"  Master '{mabaID}' -> ITS-90 coefficients loaded (RTP={coefficients.RTP})";
+            }
+            Trace.WriteLine(msg);
+            AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + " " + msg + Environment.NewLine);
+            return coefficients != null;
+        }
+
+        public bool TryGetSensorCoefficients(string mabaID, out SensorCoefficients coefficients)
+        {
+            coefficients = null;
+            return !string.IsNullOrEmpty(mabaID) && _coefficientsDic.TryGetValue(mabaID, out coefficients);
+        }
+
+        /// <summary>Puts a set straight into the cache, without the database.</summary>
+        public void SetSensorCoefficients(string mabaID, SensorCoefficients coefficients)
+        {
+            _coefficientsDic[mabaID] = coefficients;
+        }
+
+        /// <summary>MBA-1007: whether a correction certificate for <paramref name="mabaID"/> is cached.</summary>
+        public bool HasCorrectionValues(string mabaID)
+        {
+            return !string.IsNullOrEmpty(mabaID)
+                && _correctionValuesDic.TryGetValue(mabaID, out var values)
+                && values != null && values.Count > 0;
+        }
+
+        /// <summary>Puts a certificate straight into the cache, without the database, ordered as a load orders it.</summary>
+        public void SetCorrectionValues(string mabaID, List<CorrectionValues> values)
+        {
+            _correctionValuesDic[mabaID] = values.OrderBy(o => o.TemperatureValue).ToList();
+            _noCorrectionsOnFile.TryRemove(mabaID, out _);
+        }
+
+        /// <summary>
+        /// MBA-1007: whether the database answered that <paramref name="mabaID"/> has no certificate. False
+        /// when it was never asked, or the read failed - both are worth asking again.
+        /// </summary>
+        public bool IsKnownToHaveNoCorrections(string mabaID)
+        {
+            return !string.IsNullOrEmpty(mabaID) && _noCorrectionsOnFile.ContainsKey(mabaID);
+        }
+
+        /// <summary>
+        /// MBA-1007: forgets a "no certificate on file" answer, so the next load asks again - for a
+        /// sensor associated anew, whose certificate may have been saved since.
+        /// </summary>
+        public void ForgetNoCorrectionsOnFile(string mabaID)
+        {
+            if (!string.IsNullOrEmpty(mabaID)) _noCorrectionsOnFile.TryRemove(mabaID, out _);
+        }
+
+        /// <summary>Records "no certificate on file" for <paramref name="mabaID"/> without the database.</summary>
+        public void SetNoCorrectionsOnFile(string mabaID)
+        {
+            _correctionValuesDic.TryRemove(mabaID, out _);
+            _noCorrectionsOnFile[mabaID] = true;
         }
 
         #endregion

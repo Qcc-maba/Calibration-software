@@ -1,12 +1,14 @@
 /*
     SQL Agent jobs for the MABA calibration database
     ---------------------------------------------------------------------------------------------
-    Creates both nightly refresh jobs in one place, and REFUSES TO RUN with a readable explanation
+    Creates the Priority refresh jobs in one place, and REFUSES TO RUN with a readable explanation
     if the connected login cannot create them - rather than failing on statement 40 with
     "EXECUTE permission was denied on the object 'sp_add_job'".
 
         MABA - Refresh packing data from Priority     02:00   dbo.RefreshPackingDataFromPriority
         MABA - Refresh device descriptions            02:30   dbo.RefreshDeviceDescriptions
+        MABA - Refresh Priority calibration status    hourly at :20
+                                                              dbo.RefreshPriorityCalibrationStatus (MBA-911)
 
     Set @Database below. Everything else has a working default.
 
@@ -35,9 +37,17 @@
     On PROD the table is currently EMPTY - this job is what fills it, and dbo.GetCalibrationItems
     returns nothing until it has run at least once.
 
-    Both jobs only READ from Priority. Nothing is written back to the ERP.
+    Refresh Priority calibration status - mirrors Priority's calibration status log
+    (MBA_CALIBSTATSLOG: received, calibration opened, report generated, signatures, packed, sent)
+    into dbo.PriorityCalibrationStatusLog for the Docs we hold (MBA-911). Hourly, because this is
+    progress people watch during the day; an incremental run is one or two linked-server
+    round-trips. Run dbo.RefreshPriorityCalibrationStatus @Apply = 1 once by hand before enabling
+    it: the first run fetches every Doc's whole log.
 
-    02:00 and 02:30 were chosen so the two pulls do not overlap each other or the working day.
+    All three jobs only READ from Priority. Nothing is written back to the ERP.
+
+    02:00 and 02:30 were chosen so the two nightly pulls do not overlap each other or the working
+    day. :20 past the hour keeps the status refresh clear of the hourly order load.
 */
 
 /*  NOTE: no USE msdb anywhere in this file, deliberately. A login with no principal in msdb - which
@@ -51,7 +61,8 @@ SET NOCOUNT ON;
 DECLARE @Database    SYSNAME = N'CalibratorProd',   /* N'Calibrator' for STAGE */
         @OwnerLogin  SYSNAME = NULL,                /* NULL = whoever is running this. N'sa' also fine */
         @PackingTime INT     = 20000,               /* 02:00:00, HHMMSS */
-        @DescribeTime INT    = 23000;               /* 02:30:00 */
+        @DescribeTime INT    = 23000,               /* 02:30:00 */
+        @StatusTime  INT     = 2000;                /* 00:20:00, then every hour */
 
 SET @OwnerLogin = COALESCE(@OwnerLogin, SUSER_SNAME());
 
@@ -206,6 +217,43 @@ EXEC msdb.dbo.sp_add_jobschedule
      @freq_type        = 4,
      @freq_interval    = 1,
      @active_start_time = @DescribeTime;
+
+EXEC msdb.dbo.sp_add_jobserver @job_id = @JobId, @server_name = N'(local)';
+PRINT 'created: ' + @Name;
+
+/* ---- 3. Priority calibration status (MBA-911) ------------------------------------------------- */
+SET @Name = N'MABA - Refresh Priority calibration status';
+IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @Name)
+    EXEC msdb.dbo.sp_delete_job @job_name = @Name, @delete_unused_schedule = 1;
+
+SET @JobId = NULL;   /* see the note on the first job */
+
+EXEC msdb.dbo.sp_add_job
+     @job_name         = @Name,
+     @enabled          = 1,
+     @description      = N'Mirrors Priority MBA_CALIBSTATSLOG into dbo.PriorityCalibrationStatusLog for the Docs we hold (MBA-911). Read-only against Priority.',
+     @owner_login_name = @OwnerLogin,
+     @job_id           = @JobId OUTPUT;
+
+EXEC msdb.dbo.sp_add_jobstep
+     @job_id         = @JobId,
+     @step_name      = N'EXEC dbo.RefreshPriorityCalibrationStatus @Apply = 1',
+     @subsystem      = N'TSQL',
+     @database_name  = @Database,
+     @command        = N'EXEC dbo.RefreshPriorityCalibrationStatus @Apply = 1;',
+     @retry_attempts = 2,
+     @retry_interval = 5,
+     @on_success_action = 1,
+     @on_fail_action    = 2;
+
+EXEC msdb.dbo.sp_add_jobschedule
+     @job_id               = @JobId,
+     @name                 = N'Hourly at :20',
+     @freq_type            = 4,   /* daily ...                 */
+     @freq_interval        = 1,
+     @freq_subday_type     = 8,   /* ... repeating every N hours */
+     @freq_subday_interval = 1,
+     @active_start_time    = @StatusTime;
 
 EXEC msdb.dbo.sp_add_jobserver @job_id = @JobId, @server_name = N'(local)';
 PRINT 'created: ' + @Name;

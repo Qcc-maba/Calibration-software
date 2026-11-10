@@ -106,6 +106,22 @@ at the top of the script and resolve the local ids from them.
 6. Commit the file. If PROD did not happen, say so in the commit body and add it to the in-flight
    list — `database/Compare-Schema.ps1` will show the drift, but only if someone runs it.
 
+## The release gate: `Compare-Schema.ps1 -FailOnUnexpected`
+
+Run it **before and after every PROD deploy**, and do not merge app `stg` → `main` while it fails.
+It compares columns, routine parameters, routine **bodies** (whitespace and case ignored), and
+defaults / checks / foreign keys / indexes **by content, not name**, then exits 1 on any difference
+that is not listed in `database/Compare-Schema.expected.txt`.
+
+- A difference is either work to deploy, or a new entry in `Compare-Schema.expected.txt` with its
+  reason and ticket. Delete the entry in the same change that deploys the difference; a stale entry
+  hides the next real gap.
+- **A table is deployed from its `database/procedures/dbo.<Table>.table.sql`, never regenerated from
+  `sys.columns`.** The 31/08 package did that and dropped every default, check, foreign key and
+  secondary index on seven tables. On 2026-10-25 the first validator note and the first portal
+  request both failed on PROD for want of a DEFAULT. A table with no `.table.sql` gets one first.
+- Comparing columns alone is not enough. Every column matched in that incident (MBA-999).
+
 Writing to a production database is a permission-gated action. If the tool refuses it, do not route
 around it: report what is deployed where, and hand over the exact command.
 

@@ -85,6 +85,16 @@ namespace Maba.VCT.Core.Tests
             Assert.IsTrue(blCore.OnDeviceConnetion(b.Fluke), "test setup: the Hydra2 BL did not claim the Fluke");
             b.BL = new PrivateObject(b.Fluke.BL);
 
+            // MBA-1007: a sensor with no certificate on file sends no readings, so both sensors get one.
+            var certificates = (ComServerBL.Hydra2.DAL.Calibration.CalibrationRepository)new PrivateObject(b.BL.GetField("HC")).GetField("_repository");
+            var flat = new List<Maba.DAL.BaseDAL.Records.CorrectionValues>
+            {
+                new Maba.DAL.BaseDAL.Records.CorrectionValues { TemperatureValue = 0, Deviation = 0 },
+                new Maba.DAL.BaseDAL.Records.CorrectionValues { TemperatureValue = 50, Deviation = 0 },
+            };
+            certificates.SetCorrectionValues("21-675", flat);
+            certificates.SetCorrectionValues("31-98", flat);
+
             b.Client = new MockComLayer();
             b.Server.RegisterWebSocketClient("WS", new WebSocketDeviceHost(new EventsBus(), b.Client, "WS"));
             Confirm(b.Client, "1,2,14,15,16", ("21-675", "1,2"), ("31-98", "14,15,16"));

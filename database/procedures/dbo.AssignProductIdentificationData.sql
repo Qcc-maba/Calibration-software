@@ -24,6 +24,23 @@
     the column and NULL leaves it - the same shape DiagramMapLink already uses on the line above.
 
     Round-tripped on STAGE against a live item: write, clear-the-list, restore.
+
+    MBA-855: a new UUT serial is also written to the device's sensor table rows that carry its
+    MABA No or none, so page 1 and the table show the same serial. Rows carrying another MABA No
+    are left alone. Tested by database/tests/Test-AssignProductIdentificationSerialSync.sql.
+
+    MBA-802: a humidity device (secondary category "Humidity") has a second set of Guard Band,
+    tolerance and resolution for its %RH readings. They go to HumidityAccuracy, HumidityTolerance
+    and HumidityResolution (database/schema/dbo.OrderDetailsItems.Humidity.sql), typed like
+    Accuracy, Tolerance and Resolution, which keep holding the temperature set. NULL leaves the
+    column alone, like everywhere here.
+
+    Unlike those, the three humidity parameters are text, so they can also be cleared: an empty
+    string empties the column, the way SpecificationReferenceIds and DiagramMapLink do. As numeric
+    parameters they could not be - N'' does not convert to a number and failed the whole save -
+    so a cleared field came back on reload, and a device moved out of "Humidity" kept its values
+    (review of app PR #160). Anything else is converted with TRY_CONVERT; a value that is not a
+    number leaves the column as it is.
 */
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -73,7 +90,12 @@ CREATE OR ALTER PROCEDURE [dbo].[AssignProductIdentificationData]
 	   sending it keeps working. */
 	@Tolerance DECIMAL(18,6) = NULL,
 	@Resolution DECIMAL(18,6) = NULL,
-	@SpecificationReferenceIds NVARCHAR(MAX) = NULL
+	@SpecificationReferenceIds NVARCHAR(MAX) = NULL,
+	/* MBA-802: the humidity set of a humidity device; the temperature set stays in
+	   @Accuracy, @Tolerance and @Resolution. Text, so '' can clear them (see the header). */
+	@HumidityAccuracy NVARCHAR(50) = NULL,
+	@HumidityTolerance NVARCHAR(50) = NULL,
+	@HumidityResolution NVARCHAR(50) = NULL
 AS
 BEGIN 
 
@@ -119,6 +141,9 @@ BEGIN
 					   ,[Tolerance]
 					   ,[Resolution]
 					   ,[SpecificationReferenceIds]
+					   ,[HumidityAccuracy]
+					   ,[HumidityTolerance]
+					   ,[HumidityResolution]
 					)
 				 SELECT
 					@OrderDetailId,	
@@ -155,7 +180,10 @@ BEGIN
 					@DiagramMapLink,
 					@Tolerance,
 					@Resolution,
-					NULLIF(@SpecificationReferenceIds, '')
+					NULLIF(@SpecificationReferenceIds, ''),
+					TRY_CONVERT(TINYINT, NULLIF(LTRIM(RTRIM(@HumidityAccuracy)), N'')),
+					TRY_CONVERT(DECIMAL(18,6), NULLIF(LTRIM(RTRIM(@HumidityTolerance)), N'')),
+					TRY_CONVERT(DECIMAL(18,6), NULLIF(LTRIM(RTRIM(@HumidityResolution)), N''))
 				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
 
 		END
@@ -170,8 +198,13 @@ BEGIN
 	SET [OrderLineCnt] = IIF(@OrderLineCnt_new IS NULL,[OrderLineCnt], @OrderLineCnt_new)
 	WHERE OrderDetailId = @OrderDetailId AND [OrderLineCnt] <> COALESCE(@OrderLineCnt_new,[OrderLineCnt])
 
+	/* MBA-855: the device's MABA No before this save, so its table rows still match it below
+	   even when this same save changes the MABA No. */
+	DECLARE @ItemId INT = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
+	DECLARE @MabaBefore NVARCHAR(100) = (SELECT LTRIM(RTRIM([MbaReportNumber])) FROM [dbo].[OrderDetailsItems] WHERE OrderDetailsItemId = @ItemId)
+
 	UPDATE [dbo].[OrderDetailsItems]
-			SET 
+			SET
 			 [ActualCalibrationDate] = IIF(@ActualCalibrationDate IS NULL,[ActualCalibrationDate],@ActualCalibrationDate)
 			,[NextCalibrationDate] = IIF(@NextCalibrationDate IS NULL,[NextCalibrationDate],@NextCalibrationDate)
 			,[SerialNumber] = IIF(@SerialNumber IS NULL,[SerialNumber],@SerialNumber)
@@ -208,7 +241,34 @@ BEGIN
 			   document has to be storable, and COALESCE on its own would make that
 			   impossible. Same shape as DiagramMapLink above. */
 			,[SpecificationReferenceIds] = IIF(@SpecificationReferenceIds = '',NULL,COALESCE(@SpecificationReferenceIds,[SpecificationReferenceIds]))
+			/* MBA-802: NULL leaves it, '' clears it, a number sets it, anything else leaves it. */
+			,[HumidityAccuracy] = IIF(LTRIM(RTRIM(@HumidityAccuracy)) = N'', NULL,
+			                          COALESCE(TRY_CONVERT(TINYINT, @HumidityAccuracy), [HumidityAccuracy]))
+			,[HumidityTolerance] = IIF(LTRIM(RTRIM(@HumidityTolerance)) = N'', NULL,
+			                           COALESCE(TRY_CONVERT(DECIMAL(18,6), @HumidityTolerance), [HumidityTolerance]))
+			,[HumidityResolution] = IIF(LTRIM(RTRIM(@HumidityResolution)) = N'', NULL,
+			                            COALESCE(TRY_CONVERT(DECIMAL(18,6), @HumidityResolution), [HumidityResolution]))
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
+
+	/* MBA-855: one UUT serial per MABA No. A new serial on the device also goes to its sensor
+	   table rows that carry the device's MABA No (before or after this save) or none; rows
+	   carrying another MABA No belong to another device and keep their own serial. Without
+	   this, page 1 changed only the device and the table kept showing the old serial.
+	   The comparison is binary, so a change of letter case alone still reaches the rows. */
+	IF @SerialNumber IS NOT NULL
+		UPDATE p
+		SET  p.[SerialNumber] = @SerialNumber
+			,p.[UpdatedDate]  = GETDATE()
+			,p.[UpdateUserID] = @UserId
+		FROM [dbo].[MeasurmentPointsToOrderDetailsItems] p
+		JOIN [dbo].[OrderDetailsItems] i ON i.OrderDetailsItemId = p.OrderDetailsItemId
+		WHERE p.OrderDetailsItemId = @ItemId
+		  AND p.IsDeleted = 0
+		  AND (   NULLIF(LTRIM(RTRIM(p.[MbaReportNumber])), '') IS NULL
+		       OR NULLIF(LTRIM(RTRIM(i.[MbaReportNumber])), '') IS NULL
+		       OR LTRIM(RTRIM(p.[MbaReportNumber])) = LTRIM(RTRIM(i.[MbaReportNumber]))
+		       OR LTRIM(RTRIM(p.[MbaReportNumber])) = @MabaBefore)
+		  AND ISNULL(p.[SerialNumber], N'') COLLATE Latin1_General_BIN2 <> @SerialNumber COLLATE Latin1_General_BIN2
 
 	SELECT COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted) as OrderDetailsItemId
 END

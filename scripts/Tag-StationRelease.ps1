@@ -41,6 +41,7 @@ if (-not $AppRepo) {
 # Which commits
 # ---------------------------------------------------------------------------
 $sha256 = $null
+$database = $null
 if ($ServerCommit -or $AppCommit) {
     if (-not ($ServerCommit -and $AppCommit)) { throw 'Pass both -ServerCommit and -AppCommit, or neither.' }
     Write-Host "Commits given on the command line (no build-info file)."
@@ -56,6 +57,7 @@ else {
     $ServerCommit = $info.calibrationSoftware.commit
     $AppCommit = $info.app.commit
     $sha256 = $info.installer.sha256
+    $database = $info.database
     Write-Host "Commits from $infoFile"
 }
 
@@ -94,6 +96,8 @@ if (-not ($issAtCommit -match "^#define AppVersion `"$([regex]::Escape($Version)
 # ---------------------------------------------------------------------------
 $message = "Station installer $Version`n`nCalibration-software $ServerCommit`napp $AppCommit"
 if ($sha256) { $message += "`nCalibrationSoftware-Setup-v$Version.exe SHA-256 $sha256" }
+# Most builds target production; 1.6.17 was a STAGE build for testing. The tag says which.
+if ($database) { $message += "`nDatabase $database" }
 
 foreach ($r in $repos) {
     if ($WhatIf) {

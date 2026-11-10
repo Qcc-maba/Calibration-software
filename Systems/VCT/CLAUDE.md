@@ -60,7 +60,8 @@ Points that are not obvious from any single file:
 properties of the app side decide what the server may send, and both fail silently:
 
 - **`AlertType` is a closed union.** The app declares `TAlertType` as exactly `DataTimeout`,
-  `OutOfRange_Low`, `OutOfRange_High`, `ChannelDisconnected`, `DataRestored`. A new type name is
+  `OutOfRange_Low`, `OutOfRange_High`, `ChannelDisconnected`, `DataRestored`, and since MBA-1008
+  `CorrectionUnavailable` (a sensor's channels held back for lack of a certificate). A new type name is
   parsed, stored and never rendered — so a channel coming back is announced as `DataRestored`, not
   as some more descriptive name.
 - **A restore is matched to its disconnect by `deviceId:channel`.** `getChannelDisconnectRanges`

@@ -199,7 +199,11 @@ BEGIN
 
         Where the master holds no certificate for that quantity the function now returns nothing,
         which is the honest answer: MasterValueAfterCorrection is NULL and the screen shows a dash
-        instead of the other quantity's number.  */
+        instead of the other quantity's number.
+
+        MBA-802: kept identical to the singular procedure - with no MasterValueUnitId, the row's own
+        MeasuredValueUnitId says the quantity, so the RH row of a sensors-table pair is not given a
+        temperature curve. Nothing in the app calls this procedure today (2026-11-04).  */
     OUTER APPLY dbo.fnMasterValueAfterCorrection(
         md.ID,
         combined.[MasterValue],
@@ -208,7 +212,7 @@ BEGIN
          JOIN dbo.MeasurementDeviceUnits AS u
            ON LTRIM(RTRIM(u.ShortNameEn)) = LTRIM(RTRIM(m.NameEn))
           AND ISNULL(u.IsDeleted, 0) = 0
-         WHERE u.MeasurementDeviceUnitId = combined.[MasterValueUnitId])) AS mvc
+         WHERE u.MeasurementDeviceUnitId = COALESCE(combined.[MasterValueUnitId], combined.[MeasuredValueUnitId]))) AS mvc
     /* the third argument is passed explicitly: an inline table-valued function does not
        apply parameter defaults the way a stored procedure does, and omitting it fails the
        whole call with "an insufficient number of arguments". */
