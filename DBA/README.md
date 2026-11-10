@@ -14,6 +14,7 @@ Calibrator (AWS, SQL 2022), ממצאים שנמדדו מול הייצור, תו�
 | [CALIBRATOR-SYNC-PLAN.md](CALIBRATOR-SYNC-PLAN.md) | תכנית סנכרון |
 | [DB-MAPPING-AND-USAGE.md](DB-MAPPING-AND-USAGE.md) | מיפוי טבלאות ושימוש |
 | [DB-SCHEMA-REFERENCE.md](DB-SCHEMA-REFERENCE.md) | ייחוס סכימה |
+| [schema-updates.md](schema-updates.md) | שינויי סכימה מוצעים ובביצוע (באנגלית): סטטוס כיול מ-Priority (MBA-911), ישות מכשיר (MBA-996) |
 | `Calibrator-Sync-Map.pdf` · `MABA2000-DB-Map.pdf` | מפות סנכרון (PDF) |
 
 ## SQL (`sql/`)
