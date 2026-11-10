@@ -160,7 +160,9 @@ Two layers enforce it:
 The flag guards against our own mistakes, not against someone who can already run arbitrary SQL:
 such a session could set it too. The tighter variant also requires `ORIGINAL_LOGIN()` to be the
 login the SQL Agent job runs under, which no other connection can fake; its cost is that a manual
-repair must run under that login as well. Open, see question 3.
+repair must run under that login as well. **Decided 2026-11-10: the flag alone.** What keeps the
+portal from running SQL of its own is its EXECUTE-only login (point 7.1); if that check fails, add the
+login check as well.
 
 Column permissions cannot do this job: inside a procedure owned by `dbo`, ownership chaining skips
 the column check, so a `DENY UPDATE` on the portal login never takes effect.
@@ -278,12 +280,12 @@ status by `Doc`.
 1. **The 134 calibrations on two order lines:** a sync defect to fix, or a real business case (the same
    device on two order lines)? The view must show one visit per `Doc` until this is settled.
 2. **Whether this is one ticket or two:** phases 1-2 could be split out of MBA-996's add-device form.
-3. **The trigger's writer check** (point 2): the session flag alone, or also the SQL Agent job's login?
 
 Settled by this design: a device that moved shows only its visits under the caller's customers
 (point 5), the portal's device id becomes `CustomerDeviceID` (point 6), and the load covers every
 active customer's live devices, protected in the read path (points 3 and 7; decided 2026-11-10), and
-a registered device's Priority-owned fields change only in Priority (point 2; decided 2026-11-10).
+a registered device's Priority-owned fields change only in Priority, guarded by the refresh's session
+flag (point 2; decided 2026-11-10).
 
 ---
 
