@@ -69,7 +69,7 @@ shape as is: `OrderDetails` = "device group", `OrderDetailsItems` = "item".
 - **What Priority keeps per device** (fill rates over the latest 20k devices, 2026-11-09):
   - `SERNUMBERS`: `SERN`, `SERNUM`, `CUST`, `PART` (100%), `CANCELDATE`, `UDATE`. `NEXTMAINTDATE`,
     `LASTMAINTDATE` and `SERIAL` are never filled.
-  - `MBA_SERNUMBERS`, MABA's 1:1 extension on `SERN`: `MODEL` 67%, `MNF` (→ `MNFCTR.MNFNAME`) 92%,
+  - `MBA_SERNUMBERS`, MABA's 1:1 extension on `SERN`: `MODEL` 67%, `MNF` (→ `MNFCTR.MNFDES`; `MNFNAME` is a code such as `AUTO7422`) 92%,
     `CALIBMONTH` 100%, `SERNDES` 98%, `MBA_DESCSERNCUST` almost never. **It has no `UDATE`.**
   - `SERNUMBERSTEXT`: free-text notes, already cached per `SERN` in `dbo.CrmDeviceText` by
     `dbo.RefreshCrmTextCache` (one row per `SERN` we hold).
@@ -123,10 +123,11 @@ The table is empty and nothing reads it, so these cost nothing now and would be 
 | `SERN INT NULL`, unique index `WHERE SERN IS NOT NULL` | Priority's device id. NULL = typed by a customer, not registered in Priority yet |
 | `SerialKey AS UPPER(LTRIM(RTRIM(SerialNumber))) PERSISTED` | one comparison form, so no procedure re-implements the trimming |
 | unique `(CustomerId, SerialKey) WHERE SERN IS NULL AND IsDeleted = 0` | the duplicate rule for customer-typed devices. Not for Priority rows: Priority itself has double registrations (11 groups) that we cannot fix |
-| `DeviceDescription NVARCHAR(200)` | Priority's device description (`MBA_SERNUMBERS.SERNDES`), un-reversed for display |
+| `DeviceDescription NVARCHAR(200)` | Priority's device description (`MBA_SERNUMBERS.SERNDES`), in logical order through `tabula_hebconvert` |
+| `DevicePart INT`, `DeviceTypeName NVARCHAR(100)` | the device's own Priority part (`SERNUMBERS.PART`) and its `PARTDES`. Not `OrdersProductTypeId`: that is a calibration **service** (`OrdersProductTypes` holds 680 service parts, "... - accredited calibration at your site"), and a device's part never equals its order line's (0 of 5,617 on STAGE, 2026-11-10) |
 | `IsInactiveInSource BIT NOT NULL DEFAULT 0` | `CANCELDATE` > 0. Separate from `IsDeleted` (session1 decision 17) |
 | `SourceUpdatedAt`, `RefreshedAt`, `NeedsReview BIT NOT NULL DEFAULT 0` | freshness, and a flag for rows staff should look at |
-| FKs to `CustomerSites` and `CustomerContacts`, `NO ACTION` | ownership enforced by the database, not only by the procedure. `NO ACTION`, never cascade: maba2000's cascading FKs let one delete wipe a whole history (`DB-SCHEMA-REFERENCE.md` §4) |
+| FKs to `CustomerSites` and `CustomerContacts`, on `(CustomerId, …)` because their keys are composite, `NO ACTION` | ownership enforced by the database, not only by the procedure: a device's site and contact belong to the device's own customer. `NO ACTION`, never cascade: maba2000's cascading FKs let one delete wipe a whole history (`DB-SCHEMA-REFERENCE.md` §4) |
 | index `OrderDetailsItems(SERN)` including `NextCalibrationDate`, `ActualCalibrationDate`, `Doc` | the history join. The only change on the visit table |
 
 #### 2. Who owns which column
@@ -135,7 +136,7 @@ The refresh and the portal never write the same column.
 
 | Owner | Columns | Rule |
 |---|---|---|
-| **Priority** - written only by the refresh | `SERN`, `CustomerId` (from `CUST`), `SerialNumber` (the full `SERNUM`), `OrdersProductTypeId` (from `PART`, matched by name as `stg.MergeOrdersData` does), `Model`, `OrdersDeviceManufacturer` (`MNFCTR.MNFNAME`), `DeviceDescription`, `CalibrationIntervalMonths` (`CALIBMONTH`), `IsInactiveInSource`, `SourceUpdatedAt` | Once a row has a `SERN`, the portal cannot change these. A correction is made in Priority by MABA and arrives with the next refresh |
+| **Priority** - written only by the refresh | `SERN`, `CustomerId` (from `CUST`), `SerialNumber` (the full `SERNUM`), `Model`, `OrdersDeviceManufacturer` (`MNFCTR.MNFDES`), `DevicePart` and `DeviceTypeName` (`PART`, `PARTDES`), `DeviceDescription`, `CalibrationIntervalMonths` (`CALIBMONTH`), `IsInactiveInSource`, `SourceUpdatedAt` | Once a row has a `SERN`, the portal cannot change these. A correction is made in Priority by MABA and arrives with the next refresh. `OrdersProductTypeId` and `NextCalibrationDate` are never written for a registered row: the first is a service, the second comes from the latest visit |
 | **The portal** - written only by `dbo.AssignCustomerDevicesData` | `CustomerSiteId`, `CustomerContactId`, `DeviceLocation`, `ReportLanguage`, categories, specification and units, `IsDeleted` (the customer hides the device) | The refresh never touches these |
 | **The portal, until registered** | the Priority-owned columns, on rows with `SERN IS NULL` | handed over to the refresh when the row is claimed (point 4) |
 
@@ -153,9 +154,11 @@ Two layers enforce it:
    these fields read-only.
 2. **A trigger on `dbo.CustomerDevices` is the backstop**, for any other procedure, data fix or bug.
    It rejects a change to a Priority-owned column on a row with a `SERN`, unless the session carries
-   the flag the refresh sets before writing:
-   `EXEC sp_set_session_context N'CustomerDevices.Writer', N'PriorityRefresh', @read_only = 1;`.
-   Read-only, so nothing later in the same session can change or clear it.
+   the flag the refresh sets around its writes and clears right after, on error too:
+   `EXEC sp_set_session_context N'CustomerDevices.Writer', N'PriorityRefresh';`. Deliberately not
+   `@read_only = 1`: a read-only key can never be cleared, so after one manual run in an SSMS window
+   every later edit in that window would pass the trigger. It also refuses every `DELETE`, and an
+   `INSERT` or `UPDATE` that sets `SERN` or a Priority copy on any row.
 
 The flag guards against our own mistakes, not against someone who can already run arbitrary SQL:
 such a session could set it too. The tighter variant also requires `ORIGINAL_LOGIN()` to be the
@@ -176,14 +179,25 @@ learn:
   incremental, from a watermark on `SERNUMBERS.UDATE`.
 - A **nightly full refresh** as well, because `MBA_SERNUMBERS` (model, manufacturer, interval) has no
   `UDATE`, so an edit there may never show in an incremental run.
-- Everything inside one `OPENQUERY` (session1 decision 19); text columns `COLLATE DATABASE_DEFAULT`;
-  display text through `dbo.fnUnreverseVisualText`, identifiers (`SERNUM`) never.
+- Everything inside one `OPENQUERY` (session1 decision 19); text columns `COLLATE DATABASE_DEFAULT`,
+  and `CAST(... AS NVARCHAR)` on the Priority side first - `VARCHAR` Hebrew pushed through a Latin
+  collation turns into `?`. Display text (`MNFDES`, `SERNDES`, `PARTDES`) through Priority's own
+  `tabula_hebconvert`, as the order sync does: our `fnUnreverseVisualText` turns "KERN & SOHN" into
+  "SOHN & KERN" (5,082 of 5,617 manufacturers match the order lines after the conversion, 388
+  without). Identifiers (`SERNUM`) and `MODEL` as stored: 5,475 and 5,452 of 5,617 match unchanged.
 - **`system.dbo.tabula_hebconvert` throws on NULL** (`NullReferenceException` in
   `HebrewFilterFull`), and a device with no `MBA_SERNUMBERS` row has a NULL `SERNDES` after the
   `LEFT JOIN`. Wrap it: `tabula_hebconvert(ISNULL(m.SERNDES, ''))`. Without that, one such device
   fails the whole run.
-- `MERGE` that writes only rows that differ, so a second run reports zero. Never deletes: a device that
-  disappears upstream is reported.
+- Writes only rows that differ, so a second run reports zero; inserts go in chunks of 50,000, each
+  its own transaction, so the first load (about 590k rows) is not one transaction. Never deletes.
+- **Which customer.** `dbo.Customers` holds 747 Priority customers twice (STAGE: 11,286 rows,
+  10,539 distinct `CustomerIdFromSource`); the second row is a different company carrying the same
+  `CustomerIdFromSource` (CUST 2 is both "מ.ב.א - בדיקות אימות" and "A.M.L"). In all 747 exactly one
+  row's `CustomerCode` equals Priority's `CUSTNAME`, so a device goes to that row. The wrong rows
+  are a defect of the customer sync, outside this work.
+- **A device that moved to another customer in Priority:** `CUST` wins; site and contact belong to
+  the old customer, so they are cleared and the row gets `NeedsReview = 1`.
 - SQL Agent: hourly beside the MBA-911 job, plus the nightly full run (`database/jobs/Setup-SqlAgentJobs.sql`).
 
 **What it loads:** the devices of active customers that are not cancelled - 592,157 of 662,117
@@ -228,15 +242,21 @@ rules live only here:
 - hidden: `IsInactiveInSource = 1` or `IsDeleted = 1`;
 - shown for now: devices with at least one visit, or typed in the portal. That keeps today's list
   until the whole register is wanted;
-- visits are limited to the caller's own customers, which settles the devices that moved between
-  customers.
+- visits are limited to the device's own customer, which settles the devices that moved between
+  customers (simpler than "the caller's customers", and the caller only sees the device when its
+  customer is theirs).
+
+Checked locally on the STAGE copy with the register loaded: 5,593 of the 5,617 visits with a `SERN`
+find their device; the other 24 are devices cancelled in Priority, which today's list already hides.
+For the busiest customers the view shows exactly what `GetCustomerDeviceList` shows today.
 
 #### 6. Ids and the portal
 
 - `/customer/devices/[id]` becomes `CustomerDeviceID`, the same across visits. Report and calibration
   links keep `OrderDetailsItemId`, because they are about a visit.
-- `CustomerPortalRequestItem` gains a nullable `CustomerDeviceID`, so a request can name a device that
-  was never calibrated.
+- `CustomerPortalRequestItem` already has a nullable `CustomerDeviceID`, and
+  `dbo.CreateCustomerPortalRequest` already accepts `@CustomerDeviceId`, so a request can name a
+  device that was never calibrated once the ids are stable.
 - `dbo.GetPortalCustomerIds` keeps counting devices through order lines: no change to sign-in in this
   work.
 
@@ -267,6 +287,17 @@ customer filter would show one customer another's devices. The rules that preven
 | 4 | requests reference a device | requests for new devices |
 
 Each phase ships on its own and leaves the system working.
+
+**Phase 1 status (2026-11-10): written and tested locally, not deployed.** Files:
+`database/procedures/dbo.CustomerDevices.table.sql`, `dbo.trCustomerDevices_PriorityOwned.sql`,
+`dbo.fnSerialAlnum.sql`, `dbo.RefreshCustomerDevicesFromPriority.sql`, `dbo.vwCustomerDevices.sql`;
+two jobs in `database/jobs/Setup-SqlAgentJobs.sql`; `database/tests/Test-CustomerDevices.sql`;
+rollback `database/_rollback/BOTH.MBA-996.phase1.before.sql`. On the local STAGE copy, with
+Priority's device tables copied in: the first load inserts 591,279 devices in 25 s, a second full run
+and an hourly run report zero changes, the 16 tests pass and leave the table unchanged, and the
+rollback restores the original table exactly. Still to do on STAGE: the pull time across the
+AWS - Priority link, and the portal login check (point 7.1). The compound-serial claim (tier 2) is
+written but had no live case to test against.
 
 ### How it relates to MBA-911
 
