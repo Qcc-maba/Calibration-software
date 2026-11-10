@@ -139,6 +139,32 @@ The refresh and the portal never write the same column.
 | **The portal** - written only by `dbo.AssignCustomerDevicesData` | `CustomerSiteId`, `CustomerContactId`, `DeviceLocation`, `ReportLanguage`, categories, specification and units, `IsDeleted` (the customer hides the device) | The refresh never touches these |
 | **The portal, until registered** | the Priority-owned columns, on rows with `SERN IS NULL` | handed over to the refresh when the row is claimed (point 4) |
 
+**Decided 2026-11-10: a registered device's Priority-owned fields change only in Priority.** The
+portal form can send six of them - `SerialNumber`, `Model`, `OrdersDeviceManufacturer`,
+`OrdersProductTypeId`, `CalibrationIntervalMonths` and, through the chosen site, `CustomerId` - plus
+`NextCalibrationDate`, which for a registered device comes from its latest visit, not from the
+device. On a row with a `SERN` all seven are refused. If the portal ever needs to change one of them,
+the decision is reopened; until then nothing in our code writes them except the refresh.
+
+Two layers enforce it:
+
+1. **`dbo.AssignCustomerDevicesData` refuses with error 54208** ("managed by MABA") when an edit would
+   change one of them on a registered device. This is the message the customer sees; the form shows
+   these fields read-only.
+2. **A trigger on `dbo.CustomerDevices` is the backstop**, for any other procedure, data fix or bug.
+   It rejects a change to a Priority-owned column on a row with a `SERN`, unless the session carries
+   the flag the refresh sets before writing:
+   `EXEC sp_set_session_context N'CustomerDevices.Writer', N'PriorityRefresh', @read_only = 1;`.
+   Read-only, so nothing later in the same session can change or clear it.
+
+The flag guards against our own mistakes, not against someone who can already run arbitrary SQL:
+such a session could set it too. The tighter variant also requires `ORIGINAL_LOGIN()` to be the
+login the SQL Agent job runs under, which no other connection can fake; its cost is that a manual
+repair must run under that login as well. Open, see question 3.
+
+Column permissions cannot do this job: inside a procedure owned by `dbo`, ownership chaining skips
+the column check, so a `DENY UPDATE` on the portal login never takes effect.
+
 #### 3. The refresh: `dbo.RefreshCustomerDevicesFromPriority`
 
 A copy of the `dbo.RefreshPriorityCalibrationStatus` pattern (change 1), so there is one pattern to
@@ -235,7 +261,7 @@ customer filter would show one customer another's devices. The rules that preven
 |---|---|---|
 | 1 | table changes, refresh, view, SQL Agent job, a `database/tests` file; STAGE, then PROD | no |
 | 2 | check the portal login (point 7.1); list and detail procedures read the view, with the leak test (point 7.4); the app switches its route (portal developer) | same list, stable ids |
-| 3 | `AssignCustomerDevicesData` follows the ownership rules and the duplicate check; the add-device form is wired | the form works |
+| 3 | `AssignCustomerDevicesData` follows the ownership rules (error 54208) and the duplicate check; the add-device form is wired, Priority-owned fields read-only on registered devices | the form works |
 | 4 | requests reference a device | requests for new devices |
 
 Each phase ships on its own and leaves the system working.
@@ -249,14 +275,15 @@ status by `Doc`.
 
 ### Open questions (for MBA-996)
 
-1. **Portal edits to Priority-owned fields** of a registered device are refused (point 2): accepted?
-2. **The 134 calibrations on two order lines:** a sync defect to fix, or a real business case (the same
+1. **The 134 calibrations on two order lines:** a sync defect to fix, or a real business case (the same
    device on two order lines)? The view must show one visit per `Doc` until this is settled.
-3. **Whether this is one ticket or two:** phases 1-2 could be split out of MBA-996's add-device form.
+2. **Whether this is one ticket or two:** phases 1-2 could be split out of MBA-996's add-device form.
+3. **The trigger's writer check** (point 2): the session flag alone, or also the SQL Agent job's login?
 
 Settled by this design: a device that moved shows only its visits under the caller's customers
 (point 5), the portal's device id becomes `CustomerDeviceID` (point 6), and the load covers every
-active customer's live devices, protected in the read path (points 3 and 7; decided 2026-11-10).
+active customer's live devices, protected in the read path (points 3 and 7; decided 2026-11-10), and
+a registered device's Priority-owned fields change only in Priority (point 2; decided 2026-11-10).
 
 ---
 
