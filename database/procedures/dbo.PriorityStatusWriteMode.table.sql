@@ -17,6 +17,14 @@
         SET Mode = 'Off', UpdatedAt = SYSUTCDATETIME(), UpdatedBy = N'<who>', Reason = N'<why>'
         WHERE Id = 1;
 */
+/*
+    QUOTED_IDENTIFIER / ANSI_NULLS must be ON: set explicitly so the object does not depend on the client that deploys it (sqlcmd defaults
+    QUOTED_IDENTIFIER to OFF). Same convention as dbo.CalibrationReportFile.table.sql.
+*/
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
+
 IF OBJECT_ID('dbo.PriorityStatusWriteMode', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.PriorityStatusWriteMode

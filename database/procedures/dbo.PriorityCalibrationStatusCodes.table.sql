@@ -26,6 +26,14 @@
     FX is sent by MABA 2000 but is NOT in MBA_CALIBSTATUSES, so Priority rejects it and it never
     reaches the log. It has no row here on purpose.
 */
+/*
+    QUOTED_IDENTIFIER / ANSI_NULLS must be ON: set explicitly so the object does not depend on the client that deploys it (sqlcmd defaults
+    QUOTED_IDENTIFIER to OFF). Same convention as dbo.CalibrationReportFile.table.sql.
+*/
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
+
 IF OBJECT_ID('dbo.PriorityCalibrationStatusCodes', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.PriorityCalibrationStatusCodes
@@ -40,6 +48,10 @@ BEGIN
         SortOrder         TINYINT        NOT NULL,  /* typical position in the lab flow, for display.
                                                        NOT a rule: real Docs repeat and skip steps       */
         OrderStatusName   NVARCHAR(100)  NULL,      /* dbo.Statuses name (category OrderStatus), or NULL */
+        AppMayWrite       BIT            NOT NULL   /* 1 = the Calibrator app may report this code       */
+            CONSTRAINT DF_PriorityCalibrationStatusCodes_AppMayWrite DEFAULT (0),
+                                                    /* through dbo.RecordPriorityStatusEvent. Defaults to
+                                                       0, so an unseeded or unknown code is refused      */
         UpdatedAt         DATETIME2(3)   NOT NULL
             CONSTRAINT DF_PriorityCalibrationStatusCodes_UpdatedAt DEFAULT (SYSUTCDATETIME()),
         CONSTRAINT PK_PriorityCalibrationStatusCodes PRIMARY KEY CLUSTERED (StatusCode),

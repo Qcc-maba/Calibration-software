@@ -29,6 +29,14 @@
     Priority owns this data. Rows are never deleted here when they disappear upstream (see the
     "carry a flag, never delete" rule, session1 decision 17); a full refresh reports them instead.
 */
+/*
+    QUOTED_IDENTIFIER / ANSI_NULLS must be ON: set explicitly so the object does not depend on the client that deploys it (sqlcmd defaults
+    QUOTED_IDENTIFIER to OFF). Same convention as dbo.CalibrationReportFile.table.sql.
+*/
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
+
 IF OBJECT_ID('dbo.PriorityCalibrationStatusLog', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.PriorityCalibrationStatusLog

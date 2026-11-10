@@ -154,7 +154,8 @@ Priority's log is the only real progress there is.
 | `dbo.PriorityCalibrationStatusCodes` | `database/procedures/dbo.PriorityCalibrationStatusCodes.table.sql` | the 22 Priority codes plus our meaning: English text, who writes it, stage, matching order status **by name** |
 | seed | `database/data/Seed-PriorityCalibrationStatusCodes.sql` | the English half of the codes table |
 | `dbo.PriorityCalibrationStatusLog` | `database/procedures/dbo.PriorityCalibrationStatusLog.table.sql` | mirror of `MBA_CALIBSTATSLOG` for the `Doc`s we hold, key `(Doc, Kline)` |
-| `dbo.RefreshPriorityCalibrationStatus` | `database/procedures/dbo.RefreshPriorityCalibrationStatus.sql` | fills both, read-only against Priority, incremental by `UDATE` |
+| `dbo.PriorityCalibrationStatusFetch` | `database/procedures/dbo.PriorityCalibrationStatusFetch.table.sql` | per-`Doc` marker of a whole-log fetch, so a `Doc` with an empty Priority log is not refetched every hour |
+| `dbo.RefreshPriorityCalibrationStatus` | `database/procedures/dbo.RefreshPriorityCalibrationStatus.sql` | fills both, read-only against Priority, incremental by `UDATE`; writes serialised (application lock + `HOLDLOCK`); reports `UnseededCodes` |
 | `dbo.vwOrderDetailsItemsPriorityStatus` | `database/procedures/dbo.vwOrderDetailsItemsPriorityStatus.sql` | per device row: current Priority status and the dates of the main steps |
 | SQL Agent job | `database/jobs/Setup-SqlAgentJobs.sql` | hourly at :20 |
 
@@ -181,22 +182,23 @@ Nothing is sent to Priority yet, in any mode.
 | Object | File | Purpose |
 |---|---|---|
 | `dbo.PriorityStatusWriteMode` | `database/procedures/dbo.PriorityStatusWriteMode.table.sql` | one-row switch: `Off` (kill switch) or `ReportOnly`. A CHECK constraint makes `Send` impossible until phase 3 adds the sender |
-| `dbo.PriorityStatusOutbox` | `database/procedures/dbo.PriorityStatusOutbox.table.sql` | one row per app event, key `(Doc, StatusCode, EventKey)` for accepted rows; refused rows kept with their reason |
+| `dbo.PriorityStatusOutbox` | `database/procedures/dbo.PriorityStatusOutbox.table.sql` (needs `QUOTED_IDENTIFIER ON`: filtered unique index) | one row per app event, key `(Doc, StatusCode, EventKey)` for accepted rows; refused rows kept with their reason |
 | `dbo.RecordPriorityStatusEvent` | `database/procedures/dbo.RecordPriorityStatusEvent.sql` | the app's only entry point; returns `OutboxId, Doc, StatusCode, State, Reason, IsDuplicate` |
-| test | `database/tests/Test-RecordPriorityStatusEvent.sql` | 28 checks, all inside a rolled-back transaction |
+| test | `database/tests/Test-RecordPriorityStatusEvent.sql` | 33 checks, all inside rolled-back transactions |
 
 The rules the procedure enforces:
 - **Idempotency** by the app's `EventKey`.
-- **Only the app's codes:** Priority's own codes (`AA`, `TX`, `PI`, `CO`, `KM`) are refused.
+- **Only the app's codes:** those marked `AppMayWrite` in the codes table. Priority's own codes (`AA`, `TX`, `PI`, `CO`, `KM`) are refused, and so is everything if the seed never ran.
 - **Ownership:** a calibration belongs to the program it was opened in. `AC` is refused when MABA 2000
   already worked on the `Doc`, and every other code needs the app's `AC`. This is the "one device, one
-  program" rule.
+  program" rule. It fails closed: a step whose code is not known to be Priority's own counts as MABA 2000's.
 - **One `AC` and one `CD` per `Doc`.**
-- **Nothing but update-report codes after `TX`.**
+- **Nothing but update-report codes after `TX`,** plus the signatures (`H1`, `H2`, `HR`) of an update report.
 - **The signature chain:** `H1` needs a report, `H2` and `HR` need `H1`, and after `HR` a new report.
 - **Holds:** no hold twice in a row, and resume only after a hold.
 
-A refusal is returned, not thrown, so a user's action never fails because of Priority reporting.
+A refusal is returned, not thrown, so a user's action never fails because of Priority reporting. Calls are
+serialised per `Doc`; if the lock cannot be had, the call throws instead of carrying on unlocked.
 
 ### Not in this change
 

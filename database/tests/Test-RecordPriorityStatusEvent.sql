@@ -9,7 +9,8 @@
     Every write happens inside one transaction that is rolled back, so the file leaves the database
     as it found it - including the mode switch and the fake TX it adds to the log mirror. The two
     calls that are expected to THROW run in transactions of their own, because the procedure runs
-    with XACT_ABORT ON and an error dooms the transaction it happens in.
+    with XACT_ABORT ON and an error dooms the transaction it happens in. Each of those also sets the
+    mode to ReportOnly first, so the result never depends on the database's live switch.
 
     Picks its own rows:
       @Item      a device whose Doc Priority shows with no calibration-software step and no TX
@@ -26,11 +27,23 @@ DROP TABLE IF EXISTS #R;
 CREATE TABLE #R (Seq INT IDENTITY, OutboxId INT, Doc INT, StatusCode CHAR(2), State VARCHAR(12),
                  Reason VARCHAR(40), IsDuplicate BIT);
 
-DECLARE @Item INT, @Doc INT, @ItemMaba INT, @ItemNoDoc INT;
+DECLARE @Item INT, @Doc INT, @Item2 INT, @ItemMaba INT, @ItemNoDoc INT;
 
 SELECT TOP (1) @Item = i.OrderDetailsItemId, @Doc = i.Doc
 FROM dbo.OrderDetailsItems AS i
 WHERE i.IsDeleted = 0 AND i.Doc IS NOT NULL
+  AND (SELECT COUNT(*) FROM dbo.OrderDetailsItems x WHERE x.Doc = i.Doc AND x.IsDeleted = 0) = 1
+  AND EXISTS (SELECT 1 FROM dbo.PriorityCalibrationStatusLog g WHERE g.Doc = i.Doc)
+  AND NOT EXISTS (SELECT 1 FROM dbo.PriorityCalibrationStatusLog g
+                  JOIN dbo.PriorityCalibrationStatusCodes c ON c.StatusCode = g.StatusCode
+                  WHERE g.Doc = i.Doc AND (c.WrittenBy = 'CalibrationSoftware' OR g.StatusCode = 'TX'))
+  AND NOT EXISTS (SELECT 1 FROM dbo.PriorityStatusOutbox o WHERE o.Doc = i.Doc)
+ORDER BY i.OrderDetailsItemId DESC;
+
+/* a second one, for the unseeded-codes checks */
+SELECT TOP (1) @Item2 = i.OrderDetailsItemId
+FROM dbo.OrderDetailsItems AS i
+WHERE i.IsDeleted = 0 AND i.Doc IS NOT NULL AND i.Doc <> @Doc
   AND (SELECT COUNT(*) FROM dbo.OrderDetailsItems x WHERE x.Doc = i.Doc AND x.IsDeleted = 0) = 1
   AND EXISTS (SELECT 1 FROM dbo.PriorityCalibrationStatusLog g WHERE g.Doc = i.Doc)
   AND NOT EXISTS (SELECT 1 FROM dbo.PriorityCalibrationStatusLog g
@@ -158,6 +171,14 @@ BEGIN
            CASE WHEN SUM(CASE WHEN State = 'ReportOnly' THEN 1 ELSE 0 END) = 2 THEN N'PASS' ELSE N'FAIL' END
     FROM (SELECT TOP 2 State FROM #R ORDER BY Seq DESC) AS t;
 
+    /* PR #50 review: an update report is signed like any other, TX or not. */
+    INSERT #R EXEC dbo.RecordPriorityStatusEvent @OrderDetailsItemId = @Item, @StatusCode = 'H1', @EventKey = N't:h1:u1';
+    INSERT @Out SELECT TOP 1 N'4 after TX', N'first signature of the update report', N'ReportOnly', CONCAT(State, N' ', Reason),
+           CASE WHEN State = 'ReportOnly' THEN N'PASS' ELSE N'FAIL' END FROM #R ORDER BY Seq DESC;
+    INSERT #R EXEC dbo.RecordPriorityStatusEvent @OrderDetailsItemId = @Item, @StatusCode = 'H2', @EventKey = N't:h2:u1';
+    INSERT @Out SELECT TOP 1 N'4 after TX', N'second signature of the update report', N'ReportOnly', CONCAT(State, N' ', Reason),
+           CASE WHEN State = 'ReportOnly' THEN N'PASS' ELSE N'FAIL' END FROM #R ORDER BY Seq DESC;
+
     /* ---- 5. the record ------------------------------------------------------------------------- */
     INSERT @Out SELECT N'5 record', N'every non-duplicate call left one row, refusals included',
            CONCAT((SELECT COUNT(*) FROM #R WHERE IsDuplicate = 0), N' rows'),
@@ -206,11 +227,30 @@ BEGIN
            CASE WHEN Reason = 'NoDoc' AND @After = @Before THEN N'PASS' ELSE N'FAIL' END FROM #R ORDER BY Seq DESC;
 END
 
+/* ---- 7b. unseeded codes fail closed ------------------------------------------------------------ */
+IF @Item2 IS NULL
+    INSERT @Out VALUES (N'7 ownership', N'a second received, not yet calibrated Doc', N'found', N'none', N'SKIP');
+ELSE
+BEGIN
+    /* The seed ran, but which program writes a code is unknown: opening must be refused. */
+    UPDATE dbo.PriorityCalibrationStatusCodes SET WrittenBy = 'Unknown';
+    INSERT #R EXEC dbo.RecordPriorityStatusEvent @OrderDetailsItemId = @Item2, @StatusCode = 'AC', @EventKey = N't:unk:1';
+    INSERT @Out SELECT TOP 1 N'7 ownership', N'codes not described: opening is refused (fails closed)', N'OwnedByMABA2000', Reason,
+           CASE WHEN Reason = 'OwnedByMABA2000' THEN N'PASS' ELSE N'FAIL' END FROM #R ORDER BY Seq DESC;
+
+    /* The seed never ran at all: no code is marked as the app's. */
+    UPDATE dbo.PriorityCalibrationStatusCodes SET AppMayWrite = 0;
+    INSERT #R EXEC dbo.RecordPriorityStatusEvent @OrderDetailsItemId = @Item2, @StatusCode = 'AC', @EventKey = N't:unk:2';
+    INSERT @Out SELECT TOP 1 N'7 ownership', N'seed never ran: every code is refused', N'NotAppCode', Reason,
+           CASE WHEN Reason = 'NotAppCode' THEN N'PASS' ELSE N'FAIL' END FROM #R ORDER BY Seq DESC;
+END
+
 ROLLBACK;
 
 /* ---- 8. broken calls throw, each in its own transaction ------------------------------------------ */
 BEGIN TRY
     BEGIN TRAN;
+    UPDATE dbo.PriorityStatusWriteMode SET Mode = 'ReportOnly' WHERE Id = 1;   /* not the live mode: Off returns before the checks */
     EXEC dbo.RecordPriorityStatusEvent @OrderDetailsItemId = -1, @StatusCode = 'AC', @EventKey = N't:x';
     ROLLBACK;
     INSERT @Out VALUES (N'8 errors', N'unknown device row throws', N'error 51000', N'no error', N'FAIL');
@@ -224,6 +264,7 @@ END CATCH
 
 BEGIN TRY
     BEGIN TRAN;
+    UPDATE dbo.PriorityStatusWriteMode SET Mode = 'ReportOnly' WHERE Id = 1;
     EXEC dbo.RecordPriorityStatusEvent @OrderDetailsItemId = @Item, @StatusCode = 'AC', @EventKey = N'  ';
     ROLLBACK;
     INSERT @Out VALUES (N'8 errors', N'an empty EventKey throws', N'error 51000', N'no error', N'FAIL');
@@ -231,6 +272,20 @@ END TRY
 BEGIN CATCH
     IF @@TRANCOUNT > 0 ROLLBACK;
     INSERT @Out VALUES (N'8 errors', N'an empty EventKey throws', N'error 51000',
+                        CONCAT(N'error ', ERROR_NUMBER()),
+                        CASE WHEN ERROR_NUMBER() = 51000 THEN N'PASS' ELSE N'FAIL' END);
+END CATCH
+
+BEGIN TRY
+    BEGIN TRAN;
+    UPDATE dbo.PriorityStatusWriteMode SET Mode = 'ReportOnly' WHERE Id = 1;
+    EXEC dbo.RecordPriorityStatusEvent @OrderDetailsItemId = @Item, @StatusCode = 'GRX', @EventKey = N't:grx';
+    ROLLBACK;
+    INSERT @Out VALUES (N'8 errors', N'a three-letter code throws, not cut to GR', N'error 51000', N'no error', N'FAIL');
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK;
+    INSERT @Out VALUES (N'8 errors', N'a three-letter code throws, not cut to GR', N'error 51000',
                         CONCAT(N'error ', ERROR_NUMBER()),
                         CASE WHEN ERROR_NUMBER() = 51000 THEN N'PASS' ELSE N'FAIL' END);
 END CATCH

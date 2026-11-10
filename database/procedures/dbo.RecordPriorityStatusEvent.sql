@@ -11,7 +11,8 @@
 
     A rule refusal is NOT an error. The app's action (signing, generating a report) must never fail
     because Priority reporting refused it; the refusal is recorded with its reason and returned. Only
-    a broken call - unknown device row, empty EventKey - throws.
+    a broken call - unknown device row, empty EventKey, a StatusCode that is not exactly two
+    characters - throws.
 
         Result columns: OutboxId, Doc, StatusCode, State, Reason, IsDuplicate
 
@@ -20,18 +21,23 @@
     Mode       dbo.PriorityStatusWriteMode = 'Off' -> nothing recorded, State 'Off'.
     NoDoc      the device row has no Priority Doc yet -> not recorded (the outbox is keyed by Doc).
     duplicate  same (Doc, StatusCode, EventKey) already accepted -> that row is returned, IsDuplicate 1.
-    NotAppCode a code Priority writes itself (AA received, TX sent, PI packed, CO collected,
-               KM subcontractor) or one the app does not produce (PR, UP, UX). Writing AA/TX/... from
-               here would duplicate what Priority already records.
+    NotAppCode a code not marked AppMayWrite in dbo.PriorityCalibrationStatusCodes: the codes Priority
+               writes itself (AA received, TX sent, PI packed, CO collected, KM subcontractor), the
+               ones the app does not produce (PR, UP, UX), and any code the seed has not described.
+               Writing AA/TX/... from here would duplicate what Priority already records.
     Ownership  a calibration belongs to the program it was opened in. AC is refused
-               ('OwnedByMABA2000') when Priority's log already shows calibration-software steps for
-               the Doc - MABA 2000 got there first. Every other code needs an accepted AC from the app
+               ('OwnedByMABA2000') when Priority's log already shows any step for the Doc that is not
+               one of Priority's own - MABA 2000 got there first. It FAILS CLOSED: a step whose code
+               is unseeded ('Unknown') or missing from the codes table counts as MABA 2000's, so a
+               skipped seed refuses openings instead of letting the app take over MABA 2000's work. Every other code needs an accepted AC from the app
                ('NotOpenedInApp'). So a Doc is reported by one program only, which is the release-note
                rule "one device, one program". The log mirror is refreshed hourly, so a MABA 2000 start
                inside the last hour is not seen here; phase 3 reconciles that before sending.
     ACAlreadyRecorded   one AC per Doc.
     LockedAfterTX       after Priority recorded TX (sent to customer) the report is locked: only
-                        update-report codes (U*) may follow (the lab's status document).
+                        update-report codes (U*) may follow (the lab's status document), and the
+                        signatures of an update report - H1, H2, HR while the latest report generated
+                        is an update report (UG). An update report is signed like any other.
     CDAlreadyRecorded   CD marks the FIRST report only.
     H1WithoutReport     H1 needs a report: the last of GR/UG/H1/H2/HR must be GR or UG. After HR the
                         calibrator fixes the report, generates it again, and signs again.
@@ -41,11 +47,24 @@
     UGWithoutUC         an update report is generated only after one was opened.
 
     Concurrency: calls are serialised per Doc with an application lock, so two signatures arriving
-    together are checked one after the other against the same history.
+    together are checked one after the other against the same history. If the lock cannot be had
+    within 10 seconds the call throws rather than carrying on unlocked.
+
+    Times: @EventAt is LOCAL time, like the app's other dates and like Priority's; it defaults to the
+    server's local now. RecordedAt (the outbox's own bookkeeping) is UTC, like FetchedAt elsewhere.
 */
+/*
+    QUOTED_IDENTIFIER / ANSI_NULLS must be ON: this procedure inserts into dbo.PriorityStatusOutbox, which has a filtered unique index. A
+    procedure keeps the SET options it was created with, and one created under the OFF setting sqlcmd
+    defaults to fails every INSERT with error 1934. See dbo.PriorityStatusOutbox.table.sql.
+*/
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
+
 CREATE OR ALTER PROCEDURE dbo.RecordPriorityStatusEvent
     @OrderDetailsItemId INT,
-    @StatusCode         CHAR(2),
+    @StatusCode         NVARCHAR(10),   /* wider than a code on purpose: 'GRX' must fail, not become 'GR' */
     @EventKey           NVARCHAR(100),
     @UserId             INT           = NULL,
     @EventAt            DATETIME2(0)  = NULL,
@@ -55,12 +74,14 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    DECLARE @Code CHAR(2)        = UPPER(LTRIM(RTRIM(@StatusCode))),
-            @Key  NVARCHAR(100)  = NULLIF(LTRIM(RTRIM(@EventKey)), N''),
-            @Mode VARCHAR(12)    = (SELECT Mode FROM dbo.PriorityStatusWriteMode WHERE Id = 1);
+    DECLARE @RawCode NVARCHAR(10) = UPPER(LTRIM(RTRIM(@StatusCode))),
+            @Key     NVARCHAR(100) = NULLIF(LTRIM(RTRIM(@EventKey)), N''),
+            @Mode    VARCHAR(12)   = (SELECT Mode FROM dbo.PriorityStatusWriteMode WHERE Id = 1);
 
-    IF NULLIF(@Code, '') IS NULL
-        THROW 51000, '@StatusCode is required.', 1;
+    IF @RawCode IS NULL OR LEN(@RawCode) <> 2
+        THROW 51000, '@StatusCode must be exactly two characters, e.g. ''GR''.', 1;
+
+    DECLARE @Code CHAR(2) = CAST(@RawCode AS CHAR(2));
     IF @Key IS NULL
         THROW 51000, '@EventKey is required: the app''s stable id for this action, the same on a retry.', 1;
     IF @Mode IS NULL
@@ -93,8 +114,14 @@ BEGIN
 
     BEGIN TRAN;
 
-    EXEC sys.sp_getapplock @Resource = @Lock, @LockMode = 'Exclusive', @LockOwner = 'Transaction',
-                           @LockTimeout = 10000;
+    /* sp_getapplock reports a timeout (-1), cancel (-2) or deadlock (-3) by its return code, not by
+       raising an error, so XACT_ABORT does not catch it. Carrying on unlocked would let two calls read
+       the same history and both be accepted - two H2s on one H1 - which is what the lock is for. */
+    DECLARE @rc INT;
+    EXEC @rc = sys.sp_getapplock @Resource = @Lock, @LockMode = 'Exclusive', @LockOwner = 'Transaction',
+                                 @LockTimeout = 10000;
+    IF @rc < 0
+        THROW 51000, 'Could not lock the calibration (Doc) for reporting; try again.', 1;
 
     /* Retry or double click: return what was recorded the first time. */
     SELECT @OutboxId = o.OutboxId
@@ -118,6 +145,10 @@ BEGIN
                                    WHERE Doc = @Doc AND State <> 'Refused'
                                      AND StatusCode IN ('GR', 'UG', 'H1', 'H2', 'HR')
                                    ORDER BY OutboxId DESC),
+            @LastGen    CHAR(2) = (SELECT TOP (1) StatusCode FROM dbo.PriorityStatusOutbox
+                                   WHERE Doc = @Doc AND State <> 'Refused'
+                                     AND StatusCode IN ('GR', 'UG')
+                                   ORDER BY OutboxId DESC),
             @LastHold   CHAR(2) = (SELECT TOP (1) StatusCode FROM dbo.PriorityStatusOutbox
                                    WHERE Doc = @Doc AND State <> 'Refused'
                                      AND StatusCode IN ('DC', 'DM', 'FC')
@@ -129,20 +160,25 @@ BEGIN
 
     SET @Reason =
         CASE
-            WHEN @Code NOT IN ('AC', 'DC', 'DM', 'FC', 'CD', 'GR', 'H1', 'H2', 'HR',
-                               'UC', 'UD', 'UM', 'UF', 'UG')
+            WHEN NOT EXISTS (SELECT 1 FROM dbo.PriorityCalibrationStatusCodes
+                             WHERE StatusCode = @Code AND AppMayWrite = 1)
                 THEN 'NotAppCode'
             WHEN @Code = 'AC' AND @HasAC = 1
                 THEN 'ACAlreadyRecorded'
+            /* Fails closed: any step that is not known to be Priority's own counts as MABA 2000's. */
             WHEN @Code = 'AC' AND EXISTS (SELECT 1
                                           FROM dbo.PriorityCalibrationStatusLog AS g
-                                          JOIN dbo.PriorityCalibrationStatusCodes AS c ON c.StatusCode = g.StatusCode
-                                          WHERE g.Doc = @Doc AND c.WrittenBy = 'CalibrationSoftware')
+                                          WHERE g.Doc = @Doc
+                                            AND NOT EXISTS (SELECT 1 FROM dbo.PriorityCalibrationStatusCodes AS c
+                                                            WHERE c.StatusCode = g.StatusCode
+                                                              AND c.WrittenBy = 'Priority'))
                 THEN 'OwnedByMABA2000'
             WHEN @Code <> 'AC' AND @HasAC = 0
                 THEN 'NotOpenedInApp'
-            WHEN @Code NOT LIKE 'U%' AND EXISTS (SELECT 1 FROM dbo.PriorityCalibrationStatusLog
-                                                 WHERE Doc = @Doc AND StatusCode = 'TX')
+            WHEN @Code NOT LIKE 'U%'
+                 AND NOT (@Code IN ('H1', 'H2', 'HR') AND @LastGen = 'UG')   /* signing an update report */
+                 AND EXISTS (SELECT 1 FROM dbo.PriorityCalibrationStatusLog
+                             WHERE Doc = @Doc AND StatusCode = 'TX')
                 THEN 'LockedAfterTX'
             WHEN @Code = 'CD' AND EXISTS (SELECT 1 FROM dbo.PriorityStatusOutbox
                                           WHERE Doc = @Doc AND StatusCode = 'CD' AND State <> 'Refused')

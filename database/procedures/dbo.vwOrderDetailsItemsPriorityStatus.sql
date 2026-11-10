@@ -28,6 +28,14 @@
 
     Rows with no Doc yet, or whose Doc has no log rows yet, return NULLs (LEFT/OUTER joins).
 */
+/*
+    QUOTED_IDENTIFIER / ANSI_NULLS must be ON: set explicitly so the object does not depend on the client that deploys it (sqlcmd defaults
+    QUOTED_IDENTIFIER to OFF). Same convention as dbo.CalibrationReportFile.table.sql.
+*/
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
+
 CREATE OR ALTER VIEW dbo.vwOrderDetailsItemsPriorityStatus
 AS
 SELECT

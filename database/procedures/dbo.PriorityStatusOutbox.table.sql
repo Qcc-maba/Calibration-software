@@ -29,6 +29,16 @@
     retried automatically: a rejection means Priority refused the content, so a retry fails again, and
     a row that was in fact loaded would become a duplicate. A person decides.
 */
+/*
+    QUOTED_IDENTIFIER / ANSI_NULLS must be ON: this table has a filtered unique index (UX_PriorityStatusOutbox_Event), which SQL Server
+    refuses to create under the OFF setting sqlcmd defaults to. Every procedure that WRITES here needs the
+    same two lines: a procedure keeps the SET options it was created with, and one created under OFF fails
+    every INSERT with error 1934. Keep them at the top of this file and of dbo.RecordPriorityStatusEvent.sql.
+*/
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
+
 IF OBJECT_ID('dbo.PriorityStatusOutbox', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.PriorityStatusOutbox
@@ -43,8 +53,9 @@ BEGIN
         MbaReportNumber     NVARCHAR(100)  NULL,      /* MBANUM, as Priority's load table needs it   */
         UpdateReportNumber  NVARCHAR(16)   NULL,      /* MBA_UPDTRPORTNUM; empty for a normal report */
         UserId              INT            NULL,      /* dbo.Users.ID of who did it                  */
-        EventAt             DATETIME2(0)   NOT NULL,  /* when it happened in the app                 */
-        RecordedAt          DATETIME2(3)   NOT NULL
+        EventAt             DATETIME2(0)   NOT NULL,  /* when it happened in the app: LOCAL time,
+                                                         like the app's other dates and Priority's   */
+        RecordedAt          DATETIME2(3)   NOT NULL   /* when it was recorded: UTC bookkeeping      */
             CONSTRAINT DF_PriorityStatusOutbox_RecordedAt DEFAULT (SYSUTCDATETIME()),
         CONSTRAINT PK_PriorityStatusOutbox PRIMARY KEY CLUSTERED (OutboxId),
         CONSTRAINT CK_PriorityStatusOutbox_State CHECK (State IN ('ReportOnly', 'Refused'))

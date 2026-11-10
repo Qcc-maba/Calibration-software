@@ -37,6 +37,14 @@
     Never deletes. A row we hold that Priority no longer has is reported by a full refresh, not
     removed: Priority owns this data (session1 decision 17).
 */
+/*
+    QUOTED_IDENTIFIER / ANSI_NULLS must be ON: set explicitly so the object does not depend on the client that deploys it (sqlcmd defaults
+    QUOTED_IDENTIFIER to OFF). Same convention as dbo.CalibrationReportFile.table.sql.
+*/
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
+
 CREATE OR ALTER PROCEDURE dbo.RefreshPriorityCalibrationStatus
     @Apply       BIT = 0,
     @FullRefresh BIT = 0,
@@ -54,7 +62,9 @@ BEGIN
     /* ------------------------------------------------------------------------------------
        1. The code list. 23 rows; row 0 is Priority's empty placeholder.
        tabula_hebconvert turns Priority's visual-order text into logical order: it un-mirrors
-       the parentheses ("מצב המתנה )סיבת לקוח(") and un-reverses Latin ("FDP" -> "PDF").
+       the parentheses (the DC text arrives as "... )customer reason(") and un-reverses Latin
+       ("FDP" -> "PDF"). English only in this comment: sqlcmd without -f 65001 corrupts Hebrew,
+       and a corrupted comment makes the stored definitions differ between servers.
        ------------------------------------------------------------------------------------ */
     CREATE TABLE #Codes
     (
@@ -135,7 +145,13 @@ BEGIN
     SELECT w.Doc
     FROM #Wanted AS w
     WHERE @FullRefresh = 1
-       OR NOT EXISTS (SELECT 1 FROM dbo.PriorityCalibrationStatusLog AS g WHERE g.Doc = w.Doc);
+       OR NOT EXISTS (SELECT 1 FROM dbo.PriorityCalibrationStatusFetch AS f WHERE f.Doc = w.Doc);
+    /* "Never fetched" comes from the fetch marker, not from "has no log rows": a Doc whose Priority
+       log is still empty would otherwise be refetched whole on every run, forever. Once marked, a
+       Doc's later steps arrive through the incremental pull in 3a, which covers our whole Doc range. */
+
+    CREATE TABLE #FetchedWhole (Doc INT NOT NULL PRIMARY KEY);
+    INSERT INTO #FetchedWhole (Doc) SELECT Doc FROM #Queue;
 
     DECLARE @QueuedDocs INT = (SELECT COUNT(*) FROM #Queue);
     DECLARE @Batch TABLE (Doc INT NOT NULL PRIMARY KEY);
@@ -226,6 +242,11 @@ BEGIN
         DocsWithNoLogYet   = (SELECT COUNT(*) FROM #Wanted AS w
                               WHERE NOT EXISTS (SELECT 1 FROM #Shaped s WHERE s.Doc = w.Doc)
                                 AND NOT EXISTS (SELECT 1 FROM dbo.PriorityCalibrationStatusLog g WHERE g.Doc = w.Doc)),
+        /* Codes the seed has not described. Non-zero after a deploy means the seed was skipped:
+           dbo.RecordPriorityStatusEvent then refuses to open such calibrations (it fails closed),
+           but the screens show '(not in seed)'. Run Seed-PriorityCalibrationStatusCodes.sql. */
+        UnseededCodes      = (SELECT COUNT(*) FROM dbo.PriorityCalibrationStatusCodes WHERE WrittenBy = 'Unknown')
+                           + (SELECT COUNT(*) FROM #CodeDiff WHERE Action_ = 'insert'),
         /* Only meaningful on a full refresh, which refetches every Doc's whole log. */
         RowsGoneUpstream   = CASE WHEN @FullRefresh = 1 THEN
                                  (SELECT COUNT(*) FROM dbo.PriorityCalibrationStatusLog AS g
@@ -247,7 +268,17 @@ BEGIN
     BEGIN TRY
         BEGIN TRAN;
 
-        MERGE dbo.PriorityCalibrationStatusCodes AS dest
+        /* Two runs at once - a manual full refresh still going when the hourly job starts - would
+           both see a step as new and both insert it, and one would fail on the primary key. The
+           application lock makes the writes take turns; HOLDLOCK makes each MERGE's
+           "not matched" decision hold until it has inserted. */
+        DECLARE @rc INT;
+        EXEC @rc = sys.sp_getapplock @Resource = N'RefreshPriorityCalibrationStatus', @LockMode = 'Exclusive',
+                                     @LockOwner = 'Transaction', @LockTimeout = 600000;
+        IF @rc < 0
+            THROW 51000, 'Could not get the RefreshPriorityCalibrationStatus lock: another run is still writing.', 1;
+
+        MERGE dbo.PriorityCalibrationStatusCodes WITH (HOLDLOCK) AS dest
         USING #CodeDiff AS src ON dest.StatusCode = src.StatusCode
         WHEN MATCHED THEN UPDATE SET
              dest.PriorityStatusId = src.PriorityStatusId,
@@ -258,7 +289,7 @@ BEGIN
              VALUES (src.StatusCode, src.PriorityStatusId, src.DescriptionHEB,
                      N'(not in seed) ' + src.StatusCode, 'Unknown', 'Unknown', 255);
 
-        MERGE dbo.PriorityCalibrationStatusLog AS dest
+        MERGE dbo.PriorityCalibrationStatusLog WITH (HOLDLOCK) AS dest
         USING #Diff AS src ON dest.Doc = src.Doc AND dest.Kline = src.Kline
         WHEN MATCHED THEN UPDATE SET
              dest.StatusCode         = src.StatusCode,
@@ -271,6 +302,12 @@ BEGIN
              INSERT (Doc, Kline, StatusCode, StatusDate, LoadedAt, StatusByUserName, UpdateReportNumber)
              VALUES (src.Doc, src.Kline, src.StatusCode, src.StatusDate, src.LoadedAt,
                      src.StatusByUserName, src.UpdateReportNumber);
+
+        /* Mark every Doc whose whole log was just fetched, including those that came back empty. */
+        MERGE dbo.PriorityCalibrationStatusFetch WITH (HOLDLOCK) AS dest
+        USING #FetchedWhole AS src ON dest.Doc = src.Doc
+        WHEN MATCHED THEN UPDATE SET dest.LastWholeFetchAt = SYSUTCDATETIME()
+        WHEN NOT MATCHED BY TARGET THEN INSERT (Doc) VALUES (src.Doc);
 
         COMMIT;
     END TRY
