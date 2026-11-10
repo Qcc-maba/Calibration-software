@@ -37,3 +37,13 @@ CONSTRAINTS | STAGE only | DEFAULT dbo.Customers.IsInactiveInSource            |
 ROUTINES    | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)
 BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)
 BODIES      | DIFFERS    | dbo.GetCustomerInvoicesFromPriority                 | held back on 2026-10-25; deploy with MBA-998 (invoice PDFs via S3)
+
+# ---- MBA-980 chamber cycle settings: STAGE first, PROD with the app change that uses them ---------
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Tolerance*                    | MBA-980 cycle settings, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Resolution                    | MBA-980 cycle settings, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Uncertainty                   | MBA-980 cycle settings, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.*Threshold                    | MBA-980 cycle settings, not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *                       | MBA-980 cycle settings sign rules, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.SaveCalibrationCycleSettings                    | MBA-980, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.GetPreviousCalibrationCycleSettings             | MBA-980, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetCalibrationCycles                            | MBA-980 returns the cycle settings; deploy with the columns
