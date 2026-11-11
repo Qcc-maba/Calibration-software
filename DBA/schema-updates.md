@@ -163,9 +163,10 @@ Two layers enforce it:
 The flag guards against our own mistakes, not against someone who can already run arbitrary SQL:
 such a session could set it too. The tighter variant also requires `ORIGINAL_LOGIN()` to be the
 login the SQL Agent job runs under, which no other connection can fake; its cost is that a manual
-repair must run under that login as well. **Decided 2026-11-10: the flag alone.** What keeps the
-portal from running SQL of its own is its EXECUTE-only login (point 7.1); if that check fails, add the
-login check as well.
+repair must run under that login as well. **Decided 2026-11-11: the flag alone, and the login check
+is dropped.** The portal login turned out to be `db_owner` (point 7.1), and the login check would not
+help: the trigger guards writes only and a leak is a read, a `db_owner` can disable the trigger, and
+the job may run under the same account as the portal. The real protection is SEC-5 (point 7.1).
 
 Column permissions cannot do this job: inside a procedure owned by `dbo`, ownership chaining skips
 the column check, so a `DENY UPDATE` on the portal login never takes effect.
@@ -213,9 +214,8 @@ read path (point 7), not in the row count.
 
 Measured 2026-11-10, directly on Priority (AWS was unreachable from the workstation): the full query
 (SERNUMBERS + MBA_SERNUMBERS + MNFCTR + `tabula_hebconvert`) takes **9.3 s** on Priority's side and
-returns about **50 MB**. Still to measure on STAGE: the same pull across the AWS - Priority link. If
-it is too slow, the nightly full run becomes weekly and the hourly incremental carries the rest (about
-950 devices change a day).
+returns about **50 MB**. Measured 2026-11-11 on STAGE, across the AWS - Priority link: the full fetch
+takes **47-49 s** and the first load 83 s in all, so the full run stays nightly.
 
 #### 4. A device typed in the portal joins Priority
 
@@ -266,8 +266,12 @@ The table will hold the asset list of every active customer, so one portal proce
 customer filter would show one customer another's devices. The rules that prevent it:
 
 1. **The portal's SQL login can only `EXECUTE` procedures** - no `SELECT` on tables or on
-   `dbo.vwCustomerDevices`. Not verified yet; check it before phase 2. If the login can read tables,
-   every filter below can be bypassed.
+   `dbo.vwCustomerDevices`. **Checked 2026-11-11: not true today.** `app_stage` is `db_owner` and can
+   read every table, and `SECURITY.md` SEC-5 records the same for every app login, so every filter
+   below can be bypassed by anyone who can run SQL as that login. This is why PROD is on hold: the
+   load waits until SEC-15 (the portal's SQL injection) is on PROD and the portal's PROD login is no
+   longer `db_owner` (`STATUS.md`, checklist item 14). The app also makes raw SQL calls, so what the
+   login still needs has to be measured when it is narrowed.
 2. **One filter, in one place.** Every portal procedure that returns devices filters through
    `dbo.GetPortalCustomerIds(@Email)`. No procedure writes its own customer filter.
 3. **`@Email` comes from the app's signed-in session, never from the browser.** App side; confirm with
@@ -282,22 +286,23 @@ customer filter would show one customer another's devices. The rules that preven
 | Phase | Content | Visible to customers |
 |---|---|---|
 | 1 | table changes, refresh, view, SQL Agent job, a `database/tests` file; STAGE, then PROD | no |
-| 2 | check the portal login (point 7.1); list and detail procedures read the view, with the leak test (point 7.4); the app switches its route (portal developer) | same list, stable ids |
+| 2 | list and detail procedures read the view, with the leak test (point 7.4); the app switches its route (portal developer) | same list, stable ids |
 | 3 | `AssignCustomerDevicesData` follows the ownership rules (error 54208) and the duplicate check; the add-device form is wired, Priority-owned fields read-only on registered devices | the form works |
 | 4 | requests reference a device | requests for new devices |
 
 Each phase ships on its own and leaves the system working.
 
-**Phase 1 status (2026-11-10): written and tested locally, not deployed.** Files:
+**Phase 1 status (2026-11-11): on STAGE and loaded (591,281 devices); PROD on hold (point 7.1). The
+two SQL Agent jobs are not created yet on either server.** Files:
 `database/procedures/dbo.CustomerDevices.table.sql`, `dbo.trCustomerDevices_PriorityOwned.sql`,
 `dbo.fnSerialAlnum.sql`, `dbo.RefreshCustomerDevicesFromPriority.sql`, `dbo.vwCustomerDevices.sql`;
 two jobs in `database/jobs/Setup-SqlAgentJobs.sql`; `database/tests/Test-CustomerDevices.sql`;
 rollback `database/_rollback/BOTH.MBA-996.phase1.before.sql`. On the local STAGE copy, with
 Priority's device tables copied in: the first load inserts 591,279 devices in 25 s, a second full run
 and an hourly run report zero changes, the 16 tests pass and leave the table unchanged, and the
-rollback restores the original table exactly. Still to do on STAGE: the pull time across the
-AWS - Priority link, and the portal login check (point 7.1). The compound-serial claim (tier 2) is
-written but had no live case to test against.
+rollback restores the original table exactly. On STAGE the 16 tests pass as well, against the real
+Priority link, and leave the table unchanged. The compound-serial claim (tier 2) is written but had
+no live case to test against.
 
 ### How it relates to MBA-911
 

@@ -13,8 +13,9 @@
     and clears it again afterwards, on error too. Deliberately NOT @read_only = 1: a read-only key
     can never be cleared, so after one manual run in an SSMS window every later edit in that
     window would pass this trigger. This guards against our own mistakes, not against someone who
-    can already run arbitrary SQL - such a session could set the flag too. What keeps the portal from running SQL of its own is its EXECUTE-only login.
-    If that ever stops holding, add ORIGINAL_LOGIN() = <the SQL Agent job's login> to @IsRefresh.
+    can already run arbitrary SQL - such a session could set the flag too. The portal's login is db_owner today, so it could also
+    disable this trigger; narrowing that login is SEC-5, and an ORIGINAL_LOGIN() test here would
+    not replace it (decided 2026-11-11, DBA/schema-updates.md section 2, point 2).
 
     WHAT IS REFUSED (error 54208, the same number the portal procedure uses)
     -----------------------------------------------------------------------
