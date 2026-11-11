@@ -39,6 +39,9 @@ BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       |
 BODIES      | DIFFERS    | dbo.GetCustomerInvoicesFromPriority                 | held back on 2026-10-25; deploy with MBA-998 (invoice PDFs via S3)
 
 # ---- MBA-911 Priority calibration status + report-only outbox: on STAGE, PROD later ----------------
+# Delete these 13 lines BEFORE the post-deploy gate run on PROD, not after it. They accept every column
+# and constraint of the five tables as STAGE-only, so while they exist a partial deploy still passes,
+# for example one missing the outbox's filtered unique index, which its idempotency depends on (MBA-999).
 COLUMNS     | STAGE only | dbo.PriorityCalibrationStatusCodes.*                | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
 COLUMNS     | STAGE only | dbo.PriorityCalibrationStatusFetch.*                | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
 COLUMNS     | STAGE only | dbo.PriorityCalibrationStatusLog.*                  | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet

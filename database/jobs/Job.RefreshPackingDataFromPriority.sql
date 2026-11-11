@@ -38,6 +38,11 @@ DECLARE @JobName   SYSNAME       = N'MABA - Refresh packing data from Priority',
         @StartTime INT           = 20000,           /* 02:00:00, format HHMMSS */
         @JobId     UNIQUEIDENTIFIER;
 
+/* STAGE and PROD share one SQL Server and job names are unique per server. The bare name is PROD's;
+   any other database gets its name as a suffix and starts later, as in Setup-SqlAgentJobs.sql. */
+IF @Database <> N'CalibratorProd'
+    SELECT @JobName += N' (' + @Database + N')', @StartTime += 1500;
+
 /* start clean so the script can be re-run */
 IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @JobName)
     EXEC msdb.dbo.sp_delete_job @job_name = @JobName, @delete_unused_schedule = 1;

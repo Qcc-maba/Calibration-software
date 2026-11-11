@@ -16,6 +16,13 @@
     name carries the environment: the names above are PROD's, and any other database gets its name
     as a suffix, e.g. "MABA - Refresh device descriptions (Calibrator)". Each run deletes and recreates
     only the jobs of its own @Database, so a STAGE run can never replace or repoint PROD's jobs.
+    Job.RefreshPackingDataFromPriority.sql follows the same naming.
+
+    A non-PROD run also starts 15 minutes later than PROD, so the two environments do not pull across
+    the same linked server into Priority at the same moment.
+
+    Set @OwnerLogin = N'sa' when a sysadmin runs this. Left NULL, the jobs are owned by that person's
+    login, and they start failing when the login is disabled or removed.
 
     WHO CAN RUN THIS
     ----------------
@@ -46,13 +53,14 @@
     (MBA_CALIBSTATSLOG: received, calibration opened, report generated, signatures, packed, sent)
     into dbo.PriorityCalibrationStatusLog for the Docs we hold (MBA-911). Hourly, because this is
     progress people watch during the day; an incremental run is one or two linked-server
-    round-trips. Run dbo.RefreshPriorityCalibrationStatus @Apply = 1 once by hand before enabling
-    it: the first run fetches every Doc's whole log.
+    round-trips. The first scheduled run does the backfill of every Doc's whole log, which needs no
+    preparation: on STAGE (2026-11-11) it took 6 seconds for 5,876 Docs and 12 round-trips.
 
     All three jobs only READ from Priority. Nothing is written back to the ERP.
 
     02:00 and 02:30 were chosen so the two nightly pulls do not overlap each other or the working
-    day. :20 past the hour keeps the status refresh clear of the hourly order load.
+    day. :20 past the hour keeps the status refresh clear of the hourly order load. Those are PROD's
+    times; see the 15-minute offset above for any other database.
 */
 
 /*  NOTE: no USE msdb anywhere in this file, deliberately. A login with no principal in msdb - which
@@ -72,8 +80,12 @@ DECLARE @Database    SYSNAME = N'CalibratorProd',   /* N'Calibrator' for STAGE *
 SET @OwnerLogin = COALESCE(@OwnerLogin, SUSER_SNAME());
 
 /* PROD keeps the original names; see "STAGE AND PROD SHARE ONE SQL SERVER" above. */
-DECLARE @NameSuffix NVARCHAR(50) =
+DECLARE @NameSuffix SYSNAME =
     CASE WHEN @Database = N'CalibratorProd' THEN N'' ELSE N' (' + @Database + N')' END;
+
+/* HHMMSS arithmetic: fine for the defaults above, none of which is past :44 of its hour. */
+IF @NameSuffix <> N''
+    SELECT @PackingTime += 1500, @DescribeTime += 1500, @StatusTime += 1500;
 
 /* ============================================================================================= */
 /*  Preflight - say why this will not work BEFORE writing anything                                */
@@ -130,6 +142,36 @@ IF @AgentState NOT IN (N'Running', N'unknown - this login cannot read the servic
 
 IF DB_ID(@Database) IS NULL
     INSERT @Problems (Problem) VALUES (N'@Database ' + @Database + N' does not exist on this server.');
+
+/*  The default target is PROD, and a procedure can exist on one environment only. A job for a missing
+    procedure is created without complaint and then fails on every run, so refuse before anything is
+    deleted. This also catches a login that cannot see @Database at all: OBJECT_ID is NULL for it too.  */
+IF DB_ID(@Database) IS NOT NULL
+    INSERT @Problems (Problem)
+    SELECT N'dbo.' + p.Name + N' was not found in ' + @Database + N', or this login cannot see it. '
+         + N'Its job would fail on every run: deploy the procedure, or set @Database to the right database.'
+    FROM (VALUES (N'RefreshPackingDataFromPriority'),
+                 (N'RefreshDeviceDescriptions'),
+                 (N'RefreshPriorityCalibrationStatus')) AS p (Name)
+    WHERE OBJECT_ID(QUOTENAME(@Database) + N'.dbo.' + p.Name, N'P') IS NULL;
+
+/*  Job names with no suffix are PROD's. One that points anywhere else means PROD lost that job to an
+    old run for STAGE, and creating the STAGE jobs beside it would hide that: STAGE would refresh twice
+    and PROD not at all. A PROD run is exempt because it is the repair: it recreates those names against
+    CalibratorProd. TRY/CATCH because a non-sysadmin may be denied sysjobsteps.  */
+IF @NameSuffix <> N''
+BEGIN TRY
+    INSERT @Problems (Problem)
+    SELECT N'Job "' + j.name + N'" has no environment in its name, so it should be PROD''s, but it runs in '
+         + s.database_name + N'. Repair it first: point that job''s step at CalibratorProd, or run this script for CalibratorProd once all three procedures are deployed there.'
+    FROM msdb.dbo.sysjobs AS j
+    JOIN msdb.dbo.sysjobsteps AS s ON s.job_id = j.job_id
+    WHERE j.name LIKE N'MABA - %' AND j.name NOT LIKE N'% (%)'
+      AND s.database_name <> N'CalibratorProd';
+END TRY
+BEGIN CATCH
+    PRINT 'note: could not read the existing job steps, so old jobs pointing at the wrong database were not checked.';
+END CATCH
 
 IF EXISTS (SELECT 1 FROM @Problems)
 BEGIN
@@ -288,8 +330,8 @@ PRINT 'Packing finishes in under a minute. Device descriptions takes a little lo
 PRINT '3,000 descriptions across the linked server.';
 PRINT '';
 PRINT 'Afterwards, that they actually did something:';
-PRINT '  SELECT COUNT(*) FROM dbo.CrmDeviceDescription;                        -- expect ~3,000';
-PRINT '  SELECT COUNT(*) FROM dbo.OrderDetailsItems WHERE CustomerReceivingDate IS NOT NULL;';
+PRINT '  SELECT COUNT(*) FROM ' + QUOTENAME(@Database) + '.dbo.CrmDeviceDescription;                  -- expect ~3,000';
+PRINT '  SELECT COUNT(*) FROM ' + QUOTENAME(@Database) + '.dbo.OrderDetailsItems WHERE CustomerReceivingDate IS NOT NULL;';
 PRINT '';
 PRINT 'And that the Agent ran them:';
 PRINT '  SELECT j.name, h.run_date, h.run_time, h.run_duration,';
