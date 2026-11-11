@@ -55,3 +55,16 @@ CONSTRAINTS | STAGE only | * dbo.PriorityCalibrationStatusFetch*               |
 CONSTRAINTS | STAGE only | * dbo.PriorityCalibrationStatusLog*                 | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
 CONSTRAINTS | STAGE only | * dbo.PriorityStatusOutbox*                         | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
 CONSTRAINTS | STAGE only | * dbo.PriorityStatusWriteMode*                      | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+
+# ---- MBA-980 chamber cycle settings: STAGE first, PROD with the app change that uses them ---------
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Tolerance*                    | MBA-980 cycle settings, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Resolution                    | MBA-980 cycle settings, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Uncertainty                   | MBA-980 cycle settings, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.*Threshold                    | MBA-980 cycle settings, not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *tolerancestart*        | MBA-980 sign rule, not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *toleranceend*          | MBA-980 sign rule, not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *stabilitythreshold*    | MBA-980 sign rule, not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *uniformitythreshold*   | MBA-980 sign rule, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.SaveCalibrationCycleSettings                    | MBA-980, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.GetPreviousCalibrationCycleSettings             | MBA-980, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetCalibrationCycles                            | MBA-980 returns the cycle settings; deploy with the columns
