@@ -28,6 +28,7 @@
 
     Timing: 02:00 was chosen because the pull reaches across the linked server into Priority and
     should not compete with the working day. Change @StartTime if that clashes with the ETL.
+    Any database other than CalibratorProd starts 15 minutes later, at 02:15.
 */
 
 USE msdb;
@@ -65,15 +66,14 @@ EXEC msdb.dbo.sp_add_jobstep
      @on_success_action = 1,     /* quit reporting success */
      @on_fail_action    = 2;     /* quit reporting failure, so a broken link is visible */
 
-EXEC msdb.dbo.sp_add_schedule
-     @schedule_name  = N'MABA - nightly 02:00',
-     @freq_type      = 4,        /* daily */
-     @freq_interval  = 1,        /* every day */
+/* Named after the job and created on it. Schedule names are not unique on a server, and attaching by a
+   name that two schedules share fails without stopping the batch: the job would be left with no schedule. */
+EXEC msdb.dbo.sp_add_jobschedule
+     @job_id            = @JobId,
+     @name              = @JobName,
+     @freq_type         = 4,     /* daily */
+     @freq_interval     = 1,     /* every day */
      @active_start_time = @StartTime;
-
-EXEC msdb.dbo.sp_attach_schedule
-     @job_id        = @JobId,
-     @schedule_name = N'MABA - nightly 02:00';
 
 EXEC msdb.dbo.sp_add_jobserver
      @job_id      = @JobId,
@@ -96,7 +96,7 @@ GO
                h.message
         FROM msdb.dbo.sysjobs   AS j
         JOIN msdb.dbo.sysjobhistory AS h ON h.job_id = j.job_id
-        WHERE j.name = N'MABA - Refresh packing data from Priority'
+        WHERE j.name LIKE N'MABA - Refresh packing data from Priority%'
           AND h.step_id = 0
         ORDER BY h.run_date DESC, h.run_time DESC;
 
