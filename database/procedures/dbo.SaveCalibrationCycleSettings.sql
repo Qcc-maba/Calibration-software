@@ -53,7 +53,9 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    DECLARE @UserId INT = (SELECT ID FROM dbo.Users WHERE Email = @UserEmail);
+    /* TOP (1): dbo.Users.Email is not unique (PROD has 38 addresses shared by 79 users, 2026-11-11),
+       and a plain scalar lookup would fail the save with error 512. The id only records who saved. */
+    DECLARE @UserId INT = (SELECT TOP (1) ID FROM dbo.Users WHERE Email = @UserEmail ORDER BY ID);
 
     IF @UserId IS NULL
         THROW 51000, 'Unknown user.', 1;

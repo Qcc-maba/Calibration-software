@@ -11,7 +11,9 @@
       parameter, and the CHECK constraints against a direct UPDATE;
     - dbo.GetPreviousCalibrationCycleSettings: two earlier lines of one device (SERN set inside
       the transaction) - the one whose cycles ran last wins, deleted cycles are left out, a later
-      line is never "previous", and a line without SERN returns nothing.
+      line is never "previous", a line without SERN returns nothing, and an id on two lines is
+      never used;
+    - a save by a user whose e-mail is shared still goes through.
 
     Run on STAGE:
         Invoke-CalibratorStageSqlFile.ps1 -Path database\tests\Test-CalibrationCycleSettings.sql
@@ -86,6 +88,12 @@ DECLARE @Out TABLE (Outcome NVARCHAR(20), OrderDetailsItemId INT, CalibrationCyc
 
 BEGIN TRAN;
 
+/* The cycle is real data: start it from "not set", whatever the app has saved on it by now. */
+UPDATE dbo.CalibrationCycles
+SET ToleranceValue = NULL, ToleranceStart = NULL, ToleranceEnd = NULL, Resolution = NULL, Uncertainty = NULL,
+    StabilityThreshold = NULL, UniformityThreshold = NULL
+WHERE OrderDetailsItemId = @A AND CalibrationCycleStartDate = @Start;
+
 /* 2. Dry run: reports WouldSave and writes nothing. */
 INSERT @Out EXEC dbo.SaveCalibrationCycleSettings
     @UserEmail = @UserEmail, @OrderDetailsItemId = @A, @CalibrationCycleStartDate = @Start,
@@ -110,7 +118,7 @@ INSERT @Results
 SELECT N'3. apply saves all seven',
        IIF(o.Outcome = N'Saved' AND cc.ToleranceValue = 20.5 AND cc.ToleranceStart = -0.5 AND cc.ToleranceEnd = 0.25
            AND cc.Resolution = 0.1 AND cc.Uncertainty = 0.3 AND cc.StabilityThreshold = 0 AND cc.UniformityThreshold = 1.5
-           AND cc.UpdateUserID = (SELECT ID FROM dbo.Users WHERE Email = @UserEmail), N'PASS', N'FAIL'),
+           AND cc.UpdateUserID = (SELECT TOP (1) ID FROM dbo.Users WHERE Email = @UserEmail ORDER BY ID), N'PASS', N'FAIL'),
        CONCAT(o.Outcome, N': ', cc.ToleranceValue, N' [', cc.ToleranceStart, N', ', cc.ToleranceEnd, N'] res ', cc.Resolution,
               N' unc ', cc.Uncertainty, N' stab ', cc.StabilityThreshold, N' unif ', cc.UniformityThreshold)
 FROM @Out AS o
@@ -198,21 +206,76 @@ SELECT N'8. settings carried, deleted cycle left out',
        CONCAT(COUNT(*), N' cycles from line ', @Expected, IIF(@Expected = @A, N', deleted cycle checked', N' - FAIL: C should not win'))
 FROM @Prev;DELETE @Prev;
 
-/* 9. A later line is never "previous": asking for A must not return B (no cycles) or anything newer. */
+/* 9. A later line is never "previous". B was created after A and C; give it a cycle that ran last
+   of all, so only the "created before this one" rule can keep it out when asking about A. */
+DECLARE @BStart DATETIME2(0) = '2099-01-01 00:00:00', @BEnd DATETIME2(0) = '2099-01-02 00:00:00';
+EXEC dbo.AddCalibrationCycle
+    @UserEmail = @UserEmail, @OrderDetailsItemId = @B, @CalibrationCycleStartDate = @BStart,
+    @CalibrationCycleEndDate = @BEnd, @CalibrationCycleName = @Name, @UnitId = @Unit, @TestedValue = @Tested,
+    @SpecificationReferenceIds = @Refs, @CalibrationCycleStatusId = @Status, @CalibrationCycleNameStatusId = @NameStatus;
+
 INSERT @Prev EXEC dbo.GetPreviousCalibrationCycleSettings @OrderDetailsItemId = @A;
 INSERT @Results
 SELECT N'9. a later line is not previous',
-       IIF(ISNULL(SUM(CASE WHEN PreviousOrderDetailsItemId = @B THEN 1 ELSE 0 END), 0) = 0
-           AND (COUNT(*) = 0 OR (SELECT CreatedDate FROM dbo.OrderDetailsItems WHERE OrderDetailsItemId = MIN(p.PreviousOrderDetailsItemId))
-                               <= (SELECT CreatedDate FROM dbo.OrderDetailsItems WHERE OrderDetailsItemId = @A)), N'PASS', N'FAIL'),
-       CONCAT(COUNT(*), N' rows')
+       IIF(ISNULL(SUM(CASE WHEN PreviousOrderDetailsItemId = @B THEN 1 ELSE 0 END), 0) = 0, N'PASS', N'FAIL'),
+       CONCAT(COUNT(*), N' rows, none from later line ', @B)
 FROM @Prev AS p;
 DELETE @Prev;
-
 /* 10. A line without SERN has no previous calibration. */
 UPDATE dbo.OrderDetailsItems SET SERN = NULL WHERE OrderDetailsItemId = @B;
 INSERT @Prev EXEC dbo.GetPreviousCalibrationCycleSettings @OrderDetailsItemId = @B;
 INSERT @Results SELECT N'10. no SERN: no rows', IIF(COUNT(*) = 0, N'PASS', N'FAIL'), CONCAT(COUNT(*), N' rows') FROM @Prev;
+DELETE @Prev;
+UPDATE dbo.OrderDetailsItems SET SERN = @Sern WHERE OrderDetailsItemId = @B;
+
+/* 10a, 10b. An id on two live lines is never used. The second line is a copy of the row on another
+   order, removed again after each step. */
+DECLARE @Columns NVARCHAR(MAX) = (SELECT STRING_AGG(CAST(QUOTENAME(name) AS NVARCHAR(MAX)), N',')
+                                  FROM sys.columns
+                                  WHERE object_id = OBJECT_ID('dbo.OrderDetailsItems') AND is_computed = 0
+                                    AND name <> N'OrderDetailId');
+DECLARE @OtherDetail INT = (SELECT TOP (1) OrderDetailId FROM dbo.OrderDetailsItems
+                            WHERE OrderDetailId NOT IN (SELECT OrderDetailId FROM dbo.OrderDetailsItems
+                                                        WHERE OrderDetailsItemId IN (@A, @B))
+                            ORDER BY OrderDetailId DESC);
+DECLARE @Copy NVARCHAR(MAX) = N'SET IDENTITY_INSERT dbo.OrderDetailsItems ON;
+INSERT dbo.OrderDetailsItems (OrderDetailId,' + @Columns + N')
+SELECT TOP (1) @d,' + @Columns + N' FROM dbo.OrderDetailsItems WHERE OrderDetailsItemId = @i;
+SET IDENTITY_INSERT dbo.OrderDetailsItems OFF;';
+
+EXEC sp_executesql @Copy, N'@d INT, @i INT', @d = @OtherDetail, @i = @B;
+INSERT @Prev EXEC dbo.GetPreviousCalibrationCycleSettings @OrderDetailsItemId = @B;
+INSERT @Results SELECT N'10a. the line asked about is on two lines: no rows', IIF(COUNT(*) = 0, N'PASS', N'FAIL'), CONCAT(COUNT(*), N' rows') FROM @Prev;
+DELETE @Prev;
+DELETE dbo.OrderDetailsItems WHERE OrderDetailsItemId = @B AND OrderDetailId = @OtherDetail;
+
+EXEC sp_executesql @Copy, N'@d INT, @i INT', @d = @OtherDetail, @i = @A;
+INSERT @Prev EXEC dbo.GetPreviousCalibrationCycleSettings @OrderDetailsItemId = @B;
+INSERT @Results
+SELECT N'10b. a candidate on two lines is skipped',
+       IIF(COUNT(*) > 0 AND MIN(PreviousOrderDetailsItemId) = @C AND MAX(PreviousOrderDetailsItemId) = @C, N'PASS', N'FAIL'),
+       CONCAT(COUNT(*), N' rows from line ', MIN(PreviousOrderDetailsItemId), N' (expected ', @C, N')')
+FROM @Prev;
+DELETE @Prev;
+DELETE dbo.OrderDetailsItems WHERE OrderDetailsItemId = @A AND OrderDetailId = @OtherDetail;
+
+/* 10c. Two users sharing an e-mail: the save still goes through, stamped with the lower id. */
+DECLARE @FirstUser INT = (SELECT TOP (1) ID FROM dbo.Users WHERE Email = @UserEmail ORDER BY ID);
+UPDATE dbo.Users SET Email = @UserEmail
+WHERE ID = (SELECT TOP (1) ID FROM dbo.Users WHERE ID > @FirstUser ORDER BY ID);
+
+INSERT @Out EXEC dbo.SaveCalibrationCycleSettings
+    @UserEmail = @UserEmail, @OrderDetailsItemId = @A, @CalibrationCycleStartDate = @Start,
+    @ToleranceValue = 20.5, @ToleranceStart = -0.5, @ToleranceEnd = 0.25, @Resolution = 0.1,
+    @Uncertainty = 0.7, @StabilityThreshold = 0, @UniformityThreshold = NULL, @Apply = 1;
+
+INSERT @Results
+SELECT N'10c. a shared e-mail still saves',
+       IIF(o.Outcome = N'Saved' AND cc.Uncertainty = 0.7 AND cc.UpdateUserID = @FirstUser, N'PASS', N'FAIL'),
+       CONCAT(o.Outcome, N', stamped user ', cc.UpdateUserID, N' (expected ', @FirstUser, N')')
+FROM @Out AS o
+JOIN dbo.CalibrationCycles AS cc ON cc.OrderDetailsItemId = @A AND cc.CalibrationCycleStartDate = @Start;
+DELETE @Out;
 
 ROLLBACK;
 
