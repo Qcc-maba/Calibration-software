@@ -38,6 +38,24 @@ ROUTINES    | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       |
 BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)
 BODIES      | DIFFERS    | dbo.GetCustomerInvoicesFromPriority                 | held back on 2026-10-25; deploy with MBA-998 (invoice PDFs via S3)
 
+# ---- MBA-911 Priority calibration status + report-only outbox: on STAGE, PROD later ----------------
+# Delete these 13 lines BEFORE the post-deploy gate run on PROD, not after it. They accept every column
+# and constraint of the five tables as STAGE-only, so while they exist a partial deploy still passes,
+# for example one missing the outbox's filtered unique index, which its idempotency depends on (MBA-999).
+COLUMNS     | STAGE only | dbo.PriorityCalibrationStatusCodes.*                | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.PriorityCalibrationStatusFetch.*                | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.PriorityCalibrationStatusLog.*                  | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.PriorityStatusOutbox.*                          | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.PriorityStatusWriteMode.*                       | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.RecordPriorityStatusEvent                       | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.RefreshPriorityCalibrationStatus                | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.vwOrderDetailsItemsPriorityStatus               | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.PriorityCalibrationStatusCodes*               | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.PriorityCalibrationStatusFetch*               | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.PriorityCalibrationStatusLog*                 | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.PriorityStatusOutbox*                         | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.PriorityStatusWriteMode*                      | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+
 # ---- MBA-980 chamber cycle settings: STAGE first, PROD with the app change that uses them ---------
 COLUMNS     | STAGE only | dbo.CalibrationCycles.Tolerance*                    | MBA-980 cycle settings, not deployed to PROD yet
 COLUMNS     | STAGE only | dbo.CalibrationCycles.Resolution                    | MBA-980 cycle settings, not deployed to PROD yet
