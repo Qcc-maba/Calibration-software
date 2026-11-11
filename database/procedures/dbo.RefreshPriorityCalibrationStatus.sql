@@ -322,14 +322,17 @@ END
 GO
 
 /*
-    First run, on each server
-    -------------------------
+    Running it
+    ----------
+    Hourly, from the SQL Agent job in database/jobs/Setup-SqlAgentJobs.sql:
+        EXEC dbo.RefreshPriorityCalibrationStatus @Apply = 1;
+    The job's first scheduled run does the backfill by itself, so nothing is required by hand.
+
+    On a PROD deploy, do the first run by hand anyway, before creating the job. The job only reports
+    that it succeeded; the second dry run is the proof that the backfill is complete:
         EXEC dbo.RefreshPriorityCalibrationStatus;                       -- dry run: read the counts
         EXEC dbo.RefreshPriorityCalibrationStatus @Apply = 1;            -- first run fetches every Doc
         EXEC dbo.RefreshPriorityCalibrationStatus;                       -- must now report 0 / 0
-
-    Then hourly, from the SQL Agent job in database/jobs/Setup-SqlAgentJobs.sql:
-        EXEC dbo.RefreshPriorityCalibrationStatus @Apply = 1;
 
     Sanity check - the distribution of current status should look like the lab, not like
     "everything waiting": mostly H2 / TX for older Docs, AA / AC / GR for recent ones.

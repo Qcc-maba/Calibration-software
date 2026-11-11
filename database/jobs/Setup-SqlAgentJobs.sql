@@ -54,7 +54,9 @@
     into dbo.PriorityCalibrationStatusLog for the Docs we hold (MBA-911). Hourly, because this is
     progress people watch during the day; an incremental run is one or two linked-server
     round-trips. The first scheduled run does the backfill of every Doc's whole log, which needs no
-    preparation: on STAGE (2026-11-11) it took 6 seconds for 5,876 Docs and 12 round-trips.
+    preparation: on STAGE (2026-11-11) it took 6 seconds for 5,876 Docs and 12 round-trips. A PROD
+    deploy still does that first run by hand, to check the result: see the notes at the end of
+    dbo.RefreshPriorityCalibrationStatus.sql.
 
     All three jobs only READ from Priority. Nothing is written back to the ERP.
 
