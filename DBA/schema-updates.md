@@ -192,11 +192,15 @@ learn:
   fails the whole run.
 - Writes only rows that differ, so a second run reports zero; inserts go in chunks of 50,000, each
   its own transaction, so the first load (about 590k rows) is not one transaction. Never deletes.
-- **Which customer.** `dbo.Customers` holds 747 Priority customers twice (STAGE: 11,286 rows,
-  10,539 distinct `CustomerIdFromSource`); the second row is a different company carrying the same
-  `CustomerIdFromSource` (CUST 2 is both "מ.ב.א - בדיקות אימות" and "A.M.L"). In all 747 exactly one
-  row's `CustomerCode` equals Priority's `CUSTNAME`, so a device goes to that row. The wrong rows
-  are a defect of the customer sync, outside this work.
+- **Which customer.** `dbo.Customers` holds two companies' customers: `SourceId` 1 = MABA (this
+  Priority) and 2 = SEPharma, numbered 1-829 in its own system. `CustomerIdFromSource` is unique only
+  within a source, so 747 numbers on STAGE (828 on PROD, 2026-11-11) appear once per company; CUST 2
+  is both "מ.ב.א - בדיקות אימות" (MABA) and "A.M.L" (SEPharma). A device goes to the `SourceId = 1`
+  row, preferring `CustomerCode = CUSTNAME` (32 codes are shared across the companies too). Not a
+  sync defect; other procedures that skip `SourceId` are `SECURITY.md` SEC-20, outside this ticket.
+- **A device's site and contact belong to the device's own customer**, enforced by the composite
+  FKs (decided 2026-11-11, "for now": revisit if a customer legitimately needs another customer's
+  contact on a device, e.g. a plant manager serving several).
 - **A device that moved to another customer in Priority:** `CUST` wins; site and contact belong to
   the old customer, so they are cleared and the row gets `NeedsReview = 1`.
 - SQL Agent: hourly beside the MBA-911 job, plus the nightly full run (`database/jobs/Setup-SqlAgentJobs.sql`).

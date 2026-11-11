@@ -33,6 +33,20 @@ COLUMNS     | STAGE only | dbo.Customers.IsInactiveInSource                    |
 ROUTINES    | STAGE only | dbo.RefreshCustomerStatusFromPriority               | checklist item 3, not deployed to PROD yet
 CONSTRAINTS | STAGE only | DEFAULT dbo.Customers.IsInactiveInSource            | checklist item 3, not deployed to PROD yet
 
+# ---- MBA-996 device entity, phase 1: on STAGE 2026-11-11, PROD on hold (STATUS.md checklist item 14) ----
+# Delete this block in the change that deploys phase 1 to PROD. The PROD-only line is PROD's old
+# primary key (CustomerId, CustomerDeviceID), which the phase 1 table replaces.
+COLUMNS     | STAGE only | dbo.CustomerDevices.*                               | MBA-996 phase 1, not deployed to PROD yet (item 14)
+ROUTINES    | STAGE only | dbo.fnSerialAlnum                                   | MBA-996 phase 1, not deployed to PROD yet (item 14)
+ROUTINES    | STAGE only | dbo.RefreshCustomerDevicesFromPriority              | MBA-996 phase 1, not deployed to PROD yet (item 14)
+ROUTINES    | STAGE only | dbo.vwCustomerDevices                               | MBA-996 phase 1, not deployed to PROD yet (item 14)
+CONSTRAINTS | STAGE only | CHECK dbo.CustomerDevices *                         | MBA-996 phase 1, not deployed to PROD yet (item 14)
+CONSTRAINTS | STAGE only | DEFAULT dbo.CustomerDevices.*                       | MBA-996 phase 1, not deployed to PROD yet (item 14)
+CONSTRAINTS | STAGE only | FK dbo.CustomerDevices *                            | MBA-996 phase 1, not deployed to PROD yet (item 14)
+CONSTRAINTS | STAGE only | INDEX dbo.CustomerDevices *                         | MBA-996 phase 1, not deployed to PROD yet (item 14)
+CONSTRAINTS | STAGE only | INDEX dbo.OrderDetailsItems (SERN)*                 | MBA-996 phase 1 IX_OrderDetailsItems_SERN, not deployed to PROD yet (item 14)
+CONSTRAINTS | PROD only  | INDEX dbo.CustomerDevices (CustomerId,CustomerDeviceID)* | MBA-996: PROD's old primary key, replaced when phase 1 deploys (item 14)
+
 # ---- STAGE ahead of PROD, waiting for its app change ----------------------------------------------
 ROUTINES    | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)
 BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)

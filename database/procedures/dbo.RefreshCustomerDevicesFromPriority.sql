@@ -29,11 +29,13 @@
 
     WHICH CUSTOMER
     --------------
-    dbo.Customers holds 747 Priority customers twice (STAGE 2026-11-10: 11,286 rows, 10,539
-    distinct CustomerIdFromSource); the second row is a different company carrying the same
-    CustomerIdFromSource. In all 747 exactly one row's CustomerCode equals Priority's CUSTNAME, so
-    a device goes to: CustomerIdFromSource = CUST, preferring CustomerCode = CUSTNAME; a CUST with
-    one row and no code match still maps to that row; anything else is reported, not guessed.
+    dbo.Customers holds customers of two companies: SourceId 1 = MABA (this Priority) and
+    SourceId 2 = SEPharma, numbered 1-829 in its own system. CustomerIdFromSource is unique only
+    within a source: 747 numbers on STAGE, 828 on PROD (2026-11-11) exist once per company, and
+    29 / 32 CustomerCodes are shared too. So a device goes to the SourceId = 1 row with
+    CustomerIdFromSource = CUST, preferring CustomerCode = CUSTNAME; a CUST with one MABA row and
+    no code match still maps to that row; anything else is reported, not guessed. Never match a
+    SEPharma row: a MABA customer not yet synced would otherwise land on SEPharma's same number.
 
     THE VALUES
     ----------
@@ -173,8 +175,10 @@ BEGIN
                c.CustomerCode
         FROM dbo.Customers AS c
         WHERE c.CustomerIdFromSource = k.CUST
+          AND c.SourceId = 1
           AND (   c.CustomerCode = k.CUSTNAME
-               OR (SELECT COUNT(*) FROM dbo.Customers AS c2 WHERE c2.CustomerIdFromSource = k.CUST) = 1)
+               OR (SELECT COUNT(*) FROM dbo.Customers AS c2
+                   WHERE c2.CustomerIdFromSource = k.CUST AND c2.SourceId = 1) = 1)
         ORDER BY CASE WHEN c.CustomerCode = k.CUSTNAME THEN 0 ELSE 1 END, c.CustomerId
     ) AS pick;
 
