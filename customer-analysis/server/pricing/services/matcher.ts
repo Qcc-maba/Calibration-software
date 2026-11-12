@@ -4,7 +4,7 @@ import { enrichWithTranslations } from './translator';
 import { getPreciseOverride, getGenericOverride } from './overrides';
 import { externalVariant } from './calibrationRules';
 import { lookupModel, ModelHit } from './modelIndex';
-import { lookupSerial } from './serialIndex';
+import { lookupSerial, normalizeSerial, MIN_FALLBACK_LEN } from './serialIndex';
 
 let fuseInstance: Fuse<PriceListItem> | null = null;
 let cachedItems: PriceListItem[] = [];
@@ -432,23 +432,42 @@ export function findMatch(
   // הבדיקה בטוחה כי האינדקס מוגבל ללקוח הזה בלבד: התאמת שווא דורשת שללקוח
   // עצמו יהיה מכשיר שהסידורי שלו זהה למק"ט שהוא כתב באותה שורה. הסידורי
   // המפורש עדיף תמיד, והמק"ט משמש רק כשאין אחד.
-  const serialHit =
-    lookupSerial(input.customerName, input.customerSerial) ??
-    lookupSerial(input.customerName, input.customerPartNumber);
-  if (serialHit) {
-    const item = resolveToPriceList(serialHit.part);
+  //
+  // שאר שדות השורה נמסרים לחיפוש כדי להכריע בין מועמדים - לא כדי להתאים.
+  // כששני מכשירים מצטמצמים לאותו מפתח, הדגם או המק"ט של השורה הם מה שמבדיל
+  // ביניהם; בלעדיהם ההכרעה נופלת על עדכניות הרישום לבדה.
+  const serialCtx = {
+    description: input.customerDescription,
+    context: input.customerContext,
+    partNumber: input.customerPartNumber,
+  };
+  const partAsSerial =
+    normalizeSerial(input.customerPartNumber || '').length >= MIN_FALLBACK_LEN
+      ? input.customerPartNumber
+      : null;
+  const serialMatch =
+    lookupSerial(input.customerName, input.customerSerial, serialCtx) ??
+    lookupSerial(input.customerName, partAsSerial, serialCtx);
+  if (serialMatch) {
+    const hit = serialMatch.hit;
+    const item = resolveToPriceList(hit.part);
     if (item) {
+      // התאמה שהוכרעה על סטיית תו איננה ודאית: המכשיר הוא כנראה זה, אבל
+      // הסידורי שבשורה איננו הסידורי שרשום אצלנו. היא מדווחת כהתאמה קרובה עם
+      // ציון מופחת, כדי שעמודת הסטטוס תראה את ההפרש ולא "התאמה מדויקת".
+      const certain = serialMatch.via !== 'typo';
+      const base = hit.fromCharge
+        ? `מכשיר רשום — חויב ${hit.part} בכיול האחרון`
+        : `מכשיר רשום — מק"ט ${hit.part}`;
       return {
         input,
         matched: item,
-        matchType: 'exact',
-        matchScore: 1,
+        matchType: certain ? 'exact' : 'close',
+        matchScore: serialMatch.confidence,
         matchSource: 'serial',
-        matchNote: serialHit.fromCharge
-          ? `מכשיר רשום — חויב ${serialHit.part} בכיול האחרון`
-          : `מכשיר רשום — מק"ט ${serialHit.part}`,
-        mbaNumber: serialHit.mbaNum || undefined,
-        lastChargedPart: serialHit.fromCharge ? serialHit.part : undefined,
+        matchNote: serialMatch.note ? `${base} (${serialMatch.note})` : base,
+        mbaNumber: hit.mbaNum || undefined,
+        lastChargedPart: hit.fromCharge ? hit.part : undefined,
         alternatives: [],
       };
     }
