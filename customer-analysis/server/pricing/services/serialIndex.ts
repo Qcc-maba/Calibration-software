@@ -254,6 +254,38 @@ function letters(normalized: string): string {
 
 const isDigit = (ch: string) => ch >= '0' && ch <= '9';
 
+/** האם small הוא תת-סדרה ממשית של big. */
+function isSubsequence(small: string, big: string): boolean {
+  if (small.length >= big.length) return false;
+  let i = 0;
+  for (let j = 0; j < big.length && i < small.length; j++) {
+    if (small[i] === big[j]) i++;
+  }
+  return i === small.length;
+}
+
+/**
+ * האם אף ספרה לא הוחלפה בספרה אחרת. זהו הגבול בין שגיאת כתיב ובין מכשיר אחר:
+ * שני מכשירים עוקבים אצל אותו לקוח נבדלים בדיוק בכך שספרה אחת קיבלה ערך אחר
+ * ("70418343" ו-"70418344"), והם מאותו דגם, כך שתימוכין לפי דגם היה דווקא
+ * מאשר את השגוי. הוספה או השמטה של ספרה, לעומת זאת, איננה מספור עוקב אלא
+ * כתיב חסר, ולכן היא מותרת - בכפוף לתימוכין כמו כל סטייה אחרת.
+ *
+ * המימוש: רצף הספרות של צד אחד חייב להיות זהה לשל האחר, או תת-סדרה שלו.
+ * החלפת ספרה שוברת את שני התנאים, כי האורכים שווים והתוכן לא.
+ *
+ * הבדיקה הקודמת כאן השוותה את *האותיות* של שני הצדדים, ולכן פספסה סטייה של
+ * שני תווים שאחד מהם אות והשני ספרה: מול רישום "2227-U70418343" (תחילית אות
+ * בודדת, בדיוק כמו "U110213000305" שבשורה 36) הקלדה של "70418344" רחוקה שתי
+ * עריכות - הוספת ה-U והחלפת הספרה - והאותיות שונות, ולכן המכשיר העוקב עבר.
+ */
+function digitsPreserved(a: string, b: string): boolean {
+  const da = a.replace(/[^0-9]/g, '');
+  const db = b.replace(/[^0-9]/g, '');
+  if (da === db) return true;
+  return isSubsequence(da, db) || isSubsequence(db, da);
+}
+
 /**
  * האם סטייה של תו בודד בין שתי צורות מנורמלות היא שגיאת כתיב מוכרת, שאפשר
  * לקבל גם בלי תימוכין: הוספה או השמטה של *אות*, או החלפה בין צמד תווים
@@ -533,11 +565,16 @@ export function lookupSerial(
  * "SHHTNCH210024" שרשום אצלנו, או "Al23091201-5" מול "A123091201-5" (L קטנה
  * במקום הספרה 1).
  *
- * הפרש שהוא *ספרות בלבד* איננו נבדק כאן כלל, גם כשיש לו תימוכין. כך בדיוק
- * נראים שני מכשירים עוקבים אצל אותו לקוח - "70418343" ו-"70418344" - ושניהם
- * מאותו דגם, כך שתימוכין לפי דגם היה דווקא מאשר את המכשיר השגוי. סטייה
- * שמערבת אות היא שגיאת כתיב סבירה, וגם היא מדווחת כהתאמה קרובה עם ציון מופחת
- * ולא כהתאמה מדויקת, כדי שהציון בעמודת הסטטוס יראה שהיא הוכרעה ולא נמצאה.
+ * סטייה שמחליפה ספרה בספרה אחרת איננה נבדקת כאן כלל, גם כשיש לה תימוכין - ראו
+ * digitsPreserved. מה שנותר מדורג לפי כמה הוא נראה כמו שגיאת הקלדה:
+ *
+ *   תו אחד, שגיאת כתיב מוכרת (אות נוספת/חסרה, או צמד שמתחלף)   0.85
+ *   תו אחד, כל החלפת אות אחרת - בתימוכין                        0.75
+ *   שני תווים - בתימוכין                                        0.70
+ *   כמה מועמדים באותו מרחק, שרק אחד מהם נתמך                     0.70 / 0.65
+ *
+ * בכל המקרים ההתאמה מדווחת כקרובה ולא כמדויקת, כדי שהציון בעמודת הסטטוס יראה
+ * שהיא הוכרעה ולא נמצאה.
  */
 function typoMatch(
   entry: CustomerEntry,
@@ -545,14 +582,13 @@ function typoMatch(
   ctx?: SerialContext,
 ): SerialMatch | null {
   if (norm.length < MIN_LEN_FOR_TYPO) return null;
-  const queryLetters = letters(norm);
 
   let bestEdits = MAX_EDITS + 1;
   let bestKeys: string[] = [];
   for (let len = norm.length - MAX_EDITS; len <= norm.length + MAX_EDITS; len++) {
     for (const key of entry.keysByLength.get(len) ?? []) {
-      // הפרש שאיננו נוגע באותיות הוא מכשיר אחר, לא שגיאת כתיב
-      if (letters(key) === queryLetters) continue;
+      // ספרה שהוחלפה בספרה אחרת היא מכשיר אחר, לא שגיאת כתיב
+      if (!digitsPreserved(norm, key)) continue;
       const edits = editDistance(norm, key, MAX_EDITS);
       if (edits > MAX_EDITS) continue;
       if (edits < bestEdits) { bestEdits = edits; bestKeys = [key]; }
@@ -574,15 +610,22 @@ function typoMatch(
       return { hit, via: 'typo', confidence: 0.85, note: label(key) };
     }
     const why = corroboration(hit, ctx);
-    return why ? { hit, via: 'typo', confidence: 0.75, note: `${label(key)}, ${why}` } : null;
+    if (!why) return null;
+    return {
+      hit, via: 'typo',
+      confidence: bestEdits === 1 ? 0.75 : 0.7,
+      note: `${label(key)}, ${why}`,
+    };
   }
 
-  // כמה מועמדים באותו מרחק - רק תימוכין יחיד מכריע
+  // כמה מועמדים באותו מרחק - רק תימוכין יחיד מכריע, ובציון נוסף מופחת: היה
+  // יותר ממכשיר אחד שעמד בבדיקה, והתימוכין לבדו הכריע ביניהם.
   const supported = supportedCandidates(cands.map(c => c.hit), ctx);
   if (supported.length !== 1) return null;
   const winner = cands.find(c => c.hit === supported[0].hit)!;
   return {
-    hit: winner.hit, via: 'typo', confidence: 0.7,
+    hit: winner.hit, via: 'typo',
+    confidence: bestEdits === 1 ? 0.7 : 0.65,
     note: `${label(winner.key)}, ${supported[0].why}`,
   };
 }
