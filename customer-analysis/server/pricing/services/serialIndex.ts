@@ -27,14 +27,13 @@ export interface SerialHit {
 /**
  * איך ההתאמה נמצאה. 'typo' הוא היחיד שאיננו ודאי: הסידורי שהלקוח כתב איננו
  * זהה לזה שרשום אצלנו אלא רחוק ממנו תו או שניים, ולכן הוא מדווח כהתאמה קרובה
- * עם ציון מופחת ולא כהתאמה מדויקת.
+ * עם ציון מופחת ולא כהתאמה מדויקת, ואיננו גובר על תיקון שהמשתמש אישר.
  */
 export type SerialMatchVia = 'exact' | 'component' | 'digits' | 'typo';
 
 export interface SerialMatch {
   hit: SerialHit;
   via: SerialMatchVia;
-  edits: number;       // מספר התווים שנבדלים (0 בכל דרך שאיננה 'typo')
   confidence: number;  // 0-1
   note?: string;       // הסבר קצר בעברית, מצטרף להסבר של השורה
 }
@@ -47,6 +46,16 @@ export interface SerialContext {
   description?: string | null;
   context?: string | null;      // יצרן / דגם
   partNumber?: string | null;   // מק"ט הלקוח
+}
+
+export interface SerialLookupOptions {
+  /**
+   * האם להגיע עד שלב סטיית התו. ברירת המחדל כן, אבל כשהערך הנבדק הוא *מק"ט*
+   * הלקוח ולא סידורי מפורש הוא חייב להיות מדויק: קוד קטלוגי כמו "MPL-245"
+   * רחוק תו אחד מסידורי רשום "MPL-244", וסטייה כזאת אינה שגיאת הקלדה אלא
+   * מכשיר אחר.
+   */
+  allowTypo?: boolean;
 }
 
 interface CustomerEntry {
@@ -77,8 +86,19 @@ interface CustomerEntry {
    * ("91610262 / 3090") ששני חלקיו רשומים אצלנו כשני מכשירים נפרדים.
    */
   byPart: Map<string, SerialHit[]>;
-  /** מפתחות devices, לשלב סטיית התו. נשמר כמערך כדי לא לבנותו מחדש בכל שורה. */
-  keys: string[];
+  /**
+   * מפתחות devices לפי אורך, לשלב סטיית התו. חיפוש סטייה סורק רק את האורכים
+   * שבטווח MAX_EDITS מאורך השאילתה - אחרת כל שורה שלא נמצאה הייתה מריצה
+   * Levenshtein מול כל מכשירי הלקוח (1,044 אצל לקוח 1343, פעמיים לשורה).
+   * מפתחות קצרים מ-MIN_LEN_FOR_TYPO אינם נכללים כאן כלל.
+   */
+  keysByLength: Map<number, string[]>;
+  /**
+   * קודי הלקוח שמופיעים כקידומת ב-SERNUM של המכשירים שלו (כמעט תמיד אחד).
+   * דרושים כדי לזהות שהלקוח שלח את הסידורי בצורה של פריוריטי
+   * ("10251-MY63001116") ולא בצורה שלו, בלי לפרש "0439-2" כקידומת.
+   */
+  custPrefixes: Set<string>;
 }
 
 const cache = new Map<string, CustomerEntry>();
@@ -95,11 +115,26 @@ const MAX_EDITS = 2;
  */
 const MIN_QUERY_LEN = 2;
 /**
+ * אורך מינימלי למפתח ספרות שנותר אחרי שהושלכו אותיות. "AB1" מצטמצם ל-"1"
+ * ו-"87V" ל-"87", ושניהם היו מתאימים במדויק למכשיר שרשום כ-"2227-1" או
+ * "2227-87". כששאילתה היא מספר נקי, לעומת זאת, לא הושלך ממנה כלום ומפתח קצר
+ * הוא המפתח האמיתי שלה - "20" הוא סידורי שלם אצל לקוח שמנהל מספור משלו.
+ */
+const MIN_DIGITS_KEY_LEN = 3;
+/**
  * המק"ט של הלקוח הוא מזהה חלופי חלש, שנבדק רק כשאין סידורי מפורש. ערך קצר
  * בעמודה הזאת הוא כמעט תמיד כמות או מספר שורה ("1"), ולא מזהה מכשיר, ולכן
  * הרצפה שלו גבוהה יותר.
  */
 export const MIN_FALLBACK_LEN = 3;
+
+/**
+ * צמדי תו שמתחלפים בקריאה או בהקלדה. סטייה כזאת היא שגיאת כתיב מוכרת ולא
+ * מכשיר אחר, ולכן היא מתקבלת גם בלי תימוכין משדה אחר.
+ */
+const CONFUSABLE = new Set([
+  'L1', 'I1', 'O0', 'Q0', 'S5', 'B8', 'Z2', 'G6', 'T7', 'A4', 'E3',
+]);
 
 /**
  * צורה מנורמלת של מה שהלקוח הקליד: אותיות גדולות, בלי תווים שאינם אות/ספרה.
@@ -127,17 +162,18 @@ export function normalizeStoredSerial(serial: string): string {
   );
 }
 
+/** קוד הלקוח שפותח SERNUM, אם יש. */
+function customerPrefixOf(serial: string): string | null {
+  const m = /^(\d+)\s*-\s*/.exec(String(serial || '').toUpperCase());
+  return m ? m[1] : null;
+}
+
 /**
  * מפתח הספרות של צורה שכבר נורמלה - בלי אפסים מובילים.
  * "070418343" ו-"70418343" מצטמצמים לאותו מפתח, וכך גם "GI340040" ו-"340040".
  */
 export function serialDigitsKey(normalized: string): string {
   return normalized.replace(/[^0-9]/g, '').replace(/^0+/, '');
-}
-
-/** מפתח הספרות ישירות מערך גולמי שהלקוח הקליד. */
-export function serialDigits(serial: string): string {
-  return serialDigitsKey(normalizeSerial(serial));
 }
 
 /**
@@ -171,31 +207,44 @@ const completeness = (h: SerialHit) => (h.fromCharge ? 2 : 0) + (h.mbaNum ? 1 : 
 const better = (a: SerialHit, b: SerialHit) =>
   a.lastDoc !== b.lastDoc ? a.lastDoc > b.lastDoc : completeness(a) > completeness(b);
 
-function push(map: Map<string, SerialHit[]>, key: string, hit: SerialHit): void {
+function push<K, T>(map: Map<K, T[]>, key: K, value: T): void {
   const list = map.get(key);
-  if (list) list.push(hit); else map.set(key, [hit]);
+  if (list) list.push(value); else map.set(key, [value]);
 }
+
+// שתי שורות עבודה שחוזרות לשימוש בין קריאות - שלב הסטייה מריץ אלפי השוואות
+// לקובץ, והקצאת מערך לכל אחת מהן הייתה עיקר העבודה שלו.
+let dpPrev: number[] = [];
+let dpCur: number[] = [];
 
 /** מרחק עריכה (Levenshtein) עם יציאה מוקדמת מעל cap - רוב ההשוואות נחתכות מיד. */
 function editDistance(a: string, b: string, cap: number): number {
   if (Math.abs(a.length - b.length) > cap) return cap + 1;
-  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  const width = b.length + 1;
+  if (dpPrev.length < width) { dpPrev = new Array(width); dpCur = new Array(width); }
+  let prev = dpPrev;
+  let cur = dpCur;
+  for (let j = 0; j < width; j++) prev[j] = j;
   for (let i = 1; i <= a.length; i++) {
-    const cur = new Array<number>(b.length + 1);
     cur[0] = i;
     let rowMin = i;
+    const ca = a.charCodeAt(i - 1);
     for (let j = 1; j <= b.length; j++) {
-      cur[j] = Math.min(
+      const v = Math.min(
         prev[j] + 1,
         cur[j - 1] + 1,
-        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+        prev[j - 1] + (ca === b.charCodeAt(j - 1) ? 0 : 1),
       );
-      if (cur[j] < rowMin) rowMin = cur[j];
+      cur[j] = v;
+      if (v < rowMin) rowMin = v;
     }
     if (rowMin > cap) return cap + 1;
-    prev = cur;
+    const swap = prev; prev = cur; cur = swap;
   }
-  return prev[b.length];
+  const result = prev[b.length];
+  // prev/cur התחלפו אי-זוגי פעמים; מחזירים את ההפניות כדי שהבאות ישתמשו בשתיהן
+  dpPrev = prev; dpCur = cur;
+  return result;
 }
 
 /** האותיות בלבד - המזהה שמבדיל בין "EQP-130" ל-"MPL-130" אצל אותו לקוח. */
@@ -203,8 +252,30 @@ function letters(normalized: string): string {
   return normalized.replace(/[^A-Z]/g, '');
 }
 
-/** אסימוני דגם באורך 3 ומעלה, לבדיקת תימוכין. */
-function modelTokens(text?: string | null): string[] {
+const isDigit = (ch: string) => ch >= '0' && ch <= '9';
+
+/**
+ * האם סטייה של תו בודד בין שתי צורות מנורמלות היא שגיאת כתיב מוכרת, שאפשר
+ * לקבל גם בלי תימוכין: הוספה או השמטה של *אות*, או החלפה בין צמד תווים
+ * שמתחלפים בקריאה ("L" והספרה 1). החלפה בין שתי אותיות לא קשורות ("U" ל-"L")
+ * יכולה להיות גם מכשיר אחר, ולכן היא דורשת תימוכין.
+ */
+function isKnownMisspelling(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    // הוספה/השמטה: מוצאים את התו העודף
+    const [longer, shorter] = a.length > b.length ? [a, b] : [b, a];
+    let i = 0;
+    while (i < shorter.length && longer[i] === shorter[i]) i++;
+    return !isDigit(longer[i]);
+  }
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i++;
+  if (i >= a.length) return false;
+  return CONFUSABLE.has(a[i] + b[i]) || CONFUSABLE.has(b[i] + a[i]);
+}
+
+/** אסימונים באורך 3 ומעלה של טקסט חופשי. */
+function tokenize(text?: string | null): string[] {
   return String(text || '')
     .toUpperCase()
     .split(/[^A-Z0-9]+/)
@@ -212,21 +283,48 @@ function modelTokens(text?: string | null): string[] {
 }
 
 /**
+ * אסימון דגם שראוי להיחשב תימוכין. שם יצרן לבדו ("FLUKE") ומספר גנרי קצר
+ * ("100" מול תיאור "0-100 bar") מופיעים בחצי מהשורות ואינם מזהים כלום, ולכן
+ * נדרש אסימון שמערב אות וספרה - צורתו של מספר דגם - או רצף ספרות ארוך.
+ */
+function isDistinctiveToken(token: string): boolean {
+  const hasLetter = /[A-Z]/.test(token);
+  const hasDigit = /[0-9]/.test(token);
+  if (hasLetter && hasDigit) return true;
+  return !hasLetter && token.length >= 4;
+}
+
+/**
  * האם שדה אחר באותה שורה תומך במועמד הזה. מחזיר הסבר קצר, או null.
- * הבדיקה היא על *קלט* השורה בלבד (תיאור, יצרן/דגם, מק"ט לקוח) - לא על תוצאה
- * שההתאמה עצמה הפיקה.
+ *
+ * ההשוואה היא בין אסימונים שלמים. קודם היא נעשתה כחיפוש תת-מחרוזת בטקסט
+ * שהרווחים הוסרו ממנו, וכך אסימון יכול היה להיבלע על פני גבול מילים ולהיחשב
+ * תימוכין בלי קשר אמיתי. הבדיקה היא על *קלט* השורה בלבד (תיאור, יצרן/דגם,
+ * מק"ט לקוח) - לא על תוצאה שההתאמה עצמה הפיקה.
  */
 function corroboration(hit: SerialHit, ctx?: SerialContext): string | null {
   if (!ctx) return null;
-  const haystack = normalizeSerial(`${ctx.description || ''} ${ctx.context || ''}`);
-  if (haystack) {
-    for (const token of modelTokens(hit.model)) {
-      if (haystack.includes(token)) return `דגם ${token}`;
+  const rowTokens = new Set([...tokenize(ctx.description), ...tokenize(ctx.context)]);
+  if (rowTokens.size) {
+    for (const token of tokenize(hit.model)) {
+      if (isDistinctiveToken(token) && rowTokens.has(token)) return `דגם ${token}`;
     }
   }
   const part = normalizeSerial(ctx.partNumber || '');
-  if (part && hit.part && normalizeSerial(hit.part) === part) return `מק"ט ${hit.part}`;
+  if (part.length >= MIN_FALLBACK_LEN && hit.part && normalizeSerial(hit.part) === part) {
+    return `מק"ט ${hit.part}`;
+  }
   return null;
+}
+
+/** המועמדים שיש להם תימוכין משדה אחר של השורה, עם ההסבר לכל אחד. */
+function supportedCandidates(
+  cands: SerialHit[],
+  ctx?: SerialContext,
+): Array<{ hit: SerialHit; why: string }> {
+  return cands
+    .map(hit => ({ hit, why: corroboration(hit, ctx) }))
+    .filter((c): c is { hit: SerialHit; why: string } => !!c.why);
 }
 
 /**
@@ -239,14 +337,17 @@ export async function ensureCustomerSerials(customerName?: string | null): Promi
   const cached = cache.get(key);
   if (cached && Date.now() - cached.at < TTL_MS) return cached.devices.size;
 
-  const empty = (): CustomerEntry =>
-    ({ at: Date.now(), devices: new Map(), byDigits: new Map(), byPart: new Map(), keys: [] });
+  const empty = (): CustomerEntry => ({
+    at: Date.now(), devices: new Map(), byDigits: new Map(), byPart: new Map(),
+    keysByLength: new Map(), custPrefixes: new Set(),
+  });
 
   try {
     const cust = await findCustomerId(customerName!);
     if (!cust) { cache.set(key, empty()); return 0; }
     const rows: CustomerDevice[] = await loadCustomerDevices(cust);
     const devices = new Map<string, SerialHit>();
+    const custPrefixes = new Set<string>();
     for (const d of rows) {
       // אין כאן רצפת אורך. קודם נפסל כל רישום שהסידורי המנורמל שלו קצר מ-3
       // תווים, וכך 23 מ-1,044 המכשירים של לקוח 1343 נעלמו מהאינדקס לגמרי -
@@ -255,6 +356,8 @@ export async function ensureCustomerSerials(customerName?: string | null): Promi
       // להכריע לפיהם, ולא בהשמטה שקטה של המכשיר מהאינדקס.
       const norm = normalizeStoredSerial(d.serial);
       if (!norm) continue;
+      const prefix = customerPrefixOf(d.serial);
+      if (prefix) custPrefixes.add(prefix);
       const hit: SerialHit = {
         serial: d.serial,
         part: d.chargedPart || d.basePart,
@@ -278,8 +381,9 @@ export async function ensureCustomerSerials(customerName?: string | null): Promi
     // כבר הוכרעו. שניהם מחזיקים את כל המועמדים - ההכרעה ביניהם בזמן החיפוש.
     const byDigits = new Map<string, SerialHit[]>();
     const byPart = new Map<string, SerialHit[]>();
-    for (const hit of devices.values()) {
-      const digits = serialDigitsKey(normalizeStoredSerial(hit.serial));
+    const keysByLength = new Map<number, string[]>();
+    for (const [norm, hit] of devices) {
+      const digits = serialDigitsKey(norm);
       if (digits) push(byDigits, digits, hit);
       for (const comp of serialComponents(hit.serial, true)) {
         // רכיב שהוא גם סידורי שלם של מכשיר אחר - הרישום השלם גובר, ולכן הרכיב
@@ -287,9 +391,12 @@ export async function ensureCustomerSerials(customerName?: string | null): Promi
         if (devices.has(comp)) continue;
         push(byPart, comp, hit);
       }
+      // מפתח קצר מדי לא נכנס לשלב הסטייה: "1234" רחוק תו אחד מ-"12345",
+      // ובאורכים כאלה הסטייה איננה שגיאת כתיב אלא מכשיר אחר.
+      if (norm.length >= MIN_LEN_FOR_TYPO) push(keysByLength, norm.length, norm);
     }
 
-    cache.set(key, { at: Date.now(), devices, byDigits, byPart, keys: [...devices.keys()] });
+    cache.set(key, { at: Date.now(), devices, byDigits, byPart, keysByLength, custPrefixes });
     console.log(`[pricing] loaded ${devices.size} registered devices for "${customerName}"`);
     return devices.size;
   } catch (err) {
@@ -315,14 +422,12 @@ function disambiguate(
   keyNote: string,
 ): SerialMatch | null {
   if (cands.length === 1) {
-    return { hit: cands[0], via: 'digits', edits: 0, confidence: 1, note: keyNote };
+    return { hit: cands[0], via: 'digits', confidence: 1, note: keyNote };
   }
-  const supported = cands
-    .map(hit => ({ hit, why: corroboration(hit, ctx) }))
-    .filter((c): c is { hit: SerialHit; why: string } => !!c.why);
+  const supported = supportedCandidates(cands, ctx);
   if (supported.length === 1) {
     return {
-      hit: supported[0].hit, via: 'digits', edits: 0, confidence: 1,
+      hit: supported[0].hit, via: 'digits', confidence: 1,
       note: `${keyNote}, ${supported[0].why}`,
     };
   }
@@ -330,7 +435,7 @@ function disambiguate(
   if (new Set(pool.map(h => h.part)).size === 1) {
     const latest = pool.reduce((a, b) => (better(a, b) ? a : b));
     return {
-      hit: latest, via: 'digits', edits: 0, confidence: 1,
+      hit: latest, via: 'digits', confidence: 1,
       note: `${keyNote}, ${pool.length} רישומים של ${latest.part}`,
     };
   }
@@ -349,6 +454,7 @@ export function lookupSerial(
   customerName?: string | null,
   serial?: string | null,
   ctx?: SerialContext,
+  opts?: SerialLookupOptions,
 ): SerialMatch | null {
   if (!customerName || !serial) return null;
   const entry = cache.get(customerKey(customerName));
@@ -357,17 +463,30 @@ export function lookupSerial(
   const norm = normalizeSerial(serial);
   if (norm.length < MIN_QUERY_LEN) return null;
 
-  const exact = entry.devices.get(norm);
-  if (exact) return { hit: exact, via: 'exact', edits: 0, confidence: 1 };
+  // הלקוח שלח לפעמים את הסידורי בצורה של פריוריטי, עם קוד הלקוח בראשו - למשל
+  // כשהקובץ הופק מייצוא או מתעודת כיול שלנו. הצורה הזאת נבדקת *בנוסף*, ורק
+  // כשהקידומת היא באמת קוד הלקוח הזה, כדי ש-"0439-2" ימשיך להיות סידורי שלם.
+  const typedPrefix = customerPrefixOf(serial);
+  const priorityForm =
+    typedPrefix && entry.custPrefixes.has(typedPrefix) ? normalizeStoredSerial(serial) : '';
+  const queryForms = priorityForm && priorityForm !== norm ? [norm, priorityForm] : [norm];
 
-  // הלקוח כתב סידורי מורכב ("91610262 / 3090") ושני חלקיו רשומים אצלנו בנפרד
-  const typedParts = serialComponents(serial);
-  for (const comp of typedParts) {
-    const hit = entry.devices.get(comp);
-    if (hit) return { hit, via: 'component', edits: 0, confidence: 1, note: `רכיב ${comp}` };
+  for (const form of queryForms) {
+    const exact = entry.devices.get(form);
+    if (exact) return { hit: exact, via: 'exact', confidence: 1 };
   }
 
-  const candidateKeys = [norm, ...typedParts];
+  // הלקוח כתב סידורי מורכב ("91610262 / 3090") ושני חלקיו רשומים אצלנו בנפרד
+  const typedParts = [
+    ...serialComponents(serial),
+    ...(priorityForm ? serialComponents(serial, true) : []),
+  ];
+  for (const comp of new Set(typedParts)) {
+    const hit = entry.devices.get(comp);
+    if (hit) return { hit, via: 'component', confidence: 1, note: `רכיב ${comp}` };
+  }
+
+  const candidateKeys = [...new Set([...queryForms, ...typedParts])];
   for (const candidate of candidateKeys) {
     const bucket = entry.byPart.get(candidate);
     if (!bucket) continue;
@@ -379,6 +498,8 @@ export function lookupSerial(
   for (const candidate of candidateKeys) {
     const digits = serialDigitsKey(candidate);
     if (!digits) continue;
+    // מפתח שנותר אחרי השלכת אותיות ואפסים הוא שבר של המזהה, לא המזהה
+    if (letters(candidate) && digits.length < MIN_DIGITS_KEY_LEN) continue;
     const bucket = entry.byDigits.get(digits);
     if (!bucket) continue;
 
@@ -403,43 +524,66 @@ export function lookupSerial(
     return disambiguate(survivors, ctx, `ספרות ${digits}`);
   }
 
-  // מוצא אחרון: הלקוח כתב את הסידורי עם שגיאת תו. "SHHTNC210024" מול
-  // "SHHTNCH210024" שרשום אצלנו, או "Al23091201-5" מול "A123091201-5" (L קטנה
-  // במקום הספרה 1). תו אחד - הסידורי עצמו כבר ראיה חזקה; שני תווים - נדרש
-  // תימוכין משדה אחר של השורה. בשני המקרים ההתאמה מדווחת כקרובה, לא מדויקת,
-  // כדי שהציון בעמודת הסטטוס יראה שהיא הוכרעה ולא נמצאה.
+  if (opts?.allowTypo === false) return null;
+  return typoMatch(entry, norm, ctx);
+}
+
+/**
+ * מוצא אחרון: הלקוח כתב את הסידורי עם שגיאת תו. "SHHTNC210024" מול
+ * "SHHTNCH210024" שרשום אצלנו, או "Al23091201-5" מול "A123091201-5" (L קטנה
+ * במקום הספרה 1).
+ *
+ * הפרש שהוא *ספרות בלבד* איננו נבדק כאן כלל, גם כשיש לו תימוכין. כך בדיוק
+ * נראים שני מכשירים עוקבים אצל אותו לקוח - "70418343" ו-"70418344" - ושניהם
+ * מאותו דגם, כך שתימוכין לפי דגם היה דווקא מאשר את המכשיר השגוי. סטייה
+ * שמערבת אות היא שגיאת כתיב סבירה, וגם היא מדווחת כהתאמה קרובה עם ציון מופחת
+ * ולא כהתאמה מדויקת, כדי שהציון בעמודת הסטטוס יראה שהיא הוכרעה ולא נמצאה.
+ */
+function typoMatch(
+  entry: CustomerEntry,
+  norm: string,
+  ctx?: SerialContext,
+): SerialMatch | null {
   if (norm.length < MIN_LEN_FOR_TYPO) return null;
+  const queryLetters = letters(norm);
+
   let bestEdits = MAX_EDITS + 1;
   let bestKeys: string[] = [];
-  for (const key of entry.keys) {
-    const edits = editDistance(norm, key, MAX_EDITS);
-    if (edits > MAX_EDITS) continue;
-    if (edits < bestEdits) { bestEdits = edits; bestKeys = [key]; }
-    else if (edits === bestEdits) bestKeys.push(key);
+  for (let len = norm.length - MAX_EDITS; len <= norm.length + MAX_EDITS; len++) {
+    for (const key of entry.keysByLength.get(len) ?? []) {
+      // הפרש שאיננו נוגע באותיות הוא מכשיר אחר, לא שגיאת כתיב
+      if (letters(key) === queryLetters) continue;
+      const edits = editDistance(norm, key, MAX_EDITS);
+      if (edits > MAX_EDITS) continue;
+      if (edits < bestEdits) { bestEdits = edits; bestKeys = [key]; }
+      else if (edits === bestEdits) bestKeys.push(key);
+    }
   }
   if (bestKeys.length === 0) return null;
 
-  const cands = bestKeys.map(k => entry.devices.get(k)).filter((h): h is SerialHit => !!h);
-  const label = (hit: SerialHit) =>
-    `סידורי רשום ${normalizeStoredSerial(hit.serial)} — ${bestEdits === 1 ? 'תו אחד' : 'שני תווים'} שונה`;
+  const cands = bestKeys
+    .map(k => ({ key: k, hit: entry.devices.get(k) }))
+    .filter((c): c is { key: string; hit: SerialHit } => !!c.hit);
+  const label = (key: string) =>
+    `סידורי רשום ${key} — ${bestEdits === 1 ? 'תו אחד' : 'שני תווים'} שונה`;
 
   if (cands.length === 1) {
-    const hit = cands[0];
-    if (bestEdits === 1) return { hit, via: 'typo', edits: 1, confidence: 0.85, note: label(hit) };
+    const { key, hit } = cands[0];
+    // שגיאת כתיב מוכרת - הוספת אות או צמד תווים שמתחלפים - עומדת בפני עצמה
+    if (bestEdits === 1 && isKnownMisspelling(norm, key)) {
+      return { hit, via: 'typo', confidence: 0.85, note: label(key) };
+    }
     const why = corroboration(hit, ctx);
-    return why ? { hit, via: 'typo', edits: 2, confidence: 0.75, note: `${label(hit)}, ${why}` } : null;
+    return why ? { hit, via: 'typo', confidence: 0.75, note: `${label(key)}, ${why}` } : null;
   }
 
   // כמה מועמדים באותו מרחק - רק תימוכין יחיד מכריע
-  const supported = cands
-    .map(hit => ({ hit, why: corroboration(hit, ctx) }))
-    .filter((c): c is { hit: SerialHit; why: string } => !!c.why);
+  const supported = supportedCandidates(cands.map(c => c.hit), ctx);
   if (supported.length !== 1) return null;
-  const { hit, why } = supported[0];
+  const winner = cands.find(c => c.hit === supported[0].hit)!;
   return {
-    hit, via: 'typo', edits: bestEdits,
-    confidence: bestEdits === 1 ? 0.75 : 0.7,
-    note: `${label(hit)}, ${why}`,
+    hit: winner.hit, via: 'typo', confidence: 0.7,
+    note: `${label(winner.key)}, ${supported[0].why}`,
   };
 }
 

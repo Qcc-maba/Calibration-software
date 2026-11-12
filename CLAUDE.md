@@ -205,6 +205,12 @@ Priority.
 - **A digits-only key throws away the letters that disambiguate.** The same customer holds both
   `EQP-130` and `MPL-130`; reducing a query to `130` returns the wrong instrument, with a confident
   100% score and therefore a wrong part number and price. If both sides carry letters they must agree.
+  The one exception is the last-resort stage that tolerates a single character: there the letters are
+  *allowed* to differ, because that is what a typo looks like (`SHHTNC210024` for the registered
+  `SHHTNCH210024`), but such a match never scores 100%, never beats a correction the user confirmed,
+  and is refused outright when the difference is **only in the digits** — two devices from the same
+  customer differ exactly that way (`70418343` / `70418344`) and share a model, so corroborating on
+  the model would confirm the wrong one.
 - Priority dates are minutes since 1988 in some tables; `3000-12-31` is a "never" sentinel, not a
   write timestamp. Don't read either as freshness.
 - **Priority stores text in VISUAL order.** Hebrew therefore reads correctly only after

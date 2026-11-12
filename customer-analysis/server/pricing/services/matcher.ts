@@ -441,37 +441,44 @@ export function findMatch(
     context: input.customerContext,
     partNumber: input.customerPartNumber,
   };
+  //
+  // המק"ט נבדק בלי שלב סטיית התו. ההצדקה לבדיקה הזאת היא שהתאמת שווא דורשת
+  // מק"ט *זהה* לסידורי של מכשיר אצל אותו לקוח, וסטייה של תו שומטת אותה: קוד
+  // קטלוגי כמו "MPL-245" רחוק תו אחד מסידורי רשום "MPL-244", והוא מכשיר אחר
+  // ולא שגיאת כתיב.
   const partAsSerial =
     normalizeSerial(input.customerPartNumber || '').length >= MIN_FALLBACK_LEN
       ? input.customerPartNumber
       : null;
   const serialMatch =
     lookupSerial(input.customerName, input.customerSerial, serialCtx) ??
-    lookupSerial(input.customerName, partAsSerial, serialCtx);
-  if (serialMatch) {
+    lookupSerial(input.customerName, partAsSerial, serialCtx, { allowTypo: false });
+  const serialResult = ((): PricingResult | null => {
+    if (!serialMatch) return null;
     const hit = serialMatch.hit;
     const item = resolveToPriceList(hit.part);
-    if (item) {
-      // התאמה שהוכרעה על סטיית תו איננה ודאית: המכשיר הוא כנראה זה, אבל
-      // הסידורי שבשורה איננו הסידורי שרשום אצלנו. היא מדווחת כהתאמה קרובה עם
-      // ציון מופחת, כדי שעמודת הסטטוס תראה את ההפרש ולא "התאמה מדויקת".
-      const certain = serialMatch.via !== 'typo';
-      const base = hit.fromCharge
-        ? `מכשיר רשום — חויב ${hit.part} בכיול האחרון`
-        : `מכשיר רשום — מק"ט ${hit.part}`;
-      return {
-        input,
-        matched: item,
-        matchType: certain ? 'exact' : 'close',
-        matchScore: serialMatch.confidence,
-        matchSource: 'serial',
-        matchNote: serialMatch.note ? `${base} (${serialMatch.note})` : base,
-        mbaNumber: hit.mbaNum || undefined,
-        lastChargedPart: hit.fromCharge ? hit.part : undefined,
-        alternatives: [],
-      };
-    }
-  }
+    if (!item) return null;
+    // התאמה שהוכרעה על סטיית תו איננה ודאית: המכשיר הוא כנראה זה, אבל
+    // הסידורי שבשורה איננו הסידורי שרשום אצלנו. היא מדווחת כהתאמה קרובה עם
+    // ציון מופחת, כדי שעמודת הסטטוס תראה את ההפרש ולא "התאמה מדויקת".
+    const certain = serialMatch.via !== 'typo';
+    const base = hit.fromCharge
+      ? `מכשיר רשום — חויב ${hit.part} בכיול האחרון`
+      : `מכשיר רשום — מק"ט ${hit.part}`;
+    return {
+      input,
+      matched: item,
+      matchType: certain ? 'exact' : 'close',
+      matchScore: serialMatch.confidence,
+      matchSource: 'serial',
+      matchNote: serialMatch.note ? `${base} (${serialMatch.note})` : base,
+      mbaNumber: hit.mbaNum || undefined,
+      lastChargedPart: hit.fromCharge ? hit.part : undefined,
+      alternatives: [],
+    };
+  })();
+  // זיהוי ודאי של המכשיר גובר על הכול - אין מה לנחש כשהסידורי מסכים.
+  if (serialResult && serialMatch!.via !== 'typo') return serialResult;
 
   // סדר העדיפויות:
   //   1. תיקון אנושי לתיאור *ולדגם* הספציפיים
@@ -481,6 +488,14 @@ export function findMatch(
   //   5. התאמה מדויקת במחירון, ואז המאצ'ר הפזי
   const precisePn = getPreciseOverride(input.customerDescription, input.customerName, input.customerContext);
   const preciseItem = precisePn ? cachedItems.find(it => it.partNumber === precisePn) : undefined;
+  const genericPn = getGenericOverride(input.customerDescription, input.customerName);
+  const genericItem = genericPn ? cachedItems.find(it => it.partNumber === genericPn) : undefined;
+
+  // התאמה על סטיית תו היא ניחוש, ולכן היא נסוגה מפני תיקון שהמשתמש אישר: היא
+  // נכנסת רק כשאין override לשורה הזאת. מול היסטוריית דגם היא כן גוברת - שם
+  // מזוהה המכשיר עצמו ולא הדגם שלו.
+  if (serialResult && !preciseItem && !genericItem) return serialResult;
+
   if (preciseItem) {
     return {
       input,
@@ -496,8 +511,6 @@ export function findMatch(
   const history = matchFromHistory(input);
   if (history?.strong) return history.result;
 
-  const genericPn = getGenericOverride(input.customerDescription, input.customerName);
-  const genericItem = genericPn ? cachedItems.find(it => it.partNumber === genericPn) : undefined;
   if (genericItem) {
     return {
       input,
