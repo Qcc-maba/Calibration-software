@@ -62,8 +62,19 @@ order to use that screen at all (it is POST-driven even to read an answer). Do n
 **Product pricing** (`server/pricing/`, screen at `/pricing`) was a standalone Express app on port
 4000 (`Documents/תמחור מוצרים/`, left in place but no longer the thing that runs). Its services were
 merged in unchanged; only the wiring differs — the router mounts under **`/api/pricing`**, and the
-prefix is mandatory because both it and the dashboard define `/api/customers`. Two things to know:
+prefix is mandatory because both it and the dashboard define `/api/customers`. Three things to know:
 
+- The **serial index** (`services/serialIndex.ts`) normalizes its two sides by different rules on
+  purpose: the customer-code prefix is stripped from Priority's `SERNUM`, never from what the
+  customer typed (`0439-2` is a whole serial), and the digits key ignores leading zeros because
+  Priority pads them and customers do not. Its last stage tolerates a serial within two characters of
+  a registered one — the one place the root `CLAUDE.md` rule about letters having to agree is
+  relaxed, because a differing letter is what a typo looks like. It is bounded three ways: the match
+  is **refused outright when a digit was replaced by a different digit** — sequential devices of one
+  customer differ exactly that way and share a model, so corroborating on the model would confirm the
+  wrong one, whereas an inserted or deleted digit is allowed with corroboration — it never scores
+  100% and so never reads as an exact match, and it never beats a correction the user confirmed. The
+  grading table is above `typoMatch`; keep it and the code in step.
 - The **matcher is not a lookup**. Fuse.js scoring, the learned-overrides store, a Priority model
   index (`MBA_SERNUMBERS`) and optional Claude web-search enrichment all feed one answer, and the
   thresholds were tuned against this exact price list — hence `fuse.js` is **pinned** to 7.3.0 and
