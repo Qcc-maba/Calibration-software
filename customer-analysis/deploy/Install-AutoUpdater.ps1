@@ -12,8 +12,9 @@
 
     The task runs as SYSTEM, which on a domain means the machine account.
     If the share does not grant that account read access, this script says so
-    immediately rather than leaving a task that quietly never works - use
-    -User / -Password to run it as a named account instead.
+    immediately rather than leaving a task that quietly never works - grant the
+    machine account read on the share, or use -User / -Password to run it as a
+    named account instead.
 
     Output is ASCII on purpose - Windows Server consoles render Hebrew as mojibake.
 #>
@@ -105,17 +106,29 @@ $testArgs = $argLine + ' -CheckOnly'
 $test = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $testArgs -WorkingDirectory $WorkDir
 Set-ScheduledTask -TaskName $TaskName -Action $test | Out-Null
 Start-ScheduledTask -TaskName $TaskName
-foreach ($i in 1..30) { Start-Sleep -Seconds 2; if (Test-Path $log) { break } }
+# Wait for the run to FINISH, not just for the log to appear: the verdict is the
+# task's exit code, which the worker sets on purpose (0 = fine or offline,
+# 5 = access denied, anything else = failed). Matching log text alone once
+# turned a denial into "AUTO-UPDATE READY" when the wording changed (MBA-1032).
+Start-Sleep -Seconds 2
+foreach ($i in 1..60) { if ((Get-ScheduledTask -TaskName $TaskName).State -ne 'Running') { break }; Start-Sleep -Seconds 2 }
+$result = (Get-ScheduledTaskInfo -TaskName $TaskName).LastTaskResult
 Set-ScheduledTask -TaskName $TaskName -Action $action | Out-Null   # restore the real action
 
 Write-Host ''
 if (Test-Path $log) {
     Get-Content $log | ForEach-Object { Info $_ }
-    if ((Get-Content $log -Raw) -match 'share not reachable') {
-        Warn 'SYSTEM cannot read the share.'
-        Warn 'Re-run with a named account that can:'
+    $text = Get-Content $log -Raw
+    if ($result -eq 5 -or $text -match 'ACCESS DENIED') {
+        Warn 'SYSTEM is DENIED access to the share (task result 5).'
+        Warn 'Grant the machine account (this server) ReadAndExecute on the share - see CLAUDE-ON-SERVER.md -'
+        Warn 'or re-run with a named account that can read it:'
         Warn "  .\Install-AutoUpdater.ps1 -User 'DOMAIN\user' -Password '...'"
-        Warn 'or grant the machine account (this server) read access to the share.'
+    } elseif ($text -match 'share not reachable') {
+        Warn 'the share was not reachable from this server - offline, or the path is wrong.'
+        Warn 'The task will retry on its schedule; check the path before relying on it.'
+    } elseif ($result -ne 0) {
+        Warn "the test run FAILED with task result $result - see the log above."
     } else {
         Write-Host 'AUTO-UPDATE READY' -ForegroundColor Green
         Write-Host "  the server will pick up any build published to $Share"
