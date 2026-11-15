@@ -20,12 +20,18 @@
     old one is the app's rule (Nofar, MBA-980 29/10: cycle type + set value). With no match, or no
     previous calibration, nothing is carried over and the app's usual starting values apply: the
     middle tolerance = the cycle's TestedValue, the resolution from the set value's decimals (Nofar,
-    10/11). Cycles whose settings were never saved are returned too, with NULLs.
+    10/11). Cycles whose settings were never saved are returned too, with NULLs. When several
+    previous cycles match, the app takes the last one (Nofar 11/11) - the rows come oldest first.
+
+    Nofar 15/11: the Display reading, its resolution and checkbox, the Target Value checkbox, the
+    Controller (type, manufacturer, model) and the Calculation Resolution carry over the same way.
 
     Rows, oldest cycle first: PreviousOrderDetailsItemId, PreviousMbaReportNumber, CycleNumber,
     CalibrationCycleStartDate, CalibrationCycleName, CalibrationCycleNameStatusId, UnitId, UnitName,
     TestedValue, ToleranceValue, ToleranceStart, ToleranceEnd, Resolution, Uncertainty,
-    StabilityThreshold, UniformityThreshold.
+    StabilityThreshold, UniformityThreshold, DisplayValue, DisplayResolution, IsDisplayEnabled,
+    IsTargetValueEnabled, ControllerTypeStatusId, ControllerManufacturer, ControllerModel,
+    CalculationResolution.
 
     STAGE copy 2026-11-10: 19 devices with live cycles, none of them with cycles on two lines yet,
     so on real data this returns nothing until a device comes back for its next calibration.
@@ -84,6 +90,14 @@ BEGIN
         ,cc.Uncertainty
         ,cc.StabilityThreshold
         ,cc.UniformityThreshold
+        ,cc.DisplayValue
+        ,cc.DisplayResolution
+        ,cc.IsDisplayEnabled
+        ,cc.IsTargetValueEnabled
+        ,cc.ControllerTypeStatusId
+        ,cc.ControllerManufacturer
+        ,cc.ControllerModel
+        ,cc.CalculationResolution
     FROM dbo.CalibrationCycles AS cc
     LEFT JOIN dbo.MeasurementDeviceUnits AS mu ON mu.MeasurementDeviceUnitId = cc.UnitId
     WHERE cc.OrderDetailsItemId = @PreviousItemId

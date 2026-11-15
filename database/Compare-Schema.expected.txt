@@ -65,6 +65,13 @@ CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *tolerancestart*        |
 CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *toleranceend*          | MBA-980 sign rule, not deployed to PROD yet
 CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *stabilitythreshold*    | MBA-980 sign rule, not deployed to PROD yet
 CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *uniformitythreshold*   | MBA-980 sign rule, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Display*                      | MBA-980 Summary fields (15/11), not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Is*Enabled                    | MBA-980 Summary fields (15/11), not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Controller*                   | MBA-980 Summary fields (15/11), not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.CalculationResolution         | MBA-980 Summary fields (15/11), not deployed to PROD yet
+CONSTRAINTS | STAGE only | FK dbo.CalibrationCycles (ControllerTypeStatusId)*  | MBA-980 controller type FK (15/11), not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *displayresolution*     | MBA-980 sign rule (15/11), not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *calculationresolution* | MBA-980 sign rule (15/11), not deployed to PROD yet
 ROUTINES    | STAGE only | dbo.SaveCalibrationCycleSettings                    | MBA-980, not deployed to PROD yet
 ROUTINES    | STAGE only | dbo.GetPreviousCalibrationCycleSettings             | MBA-980, not deployed to PROD yet
 BODIES      | DIFFERS    | dbo.GetCalibrationCycles                            | MBA-980 returns the cycle settings; deploy with the columns

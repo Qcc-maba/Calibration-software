@@ -14,6 +14,10 @@
     MBA-980: also returns the cycle's chamber settings - ToleranceValue, ToleranceStart,
     ToleranceEnd, Resolution, Uncertainty, StabilityThreshold, UniformityThreshold - NULL where not
     set. They are saved by dbo.SaveCalibrationCycleSettings.
+
+    MBA-980 (15/11): and the rest of the Summary screen - DisplayValue, DisplayResolution,
+    IsDisplayEnabled, IsTargetValueEnabled, ControllerTypeStatusId, ControllerManufacturer,
+    ControllerModel, CalculationResolution - also NULL where not set.
 */
 CREATE OR ALTER PROCEDURE [dbo].[GetCalibrationCycles]
 @OrderDetailsItemId INT,
@@ -51,6 +55,14 @@ SELECT
 	,cc.[Uncertainty]
 	,cc.[StabilityThreshold]
 	,cc.[UniformityThreshold]
+	,cc.[DisplayValue]
+	,cc.[DisplayResolution]
+	,cc.[IsDisplayEnabled]
+	,cc.[IsTargetValueEnabled]
+	,cc.[ControllerTypeStatusId]
+	,cc.[ControllerManufacturer]
+	,cc.[ControllerModel]
+	,cc.[CalculationResolution]
 	,ROW_NUMBER() OVER( PARTITION BY cc.[OrderDetailsItemId] ORDER BY [CalibrationCycleStartDate]) as CycleNumber
 	,ROW_NUMBER() OVER( PARTITION BY cc.[OrderDetailsItemId] ORDER BY [CalibrationCycleStartDate] DESC) as LatestCycle
 FROM [dbo].[CalibrationCycles] as cc
@@ -86,6 +98,14 @@ SELECT
 	,ds.[Uncertainty]
 	,ds.[StabilityThreshold]
 	,ds.[UniformityThreshold]
+	,ds.[DisplayValue]
+	,ds.[DisplayResolution]
+	,ds.[IsDisplayEnabled]
+	,ds.[IsTargetValueEnabled]
+	,ds.[ControllerTypeStatusId]
+	,ds.[ControllerManufacturer]
+	,ds.[ControllerModel]
+	,ds.[CalculationResolution]
 FROM ds
 JOIN [dbo].[OrderDetailsItems] as oi ON ds.[OrderDetailsItemId] = oi.[OrderDetailsItemId]
 WHERE (@ShowOnlyLatest = 0 OR ds.LatestCycle = 1)
