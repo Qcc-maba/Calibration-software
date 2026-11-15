@@ -328,6 +328,19 @@ What changes for customers, measured on STAGE:
 It goes to STAGE together with phase 3 and the portal's route change, because the old app passes the
 list's id to the detail as an order line id.
 
+**Phase 3 status (2026-11-15): written and tested on the local STAGE copy; not on STAGE.**
+`dbo.AssignCustomerDevicesData` refuses a change to a registered device's Priority-owned fields with
+54208 (an unchanged value is accepted and never written back); the serial clash covers typed and
+registered devices with or without the `<CustomerCode>-` prefix, and ignores hidden or cancelled ones;
+a new refusal, 54209, requires categories, specification and reference document to fit together as the
+form's pickers offer them (the secondary category's main, the specification's main and its link to the
+secondary, the reference document's secondary), checked only when one of them is sent; the result adds
+`isRegistered`. A site of the device's own customer may still change (point 2 refuses only the owning
+customer). `database/tests/Test-AssignCustomerDevicesData.sql`: 27 of 27 PASS. Every secondary category
+and specification on STAGE belongs to one main category, so the misfit cases create their own inside
+their transaction. The portal's secondary-category picker has to filter by the main category, or the
+customer can pick a pair that 54209 refuses.
+
 ### How it relates to MBA-911
 
 MBA-911 does not need this entity and does not wait for it. Priority records calibration status per

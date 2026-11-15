@@ -36,8 +36,9 @@
         contact must belong to the device's own customer - an edit never moves a device between
         customers. Removal is all or nothing, as in AssignCustomerSitesData.
       - Serial number: required, and unique among the live devices of that customer, compared
-        trimmed (case follows the column collation). Checked under UPDLOCK/HOLDLOCK so two
-        simultaneous saves cannot both pass.
+        trimmed and case-blind (SerialKey), with or without Priority's "<CustomerCode>-" prefix
+        (2026-11-15, below). Checked under UPDLOCK/HOLDLOCK so two simultaneous saves cannot both
+        pass.
       - Portal callers only. The staff path is gone: the staff app has no server-side session
         (SEC-3), so an e-mail it sends proves nothing.
       - @RevertDeletion is gone, for the reason it left AssignCustomerSitesData: it let a customer
@@ -45,13 +46,24 @@
 
     Removal is this system's soft delete (IsDeleted), never a row delete.
 
-    OPEN, not decided here (see MBA-996):
-      - dbo.GetCustomerDeviceList and dbo.GetCustomerDeviceDetail read OrderDetailsItems only, and
-        /customer/devices/[id] is an OrderDetailsItemId. A device written here does not appear in
-        either until they also read dbo.CustomerDevices.
-      - The clash check looks at dbo.CustomerDevices only, not at serials the customer already has
-        through orders (OrderDetailsItems). Whether a device known from an order may be added again
-        depends on how the list merges the two.
+    2026-11-15 - MBA-996 phase 3: the device entity (DBA/schema-updates.md section 2).
+      - dbo.CustomerDevices now also holds every registered device, loaded from Priority's register
+        (SERN IS NOT NULL), and the list and detail read it - so a device saved here appears at once.
+      - A registered device's Priority-owned fields change only in Priority (decided 2026-11-10,
+        section 2 point 2): an edit that would change its serial number, model, manufacturer, device
+        type (OrdersProductTypeId), calibration interval or next calibration date is refused with
+        54208. Sending the value it already has is accepted, and those columns are never written on
+        a registered row - the trigger trCustomerDevices_PriorityOwned is the backstop. Site,
+        contact, location, language, categories, specification and units stay the customer's.
+      - The serial clash check covers both kinds of row, and Priority's form of the serial:
+        Priority stores a device as <CustomerCode>-<serial>, so "ABC" typed by customer 50667 clashes
+        with its registered "50667-ABC", and "50667-ABC" typed clashes with a typed "ABC". Devices
+        the customer hid or Priority cancelled do not clash.
+      - Categories, specification and reference document must fit together the way the form's
+        pickers offer them (54209): the secondary category belongs to the main one, the specification
+        to the main category and is linked to the secondary one, the reference document to the
+        secondary one. Checked only when one of the four is sent, on the values the device will have.
+      - Returns isRegistered as well.
 
     PARAMETERS
     ----------
@@ -69,10 +81,12 @@
       54205  @CustomerContactId is not a live contact of that same customer
       54206  no serial number
       54207  the serial number is already used by another live device of that customer
+      54208  the edit would change a field Priority owns on a registered device
+      54209  the categories, specification and reference document do not fit together
 
     UpdateUserID is NULL on a portal write: the caller has no dbo.Users row.
 
-    Returns the devices written: customerDeviceId, customerId, serialNumber, isDeleted.
+    Returns the devices written: customerDeviceId, customerId, serialNumber, isDeleted, isRegistered.
 */
 CREATE OR ALTER PROCEDURE [dbo].[AssignCustomerDevicesData]
     @LoggedInUserEmail           NVARCHAR(100),
@@ -210,16 +224,83 @@ BEGIN
                              AND cc.IsActive = 1)
             THROW 54205, 'The contact does not belong to the customer of this device.', 1;
 
+        /* The device as it is now (an edit), for the Priority-owned and the fit-together checks. */
+        DECLARE @Sern INT, @CurSerial NVARCHAR(50), @CurModel NVARCHAR(150), @CurManufacturer NVARCHAR(100),
+                @CurProductType INT, @CurInterval TINYINT, @CurNextDate DATETIME2(0),
+                @CurMain INT, @CurSecondary INT, @CurSpec INT, @CurReference INT;
+
+        IF @CustomerDeviceId IS NOT NULL
+            SELECT @Sern = d.SERN,
+                   @CurSerial = NULLIF(LTRIM(RTRIM(d.SerialNumber)), N''),
+                   @CurModel = NULLIF(LTRIM(RTRIM(d.Model)), N''),
+                   @CurManufacturer = NULLIF(LTRIM(RTRIM(d.OrdersDeviceManufacturer)), N''),
+                   @CurProductType = d.OrdersProductTypeId, @CurInterval = d.CalibrationIntervalMonths,
+                   @CurNextDate = d.NextCalibrationDate,
+                   @CurMain = d.MainCategoryId, @CurSecondary = d.SecondaryCategoryId,
+                   @CurSpec = d.MeasurementsSpecificationId, @CurReference = d.SpecificationReferenceId
+            FROM dbo.CustomerDevices AS d
+            WHERE d.CustomerDeviceID = @CustomerDeviceId;
+
+        /* A registered device: what Priority owns may be sent back unchanged, never changed.
+           NULL means "not sent"; '' on a text field means "clear", which is a change too. */
+        IF @Sern IS NOT NULL
+           AND (   (@SerialNumber IS NOT NULL             AND ISNULL(@Serial, N'')       <> ISNULL(@CurSerial, N''))
+                OR (@Model IS NOT NULL                    AND ISNULL(@ModelText, N'')    <> ISNULL(@CurModel, N''))
+                OR (@OrdersDeviceManufacturer IS NOT NULL AND ISNULL(@Manufacturer, N'') <> ISNULL(@CurManufacturer, N''))
+                OR (@OrdersProductTypeId IS NOT NULL      AND @OrdersProductTypeId       <> ISNULL(@CurProductType, -1))
+                OR (@CalibrationIntervalMonths IS NOT NULL AND @CalibrationIntervalMonths <> ISNULL(@CurInterval, 0))
+                OR (@NextCalibrationDate IS NOT NULL      AND @NextCalibrationDate       <> ISNULL(@CurNextDate, '19000101')))
+            THROW 54208, 'This field is managed by MABA: a registered device changes only in Priority.', 1;
+
+        /* Categories, specification and reference document fit together the way the form's pickers
+           offer them, on the values the device will have. Only when one of them is sent, so an edit
+           of anything else is never refused for what an older row already holds. */
+        IF COALESCE(@MainCategoryId, @SecondaryCategoryId, @MeasurementsSpecificationId, @SpecificationReferenceId) IS NOT NULL
+        BEGIN
+            DECLARE @MainAfter      INT = COALESCE(@MainCategoryId, @CurMain),
+                    @SecondaryAfter INT = COALESCE(@SecondaryCategoryId, @CurSecondary),
+                    @SpecAfter      INT = COALESCE(@MeasurementsSpecificationId, @CurSpec),
+                    @ReferenceAfter INT = COALESCE(@SpecificationReferenceId, @CurReference);
+
+            IF (@SecondaryAfter IS NOT NULL
+                AND NOT EXISTS (SELECT 1 FROM dbo.SecondaryCategories AS sc
+                                WHERE sc.ID = @SecondaryAfter AND sc.IsDeleted = 0
+                                  AND (@MainAfter IS NULL OR sc.MainCategoryId = @MainAfter)))
+               OR (@SpecAfter IS NOT NULL
+                   AND NOT EXISTS (SELECT 1 FROM dbo.MeasurementsSpecifications AS ms
+                                   WHERE ms.ID = @SpecAfter AND ms.IsDeleted = 0
+                                     AND (@MainAfter IS NULL OR ms.MainCategoryId = @MainAfter)
+                                     AND (@SecondaryAfter IS NULL
+                                          OR EXISTS (SELECT 1 FROM dbo.MeasurementsSpecificationsToSecondCategory AS l
+                                                     WHERE l.MeasurementsSpecificationId = ms.ID
+                                                       AND l.SecondaryCategoryId = @SecondaryAfter
+                                                       AND l.IsDeleted = 0))))
+               OR (@ReferenceAfter IS NOT NULL
+                   AND NOT EXISTS (SELECT 1 FROM dbo.SpecificationReference AS sr
+                                   WHERE sr.ID = @ReferenceAfter AND sr.IsDeleted = 0
+                                     AND (@SecondaryAfter IS NULL OR sr.SecondaryCategoryId = @SecondaryAfter)))
+                THROW 54209, 'The categories, specification and reference document do not fit together.', 1;
+        END
+
         /* The serial the device will have after this call. On an edit NULL keeps the current one,
            and '' would clear it - which is refused like a missing serial on an add. */
         DECLARE @SerialAfter NVARCHAR(50) =
-            CASE WHEN @CustomerDeviceId IS NOT NULL AND @SerialNumber IS NULL
-                 THEN (SELECT NULLIF(LTRIM(RTRIM(d.SerialNumber)), N'')
-                       FROM dbo.CustomerDevices AS d WHERE d.CustomerDeviceID = @CustomerDeviceId)
+            CASE WHEN @CustomerDeviceId IS NOT NULL AND @SerialNumber IS NULL THEN @CurSerial
                  ELSE @Serial END;
 
         IF @SerialAfter IS NULL
             THROW 54206, 'A serial number is required.', 1;
+
+        /* Priority stores a device as <CustomerCode>-<serial>. Compare without that prefix on both
+           sides: the clash check looks for the bare serial and for the prefixed one. */
+        DECLARE @Code NVARCHAR(50) = (SELECT NULLIF(LTRIM(RTRIM(c.CustomerCode)), N'')
+                                      FROM dbo.Customers AS c WHERE c.CustomerId = @CustomerId);
+        DECLARE @Body NVARCHAR(50) =
+            CASE WHEN @Code IS NOT NULL AND UPPER(@SerialAfter) LIKE UPPER(@Code) + N'-_%'
+                 THEN SUBSTRING(@SerialAfter, LEN(@Code) + 2, 50) ELSE @SerialAfter END;
+        DECLARE @KeyBare     NVARCHAR(50) = UPPER(LTRIM(RTRIM(@Body))),
+                @KeyPrefixed NVARCHAR(50) = CASE WHEN @Code IS NULL THEN NULL
+                                                 ELSE LEFT(UPPER(@Code + N'-' + LTRIM(RTRIM(@Body))), 50) END;
 
         BEGIN TRAN;
             /* Inside the transaction, with range locks, so two saves of the same serial cannot both
@@ -227,7 +308,8 @@ BEGIN
             IF EXISTS (SELECT 1 FROM dbo.CustomerDevices AS d WITH (UPDLOCK, HOLDLOCK)
                        WHERE d.CustomerId = @CustomerId
                          AND d.IsDeleted = 0
-                         AND LTRIM(RTRIM(d.SerialNumber)) = @SerialAfter
+                         AND d.IsInactiveInSource = 0
+                         AND (d.SerialKey = @KeyBare OR d.SerialKey = @KeyPrefixed)
                          AND d.CustomerDeviceID <> ISNULL(@CustomerDeviceId, -1))
                 THROW 54207, 'A device with this serial number already exists for this customer.', 1;
 
@@ -237,18 +319,25 @@ BEGIN
                     ,d.SecondaryCategoryId         = ISNULL(@SecondaryCategoryId,         d.SecondaryCategoryId)
                     ,d.CustomerSiteId              = ISNULL(@CustomerSiteId,              d.CustomerSiteId)
                     ,d.CustomerContactId           = ISNULL(@CustomerContactId,           d.CustomerContactId)
-                    ,d.OrdersProductTypeId         = ISNULL(@OrdersProductTypeId,         d.OrdersProductTypeId)
+                    /* Priority-owned on a registered row (SERN IS NOT NULL): kept as they are. An
+                       unchanged value passed 54208 above; writing it back could still differ in
+                       case or spacing, which only the refresh may do. */
+                    ,d.OrdersProductTypeId         = IIF(d.SERN IS NOT NULL, d.OrdersProductTypeId,
+                                                         ISNULL(@OrdersProductTypeId, d.OrdersProductTypeId))
                     ,d.Accuracy                    = ISNULL(@Accuracy,                    d.Accuracy)
-                    ,d.OrdersDeviceManufacturer    = IIF(@OrdersDeviceManufacturer IS NULL, d.OrdersDeviceManufacturer, @Manufacturer)
+                    ,d.OrdersDeviceManufacturer    = IIF(d.SERN IS NOT NULL OR @OrdersDeviceManufacturer IS NULL,
+                                                         d.OrdersDeviceManufacturer, @Manufacturer)
                     ,d.DeviceLocation              = IIF(@DeviceLocation           IS NULL, d.DeviceLocation,           @Location)
                     ,d.LastAdjustmentDate          = ISNULL(@LastAdjustmentDate,          d.LastAdjustmentDate)
-                    ,d.Model                       = IIF(@Model                    IS NULL, d.Model,                    @ModelText)
-                    ,d.SerialNumber                = @SerialAfter
+                    ,d.Model                       = IIF(d.SERN IS NOT NULL OR @Model IS NULL, d.Model, @ModelText)
+                    ,d.SerialNumber                = IIF(d.SERN IS NOT NULL, d.SerialNumber, @SerialAfter)
                     ,d.ManufacturerNumber          = IIF(@ManufacturerNumber       IS NULL, d.ManufacturerNumber,       @ManufacturerNo)
                     ,d.AdditionalDeviceNumber      = IIF(@AdditionalDeviceNumber   IS NULL, d.AdditionalDeviceNumber,   @AdditionalNo)
                     ,d.DateFormatStructure         = IIF(@DateFormatStructure      IS NULL, d.DateFormatStructure,      @DateFormat)
-                    ,d.NextCalibrationDate         = ISNULL(@NextCalibrationDate,         d.NextCalibrationDate)
-                    ,d.CalibrationIntervalMonths   = ISNULL(@CalibrationIntervalMonths,   d.CalibrationIntervalMonths)
+                    ,d.NextCalibrationDate         = IIF(d.SERN IS NOT NULL, d.NextCalibrationDate,
+                                                         ISNULL(@NextCalibrationDate, d.NextCalibrationDate))
+                    ,d.CalibrationIntervalMonths   = IIF(d.SERN IS NOT NULL, d.CalibrationIntervalMonths,
+                                                         ISNULL(@CalibrationIntervalMonths, d.CalibrationIntervalMonths))
                     ,d.ReportLanguage              = IIF(@ReportLanguage           IS NULL, d.ReportLanguage,           @Language)
                     ,d.IsThirdPartyCalibration     = ISNULL(@IsThirdPartyCalibration,     d.IsThirdPartyCalibration)
                     ,d.BatteriesReplacement        = ISNULL(@BatteriesReplacement,        d.BatteriesReplacement)
@@ -288,7 +377,8 @@ BEGIN
     SELECT d.CustomerDeviceID AS customerDeviceId,
            d.CustomerId       AS customerId,
            d.SerialNumber     AS serialNumber,
-           d.IsDeleted        AS isDeleted
+           d.IsDeleted        AS isDeleted,
+           CAST(CASE WHEN d.SERN IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS isRegistered
     FROM @Written AS w
     INNER JOIN dbo.CustomerDevices AS d ON d.CustomerDeviceID = w.CustomerDeviceID
     ORDER BY d.CustomerDeviceID;
