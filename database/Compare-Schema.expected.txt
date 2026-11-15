@@ -46,6 +46,9 @@ CONSTRAINTS | STAGE only | FK dbo.CustomerDevices *                            |
 CONSTRAINTS | STAGE only | INDEX dbo.CustomerDevices *                         | MBA-996 phase 1, not deployed to PROD yet (item 14)
 CONSTRAINTS | STAGE only | INDEX dbo.OrderDetailsItems (SERN)*                 | MBA-996 phase 1 IX_OrderDetailsItems_SERN, not deployed to PROD yet (item 14)
 CONSTRAINTS | PROD only  | INDEX dbo.CustomerDevices (CustomerId,CustomerDeviceID)* | MBA-996: PROD's old primary key, replaced when phase 1 deploys (item 14)
+ROUTINES    | DIFFERS    | dbo.AssignCustomerDevicesData                       | MBA-996 phase 3: @RevertDeletion removed; on STAGE 2026-11-15, not on PROD yet (item 14)
+BODIES      | DIFFERS    | dbo.AssignCustomerDevicesData                       | MBA-996 phase 3 on STAGE 2026-11-15, not deployed to PROD yet (item 14)
+BODIES      | DIFFERS    | dbo.GetAllSecondaryCategories                       | MBA-996 phase 3 (+ MainCategoryId) on STAGE 2026-11-15, not deployed to PROD yet (item 14)
 
 # ---- STAGE ahead of PROD, waiting for its app change ----------------------------------------------
 ROUTINES    | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)

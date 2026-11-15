@@ -328,7 +328,7 @@ What changes for customers, measured on STAGE:
 It goes to STAGE together with phase 3 and the portal's route change, because the old app passes the
 list's id to the detail as an order line id.
 
-**Phase 3 status (2026-11-15): written and tested on the local STAGE copy; not on STAGE.**
+**Phase 3 status (2026-11-15): on STAGE, with the visit-driven view and `GetAllSecondaryCategories` (+ `MainCategoryId`); 27 of 27 tests pass on STAGE. The list, detail and reports procedures (phase 2) wait for the portal's route change.**
 `dbo.AssignCustomerDevicesData` refuses a change to a registered device's Priority-owned fields with
 54208 (an unchanged value is accepted and never written back); the serial clash covers typed and
 registered devices with or without the `<CustomerCode>-` prefix, and ignores hidden or cancelled ones;

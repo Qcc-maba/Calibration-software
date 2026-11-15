@@ -17,7 +17,8 @@
       @Me, @Cust    a live contact address and a customer of its portal set that has a visible
                     registered device whose serial carries the customer's code, a live site and a
                     live contact
-      @Reg          that registered device; @RegSerial its serial, @RegBody the serial without
+      @Reg          that registered device, one with a manufacturer and a model (clearing an empty
+                    one is no change, so R3 would prove nothing); @RegSerial its serial, @RegBody the serial without
                     "<CustomerCode>-"
       @ForeignSite, @ForeignContact, @ForeignDevice   of a customer outside @Me's set
       @Main, @Sec, @Spec, @Ref    a pair of categories with a specification and a reference document
@@ -49,7 +50,8 @@ WHERE cc.IsDeleted = 0 AND cc.IsActive = 1 AND cc.CustomerContactEmail LIKE N'%_
   AND c.CustomerCode IS NOT NULL
   AND EXISTS (SELECT 1 FROM dbo.vwCustomerDevices AS v
               WHERE v.CustomerId = cc.CustomerId AND v.IsRegistered = 1
-                AND v.SerialNumber LIKE c.CustomerCode + N'-_%')
+                AND v.SerialNumber LIKE c.CustomerCode + N'-_%'
+                AND NULLIF(LTRIM(RTRIM(v.OrdersDeviceManufacturer)), N'') IS NOT NULL AND NULLIF(LTRIM(RTRIM(v.Model)), N'') IS NOT NULL)
   AND EXISTS (SELECT 1 FROM dbo.CustomerSites AS s WHERE s.CustomerId = cc.CustomerId AND ISNULL(s.IsDeleted, 0) = 0)
 GROUP BY LOWER(LTRIM(RTRIM(cc.CustomerContactEmail)))
 ORDER BY LOWER(LTRIM(RTRIM(cc.CustomerContactEmail)));
@@ -60,7 +62,8 @@ CROSS APPLY dbo.GetPortalCustomerIds(k.Email) AS m
 JOIN dbo.Customers AS c ON c.CustomerId = m.CustomerId
 WHERE c.CustomerCode IS NOT NULL
   AND EXISTS (SELECT 1 FROM dbo.vwCustomerDevices AS v
-              WHERE v.CustomerId = m.CustomerId AND v.IsRegistered = 1 AND v.SerialNumber LIKE c.CustomerCode + N'-_%')
+              WHERE v.CustomerId = m.CustomerId AND v.IsRegistered = 1 AND v.SerialNumber LIKE c.CustomerCode + N'-_%'
+                AND NULLIF(LTRIM(RTRIM(v.OrdersDeviceManufacturer)), N'') IS NOT NULL AND NULLIF(LTRIM(RTRIM(v.Model)), N'') IS NOT NULL)
   AND EXISTS (SELECT 1 FROM dbo.CustomerSites AS s WHERE s.CustomerId = m.CustomerId AND ISNULL(s.IsDeleted, 0) = 0)
   AND EXISTS (SELECT 1 FROM dbo.CustomerContacts AS x WHERE x.CustomerId = m.CustomerId AND x.IsDeleted = 0 AND x.IsActive = 1)
 ORDER BY k.Email, m.CustomerId;
@@ -69,6 +72,7 @@ SELECT TOP (1) @Reg = v.CustomerDeviceID, @RegSerial = v.SerialNumber,
                @RegBody = SUBSTRING(v.SerialNumber, LEN(@Code) + 2, 50)
 FROM dbo.vwCustomerDevices AS v
 WHERE v.CustomerId = @Cust AND v.IsRegistered = 1 AND v.SerialNumber LIKE @Code + N'-_%'
+  AND NULLIF(LTRIM(RTRIM(v.OrdersDeviceManufacturer)), N'') IS NOT NULL AND NULLIF(LTRIM(RTRIM(v.Model)), N'') IS NOT NULL
 ORDER BY v.CustomerDeviceID;
 
 SELECT TOP (1) @Site = s.CustomerSiteId FROM dbo.CustomerSites AS s
