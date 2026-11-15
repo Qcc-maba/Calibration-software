@@ -15,7 +15,9 @@
     The seven chamber-settings columns at the end are MBA-980's: on an existing table they are added
     by database/schema/dbo.CalibrationCycles.ChamberSettings.sql and their sign rules by
     database/constraints/CK_CalibrationCycles_ChamberSettings.sql. This file creates them only when
-    it creates the table.
+    it creates the table. The eight Summary columns after them (DisplayValue ... CalculationResolution)
+    are added the same way by database/schema/dbo.CalibrationCycles.SummarySettings.sql, and their
+    foreign key by database/constraints/FK_CalibrationCycles_ControllerTypeStatusId.sql.
 
     Written by dbo.AddCalibrationCycle (an upsert on the key), dbo.SaveCalibrationCycleSettings
     (the settings columns only) and the app's inline updateCalibrationCycle (devices.ts);
@@ -52,6 +54,16 @@ BEGIN
             CONSTRAINT CK_CalibrationCycles_StabilityThreshold CHECK (StabilityThreshold >= 0),
         UniformityThreshold           DECIMAL(18,6)  NULL
             CONSTRAINT CK_CalibrationCycles_UniformityThreshold CHECK (UniformityThreshold >= 0),
+        DisplayValue                  DECIMAL(18,6)  NULL,
+        DisplayResolution             DECIMAL(18,6)  NULL,
+        IsDisplayEnabled              BIT            NULL,
+        IsTargetValueEnabled          BIT            NULL,
+        ControllerTypeStatusId        INT            NULL
+            CONSTRAINT FK_CalibrationCycles_ControllerTypeStatusId
+                FOREIGN KEY REFERENCES dbo.Statuses (StatusId),
+        ControllerManufacturer        NVARCHAR(100)  NULL,
+        ControllerModel               NVARCHAR(100)  NULL,
+        CalculationResolution         DECIMAL(18,6)  NULL,
 
         CONSTRAINT PK_CalibrationCycles PRIMARY KEY CLUSTERED
             (OrderDetailsItemId, CalibrationCycleStartDate),
