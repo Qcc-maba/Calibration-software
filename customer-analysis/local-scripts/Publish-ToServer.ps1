@@ -36,6 +36,12 @@ $repo     = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 # parents, which resolved to the wrong place - and the copy loop skipped missing
 # files silently, so a publish quietly shipped the payload with no scripts.
 $template = Join-Path $repo 'deploy'
+# Copied from deploy\ to the top of every published build. Also part of what
+# makes a build complete (Get-BuildProblem): a leftover folder missing any of
+# them is not restored.
+$deployFiles = 'env-additions.txt', 'README.md', 'check-pricing-export.mjs',
+               'Update-QCCAnalytics.ps1', 'Install-AutoUpdater.ps1',
+               'Install-QCCAnalytics.ps1', 'Rollback-QCCAnalytics.ps1'
 
 function Step($t) { Write-Host "`n==> $t" -ForegroundColor Cyan }
 function Info($t) { Write-Host "    $t" }
@@ -88,6 +94,12 @@ function Get-BuildProblem($folder) {
     $main    = Join-Path $folder 'payload\dist\index.cjs'
     if (-not (Test-Path -LiteralPath $md5File)) { return 'no build.md5' }
     if (-not (Test-Path -LiteralPath $main))    { return 'no payload\dist\index.cjs' }
+    # The hash alone passes a folder half-deleted around a locked index.cjs, and
+    # a leftover that could not be deleted has lost env-additions.txt on purpose
+    # (Remove-Leftover). Restoring either would publish a build without its
+    # deploy scripts or its settings.
+    $missing = @($deployFiles | Where-Object { -not (Test-Path -LiteralPath (Join-Path $folder $_)) })
+    if ($missing) { return "missing $($missing -join ', ')" }
     try {
         $want = (Get-Content -LiteralPath $md5File -Raw).Trim()
         $have = (Get-FileHash -LiteralPath $main -Algorithm MD5).Hash
@@ -311,9 +323,7 @@ if ($PSCmdlet.ShouldProcess($Share, 'Replace published build')) {
 
         Copy-Item (Join-Path $repo 'dist')         (Join-Path $staging 'payload\dist')         -Recurse -Force
         Copy-Item (Join-Path $repo 'data\pricing') (Join-Path $staging 'payload\data\pricing') -Recurse -Force
-        foreach ($f in 'env-additions.txt', 'README.md', 'check-pricing-export.mjs',
-                       'Update-QCCAnalytics.ps1', 'Install-AutoUpdater.ps1',
-                       'Install-QCCAnalytics.ps1', 'Rollback-QCCAnalytics.ps1') {
+        foreach ($f in $deployFiles) {
             $src = Join-Path $template $f
             if (-not (Test-Path $src)) { throw "missing deployment file: $src" }
             Copy-Item $src (Join-Path $staging $f) -Force
@@ -388,13 +398,19 @@ if ($PSCmdlet.ShouldProcess($Share, 'Replace published build')) {
     }
     if ($moveError) {
         if (Test-Path -LiteralPath $Share) {
-            # Something is at $Share, and it is not the new build. Do not guess.
+            # Something is at $Share that does not check out as the new build. Do
+            # not guess. Say what is actually on disk now: the move may have
+            # happened after all, so $staging may be gone.
+            function Here($p) { if (Test-Path -LiteralPath $p) { $p } else { "$p  (not there any more)" } }
+            $atShare = Get-BuildProblem $Share
+            $atShare = if ($atShare) { "it does not check out as a complete build: $atShare" } else { 'it is a complete build, but not where the move left it' }
             Fail 'NOT PUBLISHED: SOMETHING UNEXPECTED IS AT THE SHARE' @(
-                "Moving the new build in failed ($moveError), and $Share exists but is not it."
+                "Moving the new build in failed ($moveError), and $Share exists, but"
+                "$atShare."
                 'Nothing was deleted. Look by hand at:'
-                "  $Share"
-                "  new build:      $staging"
-                $(if ($old) { "  previous build: $old" } else { '  (there was no previous build)' }))
+                "  share:          $Share"
+                "  new build:      $(Here $staging)"
+                $(if ($old) { "  previous build: $(Here $old)" } else { '  (there was no previous build)' }))
         }
         if (-not $old) {
             Fail 'NOT PUBLISHED: COULD NOT MOVE THE NEW BUILD INTO PLACE' @(
