@@ -17,11 +17,14 @@
 
     Writes exactly what it is sent: all fifteen values every time, NULL = not set (that is how a
     field is cleared). The parameters have no defaults, so a call that forgets one fails instead of
-    clearing it. A blank manufacturer or model is stored as NULL.
+    clearing it. A blank manufacturer or model is stored as NULL; one longer than 100 characters is
+    refused, not cut (the parameters are wider than the columns so that the length can be checked).
 
-    Stability / Uniformity checkboxes: an unchecked box saves NULL as its threshold (Nofar 15/11:
-    "if the box is unchecked, the value should not be saved", and it stays unchecked when the order
-    is reopened). A threshold above 0 means the box is checked.
+    Stability / Uniformity checkboxes: a saved threshold (any value, 0 included) means the box is
+    checked; NULL means unchecked. An unchecked box saves NULL (Nofar 15/11: "if the box is
+    unchecked, the value should not be saved", and it stays unchecked when the order is reopened).
+    Both boxes start unchecked (Nofar 20/10), so a never-saved cycle and an unchecked one look the
+    same, and an unchecked box carries over as unchecked.
 
     @ControllerTypeStatusId is a dbo.Statuses row of category 'ControllerType' (Digital / Analog,
     database/data/Seed-ControllerTypeStatuses.sql); the app gets the ids and labels from
@@ -33,9 +36,11 @@
     @Apply  0 (default) writes nothing and reports what would be saved; 1 saves.
 
     Refuses (THROW 51000) an unknown user, a cycle that does not exist or is deleted, a controller
-    type that is not a 'ControllerType' status, and values that break the sign rules:
-    ToleranceStart <= 0, ToleranceEnd >= 0, StabilityThreshold >= 0, UniformityThreshold >= 0
-    (also CHECK constraints on the table). Saving the same values again writes nothing (Outcome
+    type that is not a 'ControllerType' status, a manufacturer or model over 100 characters, and
+    values that break the sign rules: ToleranceStart <= 0, ToleranceEnd >= 0,
+    StabilityThreshold >= 0, UniformityThreshold >= 0, DisplayResolution >= 0,
+    CalculationResolution >= 0 (also CHECK constraints on the table). The two resolutions may be 0
+    because the Summary screen starts them at 0. Saving the same values again writes nothing (Outcome
     NoChange); text is compared exactly, so a change of case is a change.
 
     One result row: Outcome (WouldSave | Saved | NoChange), OrderDetailsItemId,
@@ -57,8 +62,8 @@ CREATE OR ALTER PROCEDURE dbo.SaveCalibrationCycleSettings
     @IsDisplayEnabled          BIT,
     @IsTargetValueEnabled      BIT,
     @ControllerTypeStatusId    INT,
-    @ControllerManufacturer    NVARCHAR(100),
-    @ControllerModel           NVARCHAR(100),
+    @ControllerManufacturer    NVARCHAR(4000),   -- column is 100; wider so a longer value is refused, not cut
+    @ControllerModel           NVARCHAR(4000),
     @CalculationResolution     DECIMAL(18,6),
     @Apply                     BIT = 0
 /*
@@ -94,6 +99,14 @@ BEGIN
         THROW 51000, 'StabilityThreshold must be 0 or positive.', 1;
     IF @UniformityThreshold < 0
         THROW 51000, 'UniformityThreshold must be 0 or positive.', 1;
+    IF @DisplayResolution < 0
+        THROW 51000, 'DisplayResolution must be 0 or positive.', 1;
+    IF @CalculationResolution < 0
+        THROW 51000, 'CalculationResolution must be 0 or positive.', 1;
+    IF LEN(@ControllerManufacturer) > 100
+        THROW 51000, 'ControllerManufacturer is longer than 100 characters.', 1;
+    IF LEN(@ControllerModel) > 100
+        THROW 51000, 'ControllerModel is longer than 100 characters.', 1;
     IF @ControllerTypeStatusId IS NOT NULL
        AND NOT EXISTS (SELECT 1 FROM dbo.Statuses AS s
                        JOIN dbo.StatusesCategories AS c ON c.StatusCategoryId = s.StatusCategoryId

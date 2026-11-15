@@ -24,11 +24,13 @@
     and Controller Correction are calculated, not stored.
 
     Stability and Uniformity need no column of their own: Nofar 15/11 - an unchecked box saves no
-    value and stays unchecked when the order is reopened, which is what a NULL threshold already
-    means.
+    value and stays unchecked when the order is reopened. So a saved threshold (0 included) means
+    checked and NULL means unchecked; both boxes also start unchecked (Nofar 20/10), so "never
+    saved" and "unchecked" are the same thing.
 
     Written by dbo.SaveCalibrationCycleSettings only. Every existing row gets NULL.
-    The foreign key is database/constraints/FK_CalibrationCycles_ControllerTypeStatusId.sql.
+    The foreign key is database/constraints/FK_CalibrationCycles_ControllerTypeStatusId.sql, the
+    resolutions' sign rule (>= 0) database/constraints/CK_CalibrationCycles_SummarySettings.sql.
 */
 IF COL_LENGTH('dbo.CalibrationCycles', 'DisplayValue') IS NULL
     ALTER TABLE dbo.CalibrationCycles ADD DisplayValue DECIMAL(18,6) NULL;

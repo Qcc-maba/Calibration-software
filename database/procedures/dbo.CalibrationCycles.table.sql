@@ -17,7 +17,8 @@
     database/constraints/CK_CalibrationCycles_ChamberSettings.sql. This file creates them only when
     it creates the table. The eight Summary columns after them (DisplayValue ... CalculationResolution)
     are added the same way by database/schema/dbo.CalibrationCycles.SummarySettings.sql, and their
-    foreign key by database/constraints/FK_CalibrationCycles_ControllerTypeStatusId.sql.
+    foreign key by database/constraints/FK_CalibrationCycles_ControllerTypeStatusId.sql and the
+    resolutions' sign rule by database/constraints/CK_CalibrationCycles_SummarySettings.sql.
 
     Written by dbo.AddCalibrationCycle (an upsert on the key), dbo.SaveCalibrationCycleSettings
     (the settings columns only) and the app's inline updateCalibrationCycle (devices.ts);
@@ -55,7 +56,8 @@ BEGIN
         UniformityThreshold           DECIMAL(18,6)  NULL
             CONSTRAINT CK_CalibrationCycles_UniformityThreshold CHECK (UniformityThreshold >= 0),
         DisplayValue                  DECIMAL(18,6)  NULL,
-        DisplayResolution             DECIMAL(18,6)  NULL,
+        DisplayResolution             DECIMAL(18,6)  NULL
+            CONSTRAINT CK_CalibrationCycles_DisplayResolution CHECK (DisplayResolution >= 0),
         IsDisplayEnabled              BIT            NULL,
         IsTargetValueEnabled          BIT            NULL,
         ControllerTypeStatusId        INT            NULL
@@ -63,7 +65,8 @@ BEGIN
                 FOREIGN KEY REFERENCES dbo.Statuses (StatusId),
         ControllerManufacturer        NVARCHAR(100)  NULL,
         ControllerModel               NVARCHAR(100)  NULL,
-        CalculationResolution         DECIMAL(18,6)  NULL,
+        CalculationResolution         DECIMAL(18,6)  NULL
+            CONSTRAINT CK_CalibrationCycles_CalculationResolution CHECK (CalculationResolution >= 0),
 
         CONSTRAINT PK_CalibrationCycles PRIMARY KEY CLUSTERED
             (OrderDetailsItemId, CalibrationCycleStartDate),

@@ -8,9 +8,10 @@
     - dbo.SaveCalibrationCycleSettings: the dry run writes nothing, @Apply = 1 saves all fifteen, the
       same values again are NoChange, a change of case is a change, a blank text is stored as NULL,
       NULLs clear, and dbo.AddCalibrationCycle (the graph screen's save) leaves the settings alone;
-    - the refusals: each sign rule, an unknown or deleted cycle, an unknown user, a controller type
-      from another status category, a missing parameter, and the CHECK constraints and the foreign
-      key against a direct UPDATE;
+    - the refusals: each sign rule (the two new resolutions included), an unknown or deleted cycle,
+      an unknown user, a controller type from another status category, a manufacturer or model over
+      100 characters, a missing parameter, and the CHECK constraints and the foreign key against a
+      direct UPDATE;
     - dbo.GetPreviousCalibrationCycleSettings: two earlier lines of one device (SERN set inside
       the transaction) - the one whose cycles ran last wins, deleted cycles are left out, a later
       line is never "previous", a line without SERN returns nothing, and an id on two lines is
@@ -80,11 +81,21 @@ SELECT TOP (1) @Start2 = CalibrationCycleStartDate FROM dbo.CalibrationCycles
 WHERE OrderDetailsItemId = @A AND IsDeleted = 0 ORDER BY CalibrationCycleStartDate DESC;
 
 DECLARE @LiveA INT = (SELECT COUNT(*) FROM dbo.CalibrationCycles WHERE OrderDetailsItemId = @A AND IsDeleted = 0);
+/* Every column the test writes, on every cycle of A and C, so step 20 can prove nothing leaked. */
 DECLARE @Snapshot TABLE (OrderDetailsItemId INT, CalibrationCycleStartDate DATETIME2(0), IsDeleted BIT,
-                         ToleranceValue DECIMAL(18,6), UniformityThreshold DECIMAL(18,6),
-                         DisplayValue DECIMAL(18,6), ControllerModel NVARCHAR(100));
-INSERT @Snapshot SELECT OrderDetailsItemId, CalibrationCycleStartDate, IsDeleted, ToleranceValue, UniformityThreshold,
-                        DisplayValue, ControllerModel
+                         UpdatedDate DATETIME2(0), UpdateUserID INT,
+                         ToleranceValue DECIMAL(18,6), ToleranceStart DECIMAL(18,6), ToleranceEnd DECIMAL(18,6),
+                         Resolution DECIMAL(18,6), Uncertainty DECIMAL(18,6),
+                         StabilityThreshold DECIMAL(18,6), UniformityThreshold DECIMAL(18,6),
+                         DisplayValue DECIMAL(18,6), DisplayResolution DECIMAL(18,6),
+                         IsDisplayEnabled BIT, IsTargetValueEnabled BIT, ControllerTypeStatusId INT,
+                         ControllerManufacturer NVARCHAR(100), ControllerModel NVARCHAR(100),
+                         CalculationResolution DECIMAL(18,6));
+INSERT @Snapshot
+SELECT OrderDetailsItemId, CalibrationCycleStartDate, IsDeleted, UpdatedDate, UpdateUserID,
+       ToleranceValue, ToleranceStart, ToleranceEnd, Resolution, Uncertainty, StabilityThreshold, UniformityThreshold,
+       DisplayValue, DisplayResolution, IsDisplayEnabled, IsTargetValueEnabled, ControllerTypeStatusId,
+       ControllerManufacturer, ControllerModel, CalculationResolution
 FROM dbo.CalibrationCycles WHERE OrderDetailsItemId IN (@A, @C);
 
 INSERT @Results VALUES (N'0. test data found',
@@ -401,16 +412,23 @@ INSERT @Cases VALUES
  (18, N'17a. controller of another category refused', @Call + @Ok7 + N', @DisplayValue = 1, @DisplayResolution = 1, @IsDisplayEnabled = 1, @IsTargetValueEnabled = 1, @ControllerTypeStatusId = @o, @ControllerManufacturer = NULL, @ControllerModel = NULL, @CalculationResolution = 1, @Apply = 1', 51000),
  (19, N'18. a missing value is an error, not a clear', @Call + N'@ToleranceValue = 1, @ToleranceStart = -1, @ToleranceEnd = 1, @Resolution = 1, @Uncertainty = 1, @StabilityThreshold = 1, @UniformityThreshold = 1, @DisplayValue = 1, @DisplayResolution = 1, @IsDisplayEnabled = 1, @IsTargetValueEnabled = 1, @ControllerTypeStatusId = NULL, @ControllerManufacturer = NULL, @ControllerModel = NULL, @Apply = 1', 201),
  (20, N'19. CHECK stops a direct UPDATE',  N'UPDATE dbo.CalibrationCycles SET ToleranceStart = 1 WHERE OrderDetailsItemId = @a AND CalibrationCycleStartDate = @s', 547),
- (21, N'19a. FK stops an unknown controller status', N'UPDATE dbo.CalibrationCycles SET ControllerTypeStatusId = -1 WHERE OrderDetailsItemId = @a AND CalibrationCycleStartDate = @s', 547);
+ (21, N'19a. FK stops an unknown controller status', N'UPDATE dbo.CalibrationCycles SET ControllerTypeStatusId = -1 WHERE OrderDetailsItemId = @a AND CalibrationCycleStartDate = @s', 547),
+ (22, N'17b. negative display resolution refused', @Call + @Ok7 + N', @DisplayValue = 1, @DisplayResolution = -0.1, @IsDisplayEnabled = 1, @IsTargetValueEnabled = 1, @ControllerTypeStatusId = NULL, @ControllerManufacturer = NULL, @ControllerModel = NULL, @CalculationResolution = 1, @Apply = 1', 51000),
+ (23, N'17c. negative calculation resolution refused', @Call + @Ok7 + N', @DisplayValue = 1, @DisplayResolution = 1, @IsDisplayEnabled = 1, @IsTargetValueEnabled = 1, @ControllerTypeStatusId = NULL, @ControllerManufacturer = NULL, @ControllerModel = NULL, @CalculationResolution = -1, @Apply = 1', 51000),
+ (24, N'17d. manufacturer over 100 characters refused, not cut', @Call + @Ok7 + N', @DisplayValue = 1, @DisplayResolution = 1, @IsDisplayEnabled = 1, @IsTargetValueEnabled = 1, @ControllerTypeStatusId = NULL, @ControllerManufacturer = @long, @ControllerModel = NULL, @CalculationResolution = 1, @Apply = 1', 51000),
+ (25, N'17e. model over 100 characters refused, not cut', @Call + @Ok7 + N', @DisplayValue = 1, @DisplayResolution = 1, @IsDisplayEnabled = 1, @IsTargetValueEnabled = 1, @ControllerTypeStatusId = NULL, @ControllerManufacturer = NULL, @ControllerModel = @long, @CalculationResolution = 1, @Apply = 1', 51000),
+ (26, N'19b. CHECK stops a negative resolution', N'UPDATE dbo.CalibrationCycles SET DisplayResolution = -1 WHERE OrderDetailsItemId = @a AND CalibrationCycleStartDate = @s', 547),
+ (27, N'19c. CHECK stops a negative calculation resolution', N'UPDATE dbo.CalibrationCycles SET CalculationResolution = -1 WHERE OrderDetailsItemId = @a AND CalibrationCycleStartDate = @s', 547);
 
+DECLARE @Long NVARCHAR(200) = REPLICATE(N'x', 101);
 DECLARE @n INT = 11, @sql NVARCHAR(MAX), @step NVARCHAR(100), @err INT;
-WHILE @n <= 21
+WHILE @n <= 27
 BEGIN
     SELECT @sql = Sql, @step = Step, @err = ExpectedError FROM @Cases WHERE N = @n;
     BEGIN TRY
         BEGIN TRAN;
-        EXEC sp_executesql @sql, N'@u NVARCHAR(255), @a INT, @s DATETIME2(0), @o INT',
-             @u = @UserEmail, @a = @A, @s = @Start, @o = @OtherStatus;
+        EXEC sp_executesql @sql, N'@u NVARCHAR(255), @a INT, @s DATETIME2(0), @o INT, @long NVARCHAR(200)',
+             @u = @UserEmail, @a = @A, @s = @Start, @o = @OtherStatus, @long = @Long;
         ROLLBACK;
         INSERT @Results VALUES (@step, N'FAIL', N'went through');
     END TRY
@@ -422,11 +440,14 @@ BEGIN
     SET @n += 1;
 END;
 
-/* 20. Nothing survived. */
+/* 20. Nothing survived: all fifteen settings, the deleted flag and the update stamp. */
 INSERT @Results
 SELECT N'20. rolled back',
-       IIF(NOT EXISTS (SELECT OrderDetailsItemId, CalibrationCycleStartDate, IsDeleted, ToleranceValue, UniformityThreshold,
-                              DisplayValue, ControllerModel
+       IIF(NOT EXISTS (SELECT OrderDetailsItemId, CalibrationCycleStartDate, IsDeleted, UpdatedDate, UpdateUserID,
+                              ToleranceValue, ToleranceStart, ToleranceEnd, Resolution, Uncertainty,
+                              StabilityThreshold, UniformityThreshold, DisplayValue, DisplayResolution,
+                              IsDisplayEnabled, IsTargetValueEnabled, ControllerTypeStatusId,
+                              ControllerManufacturer, ControllerModel, CalculationResolution
                        FROM dbo.CalibrationCycles WHERE OrderDetailsItemId IN (@A, @C)
                        EXCEPT SELECT * FROM @Snapshot)
            AND (SELECT COUNT(*) FROM dbo.CalibrationCycles WHERE OrderDetailsItemId IN (@A, @C)) = (SELECT COUNT(*) FROM @Snapshot)
