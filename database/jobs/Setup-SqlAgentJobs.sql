@@ -14,6 +14,14 @@
 
     Set @Database below. Everything else has a working default.
 
+    ONE SERVER, TWO DATABASES (MBA-996, 2026-11-15)
+    ----------------------------------------------
+    STAGE (Calibrator) and PROD (CalibratorProd) share one SQL Server instance, so they share msdb
+    and every job name. PROD's jobs keep the plain names above; every other database's carry its name
+    as a suffix - " (Calibrator)" on STAGE, as its jobs were already named. Because each job is dropped
+    by name before it is recreated, a run touches only the target database's own jobs. Before this,
+    a run for STAGE would have dropped and repointed PROD's jobs, and the reverse.
+
     WHO CAN RUN THIS
     ----------------
     A login that is sysadmin, or one in msdb's SQLAgentUserRole. app_prod is NEITHER by default -
@@ -75,6 +83,9 @@ DECLARE @Database    SYSNAME = N'CalibratorProd',   /* N'Calibrator' for STAGE *
         @DevicesFullTime INT = 30000;               /* 03:00:00 (MBA-996) */
 
 SET @OwnerLogin = COALESCE(@OwnerLogin, SUSER_SNAME());
+
+/* PROD keeps the plain job names; any other database's jobs carry its name (see the header) */
+DECLARE @NameSuffix SYSNAME = CASE WHEN @Database = N'CalibratorProd' THEN N'' ELSE N' (' + @Database + N')' END;
 
 /* ============================================================================================= */
 /*  Preflight - say why this will not work BEFORE writing anything                                */
@@ -155,7 +166,7 @@ IF @Sysadmin <> 1
 DECLARE @JobId UNIQUEIDENTIFIER, @Name SYSNAME;
 
 /* ---- 1. packing data -------------------------------------------------------------------------- */
-SET @Name = N'MABA - Refresh packing data from Priority';
+SET @Name = N'MABA - Refresh packing data from Priority' + @NameSuffix;
 IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @Name)
     EXEC msdb.dbo.sp_delete_job @job_name = @Name, @delete_unused_schedule = 1;
 
@@ -197,7 +208,7 @@ EXEC msdb.dbo.sp_add_jobserver @job_id = @JobId, @server_name = N'(local)';
 PRINT 'created: ' + @Name;
 
 /* ---- 2. device descriptions ------------------------------------------------------------------- */
-SET @Name = N'MABA - Refresh device descriptions';
+SET @Name = N'MABA - Refresh device descriptions' + @NameSuffix;
 IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @Name)
     EXEC msdb.dbo.sp_delete_job @job_name = @Name, @delete_unused_schedule = 1;
 
@@ -232,7 +243,7 @@ EXEC msdb.dbo.sp_add_jobserver @job_id = @JobId, @server_name = N'(local)';
 PRINT 'created: ' + @Name;
 
 /* ---- 3. Priority calibration status (MBA-911) ------------------------------------------------- */
-SET @Name = N'MABA - Refresh Priority calibration status';
+SET @Name = N'MABA - Refresh Priority calibration status' + @NameSuffix;
 IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @Name)
     EXEC msdb.dbo.sp_delete_job @job_name = @Name, @delete_unused_schedule = 1;
 
@@ -269,7 +280,7 @@ EXEC msdb.dbo.sp_add_jobserver @job_id = @JobId, @server_name = N'(local)';
 PRINT 'created: ' + @Name;
 
 /* ---- 4. customer devices, hourly (MBA-996) ---------------------------------------------------- */
-SET @Name = N'MABA - Refresh customer devices';
+SET @Name = N'MABA - Refresh customer devices' + @NameSuffix;
 IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @Name)
     EXEC msdb.dbo.sp_delete_job @job_name = @Name, @delete_unused_schedule = 1;
 
@@ -306,7 +317,7 @@ EXEC msdb.dbo.sp_add_jobserver @job_id = @JobId, @server_name = N'(local)';
 PRINT 'created: ' + @Name;
 
 /* ---- 5. customer devices, nightly full (MBA-996) ---------------------------------------------- */
-SET @Name = N'MABA - Refresh customer devices (full)';
+SET @Name = N'MABA - Refresh customer devices (full)' + @NameSuffix;
 IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @Name)
     EXEC msdb.dbo.sp_delete_job @job_name = @Name, @delete_unused_schedule = 1;
 
