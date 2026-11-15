@@ -38,6 +38,27 @@ can never read a half-copied build. Writes `build.md5` and injects
 `ANTHROPIC_API_KEY` from your local `.env` into the published
 `env-additions.txt`. Prints the build id; keep it, step 3 wants it.
 
+**The swap never deletes before the new build is in place (MBA-1033).** It
+moves `qcc-latest` aside to `qcc-latest.old-<timestamp>`, moves `.new` in, checks
+that the share holds the new build and that the server can read it, and only
+then deletes the `.old-` folder. Each rename is retried, because over SMB a
+rename can fail for a moment with "Access is denied" while something holds a
+handle. On 15 November the old delete-then-move order hit that race and left no
+share at all. If a publish fails, its red headline says which build is live:
+
+- **`NOT PUBLISHED`**: the previous build is still at `qcc-latest`. Run it again.
+- **`THE SHARE IS MISSING`**: both builds are intact beside it. The next run
+  moves `.new` into place before doing anything else.
+- **`REFUSING TO PUBLISH`**: a `.new` is left over from an earlier publish.
+  Beside a live share it is never deleted automatically: look at it, delete it,
+  and run again. With no share, the newest complete build (`.new`, else the
+  newest `.old-`) is restored first. An incomplete `.new` is never deleted
+  either: the share is still restored from an `.old-` if one is complete, and
+  then the script refuses.
+
+To put builds back by hand, always rename. Never delete first: delete-then-move
+is the order that lost the share. Example: `Rename-Item <share>.new qcc-latest`.
+
 `-SkipBuild` publishes an existing `dist` without rebuilding.
 
 **`deploy/env-additions.txt` is gitignored and was never committed**, so a fresh
