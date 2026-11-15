@@ -76,10 +76,36 @@ cd C:\apps\qcc-server-deploy
 חוזר ל־`dist_bak_*` האחרון תוך פחות מדקה. **`data\pricing` לא נוגעים בה בשום מצב** — שם
 יושבות ~2,650 התאמות שמשתמשים אישרו ידנית, וזה הנכס היחיד שאי אפשר לשחזר מ־build.
 
-## משימה שנייה (אופציונלית): לגרום לשרת לעדכן את עצמו
+## העדכון האוטומטי: `QCCAnalyticsUpdate`
 
-קיימת משימה מתוזמנת `QCCAnalyticsUpdate` שאמורה למשוך גרסאות חדשות מהשיתוף לבד. היא רשומה
-אך **לא עובדת**, ולא ידוע למה. הסקריפט שלה: `C:\apps\qcc-updater\Update-QCCAnalytics.ps1`.
+המשימה המתוזמנת `QCCAnalyticsUpdate` מושכת גרסאות חדשות מהשיתוף לבד — כל יום ב־02:00 ובכל
+אתחול. **היא עובדת.** הסקריפט שלה: `C:\apps\qcc-updater\Update-QCCAnalytics.ps1`, והלוג:
+`C:\apps\qcc-updater\update.log`.
+
+עד נובמבר 2026 נכתב כאן שהיא "רשומה אך לא עובדת, ולא ידוע למה". זה היה שגוי: בין 16.9 ל־12.11
+השיתוף והשרת החזיקו אותו build, ולכן לא היה לה מה למשוך, ו"לא עושה כלום" נראה כמו תקלה.
+
+**התקלה האמיתית (MBA-1032):** המשימה רצה תחת SYSTEM, כלומר ברשת היא מזדהה כחשבון המחשב
+`MABA\MABA-DC2$`. חשבון מחשב אינו חבר ב־Domain Users, ולכן ההרשאה שעוברת בירושה מהתיקייה
+`Eliran` לא מכסה אותו. הגישה שלו לשיתוף נשענת על **ACE מפורש אחד** על `qcc-latest`:
+
+| חשבון | הרשאה | ירושה |
+|---|---|---|
+| `MABA\MABA-DC2$` | ReadAndExecute | ContainerInherit, ObjectInherit |
+
+`Publish-ToServer.ps1` הישן מחק את `qcc-latest` ויצר אותה מחדש בכל פרסום, ותיקייה חדשה מקבלת
+רק הרשאות בירושה — ה־ACE הזה נמחק. כך הפרסום של 12.11 בשעה 08:29 השבית את העדכון האוטומטי: מאז
+כל ריצה כתבה `Access is denied` ללוג **ודיווחה הצלחה** (`exit 0`), ו־MBA-1027 לא עלה עד 15.11.
+
+מאז MBA-1032:
+- **הפרסום** מעביר את ה־ACE־ים המפורשים של התיקייה הישנה, מוודא שה־ACE של `MABA-DC2$` קיים,
+  ובודק בסוף שחשבון המחשב יכול לקרוא את `payload\dist\index.cjs`. אם לא — הוא נכשל בקול.
+- **העדכון האוטומטי** מבדיל בין "השיתוף לא זמין" (זמני — `exit 0`, ינסה שוב בריצה הבאה) לבין
+  "אין הרשאה" (לא יעבור לבד): שורת `ACCESS DENIED` בלוג ו־**`exit 5`**, כך ש־`LastTaskResult`
+  הוא 5 ולא 0.
+
+**הסקריפט על השרת אינו מתעדכן לבד** — העדכון האוטומטי מחליף רק את `dist`. אחרי שינוי
+ב־`Update-QCCAnalytics.ps1` מעתיקים אותו ידנית ובודקים:
 
 ```powershell
 Copy-Item "\\maba-srv\maba2000\Eliran\qcc-latest\Update-QCCAnalytics.ps1" "C:\apps\qcc-updater\" -Force
@@ -89,14 +115,19 @@ Get-Content C:\apps\qcc-updater\update.log -Tail 20
 Get-ScheduledTask -TaskName QCCAnalyticsUpdate | Get-ScheduledTaskInfo | Select-Object LastRunTime, LastTaskResult
 ```
 
-**ההשערה המובילה:** המשימה רצה תחת SYSTEM (חשבון המחשב `MABA-DC2$`), ולחשבון הזה אין הרשאת
-קריאה ל־`\\maba-srv\maba2000\Eliran`. הגרסה החדשה של הסקריפט כותבת ללוג בכל מקרה, כולל שורה
-`running as: ...`. אם זו אכן הסיבה, שתי דרכים:
+**אם הלוג מראה `ACCESS DENIED` (או `LastTaskResult` = 5):** ה־ACE נעלם שוב. מי שמפרסם הוא
+הבעלים של `qcc-latest`, ולכן התיקון רץ **מהמחשב שמפרסם, לא מהשרת**, ואינו דורש Domain Admin:
 
 ```powershell
-.\Install-AutoUpdater.ps1 -User 'MABA\<חשבון עם גישה>' -Password '<סיסמה>'
+$share = '\\maba-srv\maba2000\Eliran\qcc-latest'
+$acl = Get-Acl $share
+$acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
+    'MABA\MABA-DC2$', 'ReadAndExecute', 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
+Set-Acl -Path $share -AclObject $acl
 ```
-או לבקש מ־IT הרשאת קריאה לחשבון המחשב על השיתוף (עדיף — אין סיסמה שמתיישנת).
+
+אחר כך `Start-ScheduledTask -TaskName QCCAnalyticsUpdate` על השרת, ובדיקה בלוג.
+**אל תשנה הרשאות על השיתוף מהשרת עצמו** — זה לא התפקיד שלך כאן; דווח ועצור.
 
 ## כללי עבודה
 
