@@ -16,7 +16,8 @@
       - shown: a registered device with at least one visit, or a device typed in the portal. That
         keeps today's list - devices the customer has calibrated with us - while the whole register
         is loaded underneath; showing every registered device later is this one condition;
-      - visits: order lines with the device's SERN, under the device's OWN customer. A device that
+      - visits: live order lines (nothing cancelled or deleted at order, detail or line level)
+        with the device's SERN, under the device's OWN customer. A device that
         moved between customers in Priority therefore shows only the visits of its current owner.
         STAGE 2026-11-10: 5,593 of 5,617 visits with a SERN have their device; the other 24 are
         devices cancelled in Priority, which the portal already hides; 3 sit under another customer.
@@ -36,6 +37,49 @@ GO
 
 CREATE OR ALTER VIEW dbo.vwCustomerDevices
 AS
+/* Driven from the visits, not from the register: about 6,000 of STAGE's 591,281 devices have a
+   visit, and a lookup per registered device (the first version, OUTER APPLY per row) did not finish
+   in 10 minutes for the whole table (2026-11-15). Visits are live order lines - nothing cancelled or
+   deleted at order, detail or line level, the filter every portal screen applied before this view -
+   joined to their device by SERN, under the device's own customer. */
+WITH VisitLines AS
+(
+    SELECT d.CustomerDeviceID, i.OrderDetailsItemId, i.Doc, i.ActualCalibrationDate,
+           i.NextCalibrationDate, wp.OrderWorkPlanId
+    FROM dbo.OrderDetailsItems AS i
+    JOIN dbo.OrderDetails      AS od ON od.OrderDetailId   = i.OrderDetailId
+    JOIN dbo.OrderWorkPlans    AS wp ON wp.OrderWorkPlanId = od.OrderWorkPlanId
+    JOIN dbo.CustomerDevices   AS d  ON d.SERN = i.SERN AND d.CustomerId = wp.CustomerId
+    WHERE i.SERN IS NOT NULL
+      AND ISNULL(i.IsDeleted, 0) = 0  AND ISNULL(i.IsCancelled, 0) = 0
+      AND ISNULL(od.IsDeleted, 0) = 0 AND ISNULL(od.IsCancelled, 0) = 0
+      AND wp.IsCancelled = 0
+),
+VisitCounts AS
+(
+    SELECT CustomerDeviceID, COUNT(DISTINCT COALESCE(Doc, -OrderDetailsItemId)) AS VisitCount
+    FROM VisitLines
+    GROUP BY CustomerDeviceID
+),
+LatestVisit AS
+(
+    SELECT CustomerDeviceID, OrderDetailsItemId, Doc, ActualCalibrationDate, NextCalibrationDate,
+           /* the newest line of the newest order, as dbo.GetCustomerDeviceList picked it before */
+           ROW_NUMBER() OVER (PARTITION BY CustomerDeviceID
+                              ORDER BY OrderWorkPlanId DESC, OrderDetailsItemId DESC) AS rn
+    FROM VisitLines
+),
+Shown AS
+(
+    /* registered: only with a visit (today's list); typed in the portal: always */
+    SELECT d.CustomerDeviceID, vc.VisitCount
+    FROM VisitCounts AS vc
+    JOIN dbo.CustomerDevices AS d ON d.CustomerDeviceID = vc.CustomerDeviceID
+    UNION ALL
+    SELECT d.CustomerDeviceID, 0
+    FROM dbo.CustomerDevices AS d
+    WHERE d.SERN IS NULL
+)
 SELECT
     d.CustomerDeviceID,
     d.CustomerId,
@@ -65,30 +109,16 @@ SELECT
     d.SecondaryMeasurmentUnitId,
     d.NeedsReview,
     d.CreatedDate,
-    v.VisitCount,
+    s.VisitCount,
     lv.OrderDetailsItemId                                              AS LatestOrderDetailsItemId,
     lv.Doc                                                             AS LatestDoc,
     lv.ActualCalibrationDate                                           AS LastCalibrationDate,
     /* a registered device's next date is its latest visit's; a typed one keeps what was entered */
     CASE WHEN d.SERN IS NOT NULL THEN lv.NextCalibrationDate
          ELSE COALESCE(lv.NextCalibrationDate, d.NextCalibrationDate) END AS NextCalibrationDate
-FROM dbo.CustomerDevices AS d
-OUTER APPLY (
-    SELECT COUNT(DISTINCT COALESCE(i.Doc, -i.OrderDetailsItemId)) AS VisitCount
-    FROM dbo.OrderDetailsItems AS i
-    JOIN dbo.OrderDetails      AS od ON od.OrderDetailId    = i.OrderDetailId
-    JOIN dbo.OrderWorkPlans    AS wp ON wp.OrderWorkPlanId  = od.OrderWorkPlanId
-    WHERE i.SERN = d.SERN AND i.IsDeleted = 0 AND wp.CustomerId = d.CustomerId
-) AS v
-OUTER APPLY (
-    SELECT TOP (1) i.OrderDetailsItemId, i.Doc, i.ActualCalibrationDate, i.NextCalibrationDate
-    FROM dbo.OrderDetailsItems AS i
-    JOIN dbo.OrderDetails      AS od ON od.OrderDetailId    = i.OrderDetailId
-    JOIN dbo.OrderWorkPlans    AS wp ON wp.OrderWorkPlanId  = od.OrderWorkPlanId
-    WHERE i.SERN = d.SERN AND i.IsDeleted = 0 AND wp.CustomerId = d.CustomerId
-    ORDER BY wp.OrderWorkPlanId DESC, i.OrderDetailsItemId DESC   /* as GetCustomerDeviceList picks it today */
-) AS lv
+FROM Shown AS s
+JOIN dbo.CustomerDevices AS d ON d.CustomerDeviceID = s.CustomerDeviceID
+LEFT JOIN LatestVisit AS lv ON lv.CustomerDeviceID = d.CustomerDeviceID AND lv.rn = 1
 WHERE d.IsDeleted = 0
-  AND d.IsInactiveInSource = 0
-  AND (d.SERN IS NULL OR v.VisitCount > 0);
+  AND d.IsInactiveInSource = 0;
 GO

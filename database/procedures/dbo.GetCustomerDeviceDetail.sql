@@ -6,36 +6,39 @@ GO
 -- Proc:        dbo.GetCustomerDeviceDetail
 -- Jira:        MBA-798  "Customer Selected-device detail view"
 --              MBA-943  the caller owns a set of customers, not one
+--              MBA-996  the device is a dbo.CustomerDevices row, not an order line
 -- Description: Returns the FULL detail of ONE device for the logged-in caller
 --              (customer portal "selected device" detail view). This is a distinct
 --              contract from:
---                * dbo.GetCustomerDeviceList     -> one row PER device, list columns,
---                                                   no single-device key.
+--                * dbo.GetCustomerDeviceList     -> one row PER device, list columns.
 --                * dbo.GetOrderDetailsDevices    -> STAFF detail, keyed by OrderWorkPlanId,
 --                                                   requires a MABA Users/UserRoles row via
 --                                                   GetSourceFilterByEmail and performs NO
 --                                                   customer-ownership check -> unusable and
 --                                                   unsafe for a customer contact.
 --
--- 2026-08-31 - MBA-943: the ownership guard now spans every company the caller belongs to.
+-- 2026-11-15 - MBA-996 phase 2: keyed by @CustomerDeviceId, which replaces @OrderDetailsItemId.
 --
---              THE GUARD IS NOT WEAKENED, IT IS WIDENED TO THE RIGHT SET. The device is still
---              re-scoped on every call: it must sit under a customer returned by
---              dbo.GetPortalCustomerIds for this e-mail, which is derived from the caller's own
---              CustomerContacts rows and takes no input from the request. A guessed
---              @OrderDetailsItemId belonging to anyone else still returns 0 rows. What changes is
---              that a manager can now open a device in his own second division - before, clicking
---              a row that the list itself had returned could come back empty, because the list and
---              the detail resolved to different single customers.
+--              The id is the one dbo.GetCustomerDeviceList returns, the same across visits. The
+--              device must be one dbo.vwCustomerDevices shows - so a device the customer hid or
+--              Priority cancelled returns no row, as one of another customer always did.
 --
---              @SelectedCustomerId is gone; MBA-936 added it for a branch picker we decided not
---              to build.
+--              Device fields come from the device and fall back to its latest visit; the visit
+--              fields (status, calibrator, order, report, the calibration tab) describe the latest
+--              visit and are NULL for a device never calibrated. A device typed in by the customer
+--              shows what was typed for its categories, unit, specification, location and language.
+--              The visits themselves are dbo.GetCustomerCalibrationReports, column customerDeviceId.
+--
+-- 2026-08-31 - MBA-943: the ownership guard spans every company the caller belongs to. The device
+--              is re-scoped on every call through dbo.GetPortalCustomerIds, which is derived from the
+--              caller's own CustomerContacts rows and takes no input from the request. A guessed id of
+--              anyone else's device returns 0 rows.
 --
 -- Params:
---   @LoggedInUserEmail  NVARCHAR(100) -- customer contact e-mail (resolves the customer set)
---   @OrderDetailsItemId INT           -- the selected device (OrderDetailsItems.OrderDetailsItemId)
+--   @LoggedInUserEmail  NVARCHAR(100) -- customer contact e-mail (the app's signed-in session)
+--   @CustomerDeviceId   INT           -- the selected device (dbo.CustomerDevices.CustomerDeviceID)
 --
--- Output (single row): superset of the Device-List contract plus detail-only fields.
+-- Output (single row):
 --   id, deviceStatus (FE camelCase code), deviceStatusHeb,
 --   lastCalibration (DD.MM.YYYY), nextCalibration (DD.MM.YYYY),
 --   serialNumber, sku, additionalDeviceNumber,
@@ -44,33 +47,23 @@ GO
 --   productLocation, siteAddress, shippingMethod,
 --   orderNumber, lastReport,
 --   calibratorFullName, calibratorPhone,
---   customerName  -- MBA-943: which company owns this device. Front end: MBA-942.
+--   customerName,
 --   calibrationDate, calibrationSpecification, calibrationMethod, referenceDocument, tolerance,
 --   resolution, requiredProbability, visualCheck, reportLanguage, calibrationComment,
---   measurementUnitLong  -- 2026-09-08: what the calibration tab needs and the schema has.
+--   measurementUnitLong,
+--   latestOrderDetailsItemId, isRegistered, visitCount        -- MBA-996
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerDeviceDetail]
-    @LoggedInUserEmail  NVARCHAR(100),
-    @OrderDetailsItemId INT
+    @LoggedInUserEmail NVARCHAR(100),
+    @CustomerDeviceId  INT
 AS
 BEGIN
     SET NOCOUNT ON;
 
     SELECT TOP (1)
-         itm.OrderDetailsItemId                                                   AS id
-        ,/*  MBA-948: eleven hardcoded WHENs used to map StatusId to a camelCase key here. They
-                were written against PROD's ids, and dbo.Statuses is NOT numbered the same on the
-                two servers - 31/32/33 are shifted by one:
-
-                    id   STAGE            PROD
-                    31   תקין             נבדק עומד
-                    32   נבדק עומד        נבדק - לא עומד
-                    33   נבדק - לא עומד   לא ניתן לקבוע
-
-                so on STAGE a device that PASSED was reported to the customer as failed. Checked
-                all eleven ids on both servers: deriving the key from the status text gives exactly
-                the same answer as the hardcoded list on PROD, and the CORRECT one on STAGE. The
-                list was redundant where it was right and wrong where it was not. */
+         v.CustomerDeviceID                                                       AS id
+        ,/*  MBA-948: the key is derived from the status text, because dbo.Statuses is not
+                numbered the same on STAGE and PROD (31/32/33 are shifted by one). */
             CASE
                     WHEN st.StatusDescriptionENG IS NULL OR LEN(st.StatusDescriptionENG) = 0 THEN NULL
                     ELSE LOWER(LEFT(REPLACE(st.StatusDescriptionENG, '''', ''), 1))
@@ -78,63 +71,73 @@ BEGIN
                  END
          AS deviceStatus
         ,st.StatusDescriptionHEB                                                  AS deviceStatusHeb
-        ,CONVERT(VARCHAR(10), itm.ActualCalibrationDate, 104)                     AS lastCalibration
-        ,CONVERT(VARCHAR(10), itm.NextCalibrationDate,   104)                     AS nextCalibration
-        ,itm.SerialNumber                                                         AS serialNumber
-        ,itm.ManufacturerNumber                                                   AS sku
-        ,itm.AdditionalDeviceNumber                                               AS additionalDeviceNumber
-        ,IIF(od.IsInHouse = 1, N'מעבדה', N'לקוח')                                  AS calibrationLocation
-        ,pt.OrdersProductTypeName                                                 AS deviceDescription
-        ,itm.OrdersDeviceManufacturer                                             AS deviceManufacturer
-        ,itm.DeviceModel                                                          AS deviceModel
-        ,mc.MainCategoryName                                                      AS mainCategory
-        ,sc.SecondaryCategoryName                                                 AS secondaryCategory
-        ,itm.Accuracy                                                             AS accuracy
-        ,mu.ShortNameHe                                                           AS measurementUnit
-        ,itm.ProductLocation                                                      AS productLocation
-        ,COALESCE(itm.SiteAddress, cs.CustomerSiteAddress)                        AS siteAddress
+        ,CONVERT(VARCHAR(10), v.LastCalibrationDate, 104)                         AS lastCalibration
+        ,CONVERT(VARCHAR(10), v.NextCalibrationDate, 104)                         AS nextCalibration
+        ,v.SerialNumber                                                           AS serialNumber
+        ,COALESCE(NULLIF(v.ManufacturerNumber, N''), li.ManufacturerNumber)       AS sku
+        ,COALESCE(NULLIF(v.AdditionalDeviceNumber, N''), li.AdditionalDeviceNumber) AS additionalDeviceNumber
+        ,CASE WHEN li.OrderDetailsItemId IS NULL THEN NULL
+              WHEN od.IsInHouse = 1 THEN N'מעבדה' ELSE N'לקוח' END                AS calibrationLocation
+        ,COALESCE(pt.OrdersProductTypeName, dpt.OrdersProductTypeName,
+                  v.DeviceTypeName)                                               AS deviceDescription
+        ,COALESCE(NULLIF(NULLIF(NULLIF(LTRIM(RTRIM(v.OrdersDeviceManufacturer)), N''), N'-/-'), N'0'),
+                  li.OrdersDeviceManufacturer)                                    AS deviceManufacturer
+        ,COALESCE(NULLIF(NULLIF(NULLIF(LTRIM(RTRIM(v.Model)), N''), N'-/-'), N'0'),
+                  li.DeviceModel)                                                 AS deviceModel
+        ,COALESCE(mc.MainCategoryName, dmc.MainCategoryName)                      AS mainCategory
+        ,COALESCE(sc.SecondaryCategoryName, dsc.SecondaryCategoryName)            AS secondaryCategory
+        ,COALESCE(li.Accuracy, v.Accuracy)                                        AS accuracy
+        ,COALESCE(mu.ShortNameHe, dmu.ShortNameHe)                                AS measurementUnit
+        ,COALESCE(li.ProductLocation, v.DeviceLocation)                           AS productLocation
+        ,COALESCE(li.SiteAddress, cs.CustomerSiteAddress, dcs.CustomerSiteAddress) AS siteAddress
         ,wp.ShipTypeDesc                                                          AS shippingMethod
         ,wp.OrderNumber                                                           AS orderNumber
-        ,itm.MbaReportNumber                                                      AS lastReport
-        ,CONCAT(u.FirstName, ' ', u.LastName)                                     AS calibratorFullName
+        ,li.MbaReportNumber                                                       AS lastReport
+        ,CASE WHEN u.ID IS NULL THEN NULL ELSE CONCAT(u.FirstName, ' ', u.LastName) END AS calibratorFullName
         ,u.Phone                                                                  AS calibratorPhone
         ,mine.CustomerName                                                        AS customerName
-        /*  THE CALIBRATION TAB                                                      2026-09-08
-            The portal's "מידע על כיול" tab was disabled because nothing here answered it. These
-            are the fields the calibration itself carries; the ones it does not have - ציון, תא,
-            כיול צד ב', סוג מסקנה - are not in this schema at all and stay out rather than being
-            invented. */
-        ,CONVERT(VARCHAR(10), itm.ActualCalibrationDate, 104)                     AS calibrationDate
-        ,ms.Name                                                                  AS calibrationSpecification
-        ,ms.MeasurementsSpecificationDescription                                  AS calibrationMethod
-        ,sr.Name                                                                  AS referenceDocument
-        ,itm.Tolerance                                                            AS tolerance
-        ,itm.Resolution                                                           AS resolution
-        ,itm.RequiredProbability                                                  AS requiredProbability
-        ,itm.VisualCheck                                                          AS visualCheck
-        ,itm.ReportLanguage                                                       AS reportLanguage
-        ,itm.CalibrationStoppedComment                                            AS calibrationComment
-        ,mu.LongNameHe                                                            AS measurementUnitLong
+        /*  THE CALIBRATION TAB (2026-09-08): the fields the latest calibration carries. */
+        ,CONVERT(VARCHAR(10), li.ActualCalibrationDate, 104)                      AS calibrationDate
+        ,COALESCE(ms.Name, dms.Name)                                              AS calibrationSpecification
+        ,COALESCE(ms.MeasurementsSpecificationDescription,
+                  dms.MeasurementsSpecificationDescription)                       AS calibrationMethod
+        ,COALESCE(sr.Name, dsr.Name)                                              AS referenceDocument
+        ,li.Tolerance                                                             AS tolerance
+        ,li.Resolution                                                            AS resolution
+        ,li.RequiredProbability                                                   AS requiredProbability
+        ,li.VisualCheck                                                           AS visualCheck
+        ,COALESCE(li.ReportLanguage, v.ReportLanguage)                            AS reportLanguage
+        ,li.CalibrationStoppedComment                                             AS calibrationComment
+        ,COALESCE(mu.LongNameHe, dmu.LongNameHe)                                  AS measurementUnitLong
+        ,v.LatestOrderDetailsItemId                                               AS latestOrderDetailsItemId
+        ,v.IsRegistered                                                           AS isRegistered
+        ,v.VisitCount                                                             AS visitCount
     /* Ownership guard: the device must belong to one of the caller's own customers. */
     FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail) AS mine
-    JOIN [dbo].[OrderWorkPlans]        AS wp  ON wp.CustomerId      = mine.CustomerId
-    JOIN [dbo].[OrderDetails]          AS od  ON od.OrderWorkPlanId = wp.OrderWorkPlanId
-    JOIN [dbo].[OrderDetailsItems]     AS itm ON itm.OrderDetailId  = od.OrderDetailId
-    LEFT JOIN [dbo].[Statuses]             AS st ON st.StatusId              = itm.CalibrationStatusId
-    LEFT JOIN [dbo].[OrdersProductTypes]   AS pt ON pt.OrdersProductTypeId   = od.OrdersProductTypeId
-    LEFT JOIN [dbo].[MainCategories]       AS mc ON mc.ID                    = od.MainCategoryId
-    LEFT JOIN [dbo].[SecondaryCategories]  AS sc ON sc.ID                    = od.SecondaryCategoryId
-    LEFT JOIN [dbo].[MeasurementDeviceUnits] AS mu ON mu.MeasurementDeviceUnitId = itm.MeasurementUnitId
-    LEFT JOIN [dbo].[MeasurementsSpecifications] AS ms ON ms.ID                  = itm.CalibrationSpecificationId
-    LEFT JOIN [dbo].[SpecificationReference]     AS sr ON sr.ID                  = itm.SpecificationReferenceId
-    LEFT JOIN [dbo].[CustomerSites]        AS cs ON cs.CustomerSiteId        = od.CustomerSiteId
-    LEFT JOIN [dbo].[Users]                AS u  ON u.ID                     = od.CalibratorId
-    WHERE itm.OrderDetailsItemId    = @OrderDetailsItemId
-      AND wp.IsCancelled           = 0
-      AND ISNULL(od.IsDeleted, 0)  = 0
-      AND ISNULL(od.IsCancelled, 0) = 0
-      AND ISNULL(itm.IsDeleted, 0) = 0
-      AND ISNULL(itm.IsCancelled, 0) = 0
+    JOIN dbo.vwCustomerDevices                   AS v   ON v.CustomerId = mine.CustomerId
+    /* the latest visit */
+    LEFT JOIN [dbo].[OrderDetailsItems]          AS li  ON li.OrderDetailsItemId = v.LatestOrderDetailsItemId
+    LEFT JOIN [dbo].[OrderDetails]               AS od  ON od.OrderDetailId      = li.OrderDetailId
+    LEFT JOIN [dbo].[OrderWorkPlans]             AS wp  ON wp.OrderWorkPlanId    = od.OrderWorkPlanId
+    LEFT JOIN [dbo].[Statuses]                   AS st  ON st.StatusId                = li.CalibrationStatusId
+    LEFT JOIN [dbo].[OrdersProductTypes]         AS pt  ON pt.OrdersProductTypeId     = od.OrdersProductTypeId
+    LEFT JOIN [dbo].[MainCategories]             AS mc  ON mc.ID                      = od.MainCategoryId
+    LEFT JOIN [dbo].[SecondaryCategories]        AS sc  ON sc.ID                      = od.SecondaryCategoryId
+    LEFT JOIN [dbo].[MeasurementDeviceUnits]     AS mu  ON mu.MeasurementDeviceUnitId = li.MeasurementUnitId
+    LEFT JOIN [dbo].[MeasurementsSpecifications] AS ms  ON ms.ID                      = li.CalibrationSpecificationId
+    LEFT JOIN [dbo].[SpecificationReference]     AS sr  ON sr.ID                      = li.SpecificationReferenceId
+    LEFT JOIN [dbo].[CustomerSites]              AS cs  ON cs.CustomerSiteId          = od.CustomerSiteId
+    LEFT JOIN [dbo].[Users]                      AS u   ON u.ID                       = od.CalibratorId
+    /* the device's own values, for a device never calibrated */
+    LEFT JOIN [dbo].[OrdersProductTypes]         AS dpt ON dpt.OrdersProductTypeId     = v.OrdersProductTypeId
+    LEFT JOIN [dbo].[MainCategories]             AS dmc ON dmc.ID                      = v.MainCategoryId
+    LEFT JOIN [dbo].[SecondaryCategories]        AS dsc ON dsc.ID                      = v.SecondaryCategoryId
+    LEFT JOIN [dbo].[MeasurementDeviceUnits]     AS dmu ON dmu.MeasurementDeviceUnitId = v.PrimaryMeasurmentUnitId
+    LEFT JOIN [dbo].[MeasurementsSpecifications] AS dms ON dms.ID                      = v.MeasurementsSpecificationId
+    LEFT JOIN [dbo].[SpecificationReference]     AS dsr ON dsr.ID                      = v.SpecificationReferenceId
+    LEFT JOIN [dbo].[CustomerSites]              AS dcs ON dcs.CustomerSiteId          = v.CustomerSiteId
+                                                       AND dcs.CustomerId              = v.CustomerId
+    WHERE v.CustomerDeviceID = @CustomerDeviceId
     OPTION (RECOMPILE);
 END
 GO

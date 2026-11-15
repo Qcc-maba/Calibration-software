@@ -42,6 +42,14 @@ GO
 --   reportStatus       -> lower-camel of the ReportStatus StatusDescriptionENG
 --   reportStatusHeb    -> Statuses.StatusDescriptionHEB
 --   customerName       -> NEW (MBA-943): which company the report belongs to. Front end: MBA-942.
+--   customerDeviceId   -> NEW (MBA-996): the device the report is a visit of, the id
+--                         dbo.GetCustomerDeviceList and dbo.GetCustomerDeviceDetail use; NULL for a
+--                         line with no Priority device. The selected-device screen lists a device's
+--                         visits as the rows with its id, instead of matching the serial text.
+--
+-- 2026-11-15 - MBA-996: customerDeviceId added. The device is matched by SERN under the report's own
+--              customer, the rule dbo.vwCustomerDevices uses for visits, so the column can only name a
+--              device of a customer this caller already sees. Rows and the download check are unchanged.
 -- =============================================
 CREATE OR ALTER PROCEDURE [dbo].[GetCustomerCalibrationReports]
     @LoggedInUserEmail NVARCHAR(100)
@@ -67,10 +75,12 @@ BEGIN
          END                                                                AS reportStatus
         ,st.StatusDescriptionHEB                                            AS reportStatusHeb
         ,mine.CustomerName                                                  AS customerName
+        ,cd.CustomerDeviceID                                                AS customerDeviceId
     FROM dbo.GetPortalCustomerIds(@LoggedInUserEmail) AS mine
     JOIN [dbo].[OrderWorkPlans]      AS wp  ON wp.CustomerId       = mine.CustomerId
     JOIN [dbo].[OrderDetails]        AS od  ON od.OrderWorkPlanId  = wp.OrderWorkPlanId
     JOIN [dbo].[OrderDetailsItems]   AS itm ON itm.OrderDetailId   = od.OrderDetailId
+    LEFT JOIN [dbo].[CustomerDevices]    AS cd ON cd.SERN = itm.SERN AND cd.CustomerId = wp.CustomerId
     LEFT JOIN [dbo].[Statuses]           AS st ON st.StatusId            = itm.CalibrationReportStatusId
     LEFT JOIN [dbo].[OrdersProductTypes] AS pt ON pt.OrdersProductTypeId = od.OrdersProductTypeId
     WHERE wp.IsCancelled       = 0

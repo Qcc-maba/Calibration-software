@@ -308,6 +308,26 @@ rollback restores the original table exactly. On STAGE the 16 tests pass as well
 Priority link, and leave the table unchanged. The compound-serial claim (tier 2) is written but had
 no live case to test against.
 
+**Phase 2 status (2026-11-15): written and tested on the local STAGE copy; not on STAGE.**
+`dbo.GetCustomerDeviceList` and `dbo.GetCustomerDeviceDetail` (`@CustomerDeviceId` replaces
+`@OrderDetailsItemId`) read the view; `dbo.GetCustomerCalibrationReports` gains `customerDeviceId`, so
+the selected-device screen lists a device's visits by id instead of serial text (the portal developer
+needs every visit, Jira 38248). The view is now driven from the visits: the first version, a lookup per
+registered device, did not finish in 10 minutes on STAGE; this one reads the whole table in 1.8 s, and
+the list for the busiest local caller (488 devices) takes 1.4 s. Visits now leave out cancelled orders
+and lines, as every portal screen did before. `database/tests/Test-CustomerPortalReads.sql` (MBA-1014)
+maps device ids back to the caller's devices and gains R7 (hidden device, typed device of the caller,
+typed device of another customer): 60 PASS, 4 SKIP (Priority not reachable locally).
+
+What changes for customers, measured on STAGE:
+- the same devices, except order lines with no Priority device (7 of 9,855 on PROD); the latest visit
+  matches today's list on 5,557 of 5,560 devices locally;
+- manufacturer and model come from Priority first, `-/-` and `0` counting as empty: 110 manufacturers
+  and 90 models differ from today's order-line text.
+
+It goes to STAGE together with phase 3 and the portal's route change, because the old app passes the
+list's id to the detail as an order line id.
+
 ### How it relates to MBA-911
 
 MBA-911 does not need this entity and does not wait for it. Priority records calibration status per
