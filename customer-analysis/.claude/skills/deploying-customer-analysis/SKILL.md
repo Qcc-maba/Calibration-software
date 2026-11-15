@@ -51,8 +51,13 @@ share at all. If a publish fails, its red headline says which build is live:
   moves `.new` into place before doing anything else.
 - **`REFUSING TO PUBLISH`**: a `.new` is left over from an earlier publish.
   Beside a live share it is never deleted automatically: look at it, delete it,
-  and run again. With no share, a complete `.new` (or `.old-`) is restored
-  instead, and an incomplete one makes the script refuse.
+  and run again. With no share, the newest complete build (`.new`, else the
+  newest `.old-`) is restored first. An incomplete `.new` is never deleted
+  either: the share is still restored from an `.old-` if one is complete, and
+  then the script refuses.
+
+To put builds back by hand, always rename. Never delete first: delete-then-move
+is the order that lost the share. Example: `Rename-Item <share>.new qcc-latest`.
 
 `-SkipBuild` publishes an existing `dist` without rebuilding.
 

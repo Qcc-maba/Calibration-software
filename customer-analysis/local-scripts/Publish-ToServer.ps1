@@ -106,16 +106,29 @@ function Get-BuildProblem($folder) {
 # file held open), and an empty qcc-latest would block both the retry and the
 # put-back of the previous build. Directory.Move either renames or does nothing.
 # It never moves onto an existing folder either, where Move-Item would nest.
+# Over SMB a rename can also take effect on the server and still report an
+# error to the client. So after any failure, look at the disk: source gone and
+# destination there means the rename happened, and that is a success.
+# Only the transient kinds (access denied, sharing violation) are retried; a
+# missing source or a bad path will not clear and surfaces at once, with its
+# original exception.
 function Move-WithRetry($from, $to, [int] $attempts = 5, [int] $pauseSeconds = 2) {
     for ($i = 1; ; $i++) {
-        if (Test-Path -LiteralPath $to) { throw "cannot move $from to $to - $to already exists" }
+        if (Test-Path -LiteralPath $to) {
+            if (-not (Test-Path -LiteralPath $from)) { return }      # an earlier attempt did it
+            throw "cannot move $from to $to - $to already exists"
+        }
         try { [IO.Directory]::Move($from, $to); return }
         catch {
-            $msg = $_.Exception.Message
-            if ($_.Exception.InnerException) { $msg = $_.Exception.InnerException.Message }
-            if ($i -ge $attempts) { throw $msg }
+            $ex = $_.Exception
+            if ($ex -is [Management.Automation.MethodInvocationException] -and $ex.InnerException) { $ex = $ex.InnerException }
+            if ((Test-Path -LiteralPath $to) -and -not (Test-Path -LiteralPath $from)) { return }
+            $transient = ($ex -is [UnauthorizedAccessException]) -or
+                         ($ex -is [IO.IOException] -and -not ($ex -is [IO.DirectoryNotFoundException]) -and
+                                                        -not ($ex -is [IO.FileNotFoundException]))
+            if (-not $transient -or $i -ge $attempts) { throw $ex }
             Info ("move {0} -> {1} failed (attempt {2} of {3}): {4} - retrying in {5}s" -f
-                  $from, $to, $i, $attempts, $msg, $pauseSeconds)
+                  $from, $to, $i, $attempts, $ex.Message, $pauseSeconds)
             Start-Sleep -Seconds $pauseSeconds
         }
     }
@@ -124,14 +137,23 @@ function Move-WithRetry($from, $to, [int] $attempts = 5, [int] $pauseSeconds = 2
 # Best effort: a delete that fails leaves a folder the server never reads. An
 # .old- folder is removed by the next successful publish; a staging folder makes
 # the next publish refuse to start until someone looks at it and deletes it.
+# Every build folder holds env-additions.txt with the injected API key, so a
+# folder that will not go away at least loses that file, and the warning says
+# when it could not.
 function Remove-Leftover($path) {
     for ($i = 1; $i -le 3; $i++) {
         try { Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop; return $true }
         catch { if ($i -lt 3) { Start-Sleep -Seconds 2 } }
     }
+    if (-not (Test-Path -LiteralPath $path)) { return $true }
     $next = if ($path -eq $staging) { 'the next publish refuses to start until it is deleted by hand' }
-            else { 'harmless, the next successful publish removes it' }
+            else { 'the next successful publish removes it' }
     Write-Host "    WARNING: could not delete $path - $next" -ForegroundColor Yellow
+    $keyFile = Join-Path $path 'env-additions.txt'
+    if (Test-Path -LiteralPath $keyFile) {
+        try   { Remove-Item -LiteralPath $keyFile -Force -ErrorAction Stop; Write-Host '    (its env-additions.txt, which holds the API key, was deleted)' -ForegroundColor Yellow }
+        catch { Write-Host "    It still holds env-additions.txt WITH THE ANTHROPIC API KEY - delete it by hand." -ForegroundColor Red }
+    }
     $false
 }
 
@@ -184,21 +206,27 @@ if ($PSCmdlet.ShouldProcess($Share, 'Replace published build')) {
     # publish did not finish. They may hold the only copy of a build - after the
     # 15 November failure the staging folder did - so they are never deleted
     # here: recover from them, or refuse and say why.
-    $leftOld = @(Get-ChildItem -LiteralPath $parent -Directory -Filter $oldPattern -ErrorAction SilentlyContinue |
-                 Sort-Object Name -Descending | ForEach-Object { $_.FullName })
+    # A listing that fails must not read as "no leftovers": with the share
+    # missing, that would skip the only good build.
+    try {
+        $leftOld = @(Get-ChildItem -LiteralPath $parent -Directory -Filter $oldPattern -ErrorAction Stop |
+                     Sort-Object Name -Descending | ForEach-Object { $_.FullName })
+    } catch {
+        Fail 'NOT PUBLISHED: CANNOT LOOK FOR LEFTOVERS OF AN EARLIER PUBLISH' @(
+            "listing $parent failed: $($_.Exception.Message)"
+            'Nothing was changed. Run this again.')
+    }
+    $leaf = Split-Path -Leaf $Share
     if (-not (Test-Path -LiteralPath $Share)) {
-        $source = $null
+        # Restore the newest complete build: the staging folder first (it is
+        # newer), else the newest complete .old-. An incomplete staging folder
+        # does not stop the share from being restored - it only stops the publish.
+        $source = $null; $stagingProblem = $null
         if (Test-Path -LiteralPath $staging) {
-            $why = Get-BuildProblem $staging
-            if ($why) {
-                Fail 'REFUSING TO PUBLISH: THE SHARE IS MISSING AND THE LEFTOVER BUILD IS INCOMPLETE' @(
-                    "$Share does not exist, and $staging - left by an earlier publish that"
-                    "did not finish - is not a complete build: $why."
-                    'Nothing was changed. Look at it by hand before deleting anything:'
-                    "if it is rubbish, delete $staging and run this again.")
-            }
-            $source = $staging
-        } else {
+            $stagingProblem = Get-BuildProblem $staging
+            if (-not $stagingProblem) { $source = $staging }
+        }
+        if (-not $source) {
             foreach ($o in $leftOld) { if (-not (Get-BuildProblem $o)) { $source = $o; break } }
         }
         if ($source) {
@@ -207,10 +235,35 @@ if ($PSCmdlet.ShouldProcess($Share, 'Replace published build')) {
             Write-Host "  $Share was missing. Putting back the complete build left in"
             Write-Host "  $source"
             Write-Host '  first, so the share is never empty while this publish runs.'
-            Move-WithRetry $source $Share
+            try { Move-WithRetry $source $Share }
+            catch {
+                Fail "COULD NOT RECOVER: THE SHARE IS STILL MISSING: $Share" @(
+                    "error: $($_.Exception.Message)"
+                    "Nothing was deleted; the build is intact at $source."
+                    "Run this again, or put it back by hand:  Rename-Item '$source' '$leaf'")
+            }
             Info ("recovered: $Share, build md5 " + (Get-Content -LiteralPath (Join-Path $Share 'build.md5') -Raw).Trim())
             $leftOld = @($leftOld | Where-Object { $_ -ne $source })
-        } elseif ($leftOld) {
+            # The restored build is live now, so check it the way a published one
+            # is checked. Warn rather than stop: the publish below ensures the
+            # reader's grant on the new build, which is the fix.
+            $unreadable = @($Share, (Join-Path $Share 'payload\dist\index.cjs')) | Where-Object { -not (Test-ReaderAcl $_ $readerSid) }
+            if ($unreadable) {
+                Write-Host "  WARNING: the restored build is live, but $ReaderAccount has no read grant on $($unreadable -join ', ')." -ForegroundColor Red
+                Write-Host '  The publish below fixes that with the new build. If it fails, grant it by hand:'
+                Write-Host "  $ReaderAccount ReadAndExecute (ContainerInherit,ObjectInherit) on $Share"
+            } else { Info "restored build is readable by $ReaderAccount (ACL)" }
+        }
+        if ($stagingProblem) {
+            $state = if ($source) { "$Share was missing and has been restored from $source - it is live." }
+                     else         { "$Share is missing, and there is no complete build left to restore it from." }
+            Fail 'REFUSING TO PUBLISH: THE LEFTOVER STAGING FOLDER IS INCOMPLETE' @(
+                $state
+                "$staging - left by an earlier publish that did not finish - is not a"
+                "complete build: $stagingProblem. It was not deleted."
+                "Look at it by hand; if it is rubbish, delete $staging and run this again.")
+        }
+        if (-not $source -and $leftOld) {
             Info "$Share is missing and the leftover folder(s) are not complete builds - publishing fresh"
         }
     } elseif (Test-Path -LiteralPath $staging) {
@@ -233,7 +286,9 @@ if ($PSCmdlet.ShouldProcess($Share, 'Replace published build')) {
     # Everything from here up to the swap only builds the staging folder; the
     # live share is not touched. If any of it fails, the staging folder is this
     # run's own unfinished work - remove it, so it is not mistaken next time for
-    # the leftover of a failed swap.
+    # the leftover of a failed swap. A finally, not a catch: Ctrl+C stops the
+    # pipeline without running catch, and would leave a half-copied folder.
+    $built = $false
     try {
         $carried = @()
         $protected = $false
@@ -286,9 +341,9 @@ if ($PSCmdlet.ShouldProcess($Share, 'Replace published build')) {
         # Check it on staging, while the previous build is still in place, so a
         # failure leaves the server something it can read; again after the swap.
         Assert-Readable $staging 'NOT PUBLISHED (previous build left in place)'
-    } catch {
-        if (Test-Path -LiteralPath $staging) { [void](Remove-Leftover $staging) }
-        throw
+        $built = $true
+    } finally {
+        if (-not $built -and (Test-Path -LiteralPath $staging)) { [void](Remove-Leftover $staging) }
     }
 
     # ------------------------------------------------------------------ swap
@@ -296,36 +351,65 @@ if ($PSCmdlet.ShouldProcess($Share, 'Replace published build')) {
     # 15 November the delete succeeded, the move hit the SMB race above, and the
     # script exited with no share at all (MBA-1033). Now nothing is deleted
     # until the new build is in place and verified.
+    # Every failure branch below decides from what is on disk, not from which
+    # call threw: over SMB a rename can take effect and still report an error.
+    # Manual advice is always rename-then-rename, never delete-then-move.
+    $staleNote = 'Run this again.'
     $old = $null
     if (Test-Path -LiteralPath $Share) {
         $old = "$Share.old-" + (Get-Date -Format 'yyyyMMdd-HHmmss')
         try { Move-WithRetry $Share $old }
         catch {
             $err = $_.Exception.Message
-            [void](Remove-Leftover $staging)
-            Fail 'NOT PUBLISHED: COULD NOT MOVE THE LIVE BUILD ASIDE' @(
-                "$Share is untouched and still live: $err"
-                'Something on the share is probably holding a handle on it. Run this again.')
+            if (Test-Path -LiteralPath $Share) {
+                if (-not (Remove-Leftover $staging)) { $staleNote = "Delete $staging by hand first, then run this again." }
+                Fail 'NOT PUBLISHED: COULD NOT MOVE THE LIVE BUILD ASIDE' @(
+                    "$Share is untouched and still live: $err"
+                    'Something on the share is probably holding a handle on it.'
+                    $staleNote)
+            }
+            if (-not (Test-Path -LiteralPath $old)) {
+                Fail "THE SHARE IS MISSING: $Share" @(
+                    "Moving it aside failed ($err), and it is not at $old either."
+                    "The new build is intact at $staging; nothing was deleted."
+                    "Run this again - it moves the new build into place first - or by hand:"
+                    "  Rename-Item '$staging' '$leaf'")
+            }
+            Info "moving the live build aside reported '$err', but it is at $old - carrying on"
         }
     }
 
     $moveError = $null
     try { Move-WithRetry $staging $Share } catch { $moveError = $_.Exception.Message }
+    if ($moveError -and (Test-Path -LiteralPath $Share) -and -not (Test-Path -LiteralPath $staging) -and
+        -not (Get-BuildProblem $Share)) {
+        Info "moving the new build in reported '$moveError', but it is in place - carrying on"
+        $moveError = $null
+    }
     if ($moveError) {
+        if (Test-Path -LiteralPath $Share) {
+            # Something is at $Share, and it is not the new build. Do not guess.
+            Fail 'NOT PUBLISHED: SOMETHING UNEXPECTED IS AT THE SHARE' @(
+                "Moving the new build in failed ($moveError), and $Share exists but is not it."
+                'Nothing was deleted. Look by hand at:'
+                "  $Share"
+                "  new build:      $staging"
+                $(if ($old) { "  previous build: $old" } else { '  (there was no previous build)' }))
+        }
         if (-not $old) {
             Fail 'NOT PUBLISHED: COULD NOT MOVE THE NEW BUILD INTO PLACE' @(
                 "error: $moveError"
                 "The new build is complete in $staging. Run this again: it moves"
-                "that folder into place first, or do it by hand:  Move-Item '$staging' '$Share'")
+                "that folder into place first, or do it by hand:  Rename-Item '$staging' '$leaf'")
         }
         $putBack = $null
         try { Move-WithRetry $old $Share } catch { $putBack = $_.Exception.Message }
-        if (-not $putBack) {
-            [void](Remove-Leftover $staging)
+        if ((Test-Path -LiteralPath $Share) -and -not (Test-Path -LiteralPath $old)) {
+            if (-not (Remove-Leftover $staging)) { $staleNote = "Delete $staging by hand first, then run this again." }
             Fail 'NOT PUBLISHED: COULD NOT MOVE THE NEW BUILD INTO PLACE' @(
                 "error: $moveError"
                 "The previous build was put back at $Share and is still live."
-                'Run this again.')
+                $staleNote)
         }
         Fail "THE SHARE IS MISSING: $Share" @(
             "Moving the new build in failed:     $moveError"
@@ -334,13 +418,16 @@ if ($PSCmdlet.ShouldProcess($Share, 'Replace published build')) {
             "  new build:      $staging"
             "  previous build: $old"
             'Run this again - it moves the new build into place before anything else -'
-            "or do it by hand:  Move-Item '$staging' '$Share'")
+            "or do it by hand:  Rename-Item '$staging' '$leaf'")
     }
 
     # ---------------------------------------------------------------- verify
     # The share must exist and hold this build, readable by us and - by its
     # ACL - by the server. If not, the previous build is kept beside it.
-    $keepOld = if ($old) { "The previous build is kept at $old; to put it back: Remove-Item '$Share' -Recurse; Move-Item '$old' '$Share'" } else { 'There is no previous build to fall back to.' }
+    $keepOld = if ($old) {
+        "The previous build is kept at $old. To put it back, rename, never delete first:  " +
+        "Rename-Item '$Share' '$leaf.bad'; Rename-Item '$old' '$leaf'; then delete '$Share.bad'"
+    } else { 'There is no previous build to fall back to.' }
     $problem = Get-BuildProblem $Share
     if (-not $problem) {
         $published = (Get-Content -LiteralPath (Join-Path $Share 'build.md5') -Raw).Trim()
