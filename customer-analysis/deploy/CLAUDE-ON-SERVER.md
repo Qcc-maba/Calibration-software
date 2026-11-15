@@ -102,7 +102,7 @@ cd C:\apps\qcc-server-deploy
   ובודק בסוף שחשבון המחשב יכול לקרוא את `payload\dist\index.cjs`. אם לא — הוא נכשל בקול.
 - **העדכון האוטומטי** מבדיל בין "השיתוף לא זמין" (זמני — `exit 0`, ינסה שוב בריצה הבאה) לבין
   "אין הרשאה" (לא יעבור לבד): שורת `ACCESS DENIED` בלוג ו־**`exit 5`**, כך ש־`LastTaskResult`
-  הוא 5 ולא 0.
+  הוא 5 ולא 0. כל שגיאה אחרת בקריאת השיתוף — `exit 1`.
 
 **הסקריפט על השרת אינו מתעדכן לבד** — העדכון האוטומטי מחליף רק את `dist`. אחרי שינוי
 ב־`Update-QCCAnalytics.ps1` מעתיקים אותו ידנית ובודקים:
@@ -119,12 +119,15 @@ Get-ScheduledTask -TaskName QCCAnalyticsUpdate | Get-ScheduledTaskInfo | Select-
 הבעלים של `qcc-latest`, ולכן התיקון רץ **מהמחשב שמפרסם, לא מהשרת**, ואינו דורש Domain Admin:
 
 ```powershell
-$share = '\\maba-srv\maba2000\Eliran\qcc-latest'
-$acl = Get-Acl $share
+$dir = Get-Item '\\maba-srv\maba2000\Eliran\qcc-latest'
+$acl = $dir.GetAccessControl('Access')
 $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
     'MABA\MABA-DC2$', 'ReadAndExecute', 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
-Set-Acl -Path $share -AclObject $acl
+$dir.SetAccessControl($acl)
 ```
+
+(`GetAccessControl('Access')` כותב רק את רשימת ההרשאות. `Get-Acl` / `Set-Acl` כותבים גם את
+הבעלים, ולכן נכשלים אצל מי שאינו הבעלים של התיקייה — למשל כשמפתח אחר פרסם לאחרונה.)
 
 אחר כך `Start-ScheduledTask -TaskName QCCAnalyticsUpdate` על השרת, ובדיקה בלוג.
 **אל תשנה הרשאות על השיתוף מהשרת עצמו** — זה לא התפקיד שלך כאן; דווח ועצור.

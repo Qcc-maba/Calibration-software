@@ -99,8 +99,13 @@ if ($PSCmdlet.ShouldProcess($Share, 'Replace published build')) {
     catch { throw "cannot resolve reader account '$ReaderAccount': $($_.Exception.Message)" }
 
     $carried = @()
+    $protected = $false
     if (Test-Path $Share) {
-        $carried = @((Get-Item $Share).GetAccessControl('Access').GetAccessRules($true, $false, $sidType))
+        $oldAcl    = (Get-Item $Share).GetAccessControl('Access')
+        $carried   = @($oldAcl.GetAccessRules($true, $false, $sidType))
+        # Inheritance disabled on purpose (to shed a broad parent grant) must stay
+        # disabled, or the fresh folder quietly brings that grant back.
+        $protected = $oldAcl.AreAccessRulesProtected
     }
     $stagingItem = New-Item -ItemType Directory -Path $staging -Force
     $acl = $stagingItem.GetAccessControl('Access')
@@ -132,23 +137,41 @@ if ($PSCmdlet.ShouldProcess($Share, 'Replace published build')) {
     $hash = (Get-FileHash (Join-Path $staging 'payload\dist\index.cjs') -Algorithm MD5).Hash
     Set-Content -Path (Join-Path $staging 'build.md5') -Value $hash -Encoding ascii
 
+    # Applied after the copy, not before: with inheritance cut, the publisher's
+    # own write access may come only from the parent.
+    if ($protected) {
+        $acl = (Get-Item $staging).GetAccessControl('Access')
+        $acl.SetAccessRuleProtection($true, $false)
+        (Get-Item $staging).SetAccessControl($acl)
+        Info 'permissions: inheritance stays disabled, as on the previous folder'
+    }
+
+    # Check the ACL on the folder and on the one file the updater hashes - first
+    # on staging, while the previous build is still in place, so a failure
+    # leaves the server something it can read; then again after the swap.
+    # Failing here is the point: this check would have caught the 12 November
+    # break on the spot instead of three days later. It reads NTFS ACLs only -
+    # share-level permissions and the server's own view are not covered; the
+    # end-to-end proof is the updater's next run (see the message below).
+    function Assert-Readable($folder, $when) {
+        $unreadable = @($folder, (Join-Path $folder 'payload\dist\index.cjs')) |
+            Where-Object { -not (Test-ReaderAcl $_ $readerSid) }
+        if (-not $unreadable) { return }
+        Write-Host ''
+        Write-Host "$when, THE SERVER WOULD NOT BE ABLE TO READ IT" -ForegroundColor Red
+        $unreadable | ForEach-Object { Write-Host "  no read grant for $ReaderAccount in the ACL of $_" -ForegroundColor Red }
+        Write-Host '  The automatic deploy would log ACCESS DENIED and install nothing.'
+        Write-Host "  Fix: grant $ReaderAccount ReadAndExecute (ContainerInherit,ObjectInherit) on $Share"
+        throw "build at $folder is not readable by $ReaderAccount"
+    }
+    Assert-Readable $staging 'NOT PUBLISHED (previous build left in place)'
+
     if (Test-Path $Share) { Remove-Item $Share -Recurse -Force }
     Move-Item $staging $Share
 
-    # Verify what was just published, on the folder and on the one file the
-    # updater hashes. Failing here is the point: this check would have caught
-    # the 12 November break on the spot instead of three days later.
-    $unreadable = @($Share, (Join-Path $Share 'payload\dist\index.cjs')) |
-        Where-Object { -not (Test-ReaderAcl $_ $readerSid) }
-    if ($unreadable) {
-        Write-Host ''
-        Write-Host 'PUBLISHED, BUT THE SERVER CANNOT READ IT' -ForegroundColor Red
-        $unreadable | ForEach-Object { Write-Host "  no read access for $ReaderAccount on $_" -ForegroundColor Red }
-        Write-Host '  The automatic deploy will log ACCESS DENIED and install nothing.'
-        Write-Host "  Fix: grant $ReaderAccount ReadAndExecute (ContainerInherit,ObjectInherit) on $Share"
-        throw "published build is not readable by $ReaderAccount"
-    }
-    Info "verified: $ReaderAccount can read the folder and payload\dist\index.cjs"
+    Assert-Readable $Share 'PUBLISHED, BUT'
+    Info "ACL check: $ReaderAccount has a read grant on the folder and payload\dist\index.cjs"
+    Info '(NTFS only - the updater run below is the end-to-end proof)'
 
     Write-Host ''
     Write-Host 'PUBLISHED' -ForegroundColor Green
@@ -158,5 +181,6 @@ if ($PSCmdlet.ShouldProcess($Share, 'Replace published build')) {
     Write-Host 'The server picks this up on its next check (daily, and at startup).'
     Write-Host 'To apply it right now, on the server as administrator:'
     Write-Host '  Start-ScheduledTask -TaskName QCCAnalyticsUpdate'
+    Write-Host '  Get-ScheduledTaskInfo -TaskName QCCAnalyticsUpdate | Select-Object LastTaskResult   # 5 = access denied'
     Write-Host '  Get-Content C:\apps\qcc-updater\update.log -Tail 20'
 }

@@ -6,7 +6,8 @@
     It is deliberately conservative:
       - does nothing at all when the share is unreachable or the build matches
         (exit 0), but FAILS with exit 5 when the share denies access - that one
-        never fixes itself, so the task must go red rather than stay green
+        never fixes itself, so the task must go red rather than stay green -
+        and with exit 1 on any other error reading the share
       - refuses to touch files unless the app is really stopped (port is free)
       - rolls back automatically if the new build fails its health check
 
@@ -116,13 +117,23 @@ function Exit-Denied($path, $message) {
     exit $ExitAccessDenied
 }
 
+# Only a plain "not there" counts as offline: that is what an unreachable host
+# returns. Any other exception is a failure we cannot explain, so it fails the
+# task rather than being assumed transient.
+# Known gap: a permanent fault that Windows also reports as plain "not there"
+# (it gives no reason with it) still looks offline and exits 0 - check the log if
+# "share not reachable" repeats for more than a day or two.
 $probe = Test-SharedPath $Share
 switch ($probe.State) {
     'denied' { Exit-Denied $Share $probe.Message }
     'ok'     { }
+    'error'  {
+        Log "ERROR reading $Share as $([Security.Principal.WindowsIdentity]::GetCurrent().Name) - nothing deployed: $($probe.Message)"
+        exit 1
+    }
     default {
         # Offline or unreachable: transient, so harmless - try again next run.
-        Log "share not reachable ($Share) - nothing to do$(if ($probe.Message) { ": $($probe.Message)" })"
+        Log "share not reachable ($Share) - nothing to do"
         Log "running as: $([Security.Principal.WindowsIdentity]::GetCurrent().Name)"
         exit 0
     }
