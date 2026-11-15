@@ -142,7 +142,8 @@ switch ($probe.State) {
 # does not inherit), so the build file gets the same distinction.
 $probe = Test-SharedPath $sharedBuild
 if ($probe.State -eq 'denied') { Exit-Denied $sharedBuild $probe.Message }
-if ($probe.State -ne 'ok')     { Log "no build published at $sharedBuild - nothing to do$(if ($probe.Message) { ": $($probe.Message)" })"; exit 0 }
+if ($probe.State -eq 'error')  { Log "ERROR reading $sharedBuild as $([Security.Principal.WindowsIdentity]::GetCurrent().Name) - nothing deployed: $($probe.Message)"; exit 1 }
+if ($probe.State -ne 'ok')     { Log "no build published at $sharedBuild - nothing to do"; exit 0 }
 if (-not (Test-Path $installedBuild)) { Log "no installed build at $installedBuild - aborting"; exit 1 }
 
 $new = (Get-FileHash $sharedBuild -Algorithm MD5).Hash
