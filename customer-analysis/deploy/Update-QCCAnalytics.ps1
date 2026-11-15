@@ -5,6 +5,8 @@
 
     It is deliberately conservative:
       - does nothing at all when the share is unreachable or the build matches
+        (exit 0), but FAILS with exit 5 when the share denies access - that one
+        never fixes itself, so the task must go red rather than stay green
       - refuses to touch files unless the app is really stopped (port is free)
       - rolls back automatically if the new build fails its health check
 
@@ -79,21 +81,57 @@ function Start-App($port) {
 $sharedBuild    = Join-Path $Share 'payload\dist\index.cjs'
 $installedBuild = Join-Path $Target 'dist\index.cjs'
 
+# Exit code for "the share refuses us". 5 is ERROR_ACCESS_DENIED, so Task
+# Scheduler's Last Run Result reads as what it is.
+$ExitAccessDenied = 5
+
 # Test-Path on a UNC path THROWS on a permission error instead of returning
 # false, and with ErrorActionPreference=Stop that killed the run before a single
 # line was logged - the failure looked like the task never started at all.
-$shareOk = $false
-$shareErr = ''
-try { $shareOk = Test-Path $Share -ErrorAction Stop } catch { $shareErr = $_.Exception.Message }
-
-if (-not $shareOk) {
-    # The task runs as SYSTEM, i.e. the machine account. If the share does not
-    # grant it read access this is where it shows up, every time, harmlessly.
-    Log "share not reachable ($Share) - nothing to do$(if ($shareErr) { ": $shareErr" })"
-    Log "running as: $([Security.Principal.WindowsIdentity]::GetCurrent().Name)"
-    exit 0
+# An unreachable host, on the other hand, just returns false. The two must not
+# be treated alike: an outage fixes itself, a denial never does.
+function Test-SharedPath($path) {
+    try {
+        if (Test-Path $path -ErrorAction Stop) { return @{ State = 'ok' } }
+        return @{ State = 'missing' }
+    } catch {
+        $e = $_.Exception
+        $denied = $_.CategoryInfo.Category -eq 'PermissionDenied'
+        for ($x = $e; $x -and -not $denied; $x = $x.InnerException) {
+            if ($x -is [UnauthorizedAccessException] -or $x.HResult -eq -2147024891) { $denied = $true }  # 0x80070005
+        }
+        if ($e.Message -match 'access is denied') { $denied = $true }
+        return @{ State = $(if ($denied) { 'denied' } else { 'error' }); Message = $e.Message }
+    }
 }
-if (-not (Test-Path $sharedBuild))    { Log "no build published at $sharedBuild - nothing to do"; exit 0 }
+
+function Exit-Denied($path, $message) {
+    # Not harmless, and not transient: the task runs as SYSTEM, i.e. the machine
+    # account, and it has lost read access to the share. Until somebody restores
+    # it no build is ever deployed again, so fail the task instead of reporting
+    # success every night (MBA-1032: this sat silent from 12 to 15 November).
+    $me = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    Log "ACCESS DENIED reading $path as $me - nothing deployed: $message"
+    Log "the publish must grant MABA\MABA-DC2`$ ReadAndExecute (inheritable) on $Share; see deploy\CLAUDE-ON-SERVER.md"
+    exit $ExitAccessDenied
+}
+
+$probe = Test-SharedPath $Share
+switch ($probe.State) {
+    'denied' { Exit-Denied $Share $probe.Message }
+    'ok'     { }
+    default {
+        # Offline or unreachable: transient, so harmless - try again next run.
+        Log "share not reachable ($Share) - nothing to do$(if ($probe.Message) { ": $($probe.Message)" })"
+        Log "running as: $([Security.Principal.WindowsIdentity]::GetCurrent().Name)"
+        exit 0
+    }
+}
+# The folder can be readable while what is inside is not (an explicit ACE that
+# does not inherit), so the build file gets the same distinction.
+$probe = Test-SharedPath $sharedBuild
+if ($probe.State -eq 'denied') { Exit-Denied $sharedBuild $probe.Message }
+if ($probe.State -ne 'ok')     { Log "no build published at $sharedBuild - nothing to do$(if ($probe.Message) { ": $($probe.Message)" })"; exit 0 }
 if (-not (Test-Path $installedBuild)) { Log "no installed build at $installedBuild - aborting"; exit 1 }
 
 $new = (Get-FileHash $sharedBuild -Algorithm MD5).Hash
