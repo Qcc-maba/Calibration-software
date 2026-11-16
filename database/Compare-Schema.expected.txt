@@ -14,6 +14,7 @@
 # ---- STAGE-only backup tables, kept from data fixes ----------------------------------------------
 COLUMNS     | STAGE only | dbo.Backup_OrderDetailsItems_Calibrator_20260906.*  | STAGE backup from the 2026-09-06 report-number fix; never deployed
 COLUMNS     | STAGE only | dbo.CustomerContacts_PortalIdentityBackup_20260907.* | STAGE backup from the 2026-09-07 portal identity fix; never deployed
+COLUMNS     | STAGE only | dbo.Backup_OrderDetailsItems_ControllerType_*.*     | MBA-980 STAGE values of the dropped device-level ControllerType (2026-11-16); PROD column empty, no backup there
 
 # ---- PROD-only sync monitoring (live; must never be dropped) --------------------------------------
 COLUMNS     | PROD only  | etl.SyncRunLog.*                                    | etl.SyncRunLog, PROD sync monitoring; does not exist on STAGE

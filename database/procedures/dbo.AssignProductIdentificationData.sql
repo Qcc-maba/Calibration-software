@@ -42,12 +42,17 @@
     (review of app PR #160). Anything else is converted with TRY_CONVERT; a value that is not a
     number leaves the column as it is.
 
-    MBA-980: @ControllerType is gone, and so is OrderDetailsItems.ControllerType
+    MBA-980: OrderDetailsItems.ControllerType is dropped
     (database/schema/dbo.OrderDetailsItems.DropControllerType.sql). The controller belongs to a
     chamber cycle, not to the device: one chamber can use one controller for heating and another
     for cooling (Nofar, Jira 38264). It now lives in CalibrationCycles.ControllerTypeStatusId,
     ControllerManufacturer and ControllerModel, saved by dbo.SaveCalibrationCycleSettings. No screen
     ever filled the device-level field, and the app leaves out null parameters, so no caller sent it.
+
+    @ControllerType is still accepted and ignored. The app's device-identification schema still
+    has the field, and removing the parameter would turn any value it ever sent into a failed save
+    of the whole page ("not a parameter for procedure"). Remove the parameter once the app no
+    longer has controllerType (Kate, Jira 38267).
 */
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -89,6 +94,7 @@ CREATE OR ALTER PROCEDURE [dbo].[AssignProductIdentificationData]
 @ReportLanguage NVARCHAR(50) = NULL,
 @SiteAddress NVARCHAR(100) = NULL,
 @ProductLocation NVARCHAR(50) = NULL,
+@ControllerType NVARCHAR(40) = NULL,	/* MBA-980: deprecated, accepted and ignored (see the header) */
 @DiagramMapLink NVARCHAR(200) = NULL,
 	/* MBA-577: sensor identification. Tolerance and Resolution are scalar.
 	   SpecificationReferenceIds is a CSV because Reference Document became multi-select;
