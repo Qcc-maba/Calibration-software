@@ -78,3 +78,8 @@ ROUTINES    | STAGE only | dbo.SaveCalibrationCycleSettings                    |
 ROUTINES    | STAGE only | dbo.GetPreviousCalibrationCycleSettings             | MBA-980, not deployed to PROD yet
 BODIES      | DIFFERS    | dbo.GetCalibrationCycles                            | MBA-980 returns the cycle settings; deploy with the columns
 COLUMNS     | PROD only  | dbo.OrderDetailsItems.ControllerType                | MBA-980 device-level controller retired (16/11), dropped on STAGE; drop on PROD after the two procs
+# ---- MBA-1004 Report screen "% of Spec" choice saved per line: on STAGE 2026-11-16, PROD with the app change ----
+COLUMNS     | STAGE only | dbo.OrderDetailsItems.ShouldShowPercentOfSpec       | MBA-1004, not deployed to PROD yet
+CONSTRAINTS | STAGE only | DEFAULT dbo.OrderDetailsItems.ShouldShowPercentOfSpec | MBA-1004, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.SetReportDisplayOptions                         | MBA-1004, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetOrderDetailsDevices                          | MBA-1004 returns ShouldShowPercentOfSpec; deploy with the column
