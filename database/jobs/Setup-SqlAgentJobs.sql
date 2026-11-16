@@ -63,7 +63,8 @@
     Refresh customer devices - keeps dbo.CustomerDevices in step with Priority's device register
     (MBA-996): hourly for the devices Priority changed, and a full pass at 03:00 because
     MBA_SERNUMBERS (model, manufacturer, interval) has no UDATE. Run
-    dbo.RefreshCustomerDevicesFromPriority @Apply = 1 once by hand before enabling them: the first
+    dbo.RefreshCustomerDevicesFromPriority @Apply = 0, then @Apply = 1, once by hand, then enable the two
+    jobs: this script creates them DISABLED, so they cannot do that first load unattended. The first
     run loads the whole register (about 590k devices, 1.5 minutes on STAGE).
 
     Every job only READS from Priority. Nothing is written back to the ERP.
@@ -332,7 +333,7 @@ SET @JobId = NULL;   /* see the note on the first job */
 
 EXEC msdb.dbo.sp_add_job
      @job_name         = @Name,
-     @enabled          = 1,
+     @enabled          = 0,   /* enable after the first load by hand - see the header */
      @description      = N'Brings the devices Priority changed in the last hour (SERNUMBERS.UDATE) into dbo.CustomerDevices (MBA-996). Read-only against Priority.',
      @owner_login_name = @OwnerLogin,
      @job_id           = @JobId OUTPUT;
@@ -369,7 +370,7 @@ SET @JobId = NULL;   /* see the note on the first job */
 
 EXEC msdb.dbo.sp_add_job
      @job_name         = @Name,
-     @enabled          = 1,
+     @enabled          = 0,   /* enable after the first load by hand - see the header */
      @description      = N'Re-reads the whole Priority device register into dbo.CustomerDevices (MBA-996): MBA_SERNUMBERS has no UDATE, so model, manufacturer and interval edits only arrive this way. Read-only against Priority.',
      @owner_login_name = @OwnerLogin,
      @job_id           = @JobId OUTPUT;

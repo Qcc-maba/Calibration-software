@@ -196,10 +196,12 @@ BEGIN
 
     IF @CustomerDeviceId IS NOT NULL
     BEGIN
+        /* MBA-996: the device screens' rule, as for @CustomerDeviceIds - not hidden by the customer,
+           not cancelled in Priority (review of PR #60, r4588793601) */
         INSERT INTO @Refs (CustomerId)
-        SELECT d.CustomerId FROM dbo.CustomerDevices AS d
-        INNER JOIN #Mine AS m ON m.CustomerId = d.CustomerId
-        WHERE d.CustomerDeviceID = @CustomerDeviceId AND d.IsDeleted = 0;
+        SELECT v.CustomerId FROM dbo.vwCustomerDevices AS v
+        INNER JOIN #Mine AS m ON m.CustomerId = v.CustomerId
+        WHERE v.CustomerDeviceID = @CustomerDeviceId;
 
         IF @@ROWCOUNT = 0
             THROW 52009, 'The device does not belong to the caller.', 1;
@@ -295,7 +297,8 @@ BEGIN
            (SELECT TOP (1) d.CustomerDeviceID
             FROM dbo.OrderDetailsItems AS it
             INNER JOIN dbo.CustomerDevices AS d ON d.SERN = it.SERN AND d.CustomerId = o.CustomerId
-            WHERE it.OrderDetailsItemId = o.OrderDetailsItemId),
+            WHERE it.OrderDetailsItemId = o.OrderDetailsItemId
+              AND d.IsDeleted = 0 AND d.IsInactiveInSource = 0),
            o.MbaReportNumber, o.SerialNumber, o.CustomerId
     FROM #Owned AS o;
 

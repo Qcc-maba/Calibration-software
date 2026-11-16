@@ -60,6 +60,9 @@
     Exactly one Priority device, matched by exactly one typed row: the typed row gets its SERN and
     Priority's values; its id, site and contact stay. Anything else: the Priority device is added
     as its own row and the typed row gets NeedsReview = 1 with the reason. Never guessed.
+    A typed row that matches, by the same two rules, a registered device we ALREADY hold (typed
+    after the device was loaded) also gets NeedsReview = 1, naming the SERN (step 4d, 2026-11-16).
+    The claim never writes AddedInPortal, so a device the customer added stays on their list.
 
     A DEVICE THAT MOVED TO ANOTHER CUSTOMER
     ---------------------------------------
@@ -331,6 +334,73 @@ BEGIN
     WHERE NOT EXISTS (SELECT 1 FROM #Plan AS p WHERE p.CustomerDeviceID = m.CustomerDeviceID AND p.Action_ = 'claim')
     GROUP BY m.CustomerDeviceID;
 
+    /* 4d. Typed rows that are a device we ALREADY hold (review of PR #60, r4588792340). 4c looks only
+       at devices new in this run, so a customer who types the serial of a registered device after
+       it was loaded - or one part of a compound serial, which the save procedure's whole-serial
+       check lets through - would be listed twice for good. Same matching rules as 4c, against the
+       registered rows of that customer (hidden ones included); never claimed - the device is already
+       held - only flagged for staff. Every typed row is checked on every run: they are few. */
+    CREATE TABLE #TypedAll (CustomerDeviceID INT NOT NULL PRIMARY KEY, CustomerId INT NOT NULL,
+                            SerialKey NVARCHAR(50) COLLATE DATABASE_DEFAULT NOT NULL,
+                            Alnum NVARCHAR(200) COLLATE DATABASE_DEFAULT NULL);
+
+    INSERT INTO #TypedAll (CustomerDeviceID, CustomerId, SerialKey, Alnum)
+    SELECT d.CustomerDeviceID, d.CustomerId, d.SerialKey, dbo.fnSerialAlnum(d.SerialKey)
+    FROM dbo.CustomerDevices AS d
+    WHERE d.SERN IS NULL AND d.IsDeleted = 0 AND d.SerialKey IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM #Plan AS p WHERE p.CustomerDeviceID = d.CustomerDeviceID AND p.Action_ = 'claim')
+      AND NOT EXISTS (SELECT 1 FROM #Review AS r WHERE r.CustomerDeviceID = d.CustomerDeviceID);
+
+    IF EXISTS (SELECT 1 FROM #TypedAll)
+    BEGIN
+        CREATE TABLE #Held (SERN INT NOT NULL PRIMARY KEY, CustomerId INT NOT NULL,
+                            SerialKey NVARCHAR(50) COLLATE DATABASE_DEFAULT NULL,
+                            Body NVARCHAR(50) COLLATE DATABASE_DEFAULT NULL);
+
+        INSERT INTO #Held (SERN, CustomerId, SerialKey, Body)
+        SELECT h.SERN, h.CustomerId, h.SerialKey,
+               CASE WHEN c.CustomerCode IS NOT NULL AND h.SerialKey LIKE UPPER(LTRIM(RTRIM(c.CustomerCode))) + N'-_%'
+                    THEN SUBSTRING(h.SerialKey, LEN(LTRIM(RTRIM(c.CustomerCode))) + 2, 50) ELSE h.SerialKey END
+        FROM dbo.CustomerDevices AS h
+        JOIN dbo.Customers AS c ON c.CustomerId = h.CustomerId
+        WHERE h.SERN IS NOT NULL
+          AND h.CustomerId IN (SELECT CustomerId FROM #TypedAll);
+
+        CREATE TABLE #Twin (CustomerDeviceID INT NOT NULL, SERN INT NOT NULL, PRIMARY KEY (CustomerDeviceID, SERN));
+
+        /* tier 1: the whole serial, with or without the customer prefix */
+        INSERT INTO #Twin (CustomerDeviceID, SERN)
+        SELECT t.CustomerDeviceID, h.SERN
+        FROM #TypedAll AS t
+        JOIN #Held AS h ON h.CustomerId = t.CustomerId AND (t.SerialKey = h.SerialKey OR t.SerialKey = h.Body);
+
+        /* tier 2: one component of a compound serial, for typed rows tier 1 did not place */
+        ;WITH comp AS (
+            SELECT h.SERN, h.CustomerId, dbo.fnSerialAlnum(x.value) AS Part
+            FROM #Held AS h
+            CROSS APPLY STRING_SPLIT(TRANSLATE(h.Body, N'()[]{}/\,;|' + NCHAR(9), REPLICATE(N' ', 12)), N' ') AS x
+            /* only compounds can add anything: skip serials with no separator at all */
+            WHERE CHARINDEX(N' ', LTRIM(RTRIM(TRANSLATE(h.Body, N'()[]{}/\,;|' + NCHAR(9), REPLICATE(N' ', 12))))) > 0
+        ), usable AS (
+            SELECT c.SERN, c.CustomerId, c.Part
+            FROM comp AS c
+            WHERE LEN(c.Part) >= 3
+              AND (SELECT COUNT(DISTINCT c2.Part) FROM comp AS c2 WHERE c2.SERN = c.SERN AND LEN(c2.Part) >= 3) > 1
+        )
+        INSERT INTO #Twin (CustomerDeviceID, SERN)
+        SELECT DISTINCT t.CustomerDeviceID, u.SERN
+        FROM #TypedAll AS t
+        JOIN usable AS u ON u.CustomerId = t.CustomerId AND u.Part = t.Alnum
+        WHERE NOT EXISTS (SELECT 1 FROM #Twin AS w WHERE w.CustomerDeviceID = t.CustomerDeviceID);
+
+        INSERT INTO #Review (CustomerDeviceID, Reason)
+        SELECT w.CustomerDeviceID,
+               LEFT(N'same device as one already loaded from Priority: SERN '
+                    + STRING_AGG(CAST(w.SERN AS NVARCHAR(MAX)), N', ') WITHIN GROUP (ORDER BY w.SERN), 200)
+        FROM #Twin AS w
+        GROUP BY w.CustomerDeviceID;
+    END
+
     /* ------------------------------------------------------------------------------------
        5. Report.
        ------------------------------------------------------------------------------------ */
@@ -397,7 +467,11 @@ BEGIN
         FROM dbo.CustomerDevices AS d
         JOIN #Plan AS p ON p.CustomerDeviceID = d.CustomerDeviceID AND p.Action_ = 'claim'
         JOIN #Shaped AS s ON s.SERN = p.SERN
-        WHERE d.SERN IS NULL;                    /* still typed: nobody claimed it since the plan */
+        WHERE d.SERN IS NULL                     /* still typed: nobody claimed it since the plan */
+          /* and the SERN is still free: a run that overlapped this one, planned before it took the
+             lock, may have inserted it meanwhile (review of PR #60, r4588792693). The typed row
+             then stays typed, and step 4d flags it on the next run. */
+          AND NOT EXISTS (SELECT 1 FROM dbo.CustomerDevices AS h WITH (UPDLOCK, HOLDLOCK) WHERE h.SERN = s.SERN);
         SET @Claimed = @@ROWCOUNT;
 
         UPDATE d SET

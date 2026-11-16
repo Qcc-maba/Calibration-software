@@ -29,6 +29,11 @@ GO
 --              shows what was typed for its categories, unit, specification, location and language.
 --              The visits themselves are dbo.GetCustomerCalibrationReports, column customerDeviceId.
 --
+--              What the customer edits (dbo.AssignCustomerDevicesData) wins over the visit: categories,
+--              unit, location, site and report language show the device's own value first, else the latest
+--              visit's (review of PR #60, r4588791454). The calibration tab's specification, method and
+--              reference document stay visit-first: they describe the calibration that was done.
+--
 -- 2026-08-31 - MBA-943: the ownership guard spans every company the caller belongs to. The device
 --              is re-scoped on every call through dbo.GetPortalCustomerIds, which is derived from the
 --              caller's own CustomerContacts rows and takes no input from the request. A guessed id of
@@ -84,12 +89,12 @@ BEGIN
                   li.OrdersDeviceManufacturer)                                    AS deviceManufacturer
         ,COALESCE(NULLIF(NULLIF(NULLIF(LTRIM(RTRIM(v.Model)), N''), N'-/-'), N'0'),
                   li.DeviceModel)                                                 AS deviceModel
-        ,COALESCE(mc.MainCategoryName, dmc.MainCategoryName)                      AS mainCategory
-        ,COALESCE(sc.SecondaryCategoryName, dsc.SecondaryCategoryName)            AS secondaryCategory
+        ,COALESCE(dmc.MainCategoryName, mc.MainCategoryName)                      AS mainCategory
+        ,COALESCE(dsc.SecondaryCategoryName, sc.SecondaryCategoryName)            AS secondaryCategory
         ,COALESCE(li.Accuracy, v.Accuracy)                                        AS accuracy
-        ,COALESCE(mu.ShortNameHe, dmu.ShortNameHe)                                AS measurementUnit
-        ,COALESCE(li.ProductLocation, v.DeviceLocation)                           AS productLocation
-        ,COALESCE(li.SiteAddress, cs.CustomerSiteAddress, dcs.CustomerSiteAddress) AS siteAddress
+        ,COALESCE(dmu.ShortNameHe, mu.ShortNameHe)                                AS measurementUnit
+        ,COALESCE(NULLIF(v.DeviceLocation, N''), li.ProductLocation)              AS productLocation
+        ,COALESCE(dcs.CustomerSiteAddress, li.SiteAddress, cs.CustomerSiteAddress) AS siteAddress
         ,wp.ShipTypeDesc                                                          AS shippingMethod
         ,wp.OrderNumber                                                           AS orderNumber
         ,li.MbaReportNumber                                                       AS lastReport
@@ -106,9 +111,9 @@ BEGIN
         ,li.Resolution                                                            AS resolution
         ,li.RequiredProbability                                                   AS requiredProbability
         ,li.VisualCheck                                                           AS visualCheck
-        ,COALESCE(li.ReportLanguage, v.ReportLanguage)                            AS reportLanguage
+        ,COALESCE(NULLIF(v.ReportLanguage, N''), li.ReportLanguage)               AS reportLanguage
         ,li.CalibrationStoppedComment                                             AS calibrationComment
-        ,COALESCE(mu.LongNameHe, dmu.LongNameHe)                                  AS measurementUnitLong
+        ,COALESCE(dmu.LongNameHe, mu.LongNameHe)                                  AS measurementUnitLong
         ,v.LatestOrderDetailsItemId                                               AS latestOrderDetailsItemId
         ,v.IsRegistered                                                           AS isRegistered
         ,v.VisitCount                                                             AS visitCount

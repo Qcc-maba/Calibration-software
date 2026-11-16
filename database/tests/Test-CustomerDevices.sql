@@ -266,6 +266,30 @@ INSERT @Out VALUES (N'claim', N'ambiguous: both typed rows flagged, Priority''s 
                     N'2 flagged, 1 added', CONCAT(@n, N' flagged, ', @n2, N' added', CASE WHEN @Err <> 0 THEN CONCAT(N', error ', @Err) END),
                     CASE WHEN @Err = 0 AND @n = 2 AND @n2 = 1 THEN 'PASS' ELSE 'FAIL' END);
 
+/* T18: a typed row for a device we already hold (its bare serial) is flagged, not claimed, and the
+        registered row is untouched (step 4d, review of PR #60 r4588792340) */
+SET @Err = 0; SET @n = NULL; SET @n2 = NULL;
+SET @Body = SUBSTRING(@Serial, CHARINDEX(N'-', @Serial) + 1, 50);
+BEGIN TRAN;
+BEGIN TRY
+    INSERT dbo.CustomerDevices (CustomerId, SerialNumber, AddedInPortal) VALUES (@Cust, @Body, 1);
+    SET @Typed = SCOPE_IDENTITY();
+
+    EXEC dbo.RefreshCustomerDevicesFromPriority @Apply = 1;
+
+    SELECT @n = COUNT(*) FROM dbo.CustomerDevices
+    WHERE CustomerDeviceID = @Typed AND SERN IS NULL AND NeedsReview = 1
+      AND NeedsReviewReason LIKE N'same device as one already loaded from Priority: SERN %' + CAST(@Sern AS NVARCHAR(20)) + N'%';
+    SELECT @n2 = COUNT(*) FROM dbo.CustomerDevices WHERE CustomerDeviceID = @Dev AND SERN = @Sern;
+END TRY
+BEGIN CATCH SET @Err = ERROR_NUMBER(); END CATCH
+IF @@TRANCOUNT > 0 ROLLBACK;
+EXEC sys.sp_set_session_context N'CustomerDevices.Writer', NULL;
+
+INSERT @Out VALUES (N'claim', N'typed twin of a held device: flagged with its SERN, held row kept',
+                    N'1 flagged, 1 held', CONCAT(@n, N' flagged, ', @n2, N' held', CASE WHEN @Err <> 0 THEN CONCAT(N', error ', @Err) END),
+                    CASE WHEN @Err = 0 AND @n = 1 AND @n2 = 1 THEN 'PASS' ELSE 'FAIL' END);
+
 /* T17: the refresh that wrote (T13) left no writer flag behind on the connection */
 INSERT @Out VALUES (N'claim', N'session flag cleared after a writing refresh', N'null', @Flag,
                     CASE WHEN @Flag = N'null' THEN 'PASS' ELSE 'FAIL' END);

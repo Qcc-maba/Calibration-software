@@ -13,7 +13,8 @@
     DISPLAY RULES
     -------------
       - hidden: IsDeleted = 1 (the customer hid it) or IsInactiveInSource = 1 (cancelled in Priority);
-      - shown: a registered device with at least one visit, or a device typed in the portal. That
+      - shown: a registered device with at least one visit, or a device the customer added in the
+        portal (AddedInPortal), whether or not Priority has registered it since. That
         keeps today's list - devices the customer has calibrated with us - while the whole register
         is loaded underneath; showing every registered device later is this one condition;
       - visits: live order lines (nothing cancelled or deleted at order, detail or line level)
@@ -44,7 +45,7 @@ AS
    joined to their device by SERN, under the device's own customer. */
 WITH VisitLines AS
 (
-    SELECT d.CustomerDeviceID, i.OrderDetailsItemId, i.Doc, i.ActualCalibrationDate,
+    SELECT d.CustomerDeviceID, d.CustomerId, i.OrderDetailsItemId, i.Doc, i.ActualCalibrationDate,
            i.NextCalibrationDate, wp.OrderWorkPlanId
     FROM dbo.OrderDetailsItems AS i
     JOIN dbo.OrderDetails      AS od ON od.OrderDetailId   = i.OrderDetailId
@@ -57,32 +58,35 @@ WITH VisitLines AS
 ),
 VisitCounts AS
 (
-    SELECT CustomerDeviceID, COUNT(DISTINCT COALESCE(Doc, -OrderDetailsItemId)) AS VisitCount
+    /* CustomerId in every grouping and partition: callers filter the view by it, and only a key of
+       the window or the grouping lets that filter reach the visits (review of PR #60, r4588793057) */
+    SELECT CustomerDeviceID, CustomerId, COUNT(DISTINCT COALESCE(Doc, -OrderDetailsItemId)) AS VisitCount
     FROM VisitLines
-    GROUP BY CustomerDeviceID
+    GROUP BY CustomerId, CustomerDeviceID
 ),
 LatestVisit AS
 (
-    SELECT CustomerDeviceID, OrderDetailsItemId, Doc, ActualCalibrationDate, NextCalibrationDate,
+    SELECT CustomerDeviceID, CustomerId, OrderDetailsItemId, Doc, ActualCalibrationDate, NextCalibrationDate,
            /* the newest line of the newest order, as dbo.GetCustomerDeviceList picked it before */
-           ROW_NUMBER() OVER (PARTITION BY CustomerDeviceID
+           ROW_NUMBER() OVER (PARTITION BY CustomerId, CustomerDeviceID
                               ORDER BY OrderWorkPlanId DESC, OrderDetailsItemId DESC) AS rn
     FROM VisitLines
 ),
 Shown AS
 (
-    /* registered: only with a visit (today's list); typed in the portal: always */
-    SELECT d.CustomerDeviceID, vc.VisitCount
+    /* with a visit (today's list); without one, a device typed in the portal, also once Priority
+       has registered it (review of PR #60, r4588791119): the claim keeps AddedInPortal */
+    SELECT vc.CustomerDeviceID, vc.CustomerId, vc.VisitCount
     FROM VisitCounts AS vc
-    JOIN dbo.CustomerDevices AS d ON d.CustomerDeviceID = vc.CustomerDeviceID
     UNION ALL
-    SELECT d.CustomerDeviceID, 0
+    SELECT d.CustomerDeviceID, d.CustomerId, 0
     FROM dbo.CustomerDevices AS d
-    WHERE d.SERN IS NULL
+    WHERE (d.SERN IS NULL OR d.AddedInPortal = 1)
+      AND NOT EXISTS (SELECT 1 FROM VisitCounts AS vc WHERE vc.CustomerDeviceID = d.CustomerDeviceID)
 )
 SELECT
     d.CustomerDeviceID,
-    d.CustomerId,
+    s.CustomerId,
     d.SERN,
     CAST(CASE WHEN d.SERN IS NOT NULL THEN 1 ELSE 0 END AS BIT)        AS IsRegistered,
     d.SerialNumber,
@@ -109,6 +113,7 @@ SELECT
     d.SecondaryMeasurmentUnitId,
     d.NeedsReview,
     d.CreatedDate,
+    d.AddedInPortal,
     s.VisitCount,
     lv.OrderDetailsItemId                                              AS LatestOrderDetailsItemId,
     lv.Doc                                                             AS LatestDoc,
@@ -118,7 +123,7 @@ SELECT
          ELSE COALESCE(lv.NextCalibrationDate, d.NextCalibrationDate) END AS NextCalibrationDate
 FROM Shown AS s
 JOIN dbo.CustomerDevices AS d ON d.CustomerDeviceID = s.CustomerDeviceID
-LEFT JOIN LatestVisit AS lv ON lv.CustomerDeviceID = d.CustomerDeviceID AND lv.rn = 1
+LEFT JOIN LatestVisit AS lv ON lv.CustomerId = s.CustomerId AND lv.CustomerDeviceID = s.CustomerDeviceID AND lv.rn = 1
 WHERE d.IsDeleted = 0
   AND d.IsInactiveInSource = 0;
 GO

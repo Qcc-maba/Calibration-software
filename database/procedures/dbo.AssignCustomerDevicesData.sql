@@ -241,15 +241,39 @@ BEGIN
             FROM dbo.CustomerDevices AS d
             WHERE d.CustomerDeviceID = @CustomerDeviceId;
 
-        /* A registered device: what Priority owns may be sent back unchanged, never changed.
-           NULL means "not sent"; '' on a text field means "clear", which is a change too. */
+        /* What the list and detail SHOW for a registered device, which is not always the row's own
+           value: model and manufacturer fall back to the latest visit (Priority's placeholders '-/-'
+           and '0' count as empty), and the device type and next calibration date come from the latest
+           visit only. The form may send back what it displayed, and the contract says an unchanged
+           value is fine (review of PR #60, r4588792083). */
+        DECLARE @ShownModel NVARCHAR(150), @ShownManufacturer NVARCHAR(100), @ShownProductType INT,
+                @ShownNextDate DATETIME2(0);
+
+        IF @Sern IS NOT NULL
+            SELECT @ShownModel        = COALESCE(NULLIF(NULLIF(NULLIF(LTRIM(RTRIM(v.Model)), N''), N'-/-'), N'0'),
+                                                 NULLIF(LTRIM(RTRIM(li.DeviceModel)), N'')),
+                   @ShownManufacturer = COALESCE(NULLIF(NULLIF(NULLIF(LTRIM(RTRIM(v.OrdersDeviceManufacturer)), N''), N'-/-'), N'0'),
+                                                 NULLIF(LTRIM(RTRIM(li.OrdersDeviceManufacturer)), N'')),
+                   @ShownProductType  = od.OrdersProductTypeId,
+                   @ShownNextDate     = v.NextCalibrationDate
+            FROM dbo.vwCustomerDevices AS v
+            LEFT JOIN dbo.OrderDetailsItems AS li ON li.OrderDetailsItemId = v.LatestOrderDetailsItemId
+            LEFT JOIN dbo.OrderDetails      AS od ON od.OrderDetailId      = li.OrderDetailId
+            WHERE v.CustomerDeviceID = @CustomerDeviceId;
+
+        /* A registered device: what Priority owns may be sent back unchanged - as stored or as shown -
+           never changed. NULL means "not sent"; '' on a text field means "clear", which is a change. */
         IF @Sern IS NOT NULL
            AND (   (@SerialNumber IS NOT NULL             AND ISNULL(@Serial, N'')       <> ISNULL(@CurSerial, N''))
-                OR (@Model IS NOT NULL                    AND ISNULL(@ModelText, N'')    <> ISNULL(@CurModel, N''))
-                OR (@OrdersDeviceManufacturer IS NOT NULL AND ISNULL(@Manufacturer, N'') <> ISNULL(@CurManufacturer, N''))
-                OR (@OrdersProductTypeId IS NOT NULL      AND @OrdersProductTypeId       <> ISNULL(@CurProductType, -1))
+                OR (@Model IS NOT NULL                    AND ISNULL(@ModelText, N'')    <> ISNULL(@CurModel, N'')
+                                                          AND ISNULL(@ModelText, N'')    <> ISNULL(@ShownModel, N''))
+                OR (@OrdersDeviceManufacturer IS NOT NULL AND ISNULL(@Manufacturer, N'') <> ISNULL(@CurManufacturer, N'')
+                                                          AND ISNULL(@Manufacturer, N'') <> ISNULL(@ShownManufacturer, N''))
+                OR (@OrdersProductTypeId IS NOT NULL      AND @OrdersProductTypeId       <> ISNULL(@CurProductType, -1)
+                                                          AND @OrdersProductTypeId       <> ISNULL(@ShownProductType, -1))
                 OR (@CalibrationIntervalMonths IS NOT NULL AND @CalibrationIntervalMonths <> ISNULL(@CurInterval, 0))
-                OR (@NextCalibrationDate IS NOT NULL      AND @NextCalibrationDate       <> ISNULL(@CurNextDate, '19000101')))
+                OR (@NextCalibrationDate IS NOT NULL      AND CAST(@NextCalibrationDate AS DATE) <> ISNULL(CAST(@CurNextDate AS DATE), '19000101')
+                                                          AND CAST(@NextCalibrationDate AS DATE) <> ISNULL(CAST(@ShownNextDate AS DATE), '19000101')))
             THROW 54208, 'This field is managed by MABA: a registered device changes only in Priority.', 1;
 
         /* Categories, specification and reference document fit together the way the form's pickers
@@ -288,7 +312,17 @@ BEGIN
             CASE WHEN @CustomerDeviceId IS NOT NULL AND @SerialNumber IS NULL THEN @CurSerial
                  ELSE @Serial END;
 
-        IF @SerialAfter IS NULL
+        /* The serial rules apply to a serial being set: an add, or an edit that changes it. An edit of
+           anything else must not be refused for what the row already is - Priority holds a few
+           devices registered twice under one serial, and a registered serial may be blank (review of
+           PR #60, r4588791809). */
+        DECLARE @SerialChanges BIT =
+            CASE WHEN @CustomerDeviceId IS NULL THEN 1
+                 WHEN @SerialNumber IS NULL THEN 0
+                 WHEN ISNULL(@Serial, N'') = ISNULL(@CurSerial, N'') THEN 0
+                 ELSE 1 END;
+
+        IF @SerialChanges = 1 AND @SerialAfter IS NULL
             THROW 54206, 'A serial number is required.', 1;
 
         /* Priority stores a device as <CustomerCode>-<serial>. Compare without that prefix on both
@@ -305,7 +339,8 @@ BEGIN
         BEGIN TRAN;
             /* Inside the transaction, with range locks, so two saves of the same serial cannot both
                pass the check. */
-            IF EXISTS (SELECT 1 FROM dbo.CustomerDevices AS d WITH (UPDLOCK, HOLDLOCK)
+            IF @SerialChanges = 1
+               AND EXISTS (SELECT 1 FROM dbo.CustomerDevices AS d WITH (UPDLOCK, HOLDLOCK)
                        WHERE d.CustomerId = @CustomerId
                          AND d.IsDeleted = 0
                          AND d.IsInactiveInSource = 0
@@ -361,7 +396,7 @@ BEGIN
                      DateFormatStructure, NextCalibrationDate, CalibrationIntervalMonths, ReportLanguage,
                      IsThirdPartyCalibration, BatteriesReplacement, CalibrationMethod,
                      SpecificationReferenceId, MeasurementsSpecificationId, PrimaryMeasurmentUnitId,
-                     SecondaryMeasurmentUnitId, CreatedDate, UpdateUserID, IsDeleted)
+                     SecondaryMeasurmentUnitId, CreatedDate, UpdateUserID, IsDeleted, AddedInPortal)
                 OUTPUT inserted.CustomerDeviceID INTO @Written (CustomerDeviceID)
                 VALUES
                     (@CustomerId, @MainCategoryId, @SecondaryCategoryId, @CustomerSiteId, @CustomerContactId,
@@ -370,7 +405,8 @@ BEGIN
                      @DateFormat, @NextCalibrationDate, @CalibrationIntervalMonths, @Language,
                      ISNULL(@IsThirdPartyCalibration, 0), ISNULL(@BatteriesReplacement, 0), @Method,
                      @SpecificationReferenceId, @MeasurementsSpecificationId, @PrimaryMeasurmentUnitId,
-                     @SecondaryMeasurmentUnitId, GETDATE(), NULL, 0);
+                     @SecondaryMeasurmentUnitId, GETDATE(), NULL, 0,
+                     1);   /* the view keeps showing it once Priority registers it */
         COMMIT;
     END
 

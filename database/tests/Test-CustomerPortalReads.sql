@@ -756,4 +756,34 @@ INSERT @Out SELECT N'R7 devices', N'another customer''s typed device is in neith
             WHEN @Err IS NULL AND @N = 0 AND @M = 0 THEN N'PASS' ELSE N'FAIL' END;
 
 
+/* d - a device added in the portal stays listed once Priority registers it and the refresh claims it,
+       before any visit (review of PR #60, r4588791119). The claim is simulated with the refresh's
+       session flag; SERN 2147483000 is not a Priority number. */
+SELECT @N = NULL, @M = NULL, @Err = NULL, @Msg = NULL;
+BEGIN TRY
+    BEGIN TRAN;
+    INSERT dbo.CustomerDevices (CustomerId, SerialNumber, AddedInPortal)
+    VALUES (@OwnCust, N'MBA996T-typed-claimed', 1);
+    SET @Typed = SCOPE_IDENTITY();
+    EXEC sys.sp_set_session_context N'CustomerDevices.Writer', N'PriorityRefresh';
+    UPDATE dbo.CustomerDevices SET SERN = 2147483000 WHERE CustomerDeviceID = @Typed;
+    EXEC sys.sp_set_session_context N'CustomerDevices.Writer', NULL;
+    TRUNCATE TABLE #Dev;
+    INSERT #Dev EXEC dbo.GetCustomerDeviceList @LoggedInUserEmail = @Me;
+    SELECT @N = COUNT(*) FROM #Dev WHERE id = @Typed AND isRegistered = 1 AND visitCount = 0;
+    TRUNCATE TABLE #Det;
+    INSERT #Det EXEC dbo.GetCustomerDeviceDetail @LoggedInUserEmail = @Me, @CustomerDeviceId = @Typed;
+    SELECT @M = COUNT(*) FROM #Det WHERE id = @Typed;
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    SELECT @Err = ERROR_NUMBER(), @Msg = ERROR_MESSAGE();
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+EXEC sys.sp_set_session_context N'CustomerDevices.Writer', NULL;
+INSERT @Out SELECT N'R7 devices', N'a portal-added device, registered since, no visit: still listed and opens', N'1 + 1 rows',
+       IIF(@Err IS NULL, CONCAT(@N, N' + ', @M, N' rows'), LEFT(CONCAT(@Err, N' ', @Msg), 80)),
+       CASE WHEN @OwnCust IS NULL THEN N'SKIP - fixture missing'
+            WHEN @Err IS NULL AND @N = 1 AND @M = 1 THEN N'PASS' ELSE N'FAIL' END;
+
 SELECT Seq, Section, Test, Expected, Actual, Result FROM @Out ORDER BY Seq;

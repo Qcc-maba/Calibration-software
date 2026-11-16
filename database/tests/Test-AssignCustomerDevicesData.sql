@@ -135,7 +135,7 @@ INSERT @Cases (Test, Setup, Pre, CallSql, ExpectErr, CheckSql) VALUES
  NULL, N'SELECT @Ok = COUNT(*) FROM #W WHERE customerId = @Cust AND isRegistered = 0 AND isDeleted = 0
           AND serialNumber = N''MBA996T-new''
           AND EXISTS (SELECT 1 FROM dbo.CustomerDevices AS d WHERE d.CustomerDeviceID = #W.customerDeviceId
-                      AND d.SERN IS NULL AND d.Model = N''MBA996T-m'' AND d.CustomerSiteId = @Site);'),
+                      AND d.SERN IS NULL AND d.Model = N''MBA996T-m'' AND d.CustomerSiteId = @Site AND d.AddedInPortal = 1);'),
 (N'A3 add: no serial number', NULL, NULL, @P + N', @CustomerSiteId = @Site, @SerialNumber = N''  ''', 54206, NULL),
 (N'A4 add: another customer''s site', NULL, NULL, @P + N', @CustomerSiteId = @ForeignSite, @SerialNumber = N''MBA996T-4''', 54204, NULL),
 (N'A5 add: another customer''s contact', NULL, NULL,
@@ -174,6 +174,24 @@ INSERT @Cases (Test, Setup, Pre, CallSql, ExpectErr, CheckSql) VALUES
 (N'R8 registered: hiding it is the customer''s choice', NULL, NULL,
  @P + N', @CustomerDevicesIdsToRemove = @RegText',
  NULL, N'SELECT @Ok = COUNT(*) FROM #W WHERE customerDeviceId = @Reg AND isDeleted = 1;'),
+(N'R10 registered: an edit is not refused for a serial the row already shares', NULL,
+ N'INSERT dbo.CustomerDevices (CustomerId, SerialNumber) VALUES (@Cust, @RegBody);',
+ @P + N', @CustomerDeviceId = @Reg, @DeviceLocation = N''MBA996T-r10''',
+ NULL, N'SELECT @Ok = COUNT(*) FROM #W AS w JOIN dbo.CustomerDevices AS d ON d.CustomerDeviceID = w.customerDeviceId
+          WHERE w.customerDeviceId = @Reg AND d.DeviceLocation = N''MBA996T-r10'';'),
+(N'R11 registered: the next date and device type it SHOWS are accepted back', NULL,
+ N'DECLARE @Nd DATETIME2(0), @Pt INT;
+   SELECT @Nd = v.NextCalibrationDate, @Pt = od.OrdersProductTypeId
+   FROM dbo.vwCustomerDevices AS v
+   LEFT JOIN dbo.OrderDetailsItems AS li ON li.OrderDetailsItemId = v.LatestOrderDetailsItemId
+   LEFT JOIN dbo.OrderDetails AS od ON od.OrderDetailId = li.OrderDetailId
+   WHERE v.CustomerDeviceID = @Reg;',
+ @P + N', @CustomerDeviceId = @Reg, @NextCalibrationDate = @Nd, @OrdersProductTypeId = @Pt, @DeviceLocation = N''MBA996T-r11''',
+ NULL, N'SELECT @Ok = COUNT(*) FROM #W AS w JOIN dbo.CustomerDevices AS d ON d.CustomerDeviceID = w.customerDeviceId
+          WHERE w.customerDeviceId = @Reg AND d.DeviceLocation = N''MBA996T-r11'';'),
+(N'R12 registered: a next date it does not show is still refused', NULL,
+ N'DECLARE @Nd DATETIME2(0) = DATEADD(DAY, 1, ISNULL((SELECT NextCalibrationDate FROM dbo.vwCustomerDevices WHERE CustomerDeviceID = @Reg), ''2099-01-01''));',
+ @P + N', @CustomerDeviceId = @Reg, @NextCalibrationDate = @Nd', 54208, NULL),
 (N'R9 another customer''s device cannot be removed', NULL, NULL,
  @P + N', @CustomerDevicesIdsToRemove = @ForeignText', 54202, NULL),
 (N'T1 typed: its model may change',

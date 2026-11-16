@@ -24,13 +24,16 @@ RETURNS NVARCHAR(200)
 WITH SCHEMABINDING, RETURNS NULL ON NULL INPUT
 AS
 BEGIN
-    DECLARE @r NVARCHAR(200) = UPPER(@s) COLLATE Latin1_General_100_BIN2;
-    DECLARE @p INT = PATINDEX(N'%[^A-Z0-9]%', @r);
+    /* The collation goes on the PATINDEX operand: a variable always takes the database's own,
+       which is case- and accent-insensitive, so [A-Z] would also keep accented letters (review of
+       PR #60, r4588793315). Binary: only A-Z and 0-9 survive, as in normalizeSerial(). */
+    DECLARE @r NVARCHAR(200) = UPPER(@s);
+    DECLARE @p INT = PATINDEX(N'%[^A-Z0-9]%', @r COLLATE Latin1_General_100_BIN2);
 
     WHILE @p > 0
     BEGIN
         SET @r = STUFF(@r, @p, 1, N'');
-        SET @p = PATINDEX(N'%[^A-Z0-9]%', @r);
+        SET @p = PATINDEX(N'%[^A-Z0-9]%', @r COLLATE Latin1_General_100_BIN2);
     END
 
     RETURN @r;

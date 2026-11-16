@@ -973,7 +973,23 @@ BEGIN
     END CATCH;
     INSERT @Out SELECT N'4 devices', N'4h a hidden device -> THROW 52004', N'52004',
            ISNULL(CAST(@Err AS NVARCHAR(10)), N'no error'), IIF(@Err = 52004, N'PASS', N'FAIL');
-END;
+
+    /* 4i the single @CustomerDeviceId follows the same rule: a hidden device -> 52009 */
+    SET @Err = NULL;
+    BEGIN TRY
+        BEGIN TRAN;
+        UPDATE dbo.CustomerDevices SET IsDeleted = 1 WHERE CustomerDeviceID = @DevReg;
+        TRUNCATE TABLE #R;
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi, @RequestType = N'DeviceRemoval',
+            @CustomerDeviceId = @DevReg, @Reason = N'MBA996T';
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        SET @Err = ERROR_NUMBER();
+        IF @@TRANCOUNT > 0 ROLLBACK;
+    END CATCH;
+    INSERT @Out SELECT N'4 devices', N'4i a hidden device as @CustomerDeviceId -> THROW 52009', N'52009',
+           ISNULL(CAST(@Err AS NVARCHAR(10)), N'no error'), IIF(@Err = 52009, N'PASS', N'FAIL');END;
 
 INSERT @Out SELECT N'4 devices', N'no test row left behind', N'0',
        CAST((SELECT COUNT(*) FROM dbo.CustomerDevices WHERE SerialNumber LIKE N'MBA996T-%')

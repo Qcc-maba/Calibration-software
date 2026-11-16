@@ -122,6 +122,7 @@ BEGIN
         IsInactiveInSource          BIT            NOT NULL CONSTRAINT DF_CustomerDevices_IsInactiveInSource DEFAULT (0),  /* CANCELDATE > 0 in Priority */
         NeedsReview                 BIT            NOT NULL CONSTRAINT DF_CustomerDevices_NeedsReview        DEFAULT (0),
         NeedsReviewReason           NVARCHAR(200)  NULL,
+        AddedInPortal               BIT            NOT NULL CONSTRAINT DF_CustomerDevices_AddedInPortal      DEFAULT (0),  /* the customer added it (schema/dbo.CustomerDevices.AddedInPortal.sql) */
         SourceUpdatedAt             DATETIME2(0)   NULL,      /* SERNUMBERS.UDATE, also the refresh watermark */
         RefreshedAt                 DATETIME2(0)   NULL,      /* when the refresh last wrote the row */
         CreatedDate                 DATETIME2(0)   NOT NULL CONSTRAINT DF_CustomerDevices_CreatedDate DEFAULT (GETDATE()),
