@@ -65,12 +65,20 @@
         R2  every row @Me gets maps back to a customer of the set: through the customer or item id
             where the result has one, otherwise through the order number, the report path, the
             calibrator assignment or the serial + customer name it carries.
-        R3  GetCustomerDeviceDetail: @ForeignItem gives 0 rows, @OwnItem gives 1.
+        R3  GetCustomerDeviceDetail: @ForeignDevice gives 0 rows, @OwnDevice gives 1.
         R4  GetCustomerCalibrationReports: no report of another customer, and every reportPath
             points at the item's own order - getCustomerReportUrl presigns exactly that path.
         R5  GetCustomerSites: no site of another customer, mapped through the site id itself -
             createPortalRequest accepts a site only if it is in this list.
         R6  GetCustomerDashboardData: the search text is searched for, not executed.
+        R7  MBA-996: a hidden device leaves the list and the detail; a device typed in for the set
+            is listed as not registered with no visit and opens; another customer's is in neither.
+
+    MBA-996 (2026-11-15): the device list and detail return dbo.CustomerDevices ids, so their R2
+    check maps id to a device of the set and latestOrderDetailsItemId to an item of the set; the
+    reports' customerDeviceId must be a device of the set. R3 asks the detail by device id.
+    Device fixtures (@OwnDevice, @ForeignDevice, @InactiveDevice) are devices dbo.vwCustomerDevices
+    shows; the file needs phase 1 of MBA-996 deployed and the register loaded.
 
     The two *FromPriority procedures read Priority over the linked server, for the set's primary
     customer only (IsPrimary in dbo.GetPortalCustomerIds), so their R2 check maps rows to that
@@ -138,12 +146,13 @@ DROP TABLE IF EXISTS #Dev;
 CREATE TABLE #Dev (id INT, deviceStatus NVARCHAR(402), lastCalibration VARCHAR(10), nextCalibration VARCHAR(10),
                    serialNumber NVARCHAR(200), calibrationLocation NVARCHAR(20), deviceDescription NVARCHAR(400),
                    deviceManufacturer NVARCHAR(400), deviceModel NVARCHAR(400), sku NVARCHAR(400),
-                   shippingMethod NVARCHAR(400), lastReport NVARCHAR(100), customerName NVARCHAR(400));
+                   shippingMethod NVARCHAR(400), lastReport NVARCHAR(100), customerName NVARCHAR(400),
+                   latestOrderDetailsItemId INT, isRegistered BIT, visitCount INT);
 DROP TABLE IF EXISTS #Rep;
 CREATE TABLE #Rep (id INT, orderNumber NVARCHAR(20), reportPath NVARCHAR(59), mbaReportNumber NVARCHAR(100),
                    serialNumber NVARCHAR(50), deviceDescription NVARCHAR(100), deviceManufacturer NVARCHAR(100),
                    deviceModel NVARCHAR(100), calibrationDate VARCHAR(10), reportStatus NVARCHAR(402),
-                   reportStatusHeb NVARCHAR(255), customerName NVARCHAR(50));
+                   reportStatusHeb NVARCHAR(255), customerName NVARCHAR(50), customerDeviceId INT);
 DROP TABLE IF EXISTS #Det;
 CREATE TABLE #Det (id INT, deviceStatus NVARCHAR(402), deviceStatusHeb NVARCHAR(255), lastCalibration VARCHAR(10),
                    nextCalibration VARCHAR(10), serialNumber NVARCHAR(50), sku NVARCHAR(100),
@@ -156,7 +165,8 @@ CREATE TABLE #Det (id INT, deviceStatus NVARCHAR(402), deviceStatusHeb NVARCHAR(
                    calibrationSpecification NVARCHAR(50), calibrationMethod NVARCHAR(100), referenceDocument NVARCHAR(50),
                    tolerance DECIMAL(18,6), resolution DECIMAL(18,6), requiredProbability TINYINT,
                    visualCheck NVARCHAR(200), reportLanguage NVARCHAR(50), calibrationComment NVARCHAR(1000),
-                   measurementUnitLong NVARCHAR(100));
+                   measurementUnitLong NVARCHAR(100), latestOrderDetailsItemId INT, isRegistered BIT,
+                   visitCount INT);
 
 /* ---------------------------------------------------------------------------------------------
    Fixtures
@@ -164,7 +174,8 @@ CREATE TABLE #Det (id INT, deviceStatus NVARCHAR(402), deviceStatusHeb NVARCHAR(
 DECLARE @Me NVARCHAR(100), @Inactive NVARCHAR(100), @Staff NVARCHAR(100),
         @Unknown NVARCHAR(100) = N'nobody.mba1014@example.invalid',
         @OwnItem INT, @ForeignItem INT, @ForeignReportItem INT, @ForeignSite INT,
-        @OwnOrder INT, @ForeignOrder INT, @Calibrator INT, @InactiveItem INT, @InactiveOrder INT;
+        @OwnOrder INT, @ForeignOrder INT, @Calibrator INT, @InactiveItem INT, @InactiveOrder INT,
+        @OwnDevice INT, @ForeignDevice INT, @InactiveDevice INT, @ForeignCustomer INT;
 
 /* live = what the device screens show: nothing cancelled or deleted at any level */
 DROP TABLE IF EXISTS #Live;
@@ -226,6 +237,13 @@ INNER JOIN dbo.OrderDetails      AS od ON od.OrderWorkPlanId = wp.OrderWorkPlanI
 INNER JOIN dbo.OrderDetailsItems AS it ON it.OrderDetailId   = od.OrderDetailId
 LEFT JOIN dbo.Customers          AS c  ON c.CustomerId       = m.CustomerId;
 
+/* MBA-996: the set's devices, whatever their state - what the device ids returned map back to */
+DROP TABLE IF EXISTS #MineDevices;
+SELECT d.CustomerDeviceID
+INTO #MineDevices
+FROM #Mine AS m
+INNER JOIN dbo.CustomerDevices AS d ON d.CustomerId = m.CustomerId;
+
 DROP TABLE IF EXISTS #MineOrders;
 SELECT DISTINCT wp.OrderNumber
 INTO #MineOrders
@@ -250,6 +268,17 @@ WHERE l.CustomerId NOT IN (SELECT CustomerId FROM #Mine)
   AND LEN(l.MbaReportNumber) > 0
   AND NOT EXISTS (SELECT 1 FROM #MineItems AS m WHERE m.MbaReportNumber = l.MbaReportNumber)
 ORDER BY l.ItemId;
+
+/* devices the view shows: the caller's own, one of another customer, one of @Inactive's set below */
+SELECT TOP (1) @OwnDevice = v.CustomerDeviceID
+FROM dbo.vwCustomerDevices AS v
+WHERE v.CustomerId IN (SELECT CustomerId FROM #Mine) AND v.VisitCount > 0
+ORDER BY v.CustomerDeviceID;
+
+SELECT TOP (1) @ForeignDevice = v.CustomerDeviceID, @ForeignCustomer = v.CustomerId
+FROM dbo.vwCustomerDevices AS v
+WHERE v.CustomerId NOT IN (SELECT CustomerId FROM #Mine) AND v.VisitCount > 0
+ORDER BY v.CustomerDeviceID;
 
 SELECT TOP (1) @OwnOrder = wp.OrderWorkPlanId
 FROM dbo.OrderWorkPlans AS wp
@@ -283,7 +312,10 @@ WHERE cc.IsDeleted = 0 AND cc.IsActive = 1 AND cc.CustomerContactEmail LIKE N'%_
   AND LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))) <> ISNULL(@Me, N'')
   AND NOT EXISTS (SELECT 1 FROM dbo.Users AS u
                   WHERE LOWER(LTRIM(RTRIM(u.Email))) = LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))))
-ORDER BY CASE WHEN EXISTS (SELECT 1 FROM dbo.CustomerSites AS cs
+/* MBA-996: first, an address whose customer has a device the device screens show, so the list and
+   detail controls have something to lose when it is deactivated */
+ORDER BY CASE WHEN EXISTS (SELECT 1 FROM dbo.vwCustomerDevices AS v WHERE v.CustomerId = cc.CustomerId) THEN 0 ELSE 1 END,
+         CASE WHEN EXISTS (SELECT 1 FROM dbo.CustomerSites AS cs
                            WHERE cs.CustomerId = cc.CustomerId AND ISNULL(cs.IsDeleted, 0) = 0) THEN 0 ELSE 1 END,
          CASE WHEN EXISTS (SELECT 1 FROM #Live AS l
                            WHERE l.CustomerId = cc.CustomerId AND LEN(l.MbaReportNumber) > 0) THEN 0 ELSE 1 END,
@@ -293,6 +325,11 @@ SELECT TOP (1) @InactiveItem = l.ItemId
 FROM #Live AS l
 WHERE l.CustomerId IN (SELECT CustomerId FROM dbo.GetPortalCustomerIds(@Inactive))
 ORDER BY l.ItemId;
+
+SELECT TOP (1) @InactiveDevice = v.CustomerDeviceID
+FROM dbo.vwCustomerDevices AS v
+WHERE v.CustomerId IN (SELECT CustomerId FROM dbo.GetPortalCustomerIds(@Inactive))
+ORDER BY v.CustomerDeviceID;
 
 SELECT TOP (1) @InactiveOrder = wp.OrderWorkPlanId
 FROM dbo.OrderWorkPlans AS wp
@@ -390,13 +427,20 @@ INSERT @Procs (ProcName, Tmp, Extra, NeedsPriority, OwnershipCheck) VALUES
  N'SELECT @Bad = COUNT(*) FROM #Inv AS r WHERE NOT EXISTS (SELECT 1 FROM #MineInvoices AS d WHERE d.DocNo = r.invoiceNumber);'),
 (N'GetCustomerQuotesFromPriority', N'#Quo', N'', 1,
  N'SELECT @Bad = COUNT(*) FROM #Quo AS r WHERE NOT EXISTS (SELECT 1 FROM #MineQuotes AS d WHERE d.DocNo = r.quoteNumber);'),
+/* MBA-996: id is a device of the set, and the visit it names is an item of the set */
 (N'GetCustomerDeviceList', N'#Dev', N'', 0,
- N'SELECT @Bad = COUNT(*) FROM #Dev AS r WHERE NOT EXISTS (SELECT 1 FROM #MineItems AS m WHERE m.ItemId = r.id);'),
+ N'SELECT @Bad = COUNT(*) FROM #Dev AS r WHERE NOT EXISTS (SELECT 1 FROM #MineDevices AS m WHERE m.CustomerDeviceID = r.id)
+     OR (r.latestOrderDetailsItemId IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM #MineItems AS m WHERE m.ItemId = r.latestOrderDetailsItemId));'),
 (N'GetCustomerCalibrationReports', N'#Rep', N'', 0,
- N'SELECT @Bad = COUNT(*) FROM #Rep AS r WHERE NOT EXISTS (SELECT 1 FROM #MineItems AS m WHERE m.ItemId = r.id);'),
-/* @Item is @Me's own item, and @InactiveItem for @Inactive; the other callers ask for @Me's */
-(N'GetCustomerDeviceDetail', N'#Det', N', @OrderDetailsItemId = @Item', 0,
- N'SELECT @Bad = COUNT(*) FROM #Det AS r WHERE NOT EXISTS (SELECT 1 FROM #MineItems AS m WHERE m.ItemId = r.id);');
+ N'SELECT @Bad = COUNT(*) FROM #Rep AS r WHERE NOT EXISTS (SELECT 1 FROM #MineItems AS m WHERE m.ItemId = r.id)
+     OR (r.customerDeviceId IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM #MineDevices AS m WHERE m.CustomerDeviceID = r.customerDeviceId));'),
+/* @Device is @Me's own device, and @InactiveDevice for @Inactive; the other callers ask for @Me's */
+(N'GetCustomerDeviceDetail', N'#Det', N', @CustomerDeviceId = @Device', 0,
+ N'SELECT @Bad = COUNT(*) FROM #Det AS r WHERE NOT EXISTS (SELECT 1 FROM #MineDevices AS m WHERE m.CustomerDeviceID = r.id)
+     OR (r.latestOrderDetailsItemId IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM #MineItems AS m WHERE m.ItemId = r.latestOrderDetailsItemId));');
 
 /* the card shows the nearest visit, so a foreign visit booked earlier than the caller's own is the
    one that would surface if the scope leaked */
@@ -419,8 +463,8 @@ INSERT @Callers (Kind, Email, Deactivate) VALUES
 
 DECLARE @p INT = 1, @c INT, @Proc SYSNAME, @Tmp SYSNAME, @Extra NVARCHAR(200), @NeedsPriority BIT,
         @Check NVARCHAR(MAX), @Setup NVARCHAR(MAX), @Kind NVARCHAR(20), @Who NVARCHAR(100), @Deactivate BIT,
-        @Test NVARCHAR(100), @Item INT, @NActive INT, @ErrActive INT, @Control NVARCHAR(40),
-        @Params NVARCHAR(400) = N'@Who NVARCHAR(100), @Item INT, @OwnOrder INT, @ForeignOrder INT,
+        @Test NVARCHAR(100), @Item INT, @Device INT, @NActive INT, @ErrActive INT, @Control NVARCHAR(40),
+        @Params NVARCHAR(400) = N'@Who NVARCHAR(100), @Item INT, @Device INT, @OwnOrder INT, @ForeignOrder INT,
                                   @InactiveOrder INT, @Calibrator INT, @N INT OUTPUT, @Bad INT OUTPUT';
 
 WHILE @p <= (SELECT COUNT(*) FROM @Procs)
@@ -444,6 +488,7 @@ BEGIN
         BEGIN
             SELECT @N = NULL, @Bad = NULL, @Err = NULL, @Msg = NULL, @NActive = NULL, @ErrActive = NULL;
             SET @Item = IIF(@Deactivate = 1, @InactiveItem, @OwnItem);
+            SET @Device = IIF(@Deactivate = 1, @InactiveDevice, @OwnDevice);
             SET @Sql = CONCAT(@Setup,
                               N'TRUNCATE TABLE ', @Tmp, N'; ',
                               N'INSERT ', @Tmp, N' EXEC dbo.', @Proc, N' @LoggedInUserEmail = @Who', @Extra, N'; ',
@@ -456,7 +501,7 @@ BEGIN
                 BEGIN TRY
                     BEGIN TRAN;
                     EXEC sp_executesql @Sql, @Params,
-                         @Who, @Item, @OwnOrder, @ForeignOrder, @InactiveOrder, @Calibrator, @NActive OUTPUT, @Bad OUTPUT;
+                         @Who, @Item, @Device, @OwnOrder, @ForeignOrder, @InactiveOrder, @Calibrator, @NActive OUTPUT, @Bad OUTPUT;
                     ROLLBACK;
                 END TRY
                 BEGIN CATCH
@@ -471,7 +516,7 @@ BEGIN
                     UPDATE dbo.CustomerContacts SET IsActive = 0
                     WHERE IsDeleted = 0 AND LOWER(LTRIM(RTRIM(CustomerContactEmail))) = @Who;
                 EXEC sp_executesql @Sql, @Params,
-                     @Who, @Item, @OwnOrder, @ForeignOrder, @InactiveOrder, @Calibrator, @N OUTPUT, @Bad OUTPUT;
+                     @Who, @Item, @Device, @OwnOrder, @ForeignOrder, @InactiveOrder, @Calibrator, @N OUTPUT, @Bad OUTPUT;
                 ROLLBACK;
             END TRY
             BEGIN CATCH
@@ -513,24 +558,26 @@ END;
 
 
 /* =============================================================================================
-   R3 - GetCustomerDeviceDetail answers for the caller's own item only
+   R3 - GetCustomerDeviceDetail answers for the caller's own device only (MBA-996: by device id)
    ============================================================================================= */
 BEGIN TRY
     BEGIN TRAN;
     TRUNCATE TABLE #Det;
-    INSERT #Det EXEC dbo.GetCustomerDeviceDetail @LoggedInUserEmail = @Me, @OrderDetailsItemId = @ForeignItem;
+    INSERT #Det EXEC dbo.GetCustomerDeviceDetail @LoggedInUserEmail = @Me, @CustomerDeviceId = @ForeignDevice;
     SELECT @N = COUNT(*) FROM #Det;
     TRUNCATE TABLE #Det;
-    INSERT #Det EXEC dbo.GetCustomerDeviceDetail @LoggedInUserEmail = @Me, @OrderDetailsItemId = @OwnItem;
-    SELECT @M = COUNT(*) FROM #Det WHERE id = @OwnItem;
+    INSERT #Det EXEC dbo.GetCustomerDeviceDetail @LoggedInUserEmail = @Me, @CustomerDeviceId = @OwnDevice;
+    SELECT @M = COUNT(*) FROM #Det WHERE id = @OwnDevice;
     ROLLBACK;
-    /* with no caller or no foreign item the 0 below would prove nothing */
-    INSERT @Out SELECT N'R3 detail', N'another customer''s live item -> 0 rows', N'0 rows',
+    /* with no caller or no foreign device the 0 below would prove nothing */
+    INSERT @Out SELECT N'R3 detail', N'another customer''s shown device -> 0 rows', N'0 rows',
            CONCAT(@N, N' rows'),
-           CASE WHEN @Me IS NULL OR @ForeignItem IS NULL THEN N'SKIP - fixture missing'
+           CASE WHEN @Me IS NULL OR @ForeignDevice IS NULL THEN N'SKIP - fixture missing'
                 WHEN @N = 0 THEN N'PASS' ELSE N'FAIL' END;
-    INSERT @Out SELECT N'R3 detail', N'own live item -> exactly that item', N'1 row',
-           CONCAT(@M, N' rows'), IIF(@M = 1, N'PASS', N'FAIL');
+    INSERT @Out SELECT N'R3 detail', N'own shown device -> exactly that device', N'1 row',
+           CONCAT(@M, N' rows'),
+           CASE WHEN @OwnDevice IS NULL THEN N'SKIP - fixture missing'
+                WHEN @M = 1 THEN N'PASS' ELSE N'FAIL' END;
 END TRY
 BEGIN CATCH
     IF @@TRANCOUNT > 0 ROLLBACK;
@@ -624,5 +671,142 @@ INSERT @Out SELECT N'R6 search', N'search text with an apostrophe is searched fo
        CASE WHEN @Me IS NULL THEN N'SKIP - fixture missing'
             WHEN @Err IS NULL AND @N = 0 THEN N'PASS' ELSE N'FAIL' END;
 
+
+/* =============================================================================================
+   R7 - MBA-996: what the device screens show is dbo.vwCustomerDevices' decision
+     a. a device the customer hid (IsDeleted = 1) leaves the list and the detail
+     b. a device typed in for a customer of the set appears in the list as not registered, with no
+        visit, and opens in the detail
+     c. a device typed in for another customer appears in neither
+   Each runs in its own transaction; the typed rows carry the marker 'MBA996T-'.
+   ============================================================================================= */
+DECLARE @Typed INT, @TypedForeign INT, @OwnCust INT;
+SELECT @OwnCust = CustomerId FROM dbo.CustomerDevices WHERE CustomerDeviceID = @OwnDevice;
+
+/* a */
+SELECT @N = NULL, @M = NULL, @Err = NULL, @Msg = NULL;
+BEGIN TRY
+    BEGIN TRAN;
+    UPDATE dbo.CustomerDevices SET IsDeleted = 1 WHERE CustomerDeviceID = @OwnDevice;
+    TRUNCATE TABLE #Dev;
+    INSERT #Dev EXEC dbo.GetCustomerDeviceList @LoggedInUserEmail = @Me;
+    SELECT @N = COUNT(*) FROM #Dev WHERE id = @OwnDevice;
+    TRUNCATE TABLE #Det;
+    INSERT #Det EXEC dbo.GetCustomerDeviceDetail @LoggedInUserEmail = @Me, @CustomerDeviceId = @OwnDevice;
+    SELECT @M = COUNT(*) FROM #Det;
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    SELECT @Err = ERROR_NUMBER(), @Msg = ERROR_MESSAGE();
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+INSERT @Out SELECT N'R7 devices', N'a hidden device is in neither the list nor the detail', N'0 + 0 rows',
+       IIF(@Err IS NULL, CONCAT(@N, N' + ', @M, N' rows'), LEFT(CONCAT(@Err, N' ', @Msg), 80)),
+       CASE WHEN @OwnDevice IS NULL THEN N'SKIP - fixture missing'
+            WHEN @Err IS NULL AND @N = 0 AND @M = 0 THEN N'PASS' ELSE N'FAIL' END;
+
+/* b */
+SELECT @N = NULL, @M = NULL, @Err = NULL, @Msg = NULL;
+BEGIN TRY
+    BEGIN TRAN;
+    INSERT dbo.CustomerDevices (CustomerId, SerialNumber, Model)
+    VALUES (@OwnCust, N'MBA996T-typed-own', N'MBA996T-model');
+    SET @Typed = SCOPE_IDENTITY();
+    TRUNCATE TABLE #Dev;
+    INSERT #Dev EXEC dbo.GetCustomerDeviceList @LoggedInUserEmail = @Me;
+    SELECT @N = COUNT(*) FROM #Dev
+    WHERE id = @Typed AND isRegistered = 0 AND visitCount = 0 AND latestOrderDetailsItemId IS NULL
+      AND lastCalibration IS NULL AND lastReport IS NULL;
+    TRUNCATE TABLE #Det;
+    INSERT #Det EXEC dbo.GetCustomerDeviceDetail @LoggedInUserEmail = @Me, @CustomerDeviceId = @Typed;
+    SELECT @M = COUNT(*) FROM #Det WHERE id = @Typed AND deviceModel = N'MBA996T-model';
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    SELECT @Err = ERROR_NUMBER(), @Msg = ERROR_MESSAGE();
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+INSERT @Out SELECT N'R7 devices', N'a typed device of the set: listed unregistered, no visit; detail opens', N'1 + 1 rows',
+       IIF(@Err IS NULL, CONCAT(@N, N' + ', @M, N' rows'), LEFT(CONCAT(@Err, N' ', @Msg), 80)),
+       CASE WHEN @OwnCust IS NULL THEN N'SKIP - fixture missing'
+            WHEN @Err IS NULL AND @N = 1 AND @M = 1 THEN N'PASS' ELSE N'FAIL' END;
+
+/* c */
+SELECT @N = NULL, @M = NULL, @Err = NULL, @Msg = NULL;
+BEGIN TRY
+    BEGIN TRAN;
+    INSERT dbo.CustomerDevices (CustomerId, SerialNumber)
+    VALUES (@ForeignCustomer, N'MBA996T-typed-foreign');
+    SET @TypedForeign = SCOPE_IDENTITY();
+    TRUNCATE TABLE #Dev;
+    INSERT #Dev EXEC dbo.GetCustomerDeviceList @LoggedInUserEmail = @Me;
+    SELECT @N = COUNT(*) FROM #Dev WHERE id = @TypedForeign;
+    TRUNCATE TABLE #Det;
+    INSERT #Det EXEC dbo.GetCustomerDeviceDetail @LoggedInUserEmail = @Me, @CustomerDeviceId = @TypedForeign;
+    SELECT @M = COUNT(*) FROM #Det;
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    SELECT @Err = ERROR_NUMBER(), @Msg = ERROR_MESSAGE();
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+INSERT @Out SELECT N'R7 devices', N'another customer''s typed device is in neither', N'0 + 0 rows',
+       IIF(@Err IS NULL, CONCAT(@N, N' + ', @M, N' rows'), LEFT(CONCAT(@Err, N' ', @Msg), 80)),
+       CASE WHEN @ForeignCustomer IS NULL THEN N'SKIP - fixture missing'
+            WHEN @Err IS NULL AND @N = 0 AND @M = 0 THEN N'PASS' ELSE N'FAIL' END;
+
+
+/* d - a device added in the portal stays listed once Priority registers it and the refresh claims it,
+       before any visit (review of PR #60, r4588791119). The claim is simulated with the refresh's
+       session flag; SERN 2147483000 is not a Priority number. */
+SELECT @N = NULL, @M = NULL, @Err = NULL, @Msg = NULL;
+BEGIN TRY
+    BEGIN TRAN;
+    INSERT dbo.CustomerDevices (CustomerId, SerialNumber, AddedInPortal)
+    VALUES (@OwnCust, N'MBA996T-typed-claimed', 1);
+    SET @Typed = SCOPE_IDENTITY();
+    EXEC sys.sp_set_session_context N'CustomerDevices.Writer', N'PriorityRefresh';
+    UPDATE dbo.CustomerDevices SET SERN = 2147483000 WHERE CustomerDeviceID = @Typed;
+    EXEC sys.sp_set_session_context N'CustomerDevices.Writer', NULL;
+    TRUNCATE TABLE #Dev;
+    INSERT #Dev EXEC dbo.GetCustomerDeviceList @LoggedInUserEmail = @Me;
+    SELECT @N = COUNT(*) FROM #Dev WHERE id = @Typed AND isRegistered = 1 AND visitCount = 0;
+    TRUNCATE TABLE #Det;
+    INSERT #Det EXEC dbo.GetCustomerDeviceDetail @LoggedInUserEmail = @Me, @CustomerDeviceId = @Typed;
+    SELECT @M = COUNT(*) FROM #Det WHERE id = @Typed;
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    SELECT @Err = ERROR_NUMBER(), @Msg = ERROR_MESSAGE();
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+EXEC sys.sp_set_session_context N'CustomerDevices.Writer', NULL;
+INSERT @Out SELECT N'R7 devices', N'a portal-added device, registered since, no visit: still listed and opens', N'1 + 1 rows',
+       IIF(@Err IS NULL, CONCAT(@N, N' + ', @M, N' rows'), LEFT(CONCAT(@Err, N' ', @Msg), 80)),
+       CASE WHEN @OwnCust IS NULL THEN N'SKIP - fixture missing'
+            WHEN @Err IS NULL AND @N = 1 AND @M = 1 THEN N'PASS' ELSE N'FAIL' END;
+
+/* e - what the customer set wins over the latest visit in the detail (PR #60 review, r4588791454):
+       location, report language and the categories of a calibrated device */
+SELECT @N = NULL, @Err = NULL, @Msg = NULL;
+BEGIN TRY
+    BEGIN TRAN;
+    UPDATE dbo.CustomerDevices SET DeviceLocation = N'MBA996T-loc', ReportLanguage = N'MBA996T-lang'
+    WHERE CustomerDeviceID = @OwnDevice;
+    TRUNCATE TABLE #Det;
+    INSERT #Det EXEC dbo.GetCustomerDeviceDetail @LoggedInUserEmail = @Me, @CustomerDeviceId = @OwnDevice;
+    SELECT @N = COUNT(*) FROM #Det
+    WHERE id = @OwnDevice AND productLocation = N'MBA996T-loc' AND reportLanguage = N'MBA996T-lang'
+      AND latestOrderDetailsItemId IS NOT NULL;
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    SELECT @Err = ERROR_NUMBER(), @Msg = ERROR_MESSAGE();
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+INSERT @Out SELECT N'R7 devices', N'detail of a calibrated device shows the customer''s location and language', N'1 row',
+       IIF(@Err IS NULL, CONCAT(@N, N' rows'), LEFT(CONCAT(@Err, N' ', @Msg), 80)),
+       CASE WHEN @OwnDevice IS NULL THEN N'SKIP - fixture missing'
+            WHEN @Err IS NULL AND @N = 1 THEN N'PASS' ELSE N'FAIL' END;
 
 SELECT Seq, Section, Test, Expected, Actual, Result FROM @Out ORDER BY Seq;

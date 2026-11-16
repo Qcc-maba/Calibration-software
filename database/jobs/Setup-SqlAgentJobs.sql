@@ -9,6 +9,8 @@
         MABA - Refresh device descriptions            02:30   dbo.RefreshDeviceDescriptions
         MABA - Refresh Priority calibration status    hourly at :20
                                                               dbo.RefreshPriorityCalibrationStatus (MBA-911)
+        MABA - Refresh customer devices               hourly at :40
+        MABA - Refresh customer devices (full)        03:00   dbo.RefreshCustomerDevicesFromPriority (MBA-996)
 
     Set @Database below. Everything else has a working default.
 
@@ -58,7 +60,14 @@
     deploy still does that first run by hand, to check the result: see the notes at the end of
     dbo.RefreshPriorityCalibrationStatus.sql.
 
-    All three jobs only READ from Priority. Nothing is written back to the ERP.
+    Refresh customer devices - keeps dbo.CustomerDevices in step with Priority's device register
+    (MBA-996): hourly for the devices Priority changed, and a full pass at 03:00 because
+    MBA_SERNUMBERS (model, manufacturer, interval) has no UDATE. Run
+    dbo.RefreshCustomerDevicesFromPriority @Apply = 0, then @Apply = 1, once by hand, then enable the two
+    jobs: this script creates them DISABLED, so they cannot do that first load unattended. The first
+    run loads the whole register (about 590k devices, 1.5 minutes on STAGE).
+
+    Every job only READS from Priority. Nothing is written back to the ERP.
 
     02:00 and 02:30 were chosen so the two nightly pulls do not overlap each other or the working
     day. :20 past the hour keeps the status refresh clear of the hourly order load. Those are PROD's
@@ -77,7 +86,9 @@ DECLARE @Database    SYSNAME = N'CalibratorProd',   /* N'Calibrator' for STAGE *
         @OwnerLogin  SYSNAME = NULL,                /* NULL = whoever is running this. N'sa' also fine */
         @PackingTime INT     = 20000,               /* 02:00:00, HHMMSS */
         @DescribeTime INT    = 23000,               /* 02:30:00 */
-        @StatusTime  INT     = 2000;                /* 00:20:00, then every hour */
+        @StatusTime  INT     = 2000,                /* 00:20:00, then every hour */
+        @DevicesTime INT     = 4000,                /* 00:40:00, then every hour (MBA-996) */
+        @DevicesFullTime INT = 30000;               /* 03:00:00 (MBA-996) */
 
 SET @OwnerLogin = COALESCE(@OwnerLogin, SUSER_SNAME());
 
@@ -87,7 +98,8 @@ DECLARE @NameSuffix SYSNAME =
 
 /* HHMMSS arithmetic: fine for the defaults above, none of which is past :44 of its hour. */
 IF @NameSuffix <> N''
-    SELECT @PackingTime += 1500, @DescribeTime += 1500, @StatusTime += 1500;
+    SELECT @PackingTime += 1500, @DescribeTime += 1500, @StatusTime += 1500,
+           @DevicesTime += 1500, @DevicesFullTime += 1500;
 
 /* ============================================================================================= */
 /*  Preflight - say why this will not work BEFORE writing anything                                */
@@ -154,7 +166,8 @@ IF DB_ID(@Database) IS NOT NULL
          + N'Its job would fail on every run: deploy the procedure, or set @Database to the right database.'
     FROM (VALUES (N'RefreshPackingDataFromPriority'),
                  (N'RefreshDeviceDescriptions'),
-                 (N'RefreshPriorityCalibrationStatus')) AS p (Name)
+                 (N'RefreshPriorityCalibrationStatus'),
+                 (N'RefreshCustomerDevicesFromPriority')) AS p (Name)
     WHERE OBJECT_ID(QUOTENAME(@Database) + N'.dbo.' + p.Name, N'P') IS NULL;
 
 /*  Job names with no suffix are PROD's. One that points anywhere else means PROD lost that job to an
@@ -307,6 +320,78 @@ EXEC msdb.dbo.sp_add_jobschedule
      @freq_subday_type     = 8,   /* ... repeating every N hours */
      @freq_subday_interval = 1,
      @active_start_time    = @StatusTime;
+
+EXEC msdb.dbo.sp_add_jobserver @job_id = @JobId, @server_name = N'(local)';
+PRINT 'created: ' + @Name;
+
+/* ---- 4. customer devices, hourly (MBA-996) ---------------------------------------------------- */
+SET @Name = N'MABA - Refresh customer devices' + @NameSuffix;
+IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @Name)
+    EXEC msdb.dbo.sp_delete_job @job_name = @Name, @delete_unused_schedule = 1;
+
+SET @JobId = NULL;   /* see the note on the first job */
+
+EXEC msdb.dbo.sp_add_job
+     @job_name         = @Name,
+     @enabled          = 0,   /* enable after the first load by hand - see the header */
+     @description      = N'Brings the devices Priority changed in the last hour (SERNUMBERS.UDATE) into dbo.CustomerDevices (MBA-996). Read-only against Priority.',
+     @owner_login_name = @OwnerLogin,
+     @job_id           = @JobId OUTPUT;
+
+EXEC msdb.dbo.sp_add_jobstep
+     @job_id         = @JobId,
+     @step_name      = N'EXEC dbo.RefreshCustomerDevicesFromPriority @Apply = 1',
+     @subsystem      = N'TSQL',
+     @database_name  = @Database,
+     @command        = N'EXEC dbo.RefreshCustomerDevicesFromPriority @Apply = 1;',
+     @retry_attempts = 2,
+     @retry_interval = 5,
+     @on_success_action = 1,
+     @on_fail_action    = 2;
+
+EXEC msdb.dbo.sp_add_jobschedule
+     @job_id               = @JobId,
+     @name                 = N'Hourly at :40',
+     @freq_type            = 4,
+     @freq_interval        = 1,
+     @freq_subday_type     = 8,
+     @freq_subday_interval = 1,
+     @active_start_time    = @DevicesTime;
+
+EXEC msdb.dbo.sp_add_jobserver @job_id = @JobId, @server_name = N'(local)';
+PRINT 'created: ' + @Name;
+
+/* ---- 5. customer devices, nightly full (MBA-996) ---------------------------------------------- */
+SET @Name = N'MABA - Refresh customer devices (full)' + @NameSuffix;
+IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @Name)
+    EXEC msdb.dbo.sp_delete_job @job_name = @Name, @delete_unused_schedule = 1;
+
+SET @JobId = NULL;   /* see the note on the first job */
+
+EXEC msdb.dbo.sp_add_job
+     @job_name         = @Name,
+     @enabled          = 0,   /* enable after the first load by hand - see the header */
+     @description      = N'Re-reads the whole Priority device register into dbo.CustomerDevices (MBA-996): MBA_SERNUMBERS has no UDATE, so model, manufacturer and interval edits only arrive this way. Read-only against Priority.',
+     @owner_login_name = @OwnerLogin,
+     @job_id           = @JobId OUTPUT;
+
+EXEC msdb.dbo.sp_add_jobstep
+     @job_id         = @JobId,
+     @step_name      = N'EXEC dbo.RefreshCustomerDevicesFromPriority @Apply = 1, @FullRefresh = 1',
+     @subsystem      = N'TSQL',
+     @database_name  = @Database,
+     @command        = N'EXEC dbo.RefreshCustomerDevicesFromPriority @Apply = 1, @FullRefresh = 1;',
+     @retry_attempts = 2,
+     @retry_interval = 5,
+     @on_success_action = 1,
+     @on_fail_action    = 2;
+
+EXEC msdb.dbo.sp_add_jobschedule
+     @job_id           = @JobId,
+     @name             = N'Nightly 03:00',
+     @freq_type        = 4,
+     @freq_interval    = 1,
+     @active_start_time = @DevicesFullTime;
 
 EXEC msdb.dbo.sp_add_jobserver @job_id = @JobId, @server_name = N'(local)';
 PRINT 'created: ' + @Name;
