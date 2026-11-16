@@ -440,7 +440,11 @@ router.post('/upload', upload.single('file'), multerErrorHandler, async (req: Re
       const candidateIndices: number[] = [];
       const seenDescriptions = new Set<string>();
       results.forEach((r, idx) => {
-        const lowConfidence = r.matchType !== 'exact' && r.matchScore < AI_CONFIDENCE_FLOOR;
+        // התאמה לפי סידורי איננה ניחוש מתיאור: המכשיר עצמו רשום אצלנו, ולכן גם
+        // כשציונה מופחת (סטיית תו בסידורי) אין מה לחפש עליה באינטרנט - חיפוש
+        // כזה היה מחליף מכשיר מזוהה בניחוש גנרי שקיבל ציון גבוה יותר.
+        const lowConfidence =
+          r.matchSource !== 'serial' && r.matchType !== 'exact' && r.matchScore < AI_CONFIDENCE_FLOOR;
         if (lowConfidence && !seenDescriptions.has(r.input.customerDescription)) {
           seenDescriptions.add(r.input.customerDescription);
           candidateIndices.push(idx);
@@ -473,8 +477,11 @@ router.post('/upload', upload.single('file'), multerErrorHandler, async (req: Re
           aiResults.set(input.customerDescription, bestRematch);
         }
       }
-      // החלת התוצאות גם על שורות עם תיאור זהה
+      // החלת התוצאות גם על שורות עם תיאור זהה. שורה שהותאמה לפי סידורי יוצאת
+      // מכאן: המפתח הוא התיאור בלבד, ובקבצים שבהם התיאור חוזר על עצמו תוצאת
+      // חיפוש שנלמדה משורה אחרת הייתה דורסת מכשיר מזוהה שציונו מופחת.
       results.forEach((r, idx) => {
+        if (r.matchSource === 'serial') return;
         const better = aiResults.get(r.input.customerDescription);
         if (better && better.matchScore > r.matchScore) {
           results[idx] = { ...better, input: r.input };

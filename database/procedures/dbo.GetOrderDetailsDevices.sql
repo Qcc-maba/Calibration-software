@@ -1,6 +1,8 @@
 ﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-10-26 (MBA-1002),
 -- plus the three MBA-802 humidity columns, already on STAGE but not yet in this file on develop,
 -- plus SpecificationReferenceEn (MBA-623), which goes to STAGE with that ticket.
+-- MBA-980: ControllerType is no longer returned and the column is dropped; the controller is
+-- stored per chamber cycle in CalibrationCycles (see dbo.AssignProductIdentificationData's header).
 -- Regenerated from the live object; see the in-body comments for what each change does
 -- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
 -- =============================================
@@ -217,7 +219,6 @@ COALESCE(odi.SiteAddress,cs.CustomerSiteAddress, CONCAT(r.[CustAddress], ', ', r
 COALESCE(cs.CustomerSiteAddressENG, IIF(r.[CustAddressENG] IS NOT NULL AND r.[CustCityENG] IS NOT NULL, CONCAT(r.[CustAddressENG], ', ', r.[CustCityENG]), r.[CustAddressENG])) as SiteAddressENG,
 odi.ProductLocation,
 odi.[OrdersDeviceManufacturer],
-odi.[ControllerType],
 odi.[DiagramMapLink],
 -- MBA-855: the Identification screen reads these three, and AssignProductIdentificationData
 -- writes them, but they were never returned, so the screen opened with them empty (STAGE item

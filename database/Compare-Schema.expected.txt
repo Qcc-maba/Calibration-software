@@ -14,6 +14,7 @@
 # ---- STAGE-only backup tables, kept from data fixes ----------------------------------------------
 COLUMNS     | STAGE only | dbo.Backup_OrderDetailsItems_Calibrator_20260906.*  | STAGE backup from the 2026-09-06 report-number fix; never deployed
 COLUMNS     | STAGE only | dbo.CustomerContacts_PortalIdentityBackup_20260907.* | STAGE backup from the 2026-09-07 portal identity fix; never deployed
+COLUMNS     | STAGE only | dbo.Backup_OrderDetailsItems_ControllerType_*.*     | MBA-980 STAGE values of the dropped device-level ControllerType (2026-11-16); PROD column empty, no backup there
 
 # ---- PROD-only sync monitoring (live; must never be dropped) --------------------------------------
 COLUMNS     | PROD only  | etl.SyncRunLog.*                                    | etl.SyncRunLog, PROD sync monitoring; does not exist on STAGE
@@ -60,3 +61,43 @@ BODIES      | DIFFERS    | dbo.CreateCustomerPortalRequest                     |
 ROUTINES    | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)
 BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)
 BODIES      | DIFFERS    | dbo.GetCustomerInvoicesFromPriority                 | held back on 2026-10-25; deploy with MBA-998 (invoice PDFs via S3)
+BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToCalibrationCycle        | MBA-522 placeholder points keyed by name; on STAGE 2026-11-16, works with the current app too
+
+# ---- MBA-911 Priority calibration status + report-only outbox: on STAGE, PROD later ----------------
+# Delete these 13 lines BEFORE the post-deploy gate run on PROD, not after it. They accept every column
+# and constraint of the five tables as STAGE-only, so while they exist a partial deploy still passes,
+# for example one missing the outbox's filtered unique index, which its idempotency depends on (MBA-999).
+COLUMNS     | STAGE only | dbo.PriorityCalibrationStatusCodes.*                | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.PriorityCalibrationStatusFetch.*                | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.PriorityCalibrationStatusLog.*                  | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.PriorityStatusOutbox.*                          | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.PriorityStatusWriteMode.*                       | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.RecordPriorityStatusEvent                       | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.RefreshPriorityCalibrationStatus                | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.vwOrderDetailsItemsPriorityStatus               | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.PriorityCalibrationStatusCodes*               | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.PriorityCalibrationStatusFetch*               | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.PriorityCalibrationStatusLog*                 | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.PriorityStatusOutbox*                         | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.PriorityStatusWriteMode*                      | MBA-911 phases 1-2: on STAGE since 2026-11-11, not deployed to PROD yet
+
+# ---- MBA-980 chamber cycle settings: STAGE first, PROD with the app change that uses them ---------
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Tolerance*                    | MBA-980 cycle settings, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Resolution                    | MBA-980 cycle settings, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Uncertainty                   | MBA-980 cycle settings, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.*Threshold                    | MBA-980 cycle settings, not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *tolerancestart*        | MBA-980 sign rule, not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *toleranceend*          | MBA-980 sign rule, not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *stabilitythreshold*    | MBA-980 sign rule, not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *uniformitythreshold*   | MBA-980 sign rule, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Display*                      | MBA-980 Summary fields (15/11), not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Is*Enabled                    | MBA-980 Summary fields (15/11), not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Controller*                   | MBA-980 Summary fields (15/11), not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.CalculationResolution         | MBA-980 Summary fields (15/11), not deployed to PROD yet
+CONSTRAINTS | STAGE only | FK dbo.CalibrationCycles (ControllerTypeStatusId)*  | MBA-980 controller type FK (15/11), not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *displayresolution*     | MBA-980 sign rule (15/11), not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *calculationresolution* | MBA-980 sign rule (15/11), not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.SaveCalibrationCycleSettings                    | MBA-980, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.GetPreviousCalibrationCycleSettings             | MBA-980, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetCalibrationCycles                            | MBA-980 returns the cycle settings; deploy with the columns
+COLUMNS     | PROD only  | dbo.OrderDetailsItems.ControllerType                | MBA-980 device-level controller retired (16/11), dropped on STAGE; drop on PROD after the two procs

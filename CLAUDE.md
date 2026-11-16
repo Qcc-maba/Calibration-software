@@ -204,7 +204,9 @@ Priority.
   brackets, slash and whitespace, but **not on `-`**, which lives inside the identifier itself.
 - **A digits-only key throws away the letters that disambiguate.** The same customer holds both
   `EQP-130` and `MPL-130`; reducing a query to `130` returns the wrong instrument, with a confident
-  100% score and therefore a wrong part number and price. If both sides carry letters they must agree.
+  100% score and therefore a wrong part number and price. If both sides carry letters they must
+  agree — the pricing serial index relaxes that in one bounded last-resort stage, described in
+  `customer-analysis/CLAUDE.md`.
 - Priority dates are minutes since 1988 in some tables; `3000-12-31` is a "never" sentinel, not a
   write timestamp. Don't read either as freshness.
 - **Priority stores text in VISUAL order.** Hebrew therefore reads correctly only after

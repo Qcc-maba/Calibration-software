@@ -38,6 +38,27 @@ can never read a half-copied build. Writes `build.md5` and injects
 `ANTHROPIC_API_KEY` from your local `.env` into the published
 `env-additions.txt`. Prints the build id; keep it, step 3 wants it.
 
+**The swap never deletes before the new build is in place (MBA-1033).** It
+moves `qcc-latest` aside to `qcc-latest.old-<timestamp>`, moves `.new` in, checks
+that the share holds the new build and that the server can read it, and only
+then deletes the `.old-` folder. Each rename is retried, because over SMB a
+rename can fail for a moment with "Access is denied" while something holds a
+handle. On 15 November the old delete-then-move order hit that race and left no
+share at all. If a publish fails, its red headline says which build is live:
+
+- **`NOT PUBLISHED`**: the previous build is still at `qcc-latest`. Run it again.
+- **`THE SHARE IS MISSING`**: both builds are intact beside it. The next run
+  moves `.new` into place before doing anything else.
+- **`REFUSING TO PUBLISH`**: a `.new` is left over from an earlier publish.
+  Beside a live share it is never deleted automatically: look at it, delete it,
+  and run again. With no share, the newest complete build (`.new`, else the
+  newest `.old-`) is restored first. An incomplete `.new` is never deleted
+  either: the share is still restored from an `.old-` if one is complete, and
+  then the script refuses.
+
+To put builds back by hand, always rename. Never delete first: delete-then-move
+is the order that lost the share. Example: `Rename-Item <share>.new qcc-latest`.
+
 `-SkipBuild` publishes an existing `dist` without rebuilding.
 
 **`deploy/env-additions.txt` is gitignored and was never committed**, so a fresh
@@ -64,10 +85,35 @@ Start-ScheduledTask -TaskName QCCAnalyticsUpdate
 Get-Content C:\apps\qcc-updater\update.log -Tail 20
 ```
 
-**Verify this actually works before relying on it.**
-`deploy/CLAUDE-ON-SERVER.md` records `QCCAnalyticsUpdate` as registered but not
-working, the leading theory being that SYSTEM (`MABA-DC2$`) has no read access
-to the share. Manual fallback:
+**A publish made with the old `Publish-ToServer.ps1` breaks the next automatic
+deploy (MBA-1032).** The task works. It runs as SYSTEM, which reaches the share
+as the computer account `MABA\MABA-DC2$`. Computer accounts are not in Domain
+Users, so the account's access depends on one explicit ACE on `qcc-latest`:
+`MABA\MABA-DC2$`, ReadAndExecute, ContainerInherit+ObjectInherit. The old
+publish deleted and recreated the folder. The new folder came with inherited
+permissions only, so the ACE was gone. From then on the task logged
+`Access is denied` every night and still exited 0. That is how MBA-1027 sat
+undeployed from 12 to 15 November.
+
+The publish now carries the old folder's explicit ACEs over and makes sure that
+ACE is among them. It then checks that the account can read
+`payload\dist\index.cjs`, and the publish fails with `PUBLISHED, BUT THE SERVER
+CANNOT READ IT` if it can't. Until the fixed script is merged and is the one
+you run, check the ACE yourself after every publish:
+
+```powershell
+(Get-Acl '\\maba-srv\maba2000\Eliran\qcc-latest').Access |
+  Where-Object IdentityReference -like '*MABA-DC2$'
+```
+
+If it is missing, `deploy/CLAUDE-ON-SERVER.md` has the grant. You own the
+folder as the publisher, so it runs from your machine and needs no Domain Admin.
+On the server side, the updater now exits **5** on a denial, so the task's
+`LastTaskResult` turns non-zero. An offline share still exits 0. The script in
+`C:\apps\qcc-updater\` does not update itself. Copy the new one over by hand,
+as `CLAUDE-ON-SERVER.md` shows.
+
+Manual fallback, when the task cannot deploy:
 
 ```powershell
 robocopy "\\maba-srv\maba2000\Eliran\qcc-latest" "C:\apps\qcc-server-deploy" /E
