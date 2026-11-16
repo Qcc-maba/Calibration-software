@@ -26,11 +26,13 @@ WHERE u.Email IS NOT NULL AND u.IsActive = 1 AND u.ID > 0   /* 0 is the procs' "
   AND NOT EXISTS (SELECT 1 FROM dbo.Users AS d WHERE d.Email = u.Email AND d.ID <> u.ID)
 ORDER BY u.ID;
 
-/* a live, unchecked, unsigned line */
+/* a live, unchecked, unsigned line the test user may change (not its second calibrator only),
+   so the happy-path writes below cannot hit a refusal and abort the batch */
 DECLARE @Od INT, @Item INT;
 SELECT TOP (1) @Od = i.OrderDetailId, @Item = i.OrderDetailsItemId
 FROM dbo.OrderDetailsItems AS i
 WHERE i.IsDeleted = 0 AND i.ShouldShowPercentOfSpec = 0 AND i.RemarksLockedDate IS NULL
+  AND (i.SecondCalibratorId IS NULL OR i.SecondCalibratorId <> @UserId OR i.MainCalibratorId = @UserId)
 ORDER BY i.OrderDetailsItemId DESC;
 
 DECLARE @Err NVARCHAR(400), @V NVARCHAR(200);
@@ -125,6 +127,7 @@ BEGIN
       ON b.OrderDetailsItemId = a.OrderDetailsItemId AND b.OrderDetailId <> a.OrderDetailId AND b.IsDeleted = 0
     WHERE a.IsDeleted = 0 AND a.ShouldShowPercentOfSpec = 0 AND b.ShouldShowPercentOfSpec = 0
       AND a.RemarksLockedDate IS NULL
+      AND (a.SecondCalibratorId IS NULL OR a.SecondCalibratorId <> @UserId OR a.MainCalibratorId = @UserId)
     ORDER BY a.OrderDetailsItemId;
 
     IF @DupItem IS NULL
