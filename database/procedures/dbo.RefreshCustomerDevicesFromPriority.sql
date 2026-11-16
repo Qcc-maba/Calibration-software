@@ -419,7 +419,11 @@ BEGIN
         ToClaim                = (SELECT COUNT(*) FROM #Plan WHERE Action_ = 'claim'),
         ToMove                 = (SELECT COUNT(*) FROM #Plan WHERE Action_ = 'move'),
         MoveNotApplied         = (SELECT COUNT(*) FROM #Plan WHERE Action_ = 'skip-move'),
-        TypedNeedingReview     = (SELECT COUNT(*) FROM #Review),
+        /* rows this run would flag or re-word - the same condition as the write in step 6, so a dry
+           run reads 0 while earlier flags are merely waiting for staff (PR #60 review, r4589052459) */
+        TypedNeedingReview     = (SELECT COUNT(*) FROM #Review AS r
+                                  JOIN dbo.CustomerDevices AS d ON d.CustomerDeviceID = r.CustomerDeviceID
+                                  WHERE d.NeedsReview = 0 OR ISNULL(d.NeedsReviewReason, N'') <> r.Reason),
         CancelledNow           = (SELECT COUNT(*) FROM #Plan AS p JOIN #Shaped AS s ON s.SERN = p.SERN
                                   JOIN dbo.CustomerDevices AS d ON d.CustomerDeviceID = p.CustomerDeviceID
                                   WHERE s.IsInactiveInSource = 1 AND d.IsInactiveInSource = 0 AND d.SERN IS NOT NULL);

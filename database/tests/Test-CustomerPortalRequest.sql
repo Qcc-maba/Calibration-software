@@ -989,7 +989,26 @@ BEGIN
         IF @@TRANCOUNT > 0 ROLLBACK;
     END CATCH;
     INSERT @Out SELECT N'4 devices', N'4i a hidden device as @CustomerDeviceId -> THROW 52009', N'52009',
-           ISNULL(CAST(@Err AS NVARCHAR(10)), N'no error'), IIF(@Err = 52009, N'PASS', N'FAIL');END;
+           ISNULL(CAST(@Err AS NVARCHAR(10)), N'no error'), IIF(@Err = 52009, N'PASS', N'FAIL');
+    /* 4j an order line whose device the customer hid: the item records no device */
+    SELECT @Err = NULL, @N4 = NULL;
+    BEGIN TRY
+        BEGIN TRAN;
+        UPDATE dbo.CustomerDevices SET IsDeleted = 1 WHERE CustomerDeviceID = @DevReg;
+        TRUNCATE TABLE #R;
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi, @RequestType = N'CalibrationExtension',
+            @ItemIds = @Line4, @Reason = N'MBA996T';
+        SELECT @N4 = COUNT(*) FROM #R AS r
+        JOIN dbo.CustomerPortalRequestItem AS i ON i.CustomerPortalRequestId = r.customerPortalRequestId
+        WHERE i.OrderDetailsItemId = @DevRegLine AND i.CustomerDeviceId IS NULL;
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        SET @Err = ERROR_NUMBER();
+        IF @@TRANCOUNT > 0 ROLLBACK;
+    END CATCH;
+    INSERT @Out SELECT N'4 devices', N'4j an order line of a hidden device: item has no device id', N'1',
+           IIF(@Err IS NULL, CAST(@N4 AS NVARCHAR(10)), CONCAT(N'error ', @Err)), IIF(@Err IS NULL AND @N4 = 1, N'PASS', N'FAIL');END;
 
 INSERT @Out SELECT N'4 devices', N'no test row left behind', N'0',
        CAST((SELECT COUNT(*) FROM dbo.CustomerDevices WHERE SerialNumber LIKE N'MBA996T-%')

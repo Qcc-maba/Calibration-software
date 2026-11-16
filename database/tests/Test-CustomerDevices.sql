@@ -290,6 +290,12 @@ INSERT @Out VALUES (N'claim', N'typed twin of a held device: flagged with its SE
                     N'1 flagged, 1 held', CONCAT(@n, N' flagged, ', @n2, N' held', CASE WHEN @Err <> 0 THEN CONCAT(N', error ', @Err) END),
                     CASE WHEN @Err = 0 AND @n = 1 AND @n2 = 1 THEN 'PASS' ELSE 'FAIL' END);
 
+/* T19: dbo.fnSerialAlnum keeps only A-Z and 0-9, whatever the database collation: an accented
+        letter, a hyphen and a slash all go (PR #60 review, r4588793315) */
+SET @v = dbo.fnSerialAlnum(N'é-a12/b');
+INSERT @Out VALUES (N'serial', N'fnSerialAlnum drops accents and separators', N'A12B', @v,
+                    CASE WHEN @v = N'A12B' COLLATE Latin1_General_100_BIN2 THEN 'PASS' ELSE 'FAIL' END);
+
 /* T17: the refresh that wrote (T13) left no writer flag behind on the connection */
 INSERT @Out VALUES (N'claim', N'session flag cleared after a writing refresh', N'null', @Flag,
                     CASE WHEN @Flag = N'null' THEN 'PASS' ELSE 'FAIL' END);

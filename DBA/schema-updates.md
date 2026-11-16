@@ -296,6 +296,13 @@ customer filter would show one customer another's devices. The rules that preven
 
 Each phase ships on its own and leaves the system working.
 
+**Column added after phase 1 (2026-11-16, PR #60 review): `AddedInPortal`.** The table file has it,
+so a fresh deploy (PROD) needs nothing more. Where the table already exists - STAGE, or any copy
+deployed before 2026-11-16 - run `database/schema/dbo.CustomerDevices.AddedInPortal.sql` BEFORE the
+view, `dbo.AssignCustomerDevicesData` and the tests, which use it. It adds the column (default 0) and
+marks the existing typed rows. STAGE has it since 2026-11-16. The two device jobs are created
+disabled: run the refresh by hand (`@Apply = 0`, then `@Apply = 1`), then enable them.
+
 **Phase 1 status (2026-11-11): on STAGE and loaded (591,281 devices); PROD on hold (point 7.1). The
 two SQL Agent jobs are not created yet on either server.** Files:
 `database/procedures/dbo.CustomerDevices.table.sql`, `dbo.trCustomerDevices_PriorityOwned.sql`,

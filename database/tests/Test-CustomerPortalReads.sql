@@ -786,4 +786,27 @@ INSERT @Out SELECT N'R7 devices', N'a portal-added device, registered since, no 
        CASE WHEN @OwnCust IS NULL THEN N'SKIP - fixture missing'
             WHEN @Err IS NULL AND @N = 1 AND @M = 1 THEN N'PASS' ELSE N'FAIL' END;
 
+/* e - what the customer set wins over the latest visit in the detail (PR #60 review, r4588791454):
+       location, report language and the categories of a calibrated device */
+SELECT @N = NULL, @Err = NULL, @Msg = NULL;
+BEGIN TRY
+    BEGIN TRAN;
+    UPDATE dbo.CustomerDevices SET DeviceLocation = N'MBA996T-loc', ReportLanguage = N'MBA996T-lang'
+    WHERE CustomerDeviceID = @OwnDevice;
+    TRUNCATE TABLE #Det;
+    INSERT #Det EXEC dbo.GetCustomerDeviceDetail @LoggedInUserEmail = @Me, @CustomerDeviceId = @OwnDevice;
+    SELECT @N = COUNT(*) FROM #Det
+    WHERE id = @OwnDevice AND productLocation = N'MBA996T-loc' AND reportLanguage = N'MBA996T-lang'
+      AND latestOrderDetailsItemId IS NOT NULL;
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    SELECT @Err = ERROR_NUMBER(), @Msg = ERROR_MESSAGE();
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+INSERT @Out SELECT N'R7 devices', N'detail of a calibrated device shows the customer''s location and language', N'1 row',
+       IIF(@Err IS NULL, CONCAT(@N, N' rows'), LEFT(CONCAT(@Err, N' ', @Msg), 80)),
+       CASE WHEN @OwnDevice IS NULL THEN N'SKIP - fixture missing'
+            WHEN @Err IS NULL AND @N = 1 THEN N'PASS' ELSE N'FAIL' END;
+
 SELECT Seq, Section, Test, Expected, Actual, Result FROM @Out ORDER BY Seq;
