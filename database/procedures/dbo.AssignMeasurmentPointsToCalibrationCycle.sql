@@ -17,6 +17,20 @@
     naming the clash instead of the MERGE error.
 
     NO_SENSOR is looked up by MabaID, never by id: identity ids differ between STAGE and PROD.
+
+    Consequences of the placeholder key, accepted on purpose:
+    - Renaming a placeholder point soft-deletes its row and inserts a new one (new id). Nothing
+      reads MeasurmentPointsToCalibrationCycleId or the deleted rows (checked 2026-11-16: the app
+      reads live rows only, DeleteCalibrationCycle works per cycle). A real point keeps its row.
+    - The key compares names case- and accent-insensitively (column collation CI_AI), so T1 and t1
+      on one placeholder sensor are one point. The change test compares names in BIN2, so a re-
+      spelling (t1 -> T1) is still written.
+    - A cycle that already holds two live rows under one key (written by the old body's first save)
+      is refused on every save until the user removes or renames one of the points. On STAGE
+      2026-11-16 that is two cycles, both test data (line 155: three unnamed NO_SENSOR points;
+      line 591: two T9 on channel 10); before this change those saves failed with the MERGE error.
+
+    The soft delete is scoped per (line, cycle) pair from the request, not per line x per date.
 */
 CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToCalibrationCycle]
     @LoggedInUserEmail NVARCHAR(200),
@@ -135,11 +149,13 @@ BEGIN
         /* The same point twice in one request: refuse before writing anything */
         DECLARE @Clash NVARCHAR(400);
         SELECT TOP (1) @Clash =
-              N'Two points share sensor ' + CAST(pd.SensorMeasurementDeviceId AS NVARCHAR(20))
+              N'Order line ' + CAST(pd.OrderDetailsItemId AS NVARCHAR(20))
+            + N', cycle ' + CONVERT(NVARCHAR(19), pd.CalibrationCycleStartDate, 120)
+            + N': two points share sensor ' + CAST(pd.SensorMeasurementDeviceId AS NVARCHAR(20))
             + N', channel ' + CAST(pd.ChannelNumber AS NVARCHAR(20))
             + CASE WHEN MAX(CAST(pd.IsPlaceholder AS INT)) = 1
                    THEN N' and point name "' + pd.PointKeyName + N'"' ELSE N'' END
-            + N' in one cycle (' + STRING_AGG(COALESCE(NULLIF(LTRIM(RTRIM(pd.MeasurmentPointName)), N''), N'(unnamed)'), N', ') + N').'
+            + N' (' + STRING_AGG(COALESCE(NULLIF(LTRIM(RTRIM(pd.MeasurmentPointName)), N''), N'(unnamed)'), N', ') + N').'
         FROM #parsedData AS pd
         WHERE pd.OrderDetailsItemId IS NOT NULL
           AND pd.CalibrationCycleStartDate IS NOT NULL
@@ -147,7 +163,9 @@ BEGIN
           AND pd.SensorMeasurementDeviceId IS NOT NULL
         GROUP BY pd.OrderDetailsItemId, pd.CalibrationCycleStartDate, pd.SensorMeasurementDeviceId,
                  pd.ChannelNumber, pd.PointKeyName
-        HAVING COUNT(*) > 1;
+        HAVING COUNT(*) > 1
+        ORDER BY pd.OrderDetailsItemId, pd.CalibrationCycleStartDate, pd.SensorMeasurementDeviceId,
+                 pd.ChannelNumber, pd.PointKeyName;
 
         IF @Clash IS NOT NULL
             THROW 51000, @Clash, 1;
@@ -167,8 +185,9 @@ BEGIN
                     OR pd.PointKeyName = LTRIM(RTRIM(COALESCE(dest.MeasurmentPointName, N''))))
         WHERE dest.IsDeleted = 0
           AND pd.SensorMeasurementDeviceId IS NULL
-          AND dest.OrderDetailsItemId IN (SELECT OrderDetailsItemId FROM #parsedData WHERE OrderDetailsItemId IS NOT NULL)
-          AND dest.CalibrationCycleStartDate IN (SELECT CalibrationCycleStartDate FROM #parsedData WHERE CalibrationCycleStartDate IS NOT NULL)
+          AND EXISTS (SELECT 1 FROM #parsedData AS s
+                      WHERE s.OrderDetailsItemId = dest.OrderDetailsItemId
+                        AND s.CalibrationCycleStartDate = dest.CalibrationCycleStartDate)
 
         /* Insert new data or update existing FOR THIS SPECIFIC CYCLE */
         MERGE INTO [dbo].[MeasurmentPointsToCalibrationCycles] AS dest
@@ -205,7 +224,8 @@ BEGIN
              AND (source.[IsPlaceholder] = 0
                   OR source.[PointKeyName] = LTRIM(RTRIM(COALESCE(dest.[MeasurmentPointName], N''))))
         WHEN MATCHED AND (
-                   COALESCE(dest.[MeasurmentPointName],'') <> COALESCE(source.[MeasurmentPointName],'')
+                   COALESCE(dest.[MeasurmentPointName],'') COLLATE Latin1_General_100_BIN2
+                       <> COALESCE(source.[MeasurmentPointName],'') COLLATE Latin1_General_100_BIN2
                 OR COALESCE(dest.[MeasurmentPointCoordX],0) <> COALESCE(source.[MeasurmentPointCoordX],0)
                 OR COALESCE(dest.[MeasurmentPointCoordY],0) <> COALESCE(source.[MeasurmentPointCoordY],0)
                 OR COALESCE(dest.[MasterValue],0) <> COALESCE(source.[MasterValue],0)

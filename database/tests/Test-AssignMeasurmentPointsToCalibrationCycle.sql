@@ -12,9 +12,11 @@
     3. one placeholder point left out - only that one is soft-deleted;
     4. a new named placeholder point - inserted beside the others;
     5. a real channel: a point renamed keeps its row (the key there is still sensor + channel);
+       5b. a case-only re-spelling is still written;
     6. two differently named points on NO_SENSOR, real channel - both saved;
     7. refusals (51000, before any write): the same unnamed placeholder twice, two points on one
-       real sensor + channel.
+       real sensor + channel;
+    9. the soft delete touches only the (line, cycle) pairs in the request, not every line x date.
 
     Run on STAGE:
         Invoke-CalibratorStageSqlFile.ps1 -Path database\tests\Test-AssignMeasurmentPointsToCalibrationCycle.sql
@@ -36,14 +38,15 @@ FROM dbo.MeasurmentPointsToCalibrationCycles AS c
 WHERE c.IsDeleted = 0 AND c.ChannelNumber = 99 AND c.SensorMeasurementDeviceId <> COALESCE(@NoSensorId, -1)
 GROUP BY c.OrderDetailsItemId, c.CalibrationCycleStartDate, c.SensorMeasurementDeviceId
 HAVING COUNT(*) >= 2 AND COUNT(*) = COUNT(DISTINCT LTRIM(RTRIM(COALESCE(c.MeasurmentPointName, N''))))
+   /* and nothing else in the cycle is already a duplicate under the new key (it would be refused) */
+   AND NOT EXISTS (SELECT 1 FROM dbo.MeasurmentPointsToCalibrationCycles AS d
+                   WHERE d.OrderDetailsItemId = c.OrderDetailsItemId
+                     AND d.CalibrationCycleStartDate = c.CalibrationCycleStartDate AND d.IsDeleted = 0
+                   GROUP BY d.SensorMeasurementDeviceId, d.ChannelNumber,
+                            CASE WHEN d.ChannelNumber = 99 OR d.SensorMeasurementDeviceId = @NoSensorId
+                                 THEN LTRIM(RTRIM(COALESCE(d.MeasurmentPointName, N''))) ELSE N'' END
+                   HAVING COUNT(*) > 1)
 ORDER BY COUNT(*) DESC, c.CalibrationCycleStartDate DESC;
-
-IF @Line IS NULL OR @UserEmail IS NULL OR @NoSensorId IS NULL
-BEGIN
-    SELECT N'0 setup' AS Step, N'FAIL' AS Result,
-           N'needs a cycle with 2+ named-apart ch-99 points, the test user and NO_SENSOR' AS Detail;
-    RETURN;
-END;
 
 /* A real (non-99) channel unused by this sensor in the cycle */
 DECLARE @RealCh INT = (SELECT MIN(v.n) FROM (VALUES (1),(2),(3),(4),(5),(6),(7),(8)) AS v(n)
@@ -51,6 +54,13 @@ DECLARE @RealCh INT = (SELECT MIN(v.n) FROM (VALUES (1),(2),(3),(4),(5),(6),(7),
                                          WHERE c.OrderDetailsItemId = @Line AND c.CalibrationCycleStartDate = @Cycle
                                            AND c.IsDeleted = 0 AND c.ChannelNumber = v.n
                                            AND c.SensorMeasurementDeviceId IN (@Sensor, @NoSensorId)));
+
+IF @Line IS NULL OR @UserEmail IS NULL OR @NoSensorId IS NULL OR @RealCh IS NULL
+BEGIN
+    SELECT N'0 setup' AS Step, N'FAIL' AS Result,
+           N'needs a cycle with 2+ named-apart ch-99 points and no other duplicates, a free channel 1-8, the test user and NO_SENSOR' AS Detail;
+    RETURN;
+END;
 
 /* The cycle's saved points, as the app would send them */
 CREATE TABLE #Pts (
@@ -188,6 +198,21 @@ BEGIN TRY
                    WHERE OrderDetailsItemId = @Line AND CalibrationCycleStartDate = @Cycle AND IsDeleted = 0
                      AND SensorMeasurementDeviceId = @Sensor AND ChannelNumber = @RealCh) = 1
              THEN N'PASS' ELSE N'FAIL' END, CONCAT(N'row ', @RealId);
+
+    /* 5b. a case-only re-spelling is still written */
+    UPDATE #Pts SET MeasurmentPointName = N'mba522-b' WHERE MeasurmentPointName = N'MBA522-B';
+    SET @Json = (SELECT @Line AS OrderDetailsItemId, @Cycle AS CalibrationCycleStartDate,
+                        JSON_QUERY((SELECT p.MeasurmentPointName, p.SensorMeasurementDeviceId, p.ChannelNumber,
+                                           p.MeasurmentPointCoordX, p.MeasurmentPointCoordY, p.MasterValue,
+                                           p.MasterValueUnitId, p.AdditionalValue, p.AdditionalValueUnitId,
+                                           p.StabilityValue, p.UncertancyValue, p.MeasuredValue, p.MeasuredValueUnitId
+                                    FROM #Pts AS p FOR JSON PATH, INCLUDE_NULL_VALUES)) AS Points
+                 FOR JSON PATH, INCLUDE_NULL_VALUES);
+    EXEC dbo.AssignMeasurmentPointsToCalibrationCycle @LoggedInUserEmail = @UserEmail, @Data = @Json;
+    INSERT @Results SELECT N'5b case-only rename is written',
+        CASE WHEN (SELECT MeasurmentPointName COLLATE Latin1_General_100_BIN2 FROM dbo.MeasurmentPointsToCalibrationCycles
+                   WHERE MeasurmentPointsToCalibrationCycleId = @RealId AND IsDeleted = 0) = N'mba522-b' COLLATE Latin1_General_100_BIN2
+             THEN N'PASS' ELSE N'FAIL' END, NULL;
 END TRY
 BEGIN CATCH
     INSERT @Results VALUES (N'1-6 unexpected error', N'FAIL', ERROR_MESSAGE());
@@ -209,7 +234,7 @@ BEGIN CATCH
 END CATCH;
 IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
 INSERT @Results SELECT N'7a same unnamed placeholder twice refused',
-    CASE WHEN @Err LIKE N'51000: Two points share%' THEN N'PASS' ELSE N'FAIL' END, COALESCE(@Err, N'no error');
+    CASE WHEN @Err LIKE N'51000: Order line %two points share%' THEN N'PASS' ELSE N'FAIL' END, COALESCE(@Err, N'no error');
 
 SET @Dup = CONCAT(N'[{"OrderDetailsItemId":', @Line, N',"CalibrationCycleStartDate":"',
     CONVERT(NVARCHAR(19), @Cycle, 126), N'","Points":[',
@@ -225,7 +250,57 @@ BEGIN CATCH
 END CATCH;
 IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
 INSERT @Results SELECT N'7b two points on one real sensor + channel refused',
-    CASE WHEN @Err LIKE N'51000: Two points share%' THEN N'PASS' ELSE N'FAIL' END, COALESCE(@Err, N'no error');
+    CASE WHEN @Err LIKE N'51000: Order line %two points share%' THEN N'PASS' ELSE N'FAIL' END, COALESCE(@Err, N'no error');
+
+/* 9. the soft delete is scoped per (line, cycle) pair. Line A resends cycle X unchanged and the
+   request also carries a pair (-1, Y) with no points, where Y is another cycle of line A. A line x
+   date scope would soft-delete A/Y's points; a pair scope leaves them alone. */
+DECLARE @A INT, @X DATETIME2(0), @Y DATETIME2(0);
+SELECT TOP (1) @A = x.OrderDetailsItemId, @X = x.CalibrationCycleStartDate, @Y = y.CalibrationCycleStartDate
+FROM (SELECT DISTINCT OrderDetailsItemId, CalibrationCycleStartDate
+      FROM dbo.MeasurmentPointsToCalibrationCycles WHERE IsDeleted = 0) AS x
+JOIN (SELECT DISTINCT OrderDetailsItemId, CalibrationCycleStartDate
+      FROM dbo.MeasurmentPointsToCalibrationCycles WHERE IsDeleted = 0) AS y
+  ON y.OrderDetailsItemId = x.OrderDetailsItemId AND y.CalibrationCycleStartDate <> x.CalibrationCycleStartDate
+WHERE NOT EXISTS (SELECT 1 FROM dbo.MeasurmentPointsToCalibrationCycles AS d
+                  WHERE d.OrderDetailsItemId = x.OrderDetailsItemId
+                    AND d.CalibrationCycleStartDate = x.CalibrationCycleStartDate AND d.IsDeleted = 0
+                  GROUP BY d.SensorMeasurementDeviceId, d.ChannelNumber,
+                           CASE WHEN d.ChannelNumber = 99 OR d.SensorMeasurementDeviceId = @NoSensorId
+                                THEN LTRIM(RTRIM(COALESCE(d.MeasurmentPointName, N''))) ELSE N'' END
+                  HAVING COUNT(*) > 1)
+ORDER BY x.CalibrationCycleStartDate DESC;
+
+IF @A IS NULL
+    INSERT @Results VALUES (N'9 soft delete scoped per line + cycle', N'SKIP', N'no line with two live cycles');
+ELSE
+BEGIN
+    DECLARE @YRows INT = (SELECT COUNT(*) FROM dbo.MeasurmentPointsToCalibrationCycles
+                          WHERE OrderDetailsItemId = @A AND CalibrationCycleStartDate = @Y AND IsDeleted = 0);
+    SET @Json = CONCAT(N'[{"OrderDetailsItemId":', @A, N',"CalibrationCycleStartDate":"', CONVERT(NVARCHAR(19), @X, 126),
+        N'","Points":', (SELECT c.MeasurmentPointName, c.SensorMeasurementDeviceId, c.ChannelNumber,
+                                c.MeasurmentPointCoordX, c.MeasurmentPointCoordY, c.MasterValue,
+                                c.MasterValueUnitId, c.AdditionalValue, c.AdditionalValueUnitId,
+                                c.StabilityValue, c.UncertancyValue, c.MeasuredValue, c.MeasuredValueUnitId
+                         FROM dbo.MeasurmentPointsToCalibrationCycles AS c
+                         WHERE c.OrderDetailsItemId = @A AND c.CalibrationCycleStartDate = @X AND c.IsDeleted = 0
+                         FOR JSON PATH, INCLUDE_NULL_VALUES),
+        N'},{"OrderDetailsItemId":-1,"CalibrationCycleStartDate":"', CONVERT(NVARCHAR(19), @Y, 126), N'","Points":[]}]');
+    SET @Err = NULL;
+    BEGIN TRANSACTION;
+    BEGIN TRY
+        EXEC dbo.AssignMeasurmentPointsToCalibrationCycle @LoggedInUserEmail = @UserEmail, @Data = @Json;
+    END TRY
+    BEGIN CATCH
+        SET @Err = CONCAT(ERROR_NUMBER(), N': ', ERROR_MESSAGE());
+    END CATCH;
+    SET @N = (SELECT COUNT(*) FROM dbo.MeasurmentPointsToCalibrationCycles
+              WHERE OrderDetailsItemId = @A AND CalibrationCycleStartDate = @Y AND IsDeleted = 0);
+    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+    INSERT @Results SELECT N'9 soft delete scoped per line + cycle',
+        CASE WHEN @Err IS NULL AND @N = @YRows THEN N'PASS' ELSE N'FAIL' END,
+        CONCAT(N'line ', @A, N': cycle Y points ', @YRows, N' -> ', @N, CASE WHEN @Err IS NOT NULL THEN N'; ' + @Err END);
+END;
 
 /* nothing persisted */
 INSERT @Results SELECT N'8 nothing left behind',
