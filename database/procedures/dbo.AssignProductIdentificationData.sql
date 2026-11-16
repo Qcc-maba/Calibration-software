@@ -41,6 +41,13 @@
     so a cleared field came back on reload, and a device moved out of "Humidity" kept its values
     (review of app PR #160). Anything else is converted with TRY_CONVERT; a value that is not a
     number leaves the column as it is.
+
+    MBA-980: @ControllerType is gone, and so is OrderDetailsItems.ControllerType
+    (database/schema/dbo.OrderDetailsItems.DropControllerType.sql). The controller belongs to a
+    chamber cycle, not to the device: one chamber can use one controller for heating and another
+    for cooling (Nofar, Jira 38264). It now lives in CalibrationCycles.ControllerTypeStatusId,
+    ControllerManufacturer and ControllerModel, saved by dbo.SaveCalibrationCycleSettings. No screen
+    ever filled the device-level field, and the app leaves out null parameters, so no caller sent it.
 */
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -82,7 +89,6 @@ CREATE OR ALTER PROCEDURE [dbo].[AssignProductIdentificationData]
 @ReportLanguage NVARCHAR(50) = NULL,
 @SiteAddress NVARCHAR(100) = NULL,
 @ProductLocation NVARCHAR(50) = NULL,
-@ControllerType NVARCHAR(40) = NULL,
 @DiagramMapLink NVARCHAR(200) = NULL,
 	/* MBA-577: sensor identification. Tolerance and Resolution are scalar.
 	   SpecificationReferenceIds is a CSV because Reference Document became multi-select;
@@ -136,7 +142,6 @@ BEGIN
 					   ,[SiteAddress]
 					   ,[ProductLocation]
 					   ,[OrdersDeviceManufacturer] 
-					   ,[ControllerType]
 					   ,[DiagramMapLink]
 					   ,[Tolerance]
 					   ,[Resolution]
@@ -176,7 +181,6 @@ BEGIN
 					@SiteAddress,
 					@ProductLocation,
 					@OrdersDeviceManufacturer,
-					@ControllerType,
 					@DiagramMapLink,
 					@Tolerance,
 					@Resolution,
@@ -233,7 +237,6 @@ BEGIN
 			,[SiteAddress] = COALESCE(@SiteAddress,[SiteAddress])
 			,[ProductLocation] = COALESCE(@ProductLocation,[ProductLocation])
 			,[OrdersDeviceManufacturer] = COALESCE(@OrdersDeviceManufacturer,[OrdersDeviceManufacturer])
-			,[ControllerType] = COALESCE(@ControllerType,[ControllerType])
 			,[DiagramMapLink] = IIF(@DiagramMapLink ='',NULL,COALESCE(@DiagramMapLink,[DiagramMapLink]))
 			,[Tolerance] = COALESCE(@Tolerance,[Tolerance])
 			,[Resolution] = COALESCE(@Resolution,[Resolution])

@@ -75,3 +75,4 @@ CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *calculationresolution* |
 ROUTINES    | STAGE only | dbo.SaveCalibrationCycleSettings                    | MBA-980, not deployed to PROD yet
 ROUTINES    | STAGE only | dbo.GetPreviousCalibrationCycleSettings             | MBA-980, not deployed to PROD yet
 BODIES      | DIFFERS    | dbo.GetCalibrationCycles                            | MBA-980 returns the cycle settings; deploy with the columns
+COLUMNS     | PROD only  | dbo.OrderDetailsItems.ControllerType                | MBA-980 device-level controller retired (16/11), dropped on STAGE; drop on PROD after the two procs
