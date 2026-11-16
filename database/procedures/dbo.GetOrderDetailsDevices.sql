@@ -3,6 +3,7 @@
 -- plus SpecificationReferenceEn (MBA-623), which goes to STAGE with that ticket.
 -- MBA-980: ControllerType is no longer returned and the column is dropped; the controller is
 -- stored per chamber cycle in CalibrationCycles (see dbo.AssignProductIdentificationData's header).
+-- MBA-1004: returns ShouldShowPercentOfSpec (STAGE 2026-11-16; checked identical to STAGE before it).
 -- Regenerated from the live object; see the in-body comments for what each change does
 -- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
 -- =============================================
@@ -210,7 +211,11 @@ odi.SecondCalibratorId,
 odi.MainCalibratorId,
 odi.Volume,
 odi.VisualCheck,
-odi.ShouldShowGraphV, 
+odi.ShouldShowGraphV,
+-- MBA-1004: the Report screen's "% of Spec" choice, so the second calibrator sees the first one's.
+-- Written by dbo.SetReportDisplayOptions; 0 = unchecked. ISNULL because odi is LEFT JOINed: an
+-- empty slot with no item row still reads as unchecked, never NULL.
+ISNULL(odi.ShouldShowPercentOfSpec, CAST(0 AS BIT)) AS ShouldShowPercentOfSpec,
 odi.ShouldShowCertificateIcon,
 odi.RequiredProbability,
 odi.ReportLanguage,
