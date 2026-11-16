@@ -49,6 +49,10 @@ CONSTRAINTS | PROD only  | INDEX dbo.CustomerDevices (CustomerId,CustomerDeviceI
 ROUTINES    | DIFFERS    | dbo.AssignCustomerDevicesData                       | MBA-996 phase 3: @RevertDeletion removed; on STAGE 2026-11-15, not on PROD yet (item 14)
 BODIES      | DIFFERS    | dbo.AssignCustomerDevicesData                       | MBA-996 phase 3 on STAGE 2026-11-15, not deployed to PROD yet (item 14)
 BODIES      | DIFFERS    | dbo.GetAllSecondaryCategories                       | MBA-996 phase 3 (+ MainCategoryId) on STAGE 2026-11-15, not deployed to PROD yet (item 14)
+ROUTINES    | DIFFERS    | dbo.GetCustomerDeviceDetail                         | MBA-996 phase 2: @CustomerDeviceId replaces @OrderDetailsItemId; on STAGE 2026-11-16, not on PROD yet (item 14)
+BODIES      | DIFFERS    | dbo.GetCustomerDeviceDetail                         | MBA-996 phase 2 on STAGE 2026-11-16, not deployed to PROD yet (item 14)
+BODIES      | DIFFERS    | dbo.GetCustomerDeviceList                           | MBA-996 phase 2 on STAGE 2026-11-16, not deployed to PROD yet (item 14)
+BODIES      | DIFFERS    | dbo.GetCustomerCalibrationReports                   | MBA-996 phase 2 (+ customerDeviceId) on STAGE 2026-11-16, not deployed to PROD yet (item 14)
 
 # ---- STAGE ahead of PROD, waiting for its app change ----------------------------------------------
 ROUTINES    | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)

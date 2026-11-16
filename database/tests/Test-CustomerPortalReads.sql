@@ -312,7 +312,10 @@ WHERE cc.IsDeleted = 0 AND cc.IsActive = 1 AND cc.CustomerContactEmail LIKE N'%_
   AND LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))) <> ISNULL(@Me, N'')
   AND NOT EXISTS (SELECT 1 FROM dbo.Users AS u
                   WHERE LOWER(LTRIM(RTRIM(u.Email))) = LOWER(LTRIM(RTRIM(cc.CustomerContactEmail))))
-ORDER BY CASE WHEN EXISTS (SELECT 1 FROM dbo.CustomerSites AS cs
+/* MBA-996: first, an address whose customer has a device the device screens show, so the list and
+   detail controls have something to lose when it is deactivated */
+ORDER BY CASE WHEN EXISTS (SELECT 1 FROM dbo.vwCustomerDevices AS v WHERE v.CustomerId = cc.CustomerId) THEN 0 ELSE 1 END,
+         CASE WHEN EXISTS (SELECT 1 FROM dbo.CustomerSites AS cs
                            WHERE cs.CustomerId = cc.CustomerId AND ISNULL(cs.IsDeleted, 0) = 0) THEN 0 ELSE 1 END,
          CASE WHEN EXISTS (SELECT 1 FROM #Live AS l
                            WHERE l.CustomerId = cc.CustomerId AND LEN(l.MbaReportNumber) > 0) THEN 0 ELSE 1 END,

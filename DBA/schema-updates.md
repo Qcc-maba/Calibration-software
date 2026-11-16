@@ -308,7 +308,7 @@ rollback restores the original table exactly. On STAGE the 16 tests pass as well
 Priority link, and leave the table unchanged. The compound-serial claim (tier 2) is written but had
 no live case to test against.
 
-**Phase 2 status (2026-11-15): written and tested on the local STAGE copy; not on STAGE.**
+**Phase 2 status (2026-11-16): on STAGE** (list, detail, reports; the view since 2026-11-15), with the portal's route change in app PR #190. `Test-CustomerPortalReads.sql` on STAGE: 63 PASS, 1 SKIP (the quotes procedure nests INSERT EXEC). Previous versions, identical on STAGE and PROD: `database/_rollback/BOTH.dbo.<name>.before-MBA-996-phase2.sql`.
 `dbo.GetCustomerDeviceList` and `dbo.GetCustomerDeviceDetail` (`@CustomerDeviceId` replaces
 `@OrderDetailsItemId`) read the view; `dbo.GetCustomerCalibrationReports` gains `customerDeviceId`, so
 the selected-device screen lists a device's visits by id instead of serial text (the portal developer
