@@ -37,6 +37,7 @@ CONSTRAINTS | STAGE only | DEFAULT dbo.Customers.IsInactiveInSource            |
 ROUTINES    | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)
 BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)
 BODIES      | DIFFERS    | dbo.GetCustomerInvoicesFromPriority                 | held back on 2026-10-25; deploy with MBA-998 (invoice PDFs via S3)
+BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToCalibrationCycle        | MBA-522 placeholder points keyed by name; on STAGE 2026-11-16, works with the current app too
 
 # ---- MBA-911 Priority calibration status + report-only outbox: on STAGE, PROD later ----------------
 # Delete these 13 lines BEFORE the post-deploy gate run on PROD, not after it. They accept every column

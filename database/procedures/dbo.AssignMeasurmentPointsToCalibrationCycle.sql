@@ -1,0 +1,282 @@
+/*
+    dbo.AssignMeasurmentPointsToCalibrationCycle - saves the measurement points (and their manually
+    entered values) of one or more calibration cycles. Called only by the app route
+    devices.assignMeasurmentPointsToCalibrationCycle.
+
+    MBA-522 (2026-11-16): a saved point used to be identified by cycle + sensor + channel. That key
+    is not unique for PLACEHOLDER points - points with no channel assigned (ChannelNumber 99, shown
+    blank in the sensors table) or on the NO_SENSOR placeholder sensor. Several of those can sit on
+    one sensor, and they carry real values: on STAGE, line 3019 (cycle 2026-11-08 09:25:02) has T1
+    and an unnamed point on sensor 152 / channel 99, both with master 21, measured 21, uncertainty
+    5. The first save inserted both rows; every later save failed with "The MERGE statement
+    attempted to UPDATE or DELETE the same row more than once".
+
+    Placeholder points are now identified by cycle + sensor + channel + point name (trimmed, blank
+    = unnamed). Real points keep cycle + sensor + channel. A request that names the same point twice
+    under that key is refused with 51000 before anything is written, so the caller gets a message
+    naming the clash instead of the MERGE error.
+
+    NO_SENSOR is looked up by MabaID, never by id: identity ids differ between STAGE and PROD.
+*/
+CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToCalibrationCycle]
+    @LoggedInUserEmail NVARCHAR(200),
+    @Data NVARCHAR(MAX)
+-- =============================================
+-- Author:		Kate Zashalovska
+-- Create date: 03/06/2025
+-- Description:	Populate table MeasurmentPointsToCalibrationCycles during calibration process setup
+-- =============================================
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        DECLARE @LoggedInUserId INT
+        DECLARE @SourceId TINYINT
+
+        SELECT
+         @LoggedInUserId  = d.UserId
+        ,@SourceId = d.SourceId
+        FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
+
+        /* Placeholder sensor(s): no physical sensor behind the point */
+        DECLARE @NoSensor TABLE (Id INT PRIMARY KEY);
+        INSERT @NoSensor (Id)
+        SELECT md.ID FROM dbo.MeasurementDevices AS md WHERE md.MabaID = N'NO_SENSOR';
+
+        DROP TABLE IF EXISTS #parsedData
+
+        CREATE TABLE #parsedData
+        (
+            OrderDetailsItemId INT,
+            CalibrationCycleStartDate DATETIME2(0),
+            MeasurmentPointName NVARCHAR(100) COLLATE Latin1_General_100_CI_AI_SC,
+            SensorMeasurementDeviceId INT,
+            MeasurmentPointCoordX DECIMAL(10,4),
+            MeasurmentPointCoordY DECIMAL(10,4),
+            ChannelNumber INT,
+            MasterValue DECIMAL(10,4),
+            MasterValueUnitId INT,
+            AdditionalValue DECIMAL(10,4),
+            AdditionalValueUnitId INT,
+            StabilityValue DECIMAL(10,4),
+            UncertancyValue DECIMAL(10,4),
+            MeasuredValue DECIMAL(10,4),
+            MeasuredValueUnitId INT,
+            IsPlaceholder BIT NOT NULL DEFAULT 0,
+            /* the point name as part of the key: trimmed, '' = unnamed; '' for real points */
+            PointKeyName NVARCHAR(100) COLLATE Latin1_General_100_CI_AI_SC NOT NULL DEFAULT N''
+        )
+
+        INSERT #parsedData
+        (
+            OrderDetailsItemId,
+            CalibrationCycleStartDate,
+            MeasurmentPointName,
+            SensorMeasurementDeviceId,
+            MeasurmentPointCoordX,
+            MeasurmentPointCoordY,
+            ChannelNumber,
+            MasterValue,
+            MasterValueUnitId,
+            AdditionalValue,
+            AdditionalValueUnitId,
+            StabilityValue,
+            UncertancyValue,
+            MeasuredValue,
+            MeasuredValueUnitId
+        )
+        SELECT
+            d.OrderDetailsItemId,
+            d.CalibrationCycleStartDate,
+            c.MeasurmentPointName,
+            c.SensorMeasurementDeviceId,
+            c.MeasurmentPointCoordX,
+            c.MeasurmentPointCoordY,
+            c.ChannelNumber,
+            c.MasterValue,
+            c.MasterValueUnitId,
+            c.AdditionalValue,
+            c.AdditionalValueUnitId,
+            c.StabilityValue,
+            c.UncertancyValue,
+            c.MeasuredValue,
+            c.MeasuredValueUnitId
+        FROM OPENJSON(@Data)
+        WITH (
+            OrderDetailsItemId INT,
+            CalibrationCycleStartDate DATETIME2(0),
+            Points NVARCHAR(MAX) AS JSON
+        ) AS d
+        OUTER APPLY OPENJSON(d.Points)
+        WITH (
+            MeasurmentPointName NVARCHAR(100),
+            MeasurmentPointCoordX DECIMAL(10,4),
+            MeasurmentPointCoordY DECIMAL(10,4),
+            SensorMeasurementDeviceId INT,
+            ChannelNumber INT,
+            MasterValue DECIMAL(10,4),
+            MasterValueUnitId INT,
+            AdditionalValue DECIMAL(10,4),
+            AdditionalValueUnitId INT,
+            StabilityValue DECIMAL(10,4),
+            UncertancyValue DECIMAL(10,4),
+            MeasuredValue DECIMAL(10,4),
+            MeasuredValueUnitId INT
+        ) AS c
+
+        UPDATE pd
+        SET IsPlaceholder = 1,
+            PointKeyName = LTRIM(RTRIM(COALESCE(pd.MeasurmentPointName, N'')))
+        FROM #parsedData AS pd
+        WHERE pd.ChannelNumber = 99
+           OR pd.SensorMeasurementDeviceId IN (SELECT Id FROM @NoSensor)
+
+        /* The same point twice in one request: refuse before writing anything */
+        DECLARE @Clash NVARCHAR(400);
+        SELECT TOP (1) @Clash =
+              N'Two points share sensor ' + CAST(pd.SensorMeasurementDeviceId AS NVARCHAR(20))
+            + N', channel ' + CAST(pd.ChannelNumber AS NVARCHAR(20))
+            + CASE WHEN MAX(CAST(pd.IsPlaceholder AS INT)) = 1
+                   THEN N' and point name "' + pd.PointKeyName + N'"' ELSE N'' END
+            + N' in one cycle (' + STRING_AGG(COALESCE(NULLIF(LTRIM(RTRIM(pd.MeasurmentPointName)), N''), N'(unnamed)'), N', ') + N').'
+        FROM #parsedData AS pd
+        WHERE pd.OrderDetailsItemId IS NOT NULL
+          AND pd.CalibrationCycleStartDate IS NOT NULL
+          AND pd.ChannelNumber IS NOT NULL
+          AND pd.SensorMeasurementDeviceId IS NOT NULL
+        GROUP BY pd.OrderDetailsItemId, pd.CalibrationCycleStartDate, pd.SensorMeasurementDeviceId,
+                 pd.ChannelNumber, pd.PointKeyName
+        HAVING COUNT(*) > 1;
+
+        IF @Clash IS NOT NULL
+            THROW 51000, @Clash, 1;
+
+        BEGIN TRANSACTION;
+
+        /* Apply soft delete to data which no longer valid FOR THIS SPECIFIC CYCLE */
+        UPDATE dest
+        SET IsDeleted = 1, UpdatedDate = GETDATE()
+        FROM [dbo].[MeasurmentPointsToCalibrationCycles] as dest
+        LEFT JOIN #parsedData as pd
+            ON pd.OrderDetailsItemId = dest.OrderDetailsItemId
+               AND pd.CalibrationCycleStartDate = dest.CalibrationCycleStartDate
+               AND pd.SensorMeasurementDeviceId = dest.SensorMeasurementDeviceId
+               AND pd.ChannelNumber = dest.ChannelNumber
+               AND (pd.IsPlaceholder = 0
+                    OR pd.PointKeyName = LTRIM(RTRIM(COALESCE(dest.MeasurmentPointName, N''))))
+        WHERE dest.IsDeleted = 0
+          AND pd.SensorMeasurementDeviceId IS NULL
+          AND dest.OrderDetailsItemId IN (SELECT OrderDetailsItemId FROM #parsedData WHERE OrderDetailsItemId IS NOT NULL)
+          AND dest.CalibrationCycleStartDate IN (SELECT CalibrationCycleStartDate FROM #parsedData WHERE CalibrationCycleStartDate IS NOT NULL)
+
+        /* Insert new data or update existing FOR THIS SPECIFIC CYCLE */
+        MERGE INTO [dbo].[MeasurmentPointsToCalibrationCycles] AS dest
+        USING (
+            SELECT
+                d.OrderDetailsItemId,
+                d.CalibrationCycleStartDate,
+                d.SensorMeasurementDeviceId,
+                d.MeasurmentPointName,
+                d.MeasurmentPointCoordX,
+                d.MeasurmentPointCoordY,
+                d.ChannelNumber,
+                d.MasterValue,
+                d.MasterValueUnitId,
+                d.AdditionalValue,
+                d.AdditionalValueUnitId,
+                d.StabilityValue,
+                d.UncertancyValue,
+                d.MeasuredValue,
+                d.MeasuredValueUnitId,
+                d.IsPlaceholder,
+                d.PointKeyName
+            FROM #parsedData as d
+            WHERE d.OrderDetailsItemId IS NOT NULL
+              AND d.CalibrationCycleStartDate IS NOT NULL
+              AND d.ChannelNumber IS NOT NULL
+              AND d.SensorMeasurementDeviceId IS NOT NULL
+        ) AS source
+        ON   dest.[OrderDetailsItemId] = source.[OrderDetailsItemId]
+             AND dest.[CalibrationCycleStartDate] = source.[CalibrationCycleStartDate]
+             AND dest.[SensorMeasurementDeviceId] = source.[SensorMeasurementDeviceId]
+             AND dest.[ChannelNumber] = source.[ChannelNumber]
+             AND dest.[IsDeleted] = 0
+             AND (source.[IsPlaceholder] = 0
+                  OR source.[PointKeyName] = LTRIM(RTRIM(COALESCE(dest.[MeasurmentPointName], N''))))
+        WHEN MATCHED AND (
+                   COALESCE(dest.[MeasurmentPointName],'') <> COALESCE(source.[MeasurmentPointName],'')
+                OR COALESCE(dest.[MeasurmentPointCoordX],0) <> COALESCE(source.[MeasurmentPointCoordX],0)
+                OR COALESCE(dest.[MeasurmentPointCoordY],0) <> COALESCE(source.[MeasurmentPointCoordY],0)
+                OR COALESCE(dest.[MasterValue],0) <> COALESCE(source.[MasterValue],0)
+                OR COALESCE(dest.[MasterValueUnitId],0) <> COALESCE(source.[MasterValueUnitId],0)
+                OR COALESCE(dest.[AdditionalValue],0) <> COALESCE(source.[AdditionalValue],0)
+                OR COALESCE(dest.[AdditionalValueUnitId],0) <> COALESCE(source.[AdditionalValueUnitId],0)
+                OR COALESCE(dest.[StabilityValue],0) <> COALESCE(source.[StabilityValue],0)
+                OR COALESCE(dest.[UncertancyValue],0) <> COALESCE(source.[UncertancyValue],0)
+                OR COALESCE(dest.[MeasuredValue],0) <> COALESCE(source.[MeasuredValue],0)
+                OR COALESCE(dest.[MeasuredValueUnitId],0) <> COALESCE(source.[MeasuredValueUnitId],0)
+        )
+        THEN
+            UPDATE
+            SET  dest.[MeasurmentPointName] = source.[MeasurmentPointName]
+                ,dest.[MeasurmentPointCoordX] = source.[MeasurmentPointCoordX]
+                ,dest.[MeasurmentPointCoordY] = source.[MeasurmentPointCoordY]
+                ,dest.[UpdatedDate] = GETDATE()
+                ,dest.[UpdateUserID] = @LoggedInUserId
+                ,dest.[MasterValue] = source.[MasterValue]
+                ,dest.[MasterValueUnitId] = source.[MasterValueUnitId]
+                ,dest.[AdditionalValue] = source.[AdditionalValue]
+                ,dest.[AdditionalValueUnitId] = source.[AdditionalValueUnitId]
+                ,dest.[StabilityValue] = source.[StabilityValue]
+                ,dest.[UncertancyValue] = source.[UncertancyValue]
+                ,dest.[MeasuredValue] = source.[MeasuredValue]
+                ,dest.[MeasuredValueUnitId] = source.[MeasuredValueUnitId]
+        WHEN NOT MATCHED BY TARGET
+        THEN
+            INSERT (
+                  [OrderDetailsItemId],
+                  [CalibrationCycleStartDate],
+                  [SensorMeasurementDeviceId],
+                  [MeasurmentPointName],
+                  [MeasurmentPointCoordX],
+                  [MeasurmentPointCoordY],
+                  [ChannelNumber],
+                  [UpdateUserID],
+                  [MasterValue],
+                  [MasterValueUnitId],
+                  [AdditionalValue],
+                  [AdditionalValueUnitId],
+                  [StabilityValue],
+                  [UncertancyValue],
+                  [MeasuredValue],
+                  [MeasuredValueUnitId]
+            )
+            VALUES (
+                 source.[OrderDetailsItemId]
+                ,source.[CalibrationCycleStartDate]
+                ,source.[SensorMeasurementDeviceId]
+                ,source.[MeasurmentPointName]
+                ,source.[MeasurmentPointCoordX]
+                ,source.[MeasurmentPointCoordY]
+                ,source.[ChannelNumber]
+                ,@LoggedInUserId
+                ,source.[MasterValue]
+                ,source.[MasterValueUnitId]
+                ,source.[AdditionalValue]
+                ,source.[AdditionalValueUnitId]
+                ,source.[StabilityValue]
+                ,source.[UncertancyValue]
+                ,source.[MeasuredValue]
+                ,source.[MeasuredValueUnitId]
+            );
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
