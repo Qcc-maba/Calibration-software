@@ -13,10 +13,11 @@
                                @CustomerSiteId, @DeviceLocation, @Notes
       CalibrationExtension     @RequestedDate (the new validity date), @Reason
       CalibrationCancellation  @RequestedDate (the calibration date being cancelled), @Reason
-      Quote                    @CalibrationLocation, @CustomerSiteId, @DeviceCount, @ItemIds,
-                               @CalibrateToDeviceSpec, @Notes, @AttachmentPath (from-file variant)
+      Quote                    @CalibrationLocation, @CustomerSiteId, @DeviceCount, @ItemIds and/or
+                               @CustomerDeviceIds, @CalibrateToDeviceSpec, @Notes,
+                               @AttachmentPath (from-file variant)
       QuoteFeedback            @QuoteNumber, @Notes
-      DeviceRemoval            @ItemIds or @CustomerDeviceId, @Reason
+      DeviceRemoval            @ItemIds, @CustomerDeviceIds or @CustomerDeviceId, @Reason
 
     Identity follows the other customer-portal procedures: @LoggedInUserEmail resolves to a
     CustomerId through dbo.CustomerContacts, and the request is recorded against that customer. An
@@ -89,6 +90,26 @@
       - On the other requests of a split the site's name comes FIRST in DeviceLocation, so the
         200-character cut takes the customer's text rather than the only pointer to the site.
       - A blank site description falls back to the address; a site with neither yields no label.
+
+    2026-11-16 - MBA-996 phase 4: a request can name devices, not only order lines.
+    ---------------------------------------------------------------------------------------------
+    The portal's device screens now identify a device by dbo.CustomerDevices.CustomerDeviceID, and
+    a device the customer typed in has no order line at all - so a quote for it could not be asked
+    for. @CustomerDeviceIds is a comma-separated list of such ids, parsed like @ItemIds.
+      - Only for Quote and DeviceRemoval (52011 otherwise): shipping, extending or cancelling a
+        calibration is about a visit, and those keep taking order lines in @ItemIds.
+      - A device must be one dbo.vwCustomerDevices shows for a customer in the caller's set - never
+        hidden by the customer, never cancelled in Priority. Others are dropped and counted in
+        rejectedItemCount, exactly like foreign order lines; ids sent and none owned is still 52004.
+      - Each device becomes one request item carrying CustomerDeviceId, its serial number and its
+        latest visit as OrderDetailsItemId (NULL when it was never calibrated). A device whose
+        latest visit was also sent in @ItemIds stays ONE item. Items that came in as order lines get
+        their device id too, when the device is known (same SERN, same customer).
+      - Devices follow the item rules for the customer split, DeviceCount and 52010 - a device is
+        an item that may lack an order line.
+      - The request's own CustomerDeviceId is @CustomerDeviceId as before, or, when that is not
+        sent, the device of a request that holds exactly one item.
+      54xxx are the device procedures' numbers; this procedure keeps its own 520xx range.
 */
 CREATE OR ALTER PROCEDURE dbo.CreateCustomerPortalRequest
     @LoggedInUserEmail     NVARCHAR(100),
@@ -96,6 +117,7 @@ CREATE OR ALTER PROCEDURE dbo.CreateCustomerPortalRequest
     @ItemIds               NVARCHAR(MAX)  = NULL,   /* OrderDetailsItemId list */
     @OrderWorkPlanId       INT            = NULL,
     @CustomerDeviceId      INT            = NULL,
+    @CustomerDeviceIds     NVARCHAR(MAX)  = NULL,   /* CustomerDeviceID list (MBA-996): Quote, DeviceRemoval */
     @MbaReportNumber       NVARCHAR(100)  = NULL,
     @QuoteNumber           NVARCHAR(100)  = NULL,
     @RequestedDate         DATE           = NULL,
@@ -120,6 +142,11 @@ BEGIN
 
     IF @CalibrationLocation IS NOT NULL AND @CalibrationLocation NOT IN (N'lab', N'customer')
         THROW 52002, 'CalibrationLocation must be lab or customer.', 1;
+
+    /* MBA-996: devices without a visit can be quoted or removed, nothing else - see the header. */
+    IF NULLIF(LTRIM(RTRIM(@CustomerDeviceIds)), N'') IS NOT NULL
+       AND @RequestType NOT IN (N'Quote', N'DeviceRemoval')
+        THROW 52011, 'Device ids are accepted only for a quote or a device removal.', 1;
 
     DECLARE @Email NVARCHAR(100) = LOWER(LTRIM(RTRIM(@LoggedInUserEmail)));
 
@@ -169,10 +196,12 @@ BEGIN
 
     IF @CustomerDeviceId IS NOT NULL
     BEGIN
+        /* MBA-996: the device screens' rule, as for @CustomerDeviceIds - not hidden by the customer,
+           not cancelled in Priority (review of PR #60, r4588793601) */
         INSERT INTO @Refs (CustomerId)
-        SELECT d.CustomerId FROM dbo.CustomerDevices AS d
-        INNER JOIN #Mine AS m ON m.CustomerId = d.CustomerId
-        WHERE d.CustomerDeviceID = @CustomerDeviceId AND d.IsDeleted = 0;
+        SELECT v.CustomerId FROM dbo.vwCustomerDevices AS v
+        INNER JOIN #Mine AS m ON m.CustomerId = v.CustomerId
+        WHERE v.CustomerDeviceID = @CustomerDeviceId;
 
         IF @@ROWCOUNT = 0
             THROW 52009, 'The device does not belong to the caller.', 1;
@@ -233,17 +262,58 @@ BEGIN
     WHERE ISNULL(it.IsDeleted, 0) = 0
       AND ISNULL(od.IsDeleted, 0) = 0;
 
-    DECLARE @Rejected INT = (SELECT COUNT(*) FROM #Ids) - (SELECT COUNT(*) FROM #Owned);
+    /* MBA-996: devices, parsed like @ItemIds; only devices the device screens show for the set. */
+    CREATE TABLE #DevIds (CustomerDeviceID INT PRIMARY KEY);
+
+    INSERT INTO #DevIds (CustomerDeviceID)
+    SELECT DISTINCT CAST(LTRIM(RTRIM(value)) AS INT)
+    FROM STRING_SPLIT(ISNULL(@CustomerDeviceIds, N''), ',')
+    WHERE LTRIM(RTRIM(value)) <> N''
+      AND LTRIM(RTRIM(value)) NOT LIKE '%[^0-9]%'
+      AND LEN(LTRIM(RTRIM(value))) <= 9;
+
+    SELECT v.CustomerDeviceID, v.CustomerId, v.SerialNumber, v.LatestOrderDetailsItemId
+    INTO #OwnedDev
+    FROM #DevIds AS x
+    INNER JOIN dbo.vwCustomerDevices AS v ON v.CustomerDeviceID = x.CustomerDeviceID
+    INNER JOIN #Mine                 AS m ON m.CustomerId       = v.CustomerId;
+
+    DECLARE @Rejected INT = (SELECT COUNT(*) FROM #Ids) - (SELECT COUNT(*) FROM #Owned)
+                          + (SELECT COUNT(*) FROM #DevIds) - (SELECT COUNT(*) FROM #OwnedDev);
 
     /* Sent some, owned none: refuse rather than file a request about nothing - see the header. */
-    IF EXISTS (SELECT 1 FROM #Ids) AND NOT EXISTS (SELECT 1 FROM #Owned)
+    IF (EXISTS (SELECT 1 FROM #Ids) OR EXISTS (SELECT 1 FROM #DevIds))
+       AND NOT EXISTS (SELECT 1 FROM #Owned) AND NOT EXISTS (SELECT 1 FROM #OwnedDev)
         THROW 52004, 'None of the selected items belong to the caller.', 1;
+
+    /* The request items: order lines, each with its device when known, then the devices that are
+       not already there through their latest visit. From here on everything works on #Items. */
+    CREATE TABLE #Items (OrderDetailsItemId INT NULL, CustomerDeviceID INT NULL,
+                         MbaReportNumber NVARCHAR(100) COLLATE DATABASE_DEFAULT NULL,
+                         SerialNumber NVARCHAR(100) COLLATE DATABASE_DEFAULT NULL, CustomerId INT NOT NULL);
+
+    INSERT INTO #Items (OrderDetailsItemId, CustomerDeviceID, MbaReportNumber, SerialNumber, CustomerId)
+    SELECT o.OrderDetailsItemId,
+           (SELECT TOP (1) d.CustomerDeviceID
+            FROM dbo.OrderDetailsItems AS it
+            INNER JOIN dbo.CustomerDevices AS d ON d.SERN = it.SERN AND d.CustomerId = o.CustomerId
+            WHERE it.OrderDetailsItemId = o.OrderDetailsItemId
+              AND d.IsDeleted = 0 AND d.IsInactiveInSource = 0),
+           o.MbaReportNumber, o.SerialNumber, o.CustomerId
+    FROM #Owned AS o;
+
+    INSERT INTO #Items (OrderDetailsItemId, CustomerDeviceID, MbaReportNumber, SerialNumber, CustomerId)
+    SELECT v.LatestOrderDetailsItemId, v.CustomerDeviceID, NULL, v.SerialNumber, v.CustomerId
+    FROM #OwnedDev AS v
+    WHERE NOT EXISTS (SELECT 1 FROM #Items AS i
+                      WHERE i.CustomerDeviceID = v.CustomerDeviceID
+                         OR i.OrderDetailsItemId = v.LatestOrderDetailsItemId);
 
     /* An order, device or quote names one customer; items of any other customer cannot ride along,
        or the reference would be copied onto requests it does not belong to. */
     DECLARE @RefCustomerId INT = (SELECT MIN(CustomerId) FROM @Refs);
     IF @RefCustomerId IS NOT NULL
-       AND EXISTS (SELECT 1 FROM #Owned AS o WHERE o.CustomerId <> @RefCustomerId)
+       AND EXISTS (SELECT 1 FROM #Items AS o WHERE o.CustomerId <> @RefCustomerId)
         THROW 52010, 'The order, device or quote passed belongs to a different customer than the items.', 1;
 
     /* Which customer each request is filed under, in order of what the caller told us: the items'
@@ -253,7 +323,7 @@ BEGIN
                             CustomerContactId INT NULL, RequestId BIGINT NULL);
 
     INSERT INTO @Targets (CustomerId)
-    SELECT o.CustomerId FROM #Owned AS o GROUP BY o.CustomerId ORDER BY o.CustomerId;
+    SELECT o.CustomerId FROM #Items AS o GROUP BY o.CustomerId ORDER BY o.CustomerId;
 
     IF NOT EXISTS (SELECT 1 FROM @Targets)
         INSERT INTO @Targets (CustomerId)
@@ -289,12 +359,15 @@ BEGIN
             VALUES
                 (@RequestType, N'New', @TargetCustomerId, @TargetContactId, @Email,
                  @OrderWorkPlanId,
-                 (SELECT MIN(o.OrderDetailsItemId) FROM #Owned AS o
+                 (SELECT MIN(o.OrderDetailsItemId) FROM #Items AS o
                   WHERE o.CustomerId = @TargetCustomerId),          /* the single-device shortcut */
-                 @CustomerDeviceId,
+                 /* MBA-996: as passed, else the device of a one-item request */
+                 COALESCE(@CustomerDeviceId,
+                          (SELECT MIN(o.CustomerDeviceID) FROM #Items AS o
+                           WHERE o.CustomerId = @TargetCustomerId HAVING COUNT(*) = 1)),
                  /* a report number names items: only a request holding one of them carries it */
                  IIF(NULLIF(LTRIM(RTRIM(@MbaReportNumber)), N'') IS NULL
-                     OR EXISTS (SELECT 1 FROM #Owned AS o
+                     OR EXISTS (SELECT 1 FROM #Items AS o
                                 WHERE o.CustomerId = @TargetCustomerId
                                   AND LTRIM(RTRIM(o.MbaReportNumber)) = LTRIM(RTRIM(@MbaReportNumber))),
                      @MbaReportNumber, NULL),
@@ -308,7 +381,7 @@ BEGIN
                      /* the label first: on these requests it is the only pointer to the site */
                      NULLIF(LEFT(CONCAT_WS(N' | ', @SiteLabel, NULLIF(LTRIM(RTRIM(@DeviceLocation)), N'')), 200), N'')),
                  IIF(@IsSplit = 1,
-                     (SELECT COUNT(*) FROM #Owned AS o WHERE o.CustomerId = @TargetCustomerId),
+                     (SELECT COUNT(*) FROM #Items AS o WHERE o.CustomerId = @TargetCustomerId),
                      @DeviceCount),
                  @CalibrationLocation, @CalibrateToDeviceSpec, @AttachmentPath);
 
@@ -317,9 +390,9 @@ BEGIN
             UPDATE @Targets SET RequestId = @RequestId WHERE Seq = @Seq;
 
             INSERT INTO dbo.CustomerPortalRequestItem
-                (CustomerPortalRequestId, OrderDetailsItemId, MbaReportNumber, SerialNumber)
-            SELECT @RequestId, o.OrderDetailsItemId, o.MbaReportNumber, o.SerialNumber
-            FROM #Owned AS o
+                (CustomerPortalRequestId, OrderDetailsItemId, CustomerDeviceId, MbaReportNumber, SerialNumber)
+            SELECT @RequestId, o.OrderDetailsItemId, o.CustomerDeviceID, o.MbaReportNumber, o.SerialNumber
+            FROM #Items AS o
             WHERE o.CustomerId = @TargetCustomerId;
 
             SET @Seq += 1;
@@ -330,7 +403,7 @@ BEGIN
     SELECT t.RequestId                                                   AS customerPortalRequestId,
            t.CustomerId                                                  AS customerId,
            c.CustomerName                                                AS customerName,
-           (SELECT COUNT(*) FROM #Owned AS o WHERE o.CustomerId = t.CustomerId) AS itemCount,
+           (SELECT COUNT(*) FROM #Items AS o WHERE o.CustomerId = t.CustomerId) AS itemCount,
            @Rejected                                                     AS rejectedItemCount
     FROM @Targets AS t
     LEFT JOIN dbo.Customers AS c ON c.CustomerId = t.CustomerId
