@@ -26,9 +26,12 @@
       on one placeholder sensor are one point. The change test compares names in BIN2, so a re-
       spelling (t1 -> T1) is still written.
     - A cycle that already holds two live rows under one key (written by the old body's first save)
-      is refused on every save until the user removes or renames one of the points. On STAGE
-      2026-11-16 that is two cycles, both test data (line 155: three unnamed NO_SENSOR points;
-      line 591: two T9 on channel 10); before this change those saves failed with the MERGE error.
+      is refused on every save until the user removes or renames one of the points; before this
+      change those saves failed with the MERGE error. Counted 2026-11-16: PROD 0 (28 live cycle
+      points, none on channel 99). STAGE had two, both test data (line 155: three unnamed NO_SENSOR
+      points; line 591: two T9 on channel 10); the extra copies were soft-deleted the same day
+      (backup dbo._bak_MBA522_DupCyclePoints_20261116). The order-line side is MBA-1039.
+    - NO_SENSOR does not exist on PROD (2026-11-16). There, only channel 99 marks a placeholder.
 
     The soft delete is scoped per (line, cycle) pair from the request, not per line x per date.
 */
