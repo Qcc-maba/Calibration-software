@@ -213,8 +213,9 @@ odi.Volume,
 odi.VisualCheck,
 odi.ShouldShowGraphV,
 -- MBA-1004: the Report screen's "% of Spec" choice, so the second calibrator sees the first one's.
--- Written by dbo.SetReportDisplayOptions; 0 = unchecked.
-odi.ShouldShowPercentOfSpec,
+-- Written by dbo.SetReportDisplayOptions; 0 = unchecked. ISNULL because odi is LEFT JOINed: an
+-- empty slot with no item row still reads as unchecked, never NULL.
+ISNULL(odi.ShouldShowPercentOfSpec, CAST(0 AS BIT)) AS ShouldShowPercentOfSpec,
 odi.ShouldShowCertificateIcon,
 odi.RequiredProbability,
 odi.ReportLanguage,
