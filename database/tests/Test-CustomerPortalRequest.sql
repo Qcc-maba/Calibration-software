@@ -1,6 +1,7 @@
 /*
     Tests for the customer-portal write procedures                                     MBA-903
         dbo.CreateCustomerPortalRequest, dbo.ResolveCustomerPortalRequest, dbo.DuplicateCustomerDevice
+        Section 4 (MBA-996): requests that name devices through @CustomerDeviceIds.
     ---------------------------------------------------------------------------------------------
     Run against a database where the three procedures and dbo.GetPortalCustomerIds are deployed.
     Anything other than 'PASS' in Result is a failure; 'SKIP' means the database holds no row that
@@ -800,5 +801,184 @@ BEGIN
            ISNULL(CAST(@Err AS NVARCHAR(10)), N'no error'), IIF(@Err = 52025, N'PASS', N'FAIL');
 END;
 
+
+/* =============================================================================================
+   4 - MBA-996 phase 4: requests that name devices (@CustomerDeviceIds)
+     @DevReg     a device dbo.vwCustomerDevices shows for a customer of @Multi's set, with a visit
+     @DevForeign a shown device of a customer outside the set
+     typed devices are inserted inside each case's transaction ('MBA996T-' serials)
+   ============================================================================================= */
+DECLARE @DevReg INT, @DevRegCust INT, @DevRegLine INT, @DevForeign INT, @Typed4 INT, @N4 INT, @M4 INT, @V4 NVARCHAR(80);
+
+SELECT TOP (1) @DevReg = v.CustomerDeviceID, @DevRegCust = v.CustomerId, @DevRegLine = v.LatestOrderDetailsItemId
+FROM dbo.vwCustomerDevices AS v
+WHERE v.CustomerId IN (SELECT CustomerId FROM dbo.GetPortalCustomerIds(@Multi)) AND v.LatestOrderDetailsItemId IS NOT NULL
+ORDER BY v.CustomerDeviceID;
+
+SELECT TOP (1) @DevForeign = v.CustomerDeviceID
+FROM dbo.vwCustomerDevices AS v
+WHERE v.CustomerId NOT IN (SELECT CustomerId FROM dbo.GetPortalCustomerIds(@Multi))
+ORDER BY v.CustomerDeviceID;
+
+IF @DevReg IS NULL OR @DevForeign IS NULL
+    INSERT @Out SELECT N'4 devices', N'fixtures: a shown device of the set with a visit, a foreign one', N'found',
+           N'missing', N'SKIP - section 4 cannot run';
+ELSE
+BEGIN
+    /* 4a a quote for a device typed in by the customer: one item with the device and no order line */
+    SELECT @Err = NULL, @N4 = NULL, @V4 = NULL;
+    BEGIN TRY
+        BEGIN TRAN;
+        INSERT dbo.CustomerDevices (CustomerId, SerialNumber) VALUES (@DevRegCust, N'MBA996T-quote');
+        SET @Typed4 = CAST(SCOPE_IDENTITY() AS INT);
+        SET @V4 = CAST(@Typed4 AS NVARCHAR(20));
+        TRUNCATE TABLE #R;
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi, @RequestType = N'Quote',
+            @CustomerDeviceIds = @V4;
+        SELECT @N4 = COUNT(*) FROM #R AS r
+        JOIN dbo.CustomerPortalRequest AS q ON q.CustomerPortalRequestId = r.customerPortalRequestId
+        JOIN dbo.CustomerPortalRequestItem AS i ON i.CustomerPortalRequestId = r.customerPortalRequestId
+        WHERE r.itemCount = 1 AND r.rejectedItemCount = 0 AND r.customerId = @DevRegCust
+          AND q.CustomerDeviceId = @Typed4 AND i.CustomerDeviceId = @Typed4
+          AND i.OrderDetailsItemId IS NULL AND i.SerialNumber = N'MBA996T-quote';
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        SET @Err = ERROR_NUMBER();
+        IF @@TRANCOUNT > 0 ROLLBACK;
+    END CATCH;
+    INSERT @Out SELECT N'4 devices', N'4a quote for a typed device: 1 item, the device, no order line', N'1',
+           IIF(@Err IS NULL, CAST(@N4 AS NVARCHAR(10)), CONCAT(N'error ', @Err)), IIF(@Err IS NULL AND @N4 = 1, N'PASS', N'FAIL');
+
+    /* 4b a quote for a registered device: the item's order line is its latest visit */
+    SELECT @Err = NULL, @N4 = NULL, @V4 = CAST(@DevReg AS NVARCHAR(20));
+    BEGIN TRY
+        BEGIN TRAN;
+        TRUNCATE TABLE #R;
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi, @RequestType = N'Quote',
+            @CustomerDeviceIds = @V4;
+        SELECT @N4 = COUNT(*) FROM #R AS r
+        JOIN dbo.CustomerPortalRequestItem AS i ON i.CustomerPortalRequestId = r.customerPortalRequestId
+        WHERE r.itemCount = 1 AND i.CustomerDeviceId = @DevReg AND i.OrderDetailsItemId = @DevRegLine;
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        SET @Err = ERROR_NUMBER();
+        IF @@TRANCOUNT > 0 ROLLBACK;
+    END CATCH;
+    INSERT @Out SELECT N'4 devices', N'4b quote for a registered device: item line = its latest visit', N'1',
+           IIF(@Err IS NULL, CAST(@N4 AS NVARCHAR(10)), CONCAT(N'error ', @Err)), IIF(@Err IS NULL AND @N4 = 1, N'PASS', N'FAIL');
+
+    /* 4c the same device sent both ways is one item */
+    SELECT @Err = NULL, @N4 = NULL, @M4 = NULL;
+    BEGIN TRY
+        BEGIN TRAN;
+        TRUNCATE TABLE #R;
+        DECLARE @Line4 NVARCHAR(20) = CAST(@DevRegLine AS NVARCHAR(20));
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi, @RequestType = N'Quote',
+            @ItemIds = @Line4, @CustomerDeviceIds = @V4;
+        SELECT @N4 = SUM(itemCount), @M4 = MAX(rejectedItemCount) FROM #R;
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        SET @Err = ERROR_NUMBER();
+        IF @@TRANCOUNT > 0 ROLLBACK;
+    END CATCH;
+    INSERT @Out SELECT N'4 devices', N'4c a device sent as order line and as device: 1 item, 0 rejected', N'1 / 0',
+           IIF(@Err IS NULL, CONCAT(@N4, N' / ', @M4), CONCAT(N'error ', @Err)),
+           IIF(@Err IS NULL AND @N4 = 1 AND @M4 = 0, N'PASS', N'FAIL');
+
+    /* 4d an order line alone also records its device */
+    SELECT @Err = NULL, @N4 = NULL;
+    BEGIN TRY
+        BEGIN TRAN;
+        TRUNCATE TABLE #R;
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi, @RequestType = N'CalibrationExtension',
+            @ItemIds = @Line4, @Reason = N'MBA996T';
+        SELECT @N4 = COUNT(*) FROM #R AS r
+        JOIN dbo.CustomerPortalRequestItem AS i ON i.CustomerPortalRequestId = r.customerPortalRequestId
+        WHERE i.OrderDetailsItemId = @DevRegLine AND i.CustomerDeviceId = @DevReg;
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        SET @Err = ERROR_NUMBER();
+        IF @@TRANCOUNT > 0 ROLLBACK;
+    END CATCH;
+    INSERT @Out SELECT N'4 devices', N'4d an order line alone: the item records its device', N'1',
+           IIF(@Err IS NULL, CAST(@N4 AS NVARCHAR(10)), CONCAT(N'error ', @Err)), IIF(@Err IS NULL AND @N4 = 1, N'PASS', N'FAIL');
+
+    /* 4e device ids on a request about a visit -> 52011 */
+    SET @Err = NULL;
+    BEGIN TRY
+        BEGIN TRAN;
+        TRUNCATE TABLE #R;
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi, @RequestType = N'CalibrationExtension',
+            @CustomerDeviceIds = @V4, @Reason = N'MBA996T';
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        SET @Err = ERROR_NUMBER();
+        IF @@TRANCOUNT > 0 ROLLBACK;
+    END CATCH;
+    INSERT @Out SELECT N'4 devices', N'4e device ids on an extension -> THROW 52011', N'52011',
+           ISNULL(CAST(@Err AS NVARCHAR(10)), N'no error'), IIF(@Err = 52011, N'PASS', N'FAIL');
+
+    /* 4f only another customer's device -> 52004 */
+    SELECT @Err = NULL, @V4 = CAST(@DevForeign AS NVARCHAR(20));
+    BEGIN TRY
+        BEGIN TRAN;
+        TRUNCATE TABLE #R;
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi, @RequestType = N'Quote',
+            @CustomerDeviceIds = @V4;
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        SET @Err = ERROR_NUMBER();
+        IF @@TRANCOUNT > 0 ROLLBACK;
+    END CATCH;
+    INSERT @Out SELECT N'4 devices', N'4f only a foreign device -> THROW 52004', N'52004',
+           ISNULL(CAST(@Err AS NVARCHAR(10)), N'no error'), IIF(@Err = 52004, N'PASS', N'FAIL');
+
+    /* 4g own device + foreign device: the foreign one is dropped and counted */
+    SELECT @Err = NULL, @N4 = NULL, @M4 = NULL, @V4 = CONCAT(@DevReg, N',', @DevForeign);
+    BEGIN TRY
+        BEGIN TRAN;
+        TRUNCATE TABLE #R;
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi, @RequestType = N'Quote',
+            @CustomerDeviceIds = @V4;
+        SELECT @N4 = SUM(itemCount), @M4 = MAX(rejectedItemCount) FROM #R;
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        SET @Err = ERROR_NUMBER();
+        IF @@TRANCOUNT > 0 ROLLBACK;
+    END CATCH;
+    INSERT @Out SELECT N'4 devices', N'4g own + foreign device: 1 item, 1 rejected', N'1 / 1',
+           IIF(@Err IS NULL, CONCAT(@N4, N' / ', @M4), CONCAT(N'error ', @Err)),
+           IIF(@Err IS NULL AND @N4 = 1 AND @M4 = 1, N'PASS', N'FAIL');
+
+    /* 4h a device the customer hid is not theirs to quote -> 52004 */
+    SELECT @Err = NULL, @V4 = CAST(@DevReg AS NVARCHAR(20));
+    BEGIN TRY
+        BEGIN TRAN;
+        UPDATE dbo.CustomerDevices SET IsDeleted = 1 WHERE CustomerDeviceID = @DevReg;
+        TRUNCATE TABLE #R;
+        INSERT #R EXEC dbo.CreateCustomerPortalRequest @LoggedInUserEmail = @Multi, @RequestType = N'Quote',
+            @CustomerDeviceIds = @V4;
+        ROLLBACK;
+    END TRY
+    BEGIN CATCH
+        SET @Err = ERROR_NUMBER();
+        IF @@TRANCOUNT > 0 ROLLBACK;
+    END CATCH;
+    INSERT @Out SELECT N'4 devices', N'4h a hidden device -> THROW 52004', N'52004',
+           ISNULL(CAST(@Err AS NVARCHAR(10)), N'no error'), IIF(@Err = 52004, N'PASS', N'FAIL');
+END;
+
+INSERT @Out SELECT N'4 devices', N'no test row left behind', N'0',
+       CAST((SELECT COUNT(*) FROM dbo.CustomerDevices WHERE SerialNumber LIKE N'MBA996T-%')
+          + (SELECT COUNT(*) FROM dbo.CustomerPortalRequest WHERE Reason = N'MBA996T') AS NVARCHAR(10)),
+       IIF(EXISTS (SELECT 1 FROM dbo.CustomerDevices WHERE SerialNumber LIKE N'MBA996T-%')
+           OR EXISTS (SELECT 1 FROM dbo.CustomerPortalRequest WHERE Reason = N'MBA996T'), N'FAIL', N'PASS');
 
 SELECT Seq, Section, Test, Expected, Actual, Result FROM @Out ORDER BY Seq;
