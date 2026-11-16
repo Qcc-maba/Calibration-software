@@ -53,6 +53,8 @@ ROUTINES    | DIFFERS    | dbo.GetCustomerDeviceDetail                         |
 BODIES      | DIFFERS    | dbo.GetCustomerDeviceDetail                         | MBA-996 phase 2 on STAGE 2026-11-16, not deployed to PROD yet (item 14)
 BODIES      | DIFFERS    | dbo.GetCustomerDeviceList                           | MBA-996 phase 2 on STAGE 2026-11-16, not deployed to PROD yet (item 14)
 BODIES      | DIFFERS    | dbo.GetCustomerCalibrationReports                   | MBA-996 phase 2 (+ customerDeviceId) on STAGE 2026-11-16, not deployed to PROD yet (item 14)
+ROUTINES    | DIFFERS    | dbo.CreateCustomerPortalRequest                     | MBA-996 phase 4: + @CustomerDeviceIds; on STAGE 2026-11-16, not on PROD yet (item 14)
+BODIES      | DIFFERS    | dbo.CreateCustomerPortalRequest                     | MBA-996 phase 4 on STAGE 2026-11-16, not deployed to PROD yet (item 14)
 
 # ---- STAGE ahead of PROD, waiting for its app change ----------------------------------------------
 ROUTINES    | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)

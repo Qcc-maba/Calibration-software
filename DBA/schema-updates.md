@@ -341,7 +341,7 @@ and specification on STAGE belongs to one main category, so the misfit cases cre
 their transaction. The portal's secondary-category picker has to filter by the main category, or the
 customer can pick a pair that 54209 refuses.
 
-**Phase 4 status (2026-11-16): written and tested on the local STAGE copy; not on STAGE.**
+**Phase 4 status (2026-11-16): on STAGE; `Test-CustomerPortalRequest.sql` 39/39 on STAGE. Previous version (identical on STAGE and PROD): `database/_rollback/BOTH.dbo.CreateCustomerPortalRequest.before-MBA-996-phase4.sql`.**
 `dbo.CreateCustomerPortalRequest` takes `@CustomerDeviceIds` (device ids, Quote and DeviceRemoval
 only; 52011 otherwise), so a device the customer typed in can be quoted. A device must be one
 `dbo.vwCustomerDevices` shows for the caller's set; others count as rejected, and ids sent with none
