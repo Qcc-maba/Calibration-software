@@ -33,9 +33,13 @@ BEGIN
     SELECT @Cust = TRY_CONVERT(INT, CustomerIdFromSource) FROM dbo.Customers WHERE CustomerId = @CustomerId;
     IF @Cust IS NULL RETURN;
 
+    /* MBA-1028: the Priority server comes from dbo.PriorityLinkedServer, never from this file. */
+    DECLARE @PriorityLink NVARCHAR(258);
+    EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT;
+
     /* The whole statement runs on the Priority side.
 
-       It used to be a four-part-name read - FROM [31.168.173.93].amaba.dbo.CPROF WHERE cp.CUST =
+       It used to be a four-part-name read - FROM <priority link>.amaba.dbo.CPROF WHERE cp.CUST =
        @Cust - which lets SQL Server decide how to satisfy the filter across the link, and it does
        not push it down. Measured on PROD for a customer with 684 quote rows: 1,194 ms that way,
        481 ms with the filter sent to the remote server. Unlike the catalogue text there is no
@@ -45,7 +49,7 @@ BEGIN
        conversion here keeps it in one place rather than inside a string. */
     DECLARE @Sql NVARCHAR(MAX) = N'
         SELECT CPROFNUM, PDATE, EXPIRYDATE, TOTPRICE, DISPRICE, CPROFSTAT
-        FROM OPENQUERY([31.168.173.93], ''
+        FROM OPENQUERY(' + @PriorityLink + N', ''
             SELECT cp.CPROFNUM, cp.PDATE, cp.EXPIRYDATE, cp.TOTPRICE, cp.DISPRICE, cp.CPROFSTAT
             FROM amaba.dbo.CPROF cp
             WHERE cp.CUST = ' + CAST(@Cust AS NVARCHAR(20)) + N'

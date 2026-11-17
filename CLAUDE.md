@@ -143,9 +143,11 @@ Which local database is which — this trips people up:
 
 Three mechanisms; only one carries live traffic.
 
-1. **global → local, live, read-only.** A linked server on both STAGE and PROD; ~16 procedures read
-   `amaba` only (`PART`, `PARTTEXT`, `SERNUMBERSTEXT`, `FAMILY`, `ORDERSTEXT`, `INVOICES`, `CPROF`).
-   No procedure writes back into PRI.
+1. **global → local, live, read-only.** A linked server per database: PROD reads live Priority,
+   STAGE reads the copy on `priority-test` (MBA-1028; the server is a setting, never a name in a
+   file - see `database/CLAUDE.md`). ~20 procedures read `amaba` and `kyulan` (`PART`, `PARTTEXT`,
+   `SERNUMBERSTEXT`, `FAMILY`, `ORDERSTEXT`, `INVOICES`, `CPROF`, `tblInstr`, ...). No procedure
+   writes back into PRI.
 2. **local → global, dormant.** Seven procedures in `amaba` / `WebSite` / `WebSiteTest` write to
    **`QCCData`** — the QCC *website* database, not the calibration app. **No SQL Agent job calls any
    of them**, and their targets stopped updating (`OrdersFULL` in late 2024).

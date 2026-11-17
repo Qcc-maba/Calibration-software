@@ -35,8 +35,28 @@ BEGIN
     SET XACT_ABORT ON;
 
     /* Everything Priority holds for a customer, not just the one row flagged for orders. */
+    /* MBA-1028: dynamic, because the Priority server comes from dbo.PriorityLinkedServer. The
+       temp table is declared rather than created by SELECT INTO, which cannot cross the
+       sp_executesql scope. Lengths are PHONEBOOK's own; NVARCHAR rather than its varchar, which
+       in this database's Latin collation would turn Hebrew names into question marks. */
     DROP TABLE IF EXISTS #PB;
-    SELECT * INTO #PB FROM OPENQUERY([31.168.173.93], '
+    CREATE TABLE #PB
+    (
+        PHONE       INT           NULL,
+        CUST        INT           NULL,
+        NAME        NVARCHAR(37)  COLLATE DATABASE_DEFAULT NULL,
+        POSITIONDES NVARCHAR(32)  COLLATE DATABASE_DEFAULT NULL,
+        PHONENUM    NVARCHAR(20)  COLLATE DATABASE_DEFAULT NULL,
+        OFFICEPHONE NVARCHAR(20)  COLLATE DATABASE_DEFAULT NULL,
+        CELLPHONE   NVARCHAR(20)  COLLATE DATABASE_DEFAULT NULL,
+        EMAIL       NVARCHAR(48)  COLLATE DATABASE_DEFAULT NULL,
+        ORDFLAG     NVARCHAR(1)   COLLATE DATABASE_DEFAULT NULL,
+        NOTMAIL     NVARCHAR(1)   COLLATE DATABASE_DEFAULT NULL,
+        INACTIVE    NVARCHAR(1)   COLLATE DATABASE_DEFAULT NULL
+    );
+
+    DECLARE @Oq NVARCHAR(MAX), @Sql NVARCHAR(MAX);
+    EXEC dbo.BuildPriorityOpenQuery @OpenQuery = @Oq OUTPUT, @RemoteQuery = N'
         SELECT PHONE, CUST,
                NAME        = LTRIM(RTRIM(NAME)),
                POSITIONDES = LTRIM(RTRIM(POSITIONDES)),
@@ -49,7 +69,10 @@ BEGIN
                INACTIVE    = LTRIM(RTRIM(ISNULL(INACTIVE,'''')))
         FROM amaba.dbo.PHONEBOOK
         WHERE CUST > 0
-    ');
+    ';
+    SET @Sql = N'SELECT PHONE, CUST, NAME, POSITIONDES, PHONENUM, OFFICEPHONE, CELLPHONE, EMAIL, ORDFLAG, NOTMAIL, INACTIVE FROM ' + @Oq;
+    INSERT INTO #PB (PHONE, CUST, NAME, POSITIONDES, PHONENUM, OFFICEPHONE, CELLPHONE, EMAIL, ORDFLAG, NOTMAIL, INACTIVE)
+    EXEC sys.sp_executesql @Sql;
 
     IF @ReportOnly = 1
     BEGIN

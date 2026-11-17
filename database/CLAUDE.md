@@ -13,6 +13,28 @@ Besides the folders in that skill's table (`procedures/`, `schema/`, `constraint
 Rules that cross areas — addressing rows by their Priority key, how STAGE and PROD differ, the two SQL
 Servers, and Priority's data traps — are in the root `CLAUDE.md`.
 
+## Never name the Priority server in a module (MBA-1028)
+
+STAGE and PROD share one AWS instance and one set of procedure files, so a server name in a file
+is the same server on both. STAGE reads `priority-test` through `[PRIORITY_TEST]`; PROD reads live
+Priority through `[31.168.173.93]`. Which one a database uses is the row in
+`dbo.PriorityLinkedServer`, changed only by `dbo.SetPriorityLinkedServer` (dry run by default).
+
+- **OPENQUERY:** build the SQL dynamically. A static `OPENQUERY(...)` moves unchanged into
+  `EXEC dbo.BuildPriorityOpenQuery @RemoteQuery = N'...', @OpenQuery = @Oq OUTPUT`; then
+  `INSERT INTO #T (...) EXEC sys.sp_executesql @Sql`. Where the SQL is already dynamic, splice the
+  name from `EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT`.
+- **Four-part names:** use the synonyms `prio.<TABLE>`. A new remote table goes into the list in
+  `dbo.SetPriorityLinkedServer` first, and that procedure is re-run on both databases.
+- `SELECT * INTO #T FROM OPENQUERY(...)` cannot become dynamic (the temp table would die with the
+  `sp_executesql` scope): declare `#T`, with Priority's `varchar` as **`NVARCHAR`**. A `varchar`
+  column in this database's Latin collation turns Hebrew into `?`.
+- `database/tests/Test-PriorityLinkedServer.sql` fails on any module that names a server, and checks
+  that the link reaches the right machine. Run it after every deploy, on both databases.
+
+The resolver refuses rather than guessing: no row (51020), or a server wrong for the database
+(51021, `dbo.fnPriorityLinkRefusal`, the only module that may contain the production address).
+
 ## The wizard's "already assigned" error is a business rule
 
 `dbo.AssignMeasurmentDeviceToOrderDetailsItems` throws `51000, 'Sensor with specified channel(s)

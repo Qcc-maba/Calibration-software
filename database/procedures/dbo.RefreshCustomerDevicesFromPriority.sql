@@ -78,7 +78,7 @@
     each its own transaction under an application lock, so the first full load does not hold one
     600k-row transaction; every chunk is idempotent, so an interrupted run is finished by the next.
 
-    Linked server: [31.168.173.93], as every Priority reader here. OPENQUERY with the whole remote
+    Linked server: the one in dbo.PriorityLinkedServer, as every Priority reader here. OPENQUERY with the whole remote
     statement inside (session1 decision 19); the INSERT sits inside the dynamic SQL, writing to a
     temp table this procedure created, so this never becomes INSERT ... EXEC across a linked server.
 */
@@ -150,10 +150,14 @@ BEGIN
         + CASE WHEN @Mode = 'incremental'
                THEN N' AND s.UDATE >= ' + CAST(@Watermark AS NVARCHAR(12)) ELSE N'' END;
 
+    /* MBA-1028: the Priority server comes from dbo.PriorityLinkedServer, never from this file. */
+    DECLARE @PriorityLink NVARCHAR(258);
+    EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT;
+
     DECLARE @Sql NVARCHAR(MAX) =
           N'INSERT INTO #Src (SERN, SERNUM, CUST, CUSTNAME, PART, CANCELDATE, UDATE, MODEL, CALIBMONTH, MNFDES, SERNDES, PARTDES) '
         + N'SELECT SERN, SERNUM, CUST, CUSTNAME, PART, CANCELDATE, UDATE, MODEL, CALIBMONTH, MNFDES, SERNDES, PARTDES '
-        + N'FROM OPENQUERY([31.168.173.93], ''' + REPLACE(@Remote, N'''', N'''''') + N''')';
+        + N'FROM OPENQUERY(' + @PriorityLink + N', ''' + REPLACE(@Remote, N'''', N'''''') + N''')';
     EXEC sys.sp_executesql @Sql;
 
     DECLARE @FetchMs INT = DATEDIFF(MILLISECOND, @Started, SYSUTCDATETIME());

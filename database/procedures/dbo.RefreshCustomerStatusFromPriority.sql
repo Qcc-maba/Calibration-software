@@ -32,13 +32,15 @@ BEGIN
 
     CREATE TABLE #Src (CUST INT PRIMARY KEY, Inactive BIT NOT NULL);
 
-    INSERT INTO #Src (CUST, Inactive)
-    SELECT CUST, Inactive
-    FROM OPENQUERY([31.168.173.93], '
+    DECLARE @Oq NVARCHAR(MAX), @Sql NVARCHAR(MAX);
+    EXEC dbo.BuildPriorityOpenQuery @OpenQuery = @Oq OUTPUT, @RemoteQuery = N'
         SELECT C.CUST,
                CASE WHEN S.INACTIVE = ''Y'' THEN 1 ELSE 0 END AS Inactive
         FROM amaba.dbo.CUSTOMERS C
-        LEFT JOIN amaba.dbo.CUSTSTATS S ON S.CUSTSTAT = C.CUSTSTAT');
+        LEFT JOIN amaba.dbo.CUSTSTATS S ON S.CUSTSTAT = C.CUSTSTAT';
+    SET @Sql = N'SELECT CUST, Inactive FROM ' + @Oq;
+    INSERT INTO #Src (CUST, Inactive)
+    EXEC sys.sp_executesql @Sql;
 
     SELECT c.CustomerId, c.CustomerCode, c.CustomerName,
            c.IsInactiveInSource AS Current_, s.Inactive AS New_

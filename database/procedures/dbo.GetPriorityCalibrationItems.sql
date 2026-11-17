@@ -54,9 +54,13 @@ BEGIN
         INNER JOIN amaba.dbo.PART p ON p.FAMILY = f.FAMILY
         GROUP BY f.FAMILY, f.FAMILYNAME, f.FAMILYDES';
 
+    /* MBA-1028: the Priority server comes from dbo.PriorityLinkedServer, never from this file. */
+    DECLARE @PriorityLink NVARCHAR(258);
+    EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT;
+
     /* ... wrapped as a string literal inside OPENQUERY, so every quote doubles */
     DECLARE @Sql NVARCHAR(MAX) =
-        N'SELECT FAMILY, FAMILYNAME, FAMILYDES, PartCount FROM OPENQUERY([31.168.173.93], '
+        N'SELECT FAMILY, FAMILYNAME, FAMILYDES, PartCount FROM OPENQUERY(' + @PriorityLink + N', '
         + @Quote + REPLACE(@RemoteQuery, @Quote, @Quote + @Quote) + @Quote + N')';
 
     BEGIN TRY
@@ -75,7 +79,7 @@ BEGIN
     IF @Part IS NOT NULL
     BEGIN
         DECLARE @PartSql NVARCHAR(MAX) =
-            N'SELECT TOP (1) @Found = FAMILY FROM OPENQUERY([31.168.173.93], '
+            N'SELECT TOP (1) @Found = FAMILY FROM OPENQUERY(' + @PriorityLink + N', '
             + @Quote
             + REPLACE(N'SELECT FAMILY FROM amaba.dbo.PART WHERE PART = ' + CAST(@Part AS NVARCHAR(20)),
                       @Quote, @Quote + @Quote)

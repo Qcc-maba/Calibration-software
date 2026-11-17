@@ -64,13 +64,17 @@ BEGIN
         ReceivedAt DATETIME NULL
     );
 
+    /* MBA-1028: the Priority server comes from dbo.PriorityLinkedServer, never from this file. */
+    DECLARE @PriorityLink NVARCHAR(258);
+    EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT;
+
     /* Bounded pull of the goods-receipt documents we reference. */
     DECLARE @sql NVARCHAR(MAX) = CONCAT(
         N'INSERT #Receipt (DOC, CustPack, ReceivedAt)
           SELECT q.DOC,
                  IIF(LTRIM(RTRIM(q.MBA_CUSTPACK)) = ''Y'', 1, 0),
                  DATEADD(MINUTE, q.CURDATE, ''1988-01-01'')
-          FROM OPENQUERY([31.168.173.93], ''
+          FROM OPENQUERY(' + @PriorityLink + N', ''
                 SELECT DOC, MBA_CUSTPACK, CURDATE
                 FROM amaba.dbo.DOCUMENTS
                 WHERE TYPE = ''''N'''' AND DOC BETWEEN ', @MinDoc, N' AND ', @MaxDoc, N'

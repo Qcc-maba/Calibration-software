@@ -54,9 +54,13 @@ BEGIN
         RETURN;
     END
 
+    /* MBA-1028: the Priority server comes from dbo.PriorityLinkedServer, never from this file. */
+    DECLARE @PriorityLink NVARCHAR(258);
+    EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT;
+
     DECLARE @Sql NVARCHAR(MAX) = N'
         SELECT TextLine, TextReversed
-        FROM OPENQUERY([31.168.173.93], ''
+        FROM OPENQUERY(' + @PriorityLink + N', ''
             SELECT t.TEXTLINE AS TextLine, t.TEXT AS TextReversed
             FROM amaba.dbo.MBA_CUSTOMERSTEXT t
             WHERE t.CUST = ' + CAST(@PriorityCustomer AS NVARCHAR(20)) + N'

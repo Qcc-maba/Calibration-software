@@ -55,6 +55,10 @@ BEGIN
     SELECT @Cust = TRY_CONVERT(INT, CustomerIdFromSource) FROM dbo.Customers WHERE CustomerId = @CustomerId;
     IF @Cust IS NULL RETURN;
 
+    /* MBA-1028: the Priority server comes from dbo.PriorityLinkedServer, never from this file. */
+    DECLARE @PriorityLink NVARCHAR(258);
+    EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT;
+
     DECLARE @Quote CHAR(1) = CHAR(39);
     DECLARE @Slash CHAR(1) = CHAR(92);
 
@@ -93,7 +97,7 @@ BEGIN
       + N' r.DocumentDirectory AS documentDirectory,'
       + N' r.DocumentFileSize AS documentFileSize,'
       + N' CAST(CASE WHEN r.DocumentDirectory IS NULL THEN 0 ELSE 1 END AS bit) AS hasDocument'
-      + N' FROM OPENQUERY([31.168.173.93], ' + @Quote + REPLACE(@RemoteQuery, @Quote, @Quote + @Quote) + @Quote + N') AS r'
+      + N' FROM OPENQUERY(' + @PriorityLink + N', ' + @Quote + REPLACE(@RemoteQuery, @Quote, @Quote + @Quote) + @Quote + N') AS r'
       + N' ORDER BY r.IVDATE DESC;';
 
     EXEC sp_executesql @Sql;
