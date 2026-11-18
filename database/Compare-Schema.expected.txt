@@ -16,11 +16,18 @@ COLUMNS     | STAGE only | dbo.Backup_OrderDetailsItems_Calibrator_20260906.*  |
 COLUMNS     | STAGE only | dbo.CustomerContacts_PortalIdentityBackup_20260907.* | STAGE backup from the 2026-09-07 portal identity fix; never deployed
 COLUMNS     | STAGE only | dbo.Backup_OrderDetailsItems_ControllerType_*.*     | MBA-980 STAGE values of the dropped device-level ControllerType (2026-11-16); PROD column empty, no backup there
 
-# ---- PROD-only sync monitoring (live; must never be dropped) --------------------------------------
-COLUMNS     | PROD only  | etl.SyncRunLog.*                                    | etl.SyncRunLog, PROD sync monitoring; does not exist on STAGE
-ROUTINES    | PROD only  | dbo.usp_SyncHealthCheck                             | PROD sync monitoring; does not exist on STAGE
-ROUTINES    | PROD only  | etl.usp_SyncRun*                                    | PROD sync monitoring; does not exist on STAGE
-CONSTRAINTS | PROD only  | * etl.SyncRunLog*                                   | PROD sync monitoring; does not exist on STAGE
+# ---- MBA-1001 etl schema: retired on STAGE 2026-11-18, PROD pending (database/schema/etl.RetireSchema.sql) ----
+# Delete this whole block in the change that runs the script on PROD. The sync-monitoring lines are
+# NOT live, whatever older notes say: etl.SyncRunLog has 0 rows and nothing calls usp_SyncRunStart.
+# They stay only if PROD runs the script with @KeepSyncMonitoring = 1 (then keep those four lines).
+COLUMNS     | PROD only  | etl.*                                               | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18, PROD pending
+ROUTINES    | PROD only  | etl.*                                               | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18, PROD pending
+ROUTINES    | PROD only  | stg.MergeCarsToOnPrem                               | MBA-1001: dead duplicate of etl.MergeCarsToOnPrem, dropped on STAGE 2026-11-18, PROD pending
+CONSTRAINTS | PROD only  | * etl.*                                             | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18, PROD pending
+COLUMNS     | PROD only  | etl.SyncRunLog.*                                    | never-wired sync monitoring (0 rows, no caller); MBA-1001 decides keep or drop
+ROUTINES    | PROD only  | dbo.usp_SyncHealthCheck                             | never-wired sync monitoring (reads etl.SyncRunLog); MBA-1001 decides keep or drop
+ROUTINES    | PROD only  | etl.usp_SyncRun*                                    | never-wired sync monitoring (no caller); MBA-1001 decides keep or drop
+CONSTRAINTS | PROD only  | * etl.SyncRunLog*                                   | never-wired sync monitoring; MBA-1001 decides keep or drop
 
 # ---- MBA-816 sensor coefficients: on STAGE, waits for the coefficient screen (STATUS.md checklist item 2) ----
 COLUMNS     | STAGE only | dbo.ConversionParameters.*                          | MBA-816 coefficients, not deployed to PROD yet
