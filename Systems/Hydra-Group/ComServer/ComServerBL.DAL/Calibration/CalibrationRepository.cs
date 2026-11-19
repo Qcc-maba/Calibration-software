@@ -192,7 +192,13 @@ namespace ComServerBL.Hydra2.DAL.Calibration
                         Convert.ToDouble(dbResults["B4"]),
                         Convert.ToDouble(dbResults["A7"]),
                         Convert.ToDouble(dbResults["B7"]),
-                        Convert.ToDouble(dbResults["C7"]));
+                        Convert.ToDouble(dbResults["C7"]))
+                    {
+                        WorkRangeMin = OptionalDouble(dbResults, "WorkRangeMin"),
+                        WorkRangeMax = OptionalDouble(dbResults, "WorkRangeMax"),
+                        WorkRangeMin2 = OptionalDouble(dbResults, "WorkRangeMin2"),
+                        WorkRangeMax2 = OptionalDouble(dbResults, "WorkRangeMax2"),
+                    };
                 }
             }
             catch (Exception e)
@@ -201,6 +207,20 @@ namespace ComServerBL.Hydra2.DAL.Calibration
                 Trace.WriteLine($"CalibrationRepository.GetSensorCoefficientsAsync error for '{mabaID}': {e.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// MBA-831: a column the procedure may not return yet. A server whose GetSensorCoefficients predates
+        /// the working range has no such column: the sensor then has no range on file, and is not checked.
+        /// </summary>
+        private static double? OptionalDouble(DbDataReader reader, string column)
+        {
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                if (string.Equals(reader.GetName(i), column, StringComparison.OrdinalIgnoreCase))
+                    return reader.IsDBNull(i) ? (double?)null : Convert.ToDouble(reader.GetValue(i));
+            }
+            return null;
         }
 
         #endregion
@@ -291,7 +311,7 @@ namespace ComServerBL.Hydra2.DAL.Calibration
             else
             {
                 _coefficientsDic[mabaID] = coefficients;
-                msg = $"  Master '{mabaID}' -> ITS-90 coefficients loaded (RTP={coefficients.RTP})";
+                msg = $"  Master '{mabaID}' -> ITS-90 coefficients loaded (RTP={coefficients.RTP}, working range {coefficients.WorkRangeText("degC") ?? "not on file"})";
             }
             Trace.WriteLine(msg);
             AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + " " + msg + Environment.NewLine);

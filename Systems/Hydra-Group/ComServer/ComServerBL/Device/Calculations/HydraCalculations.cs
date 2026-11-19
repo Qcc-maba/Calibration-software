@@ -225,6 +225,21 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations
         }
 
         /// <summary>
+        /// MBA-831: where a converted temperature lies against the master's working range - 0 inside it, or
+        /// when the master has no coefficients or no range on file; -1 below; +1 above. Outside the range
+        /// the master's coefficients can be off by degrees, so the reading is shown with a warning
+        /// (Nofar, Jira 38172: warn and keep working). <paramref name="range"/> is the range as text.
+        /// </summary>
+        public int CompareToMasterWorkRange(string masterID, double celsius, out string range, double insideMargin = 0)
+        {
+            range = null;
+            if (!_repository.TryGetSensorCoefficients(masterID, out var coefficients))
+                return 0;
+            range = coefficients.WorkRangeText("degC");
+            return coefficients.CompareToWorkRange(celsius, insideMargin);
+        }
+
+        /// <summary>
         /// The ITS-90 conversion itself, for one sensor's coefficients.
         /// </summary>
         /// <remarks>
@@ -241,6 +256,16 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations
         /// dbo.ConversionParameters.
         /// </remarks>
         public static Tuple<double, CalibrationRepository.ResultStatus> ResistanceToTemperatureITS90(double value, SensorCoefficients coefficients)
+        {
+            // MBA-831 (review of #63): a resistance far outside what the coefficients describe can take W - dW
+            // below zero, and the sixth root of a negative number is NaN - which used to go out as an OK reading.
+            var result = ResistanceToTemperatureITS90Unchecked(value, coefficients);
+            if (result.Item2 == CalibrationRepository.ResultStatus.OK && (double.IsNaN(result.Item1) || double.IsInfinity(result.Item1)))
+                return new Tuple<double, CalibrationRepository.ResultStatus>(9999, CalibrationRepository.ResultStatus.WrongValue);
+            return result;
+        }
+
+        private static Tuple<double, CalibrationRepository.ResultStatus> ResistanceToTemperatureITS90Unchecked(double value, SensorCoefficients coefficients)
         {
             double A4 = coefficients.A4;
             double B4 = coefficients.B4;
