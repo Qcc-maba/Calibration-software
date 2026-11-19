@@ -30,8 +30,14 @@ $root = Split-Path -Parent $PSScriptRoot
 if (-not $SourceEnv) {
     # The app is <root>\app in the original layout, and its own repo beside this one (GIT_ROOT\app)
     # in the dev layout - the same two places Start-Calibration-Stack.ps1 looks.
-    $SourceEnv = @((Join-Path $root 'app\.env'), (Join-Path (Split-Path -Parent $root) 'app\.env')) |
-        Where-Object { Test-Path $_ } | Select-Object -First 1
+    # From a git worktree (dev\worktrees\...) neither exists, so also try beside the main checkout.
+    $candidates = @((Join-Path $root 'app\.env'), (Join-Path (Split-Path -Parent $root) 'app\.env'))
+    $commonDir = git -C $root rev-parse --path-format=absolute --git-common-dir 2>$null
+    if ($commonDir) {
+        $mainCheckout = Split-Path -Parent ([IO.Path]::GetFullPath($commonDir))
+        $candidates += Join-Path (Split-Path -Parent $mainCheckout) 'app\.env'
+    }
+    $SourceEnv = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
     if (-not $SourceEnv) { $SourceEnv = Join-Path $root 'app\.env' }
 }
 if (-not $OutFile)   { $OutFile   = Join-Path $root 'Installer\assets\.env.station' }
