@@ -15,6 +15,13 @@
     A MabaID held by more than one live device is still refused: returning one of them would be a
     guess, and a station converting with the wrong sensor's coefficients reports a plausible,
     wrong temperature. Pass @MeasurementDevicesId to say which one is meant.
+
+    MBA-831: also the sensor's working range (WorkRangeMin/Max, and the second range where it has
+    one), so the station can warn when a master reads outside the range its coefficients were fitted
+    over - outside it they can be off by degrees (21-290: about 87 degC at 100 degC, Jira 38168).
+    Only a range recorded in Celsius is returned; any other unit comes back NULL, which the station
+    reads as "no range on file". STAGE 2026-11: every precision sensor's range is in Celsius, none
+    has a second one. The unit is matched by its English name, not by id, which differs by server.
 */
 CREATE OR ALTER PROCEDURE dbo.GetSensorCoefficients
     @MabaID               NVARCHAR(50) = NULL,
@@ -44,10 +51,16 @@ BEGIN
                MabaID = LTRIM(RTRIM(md.MabaID)),
                cp.RTP, cp.A4, cp.B4, cp.A7, cp.B7, cp.C7,
                cp.OrderDetailsItemId, cp.CreatedDate, cp.UpdateUserID,
+               WorkRangeMin  = CASE WHEN u1.LongNameEn = N'Celsius' THEN md.WorkRangeMin  END,
+               WorkRangeMax  = CASE WHEN u1.LongNameEn = N'Celsius' THEN md.WorkRangeMax  END,
+               WorkRangeMin2 = CASE WHEN u2.LongNameEn = N'Celsius' THEN md.WorkRangeMin2 END,
+               WorkRangeMax2 = CASE WHEN u2.LongNameEn = N'Celsius' THEN md.WorkRangeMax2 END,
                Rn = ROW_NUMBER() OVER (PARTITION BY cp.MeasurementDevicesId
                                        ORDER BY cp.ConversionParameterId DESC)
         FROM dbo.ConversionParameters AS cp
         JOIN dbo.MeasurementDevices AS md ON md.ID = cp.MeasurementDevicesId AND md.IsDeleted = 0
+        LEFT JOIN dbo.MeasurementDeviceUnits AS u1 ON u1.MeasurementDeviceUnitId = md.WorkRangeUnitId
+        LEFT JOIN dbo.MeasurementDeviceUnits AS u2 ON u2.MeasurementDeviceUnitId = md.WorkRangeUnitId2
         WHERE cp.IsDeleted = 0
           AND (@MeasurementDevicesId IS NULL OR cp.MeasurementDevicesId = @MeasurementDevicesId)
           AND (@Maba IS NULL OR LTRIM(RTRIM(md.MabaID)) = @Maba)
@@ -56,7 +69,8 @@ BEGIN
     SELECT ConversionParameterId, MeasurementDevicesId, MabaID,
            RTP, A4, B4, A7, B7, C7,
            OrderDetailsItemId, CreatedDate, UpdateUserID,
-           IsCurrent = CAST(CASE WHEN Rn = 1 THEN 1 ELSE 0 END AS BIT)
+           IsCurrent = CAST(CASE WHEN Rn = 1 THEN 1 ELSE 0 END AS BIT),
+           WorkRangeMin, WorkRangeMax, WorkRangeMin2, WorkRangeMax2
     FROM Sets
     WHERE @IncludeHistory = 1 OR Rn = 1
     ORDER BY ConversionParameterId DESC;

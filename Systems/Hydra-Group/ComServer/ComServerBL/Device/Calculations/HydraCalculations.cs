@@ -225,6 +225,21 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations
         }
 
         /// <summary>
+        /// MBA-831: where a converted temperature lies against the master's working range - 0 inside it, or
+        /// when the master has no coefficients or no range on file; -1 below; +1 above. Outside the range
+        /// the master's coefficients can be off by degrees, so the reading is shown with a warning
+        /// (Nofar, Jira 38172: warn and keep working). <paramref name="range"/> is the range as text.
+        /// </summary>
+        public int CompareToMasterWorkRange(string masterID, double celsius, out string range)
+        {
+            range = null;
+            if (!_repository.TryGetSensorCoefficients(masterID, out var coefficients))
+                return 0;
+            range = coefficients.WorkRangeText();
+            return coefficients.CompareToWorkRange(celsius);
+        }
+
+        /// <summary>
         /// The ITS-90 conversion itself, for one sensor's coefficients.
         /// </summary>
         /// <remarks>
