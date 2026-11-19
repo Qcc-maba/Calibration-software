@@ -20,6 +20,11 @@
     chamber cycle of that one calibration. No serial, no customer, or no earlier line with remarks
     returns no rows - an answer, not an error.
 
+    Nothing is offered to a line that has ever had report remarks saved, even if they were all removed
+    since: dbo.SaveCalibrationRemarks soft-deletes the set it replaces, so a deleted row is the trace of
+    a calibrator who cleared the remarks on purpose (review of app #198). A line where the offered
+    remarks were removed before anything was ever saved leaves no trace, and is offered them again.
+
     Same columns as dbo.GetCalibrationRemarks, plus where they came from:
     SourceOrderDetailsItemId, SourceReportNumber (MbaReportNumber), SourceCalibrationDate
     (ActualCalibrationDate, else the day the remarks were saved). PredefinedIsActive says whether the
@@ -46,6 +51,10 @@ BEGIN
           AND NULLIF(LTRIM(RTRIM(SerialNumber)), N'') IS NOT NULL;
 
     IF @Serial IS NULL RETURN;
+
+    IF EXISTS (SELECT 1 FROM dbo.CalibrationRemarks
+               WHERE OrderDetailsItemId = @OrderDetailsItemId AND Scope = N'Report')
+        RETURN;
 
     DECLARE @Customer INT;
     IF (SELECT COUNT(DISTINCT wp.CustomerId)

@@ -139,11 +139,10 @@ INSERT @Out SELECT N'another customer''s sensor with the same serial is never of
        CAST(@B AS NVARCHAR(12)), CONCAT(MIN(SourceOrderDetailsItemId), N''),
        CASE WHEN MIN(SourceOrderDetailsItemId) = @B AND MAX(SourceOrderDetailsItemId) = @B THEN N'PASS' ELSE N'FAIL' END FROM #P;
 
-/* the line's own remarks are never offered back to it */
+/* a line that has remarks of its own is offered nothing - neither its own nor another calibration's */
 DELETE #P; INSERT #P EXEC dbo.GetPreviousCalibrationRemarks @B;
-INSERT @Out SELECT N'a line is never offered its own remarks', CAST(@A AS NVARCHAR(12)),CONCAT(MIN(SourceOrderDetailsItemId), N''),
-       CASE WHEN COUNT(*) > 0 AND MIN(SourceOrderDetailsItemId) = @A AND MAX(SourceOrderDetailsItemId) = @A
-            THEN N'PASS' ELSE N'FAIL' END FROM #P;
+INSERT @Out SELECT N'a line with remarks of its own is offered nothing', N'0', CONCAT(COUNT(*), N''),
+       CASE WHEN COUNT(*) = 0 THEN N'PASS' ELSE N'FAIL' END FROM #P;
 
 /* a cancelled calibration is skipped: back to A */
 UPDATE dbo.OrderDetailsItems SET IsCancelled = 1 WHERE OrderDetailsItemId = @B;
@@ -175,6 +174,17 @@ UPDATE dbo.OrderDetailsItems SET SerialNumber = CONCAT(N' ', @Serial, N' ') WHER
 DELETE #P; INSERT #P EXEC dbo.GetPreviousCalibrationRemarks @C;
 INSERT @Out SELECT N'spaces around the serial number are ignored', CAST(@A AS NVARCHAR(12)),CONCAT(MIN(SourceOrderDetailsItemId), N''),
        CASE WHEN MIN(SourceOrderDetailsItemId) = @A THEN N'PASS' ELSE N'FAIL' END FROM #P;
+
+/* the calibrator saves remarks on C and then clears them: nothing is offered again (review of app #198) */
+SET @T = N'[{"Text":"for a moment"}]';
+DELETE #S; INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @C, N'Report', NULL, @T, 1;
+SET @T = N'[]';
+DELETE #S; INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @C, N'Report', NULL, @T, 1;
+DELETE #P; INSERT #P EXEC dbo.GetPreviousCalibrationRemarks @C;
+INSERT @Out SELECT N'remarks cleared on purpose are not offered again', N'0', CONCAT(COUNT(*), N''),
+       CASE WHEN COUNT(*) = 0 AND NOT EXISTS (SELECT 1 FROM dbo.CalibrationRemarks
+                                              WHERE OrderDetailsItemId = @C AND IsDeleted = 0)
+            THEN N'PASS' ELSE N'FAIL' END FROM #P;
 
 ROLLBACK TRANSACTION;
 
