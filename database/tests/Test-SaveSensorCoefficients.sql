@@ -42,7 +42,10 @@ DECLARE @R2 DECIMAL(35,15) = 25.4011, @A42 DECIMAL(35,15) = -0.00010288,
         @B42 DECIMAL(35,15) = -0.0000052588, @A72 DECIMAL(35,15) = -0.00011873,
         @B72 DECIMAL(35,15) = -0.0000016079, @C72 DECIMAL(35,15) = -0.000003391;
 
-/* two live sensors whose MabaID is theirs alone - 21-214 first when it qualifies */
+/* two live sensors whose MabaID is theirs alone, preferring ones with no coefficients on file yet:
+   once the lab's sets are loaded (MBA-831), a sensor whose current set equals S1 - 21-214 - would
+   answer the first save with NoChange and fail every check after it. Among those, a working range in
+   Celsius first, so the range checks read a real range. */
 DECLARE @Unique TABLE (Rn INT IDENTITY, ID INT, MabaID NVARCHAR(50));
 INSERT @Unique (ID, MabaID)
 SELECT TOP (2) MIN(md.ID), LTRIM(RTRIM(md.MabaID))
@@ -50,7 +53,13 @@ FROM dbo.MeasurementDevices AS md
 WHERE md.IsDeleted = 0 AND NULLIF(LTRIM(RTRIM(md.MabaID)), N'') IS NOT NULL
 GROUP BY LTRIM(RTRIM(md.MabaID))
 HAVING COUNT(*) = 1
-ORDER BY CASE WHEN LTRIM(RTRIM(md.MabaID)) = N'21-214' THEN 0 ELSE 1 END, MIN(md.ID);
+ORDER BY CASE WHEN EXISTS (SELECT 1 FROM dbo.ConversionParameters AS cp
+                           WHERE cp.MeasurementDevicesId = MIN(md.ID) AND cp.IsDeleted = 0) THEN 1 ELSE 0 END,
+         CASE WHEN EXISTS (SELECT 1 FROM dbo.MeasurementDevices AS r
+                           JOIN dbo.MeasurementDeviceUnits AS u ON u.MeasurementDeviceUnitId = r.WorkRangeUnitId
+                           WHERE r.ID = MIN(md.ID) AND u.LongNameEn = N'Celsius'
+                             AND r.WorkRangeMin IS NOT NULL AND r.WorkRangeMax IS NOT NULL) THEN 0 ELSE 1 END,
+         MIN(md.ID);
 
 DECLARE @D1 INT, @M1 NVARCHAR(50), @D2 INT, @M2 NVARCHAR(50);
 SELECT @D1 = ID, @M1 = MabaID FROM @Unique WHERE Rn = 1;
