@@ -31,7 +31,9 @@
     TestedValue, ToleranceValue, ToleranceStart, ToleranceEnd, Resolution, Uncertainty,
     StabilityThreshold, UniformityThreshold, DisplayValue, DisplayResolution, IsDisplayEnabled,
     IsTargetValueEnabled, ControllerTypeStatusId, ControllerManufacturer, ControllerModel,
-    CalculationResolution.
+    CalculationResolution, and (MBA-800) SecondaryUnitId, SecondaryUnitName and the thirteen other
+    Secondary* columns: the cycle's second measured value, NULL where it has none. Matching a new
+    cycle's RH set point to an old one is the app's rule, as for the temperature set point.
 
     STAGE copy 2026-11-10: 19 devices with live cycles, none of them with cycles on two lines yet,
     so on real data this returns nothing until a device comes back for its next calibration.
@@ -98,8 +100,25 @@ BEGIN
         ,cc.ControllerManufacturer
         ,cc.ControllerModel
         ,cc.CalculationResolution
+        -- MBA-800: the second measured value carries over the same way
+        ,cc.SecondaryUnitId
+        ,SecondaryUnitName          = smu.ShortNameEn
+        ,cc.SecondaryTestedValue
+        ,cc.SecondaryToleranceValue
+        ,cc.SecondaryToleranceStart
+        ,cc.SecondaryToleranceEnd
+        ,cc.SecondaryResolution
+        ,cc.SecondaryUncertainty
+        ,cc.SecondaryStabilityThreshold
+        ,cc.SecondaryUniformityThreshold
+        ,cc.SecondaryDisplayValue
+        ,cc.SecondaryDisplayResolution
+        ,cc.SecondaryIsDisplayEnabled
+        ,cc.SecondaryIsTargetValueEnabled
+        ,cc.SecondaryCalculationResolution
     FROM dbo.CalibrationCycles AS cc
     LEFT JOIN dbo.MeasurementDeviceUnits AS mu ON mu.MeasurementDeviceUnitId = cc.UnitId
+    LEFT JOIN dbo.MeasurementDeviceUnits AS smu ON smu.MeasurementDeviceUnitId = cc.SecondaryUnitId -- MBA-800
     WHERE cc.OrderDetailsItemId = @PreviousItemId
       AND cc.IsDeleted = 0
     ORDER BY cc.CalibrationCycleStartDate;

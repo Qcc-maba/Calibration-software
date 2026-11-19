@@ -41,6 +41,11 @@ BEGIN
         UncertancyValue                      DECIMAL(10,4)     NULL,
         MeasuredValue                        DECIMAL(10,4)     NULL,
         MeasuredValueUnitId                  INT               NULL,
+        /* MBA-800: added on an existing table by
+           database/schema/dbo.MeasurmentPointsToCalibrationCycles.PairIdValueRole.sql */
+        PairId                               UNIQUEIDENTIFIER  NULL,
+        ValueRole                            TINYINT           NULL
+            CONSTRAINT CK_MeasurmentPointsToCalibrationCycles_ValueRole CHECK (ValueRole IN (1, 2)),
 
         CONSTRAINT PK_MeasurmentPointsToCalibrationCycles PRIMARY KEY CLUSTERED
             (OrderDetailsItemId, CalibrationCycleStartDate, SensorMeasurementDeviceId, ChannelNumber,

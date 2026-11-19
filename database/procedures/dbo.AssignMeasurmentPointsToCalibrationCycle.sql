@@ -34,6 +34,15 @@
     - NO_SENSOR does not exist on PROD (2026-11-16). There, only channel 99 marks a placeholder.
 
     The soft delete is scoped per (line, cycle) pair from the request, not per line x per date.
+
+    MBA-800 (2026-11-19): a point may carry "ValueRole" (1 = temperature, 2 = the chamber's second
+    value, RH) and "PairId" (the GUID its order-line point carries; the temperature and RH points of
+    one position share it). database/schema/dbo.MeasurmentPointsToCalibrationCycles.PairIdValueRole.sql
+    has the why. Both are written exactly as sent, NULL included; omitted = not stated, which is
+    every point sent before this change. A role other than 1 or 2, or a PairId that is not a GUID,
+    is refused with 51000 before anything is written, like the clash check. The pair's makeup
+    (one temperature + one RH point) is checked where the pair is created, by
+    dbo.AssignMeasurmentPointsToOrderDetailsItems; a cycle copies those points.
 */
 CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToCalibrationCycle]
     @LoggedInUserEmail NVARCHAR(200),
@@ -80,6 +89,11 @@ BEGIN
             UncertancyValue DECIMAL(10,4),
             MeasuredValue DECIMAL(10,4),
             MeasuredValueUnitId INT,
+            /* MBA-800 */
+            PairIdText NVARCHAR(50),
+            PairId UNIQUEIDENTIFIER,
+            ValueRoleText NVARCHAR(50),
+            ValueRole TINYINT,
             IsPlaceholder BIT NOT NULL DEFAULT 0,
             /* the point name as part of the key: trimmed, '' = unnamed; '' for real points */
             PointKeyName NVARCHAR(100) COLLATE Latin1_General_100_CI_AI_SC NOT NULL DEFAULT N''
@@ -101,7 +115,11 @@ BEGIN
             StabilityValue,
             UncertancyValue,
             MeasuredValue,
-            MeasuredValueUnitId
+            MeasuredValueUnitId,
+            PairIdText,
+            PairId,
+            ValueRoleText,
+            ValueRole
         )
         SELECT
             d.OrderDetailsItemId,
@@ -118,7 +136,11 @@ BEGIN
             c.StabilityValue,
             c.UncertancyValue,
             c.MeasuredValue,
-            c.MeasuredValueUnitId
+            c.MeasuredValueUnitId,
+            NULLIF(LTRIM(RTRIM(c.PairId)), N''),
+            TRY_CONVERT(UNIQUEIDENTIFIER, NULLIF(LTRIM(RTRIM(c.PairId)), N'')),
+            NULLIF(LTRIM(RTRIM(c.ValueRole)), N''),
+            TRY_CONVERT(TINYINT, NULLIF(LTRIM(RTRIM(c.ValueRole)), N''))
         FROM OPENJSON(@Data)
         WITH (
             OrderDetailsItemId INT,
@@ -139,8 +161,31 @@ BEGIN
             StabilityValue DECIMAL(10,4),
             UncertancyValue DECIMAL(10,4),
             MeasuredValue DECIMAL(10,4),
-            MeasuredValueUnitId INT
+            MeasuredValueUnitId INT,
+            PairId NVARCHAR(50),        /* MBA-800: text, so a bad value gets a message, not error 8169 */
+            ValueRole NVARCHAR(50)      /* MBA-800 */
         ) AS c
+
+        /* MBA-800: refuse a malformed role or pair before writing anything */
+        DECLARE @BadPair NVARCHAR(400);
+        SELECT TOP (1) @BadPair =
+              N'Order line ' + CAST(pd.OrderDetailsItemId AS NVARCHAR(20))
+            /* COLLATE: the name column is Latin1 (see #parsedData), the two text columns are not */
+            + N', point "' + COALESCE(NULLIF(LTRIM(RTRIM(pd.MeasurmentPointName)), N''), N'(unnamed)') COLLATE DATABASE_DEFAULT + N'": '
+            + CASE WHEN pd.ValueRoleText IS NOT NULL AND (pd.ValueRole IS NULL OR pd.ValueRole NOT IN (1, 2))
+                   THEN N'ValueRole must be 1 (temperature) or 2 (RH), got "' + pd.ValueRoleText + N'".'
+                   ELSE N'PairId is not a GUID: "' + pd.PairIdText + N'".' END
+        FROM #parsedData AS pd
+        WHERE (pd.ValueRoleText IS NOT NULL AND (pd.ValueRole IS NULL OR pd.ValueRole NOT IN (1, 2)))
+           OR (pd.PairIdText IS NOT NULL AND pd.PairId IS NULL);
+
+        /* The message quotes the caller's text; THROW reads a lone % as a format code and returns
+           an empty message (seen on STAGE), so double it. */
+        IF @BadPair IS NOT NULL
+        BEGIN
+            SET @BadPair = REPLACE(@BadPair, N'%', N'%%');
+            THROW 51000, @BadPair, 1;
+        END
 
         UPDATE pd
         SET IsPlaceholder = 1,
@@ -211,6 +256,8 @@ BEGIN
                 d.UncertancyValue,
                 d.MeasuredValue,
                 d.MeasuredValueUnitId,
+                d.PairId,
+                d.ValueRole,
                 d.IsPlaceholder,
                 d.PointKeyName
             FROM #parsedData as d
@@ -239,6 +286,8 @@ BEGIN
                 OR COALESCE(dest.[UncertancyValue],0) <> COALESCE(source.[UncertancyValue],0)
                 OR COALESCE(dest.[MeasuredValue],0) <> COALESCE(source.[MeasuredValue],0)
                 OR COALESCE(dest.[MeasuredValueUnitId],0) <> COALESCE(source.[MeasuredValueUnitId],0)
+                /* MBA-800: NULL-safe */
+                OR NOT EXISTS (SELECT dest.[PairId], dest.[ValueRole] INTERSECT SELECT source.[PairId], source.[ValueRole])
         )
         THEN
             UPDATE
@@ -255,6 +304,8 @@ BEGIN
                 ,dest.[UncertancyValue] = source.[UncertancyValue]
                 ,dest.[MeasuredValue] = source.[MeasuredValue]
                 ,dest.[MeasuredValueUnitId] = source.[MeasuredValueUnitId]
+                ,dest.[PairId] = source.[PairId]          /* MBA-800 */
+                ,dest.[ValueRole] = source.[ValueRole]    /* MBA-800 */
         WHEN NOT MATCHED BY TARGET
         THEN
             INSERT (
@@ -273,7 +324,9 @@ BEGIN
                   [StabilityValue],
                   [UncertancyValue],
                   [MeasuredValue],
-                  [MeasuredValueUnitId]
+                  [MeasuredValueUnitId],
+                  [PairId],
+                  [ValueRole]
             )
             VALUES (
                  source.[OrderDetailsItemId]
@@ -292,6 +345,8 @@ BEGIN
                 ,source.[UncertancyValue]
                 ,source.[MeasuredValue]
                 ,source.[MeasuredValueUnitId]
+                ,source.[PairId]
+                ,source.[ValueRole]
             );
 
         COMMIT TRANSACTION;

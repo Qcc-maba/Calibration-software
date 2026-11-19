@@ -49,6 +49,15 @@
     ControllerManufacturer and ControllerModel, saved by dbo.SaveCalibrationCycleSettings. No screen
     ever filled the device-level field, and the app leaves out null parameters, so no caller sent it.
 
+    MBA-800: a chamber can be calibrated for two measured values, Temperature + RH first
+    (database/schema/dbo.OrderDetailsItems.SecondaryMeasuredValue.sql). @SecondaryMeasurementUnitId
+    is the second value's unit and @SecondaryMeasurementValueList its set points; both text, NULL
+    leaves the column, '' clears it, like the humidity parameters. The second value's Guard Band,
+    tolerance and resolution are the @Humidity* parameters, so any second unit other than %RH is
+    refused (51000) before anything is written - CO2 and pressure will get their own columns rather
+    than be stored in Humidity*. A unit text that is not a number is refused too, not ignored: it
+    would otherwise save the page without the pair the calibrator chose.
+
     @ControllerType is still accepted and ignored. The app's device-identification schema still
     has the field, and removing the parameter would turn any value it ever sent into a failed save
     of the whole page ("not a parameter for procedure"). Remove the parameter once the app no
@@ -107,9 +116,26 @@ CREATE OR ALTER PROCEDURE [dbo].[AssignProductIdentificationData]
 	   @Accuracy, @Tolerance and @Resolution. Text, so '' can clear them (see the header). */
 	@HumidityAccuracy NVARCHAR(50) = NULL,
 	@HumidityTolerance NVARCHAR(50) = NULL,
-	@HumidityResolution NVARCHAR(50) = NULL
+	@HumidityResolution NVARCHAR(50) = NULL,
+	/* MBA-800: the chamber's second measured value - its unit (an id; only %RH for now) and its
+	   set points (CSV like @MeasurementValueList). Text, so '' clears them (see the header). */
+	@SecondaryMeasurementUnitId NVARCHAR(50) = NULL,
+	@SecondaryMeasurementValueList NVARCHAR(MAX) = NULL
 AS
-BEGIN 
+BEGIN
+
+	/* MBA-800: checked before anything is written. Only %RH, because the second value's Guard
+	   Band, tolerance and resolution are the Humidity* columns - CO2 or pressure must not land
+	   there. Looked up by name: unit ids are not guaranteed to match between servers. */
+	DECLARE @SecondaryUnitText NVARCHAR(50) = LTRIM(RTRIM(@SecondaryMeasurementUnitId));
+	DECLARE @SecondaryUnitId INT = TRY_CONVERT(INT, NULLIF(@SecondaryUnitText, N''));
+	IF NULLIF(@SecondaryUnitText, N'') IS NOT NULL AND @SecondaryUnitId IS NULL
+		THROW 51000, 'SecondaryMeasurementUnitId is not a unit id.', 1;
+	IF @SecondaryUnitId IS NOT NULL
+	   AND NOT EXISTS (SELECT 1 FROM [dbo].[MeasurementDeviceUnits]
+	                   WHERE MeasurementDeviceUnitId = @SecondaryUnitId AND ShortNameEn = N'%RH' AND IsDeleted = 0)
+		/* %% : THROW reads a lone % as a format code - '%RH' came back as an EMPTY message on STAGE */
+		THROW 51000, 'The second measured value can only be %%RH for now (MBA-800: Temperature + RH).', 1;
 
 	DECLARE @OrderDetailItemIdInserted INT
 	DECLARE @UserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @UserEmail) 
@@ -155,6 +181,8 @@ BEGIN
 					   ,[HumidityAccuracy]
 					   ,[HumidityTolerance]
 					   ,[HumidityResolution]
+					   ,[SecondaryMeasurementUnitId]
+					   ,[SecondaryMeasurementValueList]
 					)
 				 SELECT
 					@OrderDetailId,	
@@ -193,7 +221,9 @@ BEGIN
 					NULLIF(@SpecificationReferenceIds, ''),
 					TRY_CONVERT(TINYINT, NULLIF(LTRIM(RTRIM(@HumidityAccuracy)), N'')),
 					TRY_CONVERT(DECIMAL(18,6), NULLIF(LTRIM(RTRIM(@HumidityTolerance)), N'')),
-					TRY_CONVERT(DECIMAL(18,6), NULLIF(LTRIM(RTRIM(@HumidityResolution)), N''))
+					TRY_CONVERT(DECIMAL(18,6), NULLIF(LTRIM(RTRIM(@HumidityResolution)), N'')),
+					@SecondaryUnitId,
+					NULLIF(LTRIM(RTRIM(@SecondaryMeasurementValueList)), N'')
 				SELECT @OrderDetailItemIdInserted = SCOPE_IDENTITY()
 
 		END
@@ -257,6 +287,12 @@ BEGIN
 			                           COALESCE(TRY_CONVERT(DECIMAL(18,6), @HumidityTolerance), [HumidityTolerance]))
 			,[HumidityResolution] = IIF(LTRIM(RTRIM(@HumidityResolution)) = N'', NULL,
 			                            COALESCE(TRY_CONVERT(DECIMAL(18,6), @HumidityResolution), [HumidityResolution]))
+			/* MBA-800: NULL leaves it, '' clears it (back to a temperature-only chamber); the unit
+			   was validated at the top. */
+			,[SecondaryMeasurementUnitId] = IIF(@SecondaryUnitText = N'', NULL,
+			                                    COALESCE(@SecondaryUnitId, [SecondaryMeasurementUnitId]))
+			,[SecondaryMeasurementValueList] = IIF(LTRIM(RTRIM(@SecondaryMeasurementValueList)) = N'', NULL,
+			                                       COALESCE(LTRIM(RTRIM(@SecondaryMeasurementValueList)), [SecondaryMeasurementValueList]))
 	WHERE [OrderDetailId] = @OrderDetailId AND OrderDetailsItemId = COALESCE(@OrderDetailsItemId,@OrderDetailItemIdInserted)
 
 	/* MBA-855: one UUT serial per MABA No. A new serial on the device also goes to its sensor

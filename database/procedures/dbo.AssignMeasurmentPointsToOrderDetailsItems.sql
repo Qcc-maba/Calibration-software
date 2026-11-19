@@ -72,6 +72,25 @@ CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToOrderDetailsItems]
 --   turned '' into 0, which saved the point against order item 0, or on channel 0, and reported it
 --   as saved. Never seen on STAGE (no item-0 rows); the app sends numbers, but the guard is cheap.
 -- JiraLink: https://calibration-maba.atlassian.net/browse/MBA-904
+-- 2026-11-19 (MBA-800) TEMPERATURE + RH POSITIONS. A chamber calibrated for temperature and RH has
+--   positions that measure temperature only and positions that also measure RH ("9 temperature
+--   sensors and only 1 that also measures RH", Nofar, Jira 38328). A T/RH sensor reports the two
+--   readings on two channels, so such a position is two points of the same sensor. Each point may
+--   now carry:
+--     "ValueRole": 1 = temperature, 2 = RH (the chamber's second value). Omitted = not stated,
+--                  which is every point the app sent before this change.
+--     "PairId":    a GUID shared by the temperature and the RH point of one position.
+--   Both are written exactly as sent, NULL included, so turning a position back to temperature
+--   only (the app stops sending the RH point and the PairId) leaves no stale pair behind. The only
+--   caller is the chamber's logger setup (LoggerConfigScreen); the sensors flow saves through
+--   dbo.AssignMeasurmentPointsToOrderDetailsItemsV2.
+--   The RH point always takes the name of its temperature point: they are one position on the
+--   diagram. It is left out of the blank-name numbering for the same reason.
+--   A pair that does not hold together is skipped and reported like any other bad point (reason
+--   in `skipped`), not refused: a role that is not 1 or 2, a PairId that is not a GUID, an RH point
+--   without a PairId, or a PairId that does not carry exactly one temperature and one RH point.
+--   Accepted: if one point of a sound pair is skipped for another reason (say an unknown sensor),
+--   its partner is still saved, with the PairId; the summary names the skipped one.
 -- =============================================
 --Example of json needs to be passed
 --'
@@ -159,7 +178,13 @@ CREATE TABLE #parsedData
     StabilityValue DECIMAL(10,4),
     UncertancyValue DECIMAL(10,4),
     MeasuredValue DECIMAL(10,4),
-    MeasuredValueUnitId INT
+    MeasuredValueUnitId INT,
+    /* MBA-800 */
+    PairIdText NVARCHAR(50),
+    PairId UNIQUEIDENTIFIER,
+    ValueRoleText NVARCHAR(50),
+    ValueRole TINYINT,
+    PairProblem NVARCHAR(200)
 )
 
 INSERT #parsedData
@@ -177,10 +202,14 @@ INSERT #parsedData
     StabilityValue,
     UncertancyValue,
     MeasuredValue,
-    MeasuredValueUnitId
+    MeasuredValueUnitId,
+    PairIdText,
+    PairId,
+    ValueRoleText,
+    ValueRole
 )
 
-SELECT 
+SELECT
     /* MBA-904: NULLIF first - TRY_CONVERT(INT, N'') is 0, not NULL, so an empty id was saved as
        order item 0 / channel 0 instead of being skipped. */
     TRY_CONVERT(INT, NULLIF(LTRIM(RTRIM(d.OrderDetailsItemId)), N''))        AS OrderDetailsItemId,
@@ -196,8 +225,13 @@ SELECT
     TRY_CONVERT(DECIMAL(10,4), REPLACE(c.StabilityValue, ',', '.')) AS StabilityValue,
     TRY_CONVERT(DECIMAL(10,4), REPLACE(c.UncertancyValue, ',', '.')) AS UncertancyValue,
     TRY_CONVERT(DECIMAL(10,4), REPLACE(c.MeasuredValue, ',', '.')) AS MeasuredValue,
-    c.MeasuredValueUnitId
-FROM OPENJSON(@Data) 
+    c.MeasuredValueUnitId,
+    /* MBA-800: read as text, so a malformed value is reported instead of failing the save */
+    NULLIF(LTRIM(RTRIM(c.PairId)), N'')                                       AS PairIdText,
+    TRY_CONVERT(UNIQUEIDENTIFIER, NULLIF(LTRIM(RTRIM(c.PairId)), N''))        AS PairId,
+    NULLIF(LTRIM(RTRIM(c.ValueRole)), N'')                                    AS ValueRoleText,
+    TRY_CONVERT(TINYINT, NULLIF(LTRIM(RTRIM(c.ValueRole)), N''))              AS ValueRole
+FROM OPENJSON(@Data)
 WITH (
     /* MBA-902: read as text and coerce. Typed INT here, a non-numeric id raised error 245 and the
        caller got a bare Internal Server Error - the same failure the 2026-08-13 hardening fixed for
@@ -219,10 +253,39 @@ WITH (
     StabilityValue NVARCHAR(50),
     UncertancyValue NVARCHAR(50),
     MeasuredValue NVARCHAR(50),
-    MeasuredValueUnitId INT
+    MeasuredValueUnitId INT,
+    PairId NVARCHAR(50),                      /* MBA-800 */
+    ValueRole NVARCHAR(50)                    /* MBA-800 */
 ) AS c
+
+/* MBA-800: a Temperature + RH pair that does not hold together is skipped (see the header). */
+UPDATE pd
+SET PairProblem = CASE
+        WHEN pd.ValueRoleText IS NOT NULL AND (pd.ValueRole IS NULL OR pd.ValueRole NOT IN (1, 2))
+            THEN 'ValueRole must be 1 (temperature) or 2 (RH)'
+        WHEN pd.PairIdText IS NOT NULL AND pd.PairId IS NULL
+            THEN 'PairId is not a GUID'
+        WHEN pd.ValueRole = 2 AND pd.PairId IS NULL
+            THEN 'an RH point needs the PairId of the temperature point at the same position'
+    END
+FROM #parsedData AS pd;
+
+UPDATE pd
+SET PairProblem = 'a Temperature + RH position needs exactly one temperature point (ValueRole 1) and one RH point (ValueRole 2) under its PairId'
+FROM #parsedData AS pd
+JOIN (SELECT OrderDetailsItemId, PairId
+      FROM #parsedData
+      WHERE PairId IS NOT NULL
+      GROUP BY OrderDetailsItemId, PairId
+      HAVING COUNT(*) <> 2
+          OR SUM(CASE WHEN ValueRole = 1 THEN 1 ELSE 0 END) <> 1
+          OR SUM(CASE WHEN ValueRole = 2 THEN 1 ELSE 0 END) <> 1) AS bad
+  ON bad.OrderDetailsItemId = pd.OrderDetailsItemId AND bad.PairId = pd.PairId
+WHERE pd.PairProblem IS NULL;
+
 /* MBA-902: a point with no name draws an empty circle. Give it the next free T number for its
-   order item, counting the names already stored and the named points in this same payload. */
+   order item, counting the names already stored and the named points in this same payload.
+   MBA-800: an RH point is not numbered - it takes its temperature point's name just below. */
 ;WITH Used AS
 (
     SELECT OrderDetailsItemId, TRY_CAST(SUBSTRING(MeasurmentPointName, 2, 10) AS INT) AS Num
@@ -248,11 +311,21 @@ Blanks AS
                                        pd.MeasurmentPointCoordY) AS rn
     FROM #parsedData AS pd
     WHERE LTRIM(RTRIM(ISNULL(pd.MeasurmentPointName, ''))) = ''
+      /* MBA-800. ISNULL: without it a row with no role compares unknown and is never numbered */
+      AND NOT (ISNULL(pd.ValueRole, 0) = 2 AND pd.PairProblem IS NULL)
 )
 UPDATE b
 SET MeasurmentPointName = 'T' + CAST(bs.MaxUsed + b.rn AS NVARCHAR(10))
 FROM Blanks AS b
 INNER JOIN Base AS bs ON bs.OrderDetailsItemId = b.OrderDetailsItemId;
+
+/* MBA-800: the RH point of a position carries the temperature point's name - one position. */
+UPDATE rh
+SET MeasurmentPointName = t.MeasurmentPointName
+FROM #parsedData AS rh
+JOIN #parsedData AS t
+  ON t.OrderDetailsItemId = rh.OrderDetailsItemId AND t.PairId = rh.PairId AND t.ValueRole = 1
+WHERE rh.ValueRole = 2 AND rh.PairProblem IS NULL;
 
 /* MBA-902: a point is wired to ONE of the channels its sensor occupies on the logger. Flag the
    ones that are not - reported, never refused; the point has been physically placed. */
@@ -273,6 +346,7 @@ WHERE pd.OrderDetailsItemId IS NOT NULL
   AND pd.ChannelNumber IS NOT NULL
   AND pd.MeasurmentPointCoordX IS NOT NULL
   AND pd.MeasurmentPointCoordY IS NOT NULL
+  AND pd.PairProblem IS NULL   /* MBA-800 */
   AND EXISTS (SELECT 1 FROM dbo.MeasurementDevices AS md WHERE md.ID = pd.SensorMeasurementDeviceId)
   AND NOT EXISTS (SELECT 1 FROM dbo.ChannelsToSensorRelation AS c
                   WHERE c.SensorMeasurementDeviceId = pd.SensorMeasurementDeviceId
@@ -290,6 +364,7 @@ SELECT pd.OrderDetailsItemId, pd.MeasurmentPointName, pd.SensorMeasurementDevice
            WHEN pd.ChannelNumber IS NULL              THEN 'no channel supplied'
            WHEN pd.MeasurmentPointCoordX IS NULL
              OR pd.MeasurmentPointCoordY IS NULL      THEN 'coordinate could not be read as a number'
+           WHEN pd.PairProblem IS NOT NULL            THEN pd.PairProblem   /* MBA-800 */
            ELSE 'sensor does not exist'
        END AS Reason
 INTO #skipped
@@ -299,6 +374,7 @@ WHERE pd.OrderDetailsItemId IS NULL
    OR pd.SensorMeasurementDeviceId IS NULL
    OR pd.MeasurmentPointCoordX IS NULL
    OR pd.MeasurmentPointCoordY IS NULL
+   OR pd.PairProblem IS NOT NULL   /* MBA-800 */
    OR NOT EXISTS (SELECT 1 FROM dbo.MeasurementDevices md WHERE md.ID = pd.SensorMeasurementDeviceId);
 
 /*Apply soft delete to data which no longer valid*/
@@ -329,9 +405,12 @@ USING (
         d.StabilityValue,
         d.UncertancyValue,
         d.MeasuredValue,
-        d.MeasuredValueUnitId
+        d.MeasuredValueUnitId,
+        d.PairId,
+        d.ValueRole
 	FROM #parsedData as d
 	WHERE d.OrderDetailsItemId IS NOT NULL AND d.ChannelNumber IS NOT NULL AND d.SensorMeasurementDeviceId IS NOT NULL
+	  AND d.PairProblem IS NULL   /* MBA-800 */
 	  AND EXISTS (SELECT 1 FROM dbo.MeasurementDevices md WHERE md.ID = d.SensorMeasurementDeviceId)
 	  /* Both coordinates are NOT NULL on the target table, so an unparseable one cannot be written.
 	     Skip that point rather than defaulting to 0 — a point silently placed at (0,0) would show up
@@ -354,6 +433,8 @@ USING (
             OR COALESCE(dest.[UncertancyValue],0) <> COALESCE(source.[UncertancyValue],0)
             OR COALESCE(dest.[MeasuredValue],0) <> COALESCE(source.[MeasuredValue],0)
             OR COALESCE(dest.[MeasuredValueUnitId],0) <> COALESCE(source.[MeasuredValueUnitId],0)
+            /* MBA-800: NULL-safe; a pair added or removed is a change */
+            OR NOT EXISTS (SELECT dest.[PairId], dest.[ValueRole] INTERSECT SELECT source.[PairId], source.[ValueRole])
             )
 	THEN
 		UPDATE
@@ -370,6 +451,8 @@ USING (
             ,dest.[UncertancyValue] = source.[UncertancyValue]
             ,dest.[MeasuredValue] = source.[MeasuredValue]
             ,dest.[MeasuredValueUnitId] = source.[MeasuredValueUnitId]
+            ,dest.[PairId] = source.[PairId]          /* MBA-800 */
+            ,dest.[ValueRole] = source.[ValueRole]    /* MBA-800 */
 WHEN NOT MATCHED BY TARGET
 	THEN
 		INSERT (
@@ -387,7 +470,9 @@ WHEN NOT MATCHED BY TARGET
               [StabilityValue],
               [UncertancyValue],
               [MeasuredValue],
-              [MeasuredValueUnitId]
+              [MeasuredValueUnitId],
+              [PairId],
+              [ValueRole]
 			)
 		VALUES (
              source.[OrderDetailsItemId]
@@ -405,6 +490,8 @@ WHEN NOT MATCHED BY TARGET
             ,source.[UncertancyValue]
             ,source.[MeasuredValue]
             ,source.[MeasuredValueUnitId]
+            ,source.[PairId]
+            ,source.[ValueRole]
 			);
 
 
