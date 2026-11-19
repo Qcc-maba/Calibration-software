@@ -18,6 +18,11 @@
     MBA-980 (15/11): and the rest of the Summary screen - DisplayValue, DisplayResolution,
     IsDisplayEnabled, IsTargetValueEnabled, ControllerTypeStatusId, ControllerManufacturer,
     ControllerModel, CalculationResolution - also NULL where not set.
+
+    MBA-800: and the cycle's second measured value (RH in a Temperature + RH chamber) -
+    SecondaryUnitId, SecondaryUnitName (ShortNameEn, e.g. %RH), SecondaryTestedValue and the
+    Secondary* Summary settings, saved by dbo.SaveCalibrationCycleSecondarySettings. All NULL on a
+    cycle without a second set point.
 */
 CREATE OR ALTER PROCEDURE [dbo].[GetCalibrationCycles]
 @OrderDetailsItemId INT,
@@ -63,10 +68,27 @@ SELECT
 	,cc.[ControllerManufacturer]
 	,cc.[ControllerModel]
 	,cc.[CalculationResolution]
+	-- MBA-800: the cycle's second measured value (RH); NULL = no second set point
+	,cc.[SecondaryUnitId]
+	,smu.[ShortNameEn] as SecondaryUnitName
+	,cc.[SecondaryTestedValue]
+	,cc.[SecondaryToleranceValue]
+	,cc.[SecondaryToleranceStart]
+	,cc.[SecondaryToleranceEnd]
+	,cc.[SecondaryResolution]
+	,cc.[SecondaryUncertainty]
+	,cc.[SecondaryStabilityThreshold]
+	,cc.[SecondaryUniformityThreshold]
+	,cc.[SecondaryDisplayValue]
+	,cc.[SecondaryDisplayResolution]
+	,cc.[SecondaryIsDisplayEnabled]
+	,cc.[SecondaryIsTargetValueEnabled]
+	,cc.[SecondaryCalculationResolution]
 	,ROW_NUMBER() OVER( PARTITION BY cc.[OrderDetailsItemId] ORDER BY [CalibrationCycleStartDate]) as CycleNumber
 	,ROW_NUMBER() OVER( PARTITION BY cc.[OrderDetailsItemId] ORDER BY [CalibrationCycleStartDate] DESC) as LatestCycle
 FROM [dbo].[CalibrationCycles] as cc
 LEFT JOIN [dbo].[MeasurementDeviceUnits] as mu ON cc.[UnitId] = mu.MeasurementDeviceUnitId
+LEFT JOIN [dbo].[MeasurementDeviceUnits] as smu ON cc.[SecondaryUnitId] = smu.MeasurementDeviceUnitId -- MBA-800
 OUTER APPLY
 (
 SELECT STRING_AGG(r.[Name], ' + ') WITHIN GROUP (ORDER BY s.[ordinal]) as SpecificationReferences
@@ -106,6 +128,21 @@ SELECT
 	,ds.[ControllerManufacturer]
 	,ds.[ControllerModel]
 	,ds.[CalculationResolution]
+	,ds.[SecondaryUnitId]
+	,ds.[SecondaryUnitName]
+	,ds.[SecondaryTestedValue]
+	,ds.[SecondaryToleranceValue]
+	,ds.[SecondaryToleranceStart]
+	,ds.[SecondaryToleranceEnd]
+	,ds.[SecondaryResolution]
+	,ds.[SecondaryUncertainty]
+	,ds.[SecondaryStabilityThreshold]
+	,ds.[SecondaryUniformityThreshold]
+	,ds.[SecondaryDisplayValue]
+	,ds.[SecondaryDisplayResolution]
+	,ds.[SecondaryIsDisplayEnabled]
+	,ds.[SecondaryIsTargetValueEnabled]
+	,ds.[SecondaryCalculationResolution]
 FROM ds
 JOIN [dbo].[OrderDetailsItems] as oi ON ds.[OrderDetailsItemId] = oi.[OrderDetailsItemId]
 WHERE (@ShowOnlyLatest = 0 OR ds.LatestCycle = 1)

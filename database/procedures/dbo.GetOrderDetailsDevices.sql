@@ -4,6 +4,8 @@
 -- MBA-980: ControllerType is no longer returned and the column is dropped; the controller is
 -- stored per chamber cycle in CalibrationCycles (see dbo.AssignProductIdentificationData's header).
 -- MBA-1004: returns ShouldShowPercentOfSpec (STAGE 2026-11-16; checked identical to STAGE before it).
+-- MBA-800: returns SecondaryMeasurementUnitId, SecondaryMeasurementUnit (ShortNameEn, e.g. %RH) and
+-- SecondaryMeasurementValueList (checked identical to STAGE before it, 2026-11-19).
 -- Regenerated from the live object; see the in-body comments for what each change does
 -- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
 -- =============================================
@@ -236,6 +238,11 @@ odi.[Resolution],
 odi.[HumidityAccuracy],
 odi.[HumidityTolerance],
 odi.[HumidityResolution],
+-- MBA-800: the chamber's second measured value (Temperature + RH). NULL = temperature only.
+-- Its Guard Band, tolerance and resolution are the three Humidity* columns above.
+odi.[SecondaryMeasurementUnitId],
+smu.[ShortNameEn] as [SecondaryMeasurementUnit],
+odi.[SecondaryMeasurementValueList],
 -- MBA-666: Calibration Item / device description sourced from Priority (amaba.dbo.PART +
 -- FAMILY) and the CRM free-text blocks, all served from the local cache refreshed by
 -- dbo.RefreshCrmTextCache - no per-request linked-server round-trip.
@@ -252,6 +259,7 @@ LEFT JOIN [dbo].[OrdersProductTypes] as opt2 ON r.[OrdersProductTypeId] = opt2.[
 LEFT JOIN [dbo].[CalibratorsToWorkPlan] as ctwp ON ctwp.[OrderWorkPlanId] = COALESCE(r.[OrderWorkPlanId],n.[OrderWorkPlanId]) AND ctwp.[CalibratorId] = @LoggedInUserId AND ctwp.IsDeleted = 0
 LEFT JOIN [dbo].[OrderDetailsItems] as odi ON n.OrderDetailId = odi.OrderDetailId AND odi.[OrderDetailsItemId] = r.[OrderDetailsItemId]
 LEFT JOIN [dbo].[Users] as u ON odi.MainCalibratorId = u.ID
+LEFT JOIN [dbo].[MeasurementDeviceUnits] as smu ON smu.MeasurementDeviceUnitId = odi.[SecondaryMeasurementUnitId] -- MBA-800
 LEFT JOIN [dbo].[OrderDetails] as od ON od.OrderDetailId = odi.OrderDetailId
 LEFT JOIN [dbo].[CustomerSites] as cs ON od.CustomerSiteId = cs.CustomerSiteId
 -- od is reached through odi here, so rows with no item would lose the part data;

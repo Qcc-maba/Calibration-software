@@ -20,8 +20,14 @@
     foreign key by database/constraints/FK_CalibrationCycles_ControllerTypeStatusId.sql and the
     resolutions' sign rule by database/constraints/CK_CalibrationCycles_SummarySettings.sql.
 
+    The fourteen Secondary* columns after those are MBA-800's: the chamber's second measured value
+    (RH) in a Temperature + RH cycle. On an existing table they are added by
+    database/schema/dbo.CalibrationCycles.SecondaryValue.sql and their rules and unit key by
+    database/constraints/CK_CalibrationCycles_SecondaryValue.sql.
+
     Written by dbo.AddCalibrationCycle (an upsert on the key), dbo.SaveCalibrationCycleSettings
-    (the settings columns only) and the app's inline updateCalibrationCycle (devices.ts);
+    (the settings columns only), dbo.SaveCalibrationCycleSecondarySettings (the Secondary* columns
+    only) and the app's inline updateCalibrationCycle (devices.ts);
     soft-deleted by dbo.DeleteCalibrationCycle.
 */
 IF OBJECT_ID('dbo.CalibrationCycles', 'U') IS NULL
@@ -67,6 +73,28 @@ BEGIN
         ControllerModel               NVARCHAR(100)  NULL,
         CalculationResolution         DECIMAL(18,6)  NULL
             CONSTRAINT CK_CalibrationCycles_CalculationResolution CHECK (CalculationResolution >= 0),
+        SecondaryUnitId               INT            NULL
+            CONSTRAINT FK_CalibrationCycles_SecondaryUnitId
+                FOREIGN KEY REFERENCES dbo.MeasurementDeviceUnits (MeasurementDeviceUnitId),
+        SecondaryTestedValue          DECIMAL(18,6)  NULL,
+        SecondaryToleranceValue       DECIMAL(18,6)  NULL,
+        SecondaryToleranceStart       DECIMAL(18,6)  NULL
+            CONSTRAINT CK_CalibrationCycles_SecondaryToleranceStart CHECK (SecondaryToleranceStart <= 0),
+        SecondaryToleranceEnd         DECIMAL(18,6)  NULL
+            CONSTRAINT CK_CalibrationCycles_SecondaryToleranceEnd CHECK (SecondaryToleranceEnd >= 0),
+        SecondaryResolution           DECIMAL(18,6)  NULL,
+        SecondaryUncertainty          DECIMAL(18,6)  NULL,
+        SecondaryStabilityThreshold   DECIMAL(18,6)  NULL
+            CONSTRAINT CK_CalibrationCycles_SecondaryStabilityThreshold CHECK (SecondaryStabilityThreshold >= 0),
+        SecondaryUniformityThreshold  DECIMAL(18,6)  NULL
+            CONSTRAINT CK_CalibrationCycles_SecondaryUniformityThreshold CHECK (SecondaryUniformityThreshold >= 0),
+        SecondaryDisplayValue         DECIMAL(18,6)  NULL,
+        SecondaryDisplayResolution    DECIMAL(18,6)  NULL
+            CONSTRAINT CK_CalibrationCycles_SecondaryDisplayResolution CHECK (SecondaryDisplayResolution >= 0),
+        SecondaryIsDisplayEnabled     BIT            NULL,
+        SecondaryIsTargetValueEnabled BIT            NULL,
+        SecondaryCalculationResolution DECIMAL(18,6) NULL
+            CONSTRAINT CK_CalibrationCycles_SecondaryCalculationResolution CHECK (SecondaryCalculationResolution >= 0),
 
         CONSTRAINT PK_CalibrationCycles PRIMARY KEY CLUSTERED
             (OrderDetailsItemId, CalibrationCycleStartDate),

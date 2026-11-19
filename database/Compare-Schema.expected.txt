@@ -106,3 +106,24 @@ COLUMNS     | STAGE only | dbo.OrderDetailsItems.ShouldShowPercentOfSpec       |
 CONSTRAINTS | STAGE only | DEFAULT dbo.OrderDetailsItems.ShouldShowPercentOfSpec | MBA-1004, not deployed to PROD yet
 ROUTINES    | STAGE only | dbo.SetReportDisplayOptions                         | MBA-1004, not deployed to PROD yet
 BODIES      | DIFFERS    | dbo.GetOrderDetailsDevices                          | MBA-1004 returns ShouldShowPercentOfSpec; deploy with the column
+
+# ---- MBA-800 chamber Temperature + RH: on STAGE 2026-11-19, PROD before the app change reaches main ----
+# Delete this block in the change that deploys MBA-800's DB part to PROD. On PROD the order-line points
+# procedure must be the combined MBA-904 + MBA-800 version (both are in the git file).
+COLUMNS     | STAGE only | dbo.OrderDetailsItems.SecondaryMeasurement*         | MBA-800 the chamber's second measured value, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CalibrationCycles.Secondary*                    | MBA-800 the cycle's RH set point and settings, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.MeasurmentPointsToOrderDetailsItems.ValueRole   | MBA-800 Temperature / RH role of a point, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.MeasurmentPointsToCalibrationCycles.PairId      | MBA-800, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.MeasurmentPointsToCalibrationCycles.ValueRole   | MBA-800, not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.CalibrationCycles *secondary*             | MBA-800 sign rules, not deployed to PROD yet
+CONSTRAINTS | STAGE only | FK dbo.CalibrationCycles (SecondaryUnitId)*         | MBA-800 unit key, not deployed to PROD yet
+CONSTRAINTS | STAGE only | FK dbo.OrderDetailsItems (SecondaryMeasurementUnitId)* | MBA-800 unit key, not deployed to PROD yet
+CONSTRAINTS | STAGE only | CHECK dbo.MeasurmentPointsTo* *valuerole*           | MBA-800 role 1 or 2, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.SaveCalibrationCycleSecondarySettings           | MBA-800, not deployed to PROD yet
+ROUTINES    | DIFFERS    | dbo.AssignProductIdentificationData                 | MBA-800 + @SecondaryMeasurementUnitId / @SecondaryMeasurementValueList, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.AssignProductIdentificationData                 | MBA-800, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetMeasurmentPointsForOrderDetail               | MBA-800 returns PairId / ValueRole, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToCalibrationCycle        | MBA-800 PairId / ValueRole (on top of MBA-522), not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetCalibrationCycles                            | MBA-800 returns the Secondary* columns (on top of MBA-980), not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetOrderDetailsDevices                          | MBA-800 returns the pair (on top of MBA-1004), not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-800 PairId / ValueRole (on top of MBA-904), not deployed to PROD yet
