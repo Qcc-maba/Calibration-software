@@ -40,9 +40,11 @@
     one position share it). database/schema/dbo.MeasurmentPointsToCalibrationCycles.PairIdValueRole.sql
     has the why. Both are written exactly as sent, NULL included; omitted = not stated, which is
     every point sent before this change. A role other than 1 or 2, or a PairId that is not a GUID,
-    is refused with 51000 before anything is written, like the clash check. The pair's makeup
-    (one temperature + one RH point) is checked where the pair is created, by
-    dbo.AssignMeasurmentPointsToOrderDetailsItems; a cycle copies those points.
+    is refused with 51000 before anything is written, like the clash check. So is a pair that does
+    not hold together, checked the same way as dbo.AssignMeasurmentPointsToOrderDetailsItems does
+    (review of PR #62: the payload comes from the app, not from the order line): an RH point without
+    a PairId, or a PairId without exactly one temperature and one RH point of one sensor on two
+    different channels in its line and cycle. Refused rather than skipped, like everything here.
 */
 CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToCalibrationCycle]
     @LoggedInUserEmail NVARCHAR(200),
@@ -181,6 +183,40 @@ BEGIN
 
         /* The message quotes the caller's text; THROW reads a lone % as a format code and returns
            an empty message (seen on STAGE), so double it. */
+        IF @BadPair IS NOT NULL
+        BEGIN
+            SET @BadPair = REPLACE(@BadPair, N'%', N'%%');
+            THROW 51000, @BadPair, 1;
+        END
+
+        /* The pair's makeup, as the order-line save checks it (review of PR #62): the payload comes
+           from the app, so nothing guarantees it is a copy of the order line's points. An RH point
+           needs its PairId; a PairId carries one temperature and one RH point of one sensor on two
+           different channels, per line and cycle. */
+        SELECT TOP (1) @BadPair =
+              N'Order line ' + CAST(pd.OrderDetailsItemId AS NVARCHAR(20))
+            + N', point "' + COALESCE(NULLIF(LTRIM(RTRIM(pd.MeasurmentPointName)), N''), N'(unnamed)') COLLATE DATABASE_DEFAULT
+            + N'": an RH point (ValueRole 2) needs the PairId of the temperature point at the same position.'
+        FROM #parsedData AS pd
+        WHERE pd.ValueRole = 2 AND pd.PairId IS NULL;
+
+        IF @BadPair IS NULL
+            SELECT TOP (1) @BadPair =
+                  N'Order line ' + CAST(g.OrderDetailsItemId AS NVARCHAR(20))
+                + N', cycle ' + CONVERT(NVARCHAR(19), g.CalibrationCycleStartDate, 120)
+                + N': PairId ' + CONVERT(NVARCHAR(36), g.PairId)
+                + N' needs exactly one temperature point (ValueRole 1) and one RH point (ValueRole 2), on one sensor and two different channels.'
+            FROM (SELECT OrderDetailsItemId, CalibrationCycleStartDate, PairId
+                  FROM #parsedData
+                  WHERE PairId IS NOT NULL
+                  GROUP BY OrderDetailsItemId, CalibrationCycleStartDate, PairId
+                  HAVING COUNT(*) <> 2
+                      OR SUM(CASE WHEN ValueRole = 1 THEN 1 ELSE 0 END) <> 1
+                      OR SUM(CASE WHEN ValueRole = 2 THEN 1 ELSE 0 END) <> 1
+                      OR COUNT(DISTINCT SensorMeasurementDeviceId) <> 1
+                      OR COUNT(DISTINCT ChannelNumber) <> 2) AS g
+            ORDER BY g.OrderDetailsItemId, g.CalibrationCycleStartDate;
+
         IF @BadPair IS NOT NULL
         BEGIN
             SET @BadPair = REPLACE(@BadPair, N'%', N'%%');

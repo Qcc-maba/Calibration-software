@@ -88,9 +88,11 @@ CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToOrderDetailsItems]
 --   diagram. It is left out of the blank-name numbering for the same reason.
 --   A pair that does not hold together is skipped and reported like any other bad point (reason
 --   in `skipped`), not refused: a role that is not 1 or 2, a PairId that is not a GUID, an RH point
---   without a PairId, or a PairId that does not carry exactly one temperature and one RH point.
---   Accepted: if one point of a sound pair is skipped for another reason (say an unknown sensor),
---   its partner is still saved, with the PairId; the summary names the skipped one.
+--   without a PairId, or a PairId that does not carry exactly one temperature and one RH point of
+--   one sensor on two different channels.
+--   When one point of a sound pair is skipped for another reason (say an unknown sensor), its
+--   partner is skipped too ("its pair partner was skipped"), so no PairId is ever stored on one row
+--   (review of PR #62; the same rule ...V2 has).
 -- =============================================
 --Example of json needs to be passed
 --'
@@ -165,6 +167,7 @@ DROP TABLE IF EXISTS #parsedData
 
 CREATE TABLE #parsedData
 (
+    RowId INT IDENTITY(1,1),   /* MBA-800: tells the two rows of a pair apart */
 	OrderDetailsItemId INT,
     MeasurmentPointName NVARCHAR(100) COLLATE Latin1_General_100_CI_AI_SC,
     SensorMeasurementDeviceId INT,
@@ -270,8 +273,11 @@ SET PairProblem = CASE
     END
 FROM #parsedData AS pd;
 
+/* A pair is one sensor on two different channels (review of PR #62): two rows on the same sensor
+   and channel would both match one row in the MERGE below (error 8672, failing the whole save), and
+   a T/RH reading pair always comes from one sensor. */
 UPDATE pd
-SET PairProblem = 'a Temperature + RH position needs exactly one temperature point (ValueRole 1) and one RH point (ValueRole 2) under its PairId'
+SET PairProblem = 'a Temperature + RH position needs exactly one temperature point (ValueRole 1) and one RH point (ValueRole 2) under its PairId, on one sensor and two different channels'
 FROM #parsedData AS pd
 JOIN (SELECT OrderDetailsItemId, PairId
       FROM #parsedData
@@ -279,9 +285,30 @@ JOIN (SELECT OrderDetailsItemId, PairId
       GROUP BY OrderDetailsItemId, PairId
       HAVING COUNT(*) <> 2
           OR SUM(CASE WHEN ValueRole = 1 THEN 1 ELSE 0 END) <> 1
-          OR SUM(CASE WHEN ValueRole = 2 THEN 1 ELSE 0 END) <> 1) AS bad
+          OR SUM(CASE WHEN ValueRole = 2 THEN 1 ELSE 0 END) <> 1
+          OR COUNT(DISTINCT SensorMeasurementDeviceId) <> 1
+          OR COUNT(DISTINCT ChannelNumber) <> 2) AS bad
   ON bad.OrderDetailsItemId = pd.OrderDetailsItemId AND bad.PairId = pd.PairId
 WHERE pd.PairProblem IS NULL;
+
+/* Never half a pair (review of PR #62): when one row of a sound pair is skipped for another reason
+   (no channel, unknown sensor, unreadable coordinate), its partner is skipped with it, so the table
+   never holds a PairId with only one row - the state ...V2 refuses on purpose (PR #43). */
+UPDATE pd
+SET PairProblem = 'its pair partner was skipped'
+FROM #parsedData AS pd
+WHERE pd.PairId IS NOT NULL
+  AND pd.PairProblem IS NULL
+  AND EXISTS (SELECT 1 FROM #parsedData AS partner
+              WHERE partner.OrderDetailsItemId = pd.OrderDetailsItemId
+                AND partner.PairId = pd.PairId
+                AND partner.RowId <> pd.RowId
+                AND (   partner.ChannelNumber IS NULL
+                     OR partner.SensorMeasurementDeviceId IS NULL
+                     OR partner.MeasurmentPointCoordX IS NULL
+                     OR partner.MeasurmentPointCoordY IS NULL
+                     OR NOT EXISTS (SELECT 1 FROM dbo.MeasurementDevices AS md
+                                    WHERE md.ID = partner.SensorMeasurementDeviceId)));
 
 /* MBA-902: a point with no name draws an empty circle. Give it the next free T number for its
    order item, counting the names already stored and the named points in this same payload.

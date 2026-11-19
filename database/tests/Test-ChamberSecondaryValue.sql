@@ -288,6 +288,53 @@ SELECT N'15. '''' clears the pair',
        CONCAT(N'[', SecondaryMeasurementUnitId, N' / ', SecondaryMeasurementValueList, N']')
 FROM dbo.OrderDetailsItems WHERE OrderDetailsItemId = @A;
 
+/* 15b. Clearing the unit alone clears its set points too (review of PR #62). */
+INSERT @Ignore
+EXEC dbo.AssignProductIdentificationData @UserEmail = @UserEmail, @OrderDetailId = @Detail, @OrderDetailsItemId = @A,
+     @SecondaryMeasurementUnitId = @RH, @SecondaryMeasurementValueList = N'40,60';
+INSERT @Ignore
+EXEC dbo.AssignProductIdentificationData @UserEmail = @UserEmail, @OrderDetailId = @Detail, @OrderDetailsItemId = @A,
+     @SecondaryMeasurementUnitId = N'';
+INSERT @Results
+SELECT N'15b. clearing the unit alone clears the RH set points',
+       IIF(SecondaryMeasurementUnitId IS NULL AND SecondaryMeasurementValueList IS NULL, N'PASS', N'FAIL'),
+       CONCAT(N'[', SecondaryMeasurementUnitId, N' / ', SecondaryMeasurementValueList, N']')
+FROM dbo.OrderDetailsItems WHERE OrderDetailsItemId = @A;
+
+/* 15c-15e. Pairs that must be skipped (review of PR #62): both rows on one channel, rows from two
+   sensors, and a sound pair whose RH row is skipped for another reason. */
+DECLARE @Sensor2 INT = (SELECT TOP (1) ID FROM dbo.MeasurementDevices WHERE ID <> @Sensor ORDER BY ID);
+DECLARE @PairB UNIQUEIDENTIFIER = NEWID(), @PairC UNIQUEIDENTIFIER = NEWID(), @PairD UNIQUEIDENTIFIER = NEWID();
+SET @Json = CONCAT(N'{"OrderDetailsItemId":"', @A, N'","Points":[',
+    N'{"MeasurmentPointName":"B","MeasurmentPointCoordX":"1","MeasurmentPointCoordY":"1","SensorMeasurementDeviceId":"', @Sensor, N'","ChannelNumber":"', @Ch1, N'","PairId":"', @PairB, N'","ValueRole":"1"},',
+    N'{"MeasurmentPointName":"B","MeasurmentPointCoordX":"1","MeasurmentPointCoordY":"1","SensorMeasurementDeviceId":"', @Sensor, N'","ChannelNumber":"', @Ch1, N'","PairId":"', @PairB, N'","ValueRole":"2"},',
+    N'{"MeasurmentPointName":"C","MeasurmentPointCoordX":"2","MeasurmentPointCoordY":"2","SensorMeasurementDeviceId":"', @Sensor, N'","ChannelNumber":"903","PairId":"', @PairC, N'","ValueRole":"1"},',
+    N'{"MeasurmentPointName":"C","MeasurmentPointCoordX":"2","MeasurmentPointCoordY":"2","SensorMeasurementDeviceId":"', @Sensor2, N'","ChannelNumber":"904","PairId":"', @PairC, N'","ValueRole":"2"},',
+    N'{"MeasurmentPointName":"D","MeasurmentPointCoordX":"3","MeasurmentPointCoordY":"3","SensorMeasurementDeviceId":"', @Sensor, N'","ChannelNumber":"905","PairId":"', @PairD, N'","ValueRole":"1"},',
+    N'{"MeasurmentPointName":"D","MeasurmentPointCoordX":"x","MeasurmentPointCoordY":"3","SensorMeasurementDeviceId":"', @Sensor, N'","ChannelNumber":"906","PairId":"', @PairD, N'","ValueRole":"2"}',
+    N']}');
+INSERT @Summary
+EXEC dbo.AssignMeasurmentPointsToOrderDetailsItems @LoggedInUserEmail = @UserEmail, @Data = @Json, @SummaryAsJson = 1;
+
+INSERT @Results
+SELECT N'15c. a pair on one channel is skipped (no MERGE error)',
+       IIF(NOT EXISTS (SELECT 1 FROM dbo.MeasurmentPointsToOrderDetailsItems WHERE PairId = @PairB AND IsDeleted = 0)
+           AND (SELECT COUNT(*) FROM OPENJSON((SELECT summary FROM @Summary), '$.skipped')
+                WITH (measurementPointName NVARCHAR(100)) WHERE measurementPointName = N'B') = 2, N'PASS', N'FAIL'),
+       N'pair B';
+INSERT @Results
+SELECT N'15d. a pair across two sensors is skipped',
+       IIF(NOT EXISTS (SELECT 1 FROM dbo.MeasurmentPointsToOrderDetailsItems WHERE PairId = @PairC AND IsDeleted = 0), N'PASS', N'FAIL'),
+       CONCAT(N'sensors ', @Sensor, N' / ', @Sensor2);
+INSERT @Results
+SELECT N'15e. the partner of a skipped point is skipped too',
+       IIF(NOT EXISTS (SELECT 1 FROM dbo.MeasurmentPointsToOrderDetailsItems WHERE PairId = @PairD AND IsDeleted = 0)
+           AND EXISTS (SELECT 1 FROM OPENJSON((SELECT summary FROM @Summary), '$.skipped')
+                       WITH (measurementPointName NVARCHAR(100), reason NVARCHAR(200))
+                       WHERE measurementPointName = N'D' AND reason = N'its pair partner was skipped'), N'PASS', N'FAIL'),
+       LEFT((SELECT JSON_QUERY(summary, '$.skipped') FROM @Summary), 400);
+DELETE @Summary;
+
 ROLLBACK;
 
 /* 16-31. Refusals, each in its own rolled-back transaction. @setRh gives the device its RH pair first. */
@@ -331,21 +378,34 @@ INSERT @Cases VALUES
  (32, N'32. FK stops an unknown device second unit',
       N'UPDATE dbo.OrderDetailsItems SET SecondaryMeasurementUnitId = -1 WHERE OrderDetailsItemId = @a', 547),
  (33, N'33. CHECK stops role 3 on an order-line point',
-      N'UPDATE TOP (1) dbo.MeasurmentPointsToOrderDetailsItems SET ValueRole = 3 WHERE IsDeleted = 0', 547);
+      N'UPDATE TOP (1) dbo.MeasurmentPointsToOrderDetailsItems SET ValueRole = 3 WHERE IsDeleted = 0', 547),
+ (34, N'33a. page 1: RH set points without a second unit refused',
+      N'EXEC dbo.AssignProductIdentificationData @UserEmail = @u, @OrderDetailId = @d, @OrderDetailsItemId = @a, @SecondaryMeasurementValueList = N''40,60''', 51000),
+ (35, N'33b. page 1: RH set points sent while clearing the unit refused',
+      @SetRh + N'EXEC dbo.AssignProductIdentificationData @UserEmail = @u, @OrderDetailId = @d, @OrderDetailsItemId = @a, @SecondaryMeasurementUnitId = N'''', @SecondaryMeasurementValueList = N''40''', 51000),
+ (36, N'33c. cycle points: an RH point without its PairId refused',
+      N'EXEC dbo.AssignMeasurmentPointsToCalibrationCycle @LoggedInUserEmail = @u, @Data = @jr', 51000),
+ (37, N'33d. cycle points: a PairId with two temperature points refused',
+      N'EXEC dbo.AssignMeasurmentPointsToCalibrationCycle @LoggedInUserEmail = @u, @Data = @jt', 51000);
 
 DECLARE @J3 NVARCHAR(MAX) = CONCAT(N'[{"OrderDetailsItemId":', @A, N',"CalibrationCycleStartDate":"', CONVERT(NVARCHAR(19), @Start, 126),
     N'","Points":[{"MeasurmentPointName":"P1","MeasurmentPointCoordX":1,"MeasurmentPointCoordY":1,"SensorMeasurementDeviceId":', @Sensor, N',"ChannelNumber":', @Ch1, N',"ValueRole":3}]}]');
 DECLARE @Jg NVARCHAR(MAX) = REPLACE(@J3, N'"ValueRole":3', N'"PairId":"50%-not-a-guid","ValueRole":1');
+DECLARE @Jr NVARCHAR(MAX) = REPLACE(@J3, N'"ValueRole":3', N'"ValueRole":2');
+DECLARE @Jt NVARCHAR(MAX) = CONCAT(N'[{"OrderDetailsItemId":', @A, N',"CalibrationCycleStartDate":"', CONVERT(NVARCHAR(19), @Start, 126), N'","Points":[',
+    N'{"MeasurmentPointName":"P1","MeasurmentPointCoordX":1,"MeasurmentPointCoordY":1,"SensorMeasurementDeviceId":', @Sensor, N',"ChannelNumber":', @Ch1, N',"PairId":"', @Pair, N'","ValueRole":1},',
+    N'{"MeasurmentPointName":"P1","MeasurmentPointCoordX":1,"MeasurmentPointCoordY":1,"SensorMeasurementDeviceId":', @Sensor, N',"ChannelNumber":', @Ch2, N',"PairId":"', @Pair, N'","ValueRole":1}',
+    N']}]');
 
 DECLARE @n INT = 16, @sql NVARCHAR(MAX), @step NVARCHAR(120), @err INT;
-WHILE @n <= 33
+WHILE @n <= 37
 BEGIN
     SELECT @sql = Sql, @step = Step, @err = ExpectedError FROM @Cases WHERE N = @n;
     BEGIN TRY
         BEGIN TRAN;
         EXEC sp_executesql @sql,
-             N'@u NVARCHAR(255), @a INT, @d INT, @s DATETIME2(0), @rh INT, @c INT, @j3 NVARCHAR(MAX), @jg NVARCHAR(MAX)',
-             @u = @UserEmail, @a = @A, @d = @Detail, @s = @Start, @rh = @RH, @c = @Celsius, @j3 = @J3, @jg = @Jg;
+             N'@u NVARCHAR(255), @a INT, @d INT, @s DATETIME2(0), @rh INT, @c INT, @j3 NVARCHAR(MAX), @jg NVARCHAR(MAX), @jr NVARCHAR(MAX), @jt NVARCHAR(MAX)',
+             @u = @UserEmail, @a = @A, @d = @Detail, @s = @Start, @rh = @RH, @c = @Celsius, @j3 = @J3, @jg = @Jg, @jr = @Jr, @jt = @Jt;
         ROLLBACK;
         INSERT @Results VALUES (@step, N'FAIL', N'went through');
     END TRY

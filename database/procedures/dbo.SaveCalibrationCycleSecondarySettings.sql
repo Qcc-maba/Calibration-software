@@ -107,15 +107,18 @@ BEGIN
         THROW 51000, 'SecondaryDisplayResolution must be 0 or positive.', 1;
     IF @SecondaryCalculationResolution < 0
         THROW 51000, 'SecondaryCalculationResolution must be 0 or positive.', 1;
+    BEGIN TRANSACTION;
+
     /* OrderDetailsItemId is not unique on its own (dbo.GetPreviousCalibrationCycleSettings), so
-       any live line with this id and this second unit is enough: cycles are keyed by the id alone. */
+       any live line with this id and this second unit is enough: cycles are keyed by the id alone.
+       Inside the transaction, with the line locked, so an Identification save clearing the unit
+       cannot land between this check and the write; ISNULL so a line whose IsDeleted is NULL counts
+       as live (review of PR #62; STAGE has none, 2026-11-19). */
     IF @SecondaryUnitId IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM dbo.OrderDetailsItems
-                       WHERE OrderDetailsItemId = @OrderDetailsItemId AND IsDeleted = 0
+       AND NOT EXISTS (SELECT 1 FROM dbo.OrderDetailsItems WITH (UPDLOCK, HOLDLOCK)
+                       WHERE OrderDetailsItemId = @OrderDetailsItemId AND ISNULL(IsDeleted, 0) = 0
                          AND SecondaryMeasurementUnitId = @SecondaryUnitId)
         THROW 51000, 'SecondaryUnitId is not this device''s second measured value (OrderDetailsItems.SecondaryMeasurementUnitId); save the Identification page first.', 1;
-
-    BEGIN TRANSACTION;
 
     DECLARE @Old TABLE (SecondaryUnitId INT, SecondaryTestedValue DECIMAL(18,6),
                         SecondaryToleranceValue DECIMAL(18,6), SecondaryToleranceStart DECIMAL(18,6),

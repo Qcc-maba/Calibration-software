@@ -137,6 +137,22 @@ BEGIN
 		/* %% : THROW reads a lone % as a format code - '%RH' came back as an EMPTY message on STAGE */
 		THROW 51000, 'The second measured value can only be %%RH for now (MBA-800: Temperature + RH).', 1;
 
+	/* The set points belong to the unit (review of PR #62). A list is refused when the device would
+	   end up with no second unit - this save clears it, or none is sent and none is stored - and
+	   clearing the unit clears the list with it, so "temperature only" never keeps RH set points.
+	   The cycles' RH settings are kept on purpose: the app neither shows nor saves them while the
+	   device has no second unit, and switching the device back to Temperature + RH brings them back. */
+	DECLARE @SecondaryListText NVARCHAR(MAX) = NULLIF(LTRIM(RTRIM(@SecondaryMeasurementValueList)), N'');
+	IF @SecondaryListText IS NOT NULL
+	   AND (   @SecondaryUnitText = N''
+	        OR (    @SecondaryUnitId IS NULL
+	            AND NOT EXISTS (SELECT 1 FROM [dbo].[OrderDetailsItems]
+	                            WHERE OrderDetailId = @OrderDetailId AND OrderDetailsItemId = @OrderDetailsItemId
+	                              AND SecondaryMeasurementUnitId IS NOT NULL)))
+		THROW 51000, 'SecondaryMeasurementValueList needs a second measured value (SecondaryMeasurementUnitId).', 1;
+	IF @SecondaryUnitText = N''
+		SET @SecondaryMeasurementValueList = N'';
+
 	DECLARE @OrderDetailItemIdInserted INT
 	DECLARE @UserId INT = (SELECT ID FROM [dbo].[Users] WHERE Email = @UserEmail) 
 
