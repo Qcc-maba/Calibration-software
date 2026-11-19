@@ -40,12 +40,10 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         private const int MaxConsecutiveFailures = 10;
 
         /// <summary>
-        /// MBA-831: where the master's last converted reading lay against its working range (0 inside, -1
-        /// below, +1 above), and for which master. Only a change is reported, so an excursion gives one alert,
-        /// not one per reading. Cleared by every init, so a master still outside after a Confirm is reported again.
+        /// MBA-831: the master's excursions outside its working range, one alert each. Reset by every init, so a
+        /// master still outside after a Confirm is reported again.
         /// </summary>
-        private int _workRangeSide;
-        private string _workRangeMaster;
+        private readonly MasterWorkRangeMonitor _workRange;
         #endregion
 
         #region ctor
@@ -53,6 +51,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         public Agilent34401aBL(Agilent34401aBLCore parent) : base(parent)
         {
             HC = new HydraCalculations(new ComServerBL.Hydra2.DAL.Calibration.CalibrationRepository());
+            _workRange = new MasterWorkRangeMonitor(HC);
             settings = parent.DeviceSettings;
         }
 
@@ -63,8 +62,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         protected override CommonBL.SingleState[] OnCreateStates()
         {
             HC.Init(settings.Agilent.Masters).GetAwaiter().GetResult();
-            _workRangeSide = 0;
-            _workRangeMaster = null;
+            _workRange.Reset();
 
             if (this.StateMachine_InitSystem == null)
             {
@@ -214,34 +212,32 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// MBA-831: warns when the master reads outside its working range, where its ITS-90 coefficients are
         /// not valid (21-290 would be off by about 87 degC at 100 degC, Jira 38168). The reading is still sent:
         /// Nofar asked to warn and keep working (Jira 38172). One OutOfRange alert and one server.log line per
-        /// excursion; coming back inside is logged only, since the app pairs DataRestored with disconnects.
+        /// excursion (MasterWorkRangeMonitor); coming back inside is logged only, since the app pairs DataRestored
+        /// with disconnects.
         /// </summary>
         private void ReportWorkRange(string masterId, double celsius)
         {
-            if (!string.Equals(masterId, _workRangeMaster, StringComparison.OrdinalIgnoreCase))
-            {
-                _workRangeMaster = masterId;
-                _workRangeSide = 0;
-            }
+            var change = _workRange.Observe(masterId, celsius, out var range);
+            var value = celsius.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 
-            var side = HC.CompareToMasterWorkRange(masterId, celsius, out var range);
-            if (side == _workRangeSide)
-                return;
-            _workRangeSide = side;
-
-            if (side == 0)
+            if (change == 0)
             {
                 Libs.Trace.Tracer.Info("[34401A] master '{0}' back inside its working range ({1}) at {2} degC (MBA-831)",
-                    masterId, range, celsius.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+                    masterId, range, value);
                 return;
             }
+            if (change == MasterWorkRangeMonitor.NoChange)
+                return;
 
+            // ASCII in server.log (root CLAUDE.md); the degree sign only in the text the app shows
+            Libs.Trace.Tracer.Info("[34401A] master '{0}' reads {1} degC, outside its working range ({2}) (MBA-831)",
+                masterId, value, range);
             var message = string.Format(System.Globalization.CultureInfo.InvariantCulture,
-                "Master {0} reads {1:0.###} °C, outside its working range ({2}) - the temperature may be wrong",
-                masterId, celsius, range);
-            Libs.Trace.Tracer.Info("[34401A] {0} (MBA-831)", message);
-            HW_Device?.RaiseAlert(side < 0 ? "OutOfRange_Low" : "OutOfRange_High", message, "1");
+                "Master {0} reads {1} °C, outside its working range ({2}) - the temperature may be wrong",
+                masterId, value, range?.Replace(" degC", " °C"));
+            HW_Device?.RaiseAlert(change < 0 ? "OutOfRange_Low" : "OutOfRange_High", message, "1");
         }
+
 
         /// <summary>
         /// Queues the next READ?. A single bad/empty read (or an overload) must not stop acquisition,

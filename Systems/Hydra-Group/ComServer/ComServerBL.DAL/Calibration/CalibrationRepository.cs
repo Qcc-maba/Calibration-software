@@ -311,7 +311,7 @@ namespace ComServerBL.Hydra2.DAL.Calibration
             else
             {
                 _coefficientsDic[mabaID] = coefficients;
-                msg = $"  Master '{mabaID}' -> ITS-90 coefficients loaded (RTP={coefficients.RTP}, working range {coefficients.WorkRangeText() ?? "not on file"})";
+                msg = $"  Master '{mabaID}' -> ITS-90 coefficients loaded (RTP={coefficients.RTP}, working range {coefficients.WorkRangeText("degC") ?? "not on file"})";
             }
             Trace.WriteLine(msg);
             AppendCorrectionLog(DateTime.Now.ToString("HH:mm:ss") + " " + msg + Environment.NewLine);

@@ -123,14 +123,20 @@ FROM #G;
 /* MBA-831: the working range comes with the set, but only when it is recorded in Celsius */
 DECLARE @WMin DECIMAL(18,6), @WMax DECIMAL(18,6), @WIsCelsius BIT;
 SELECT @WMin = md.WorkRangeMin, @WMax = md.WorkRangeMax,
-       @WIsCelsius = CASE WHEN u.LongNameEn = N'Celsius' THEN 1 ELSE 0 END
+       @WIsCelsius = CASE WHEN LTRIM(RTRIM(u.LongNameEn)) = N'Celsius'
+                           OR LTRIM(RTRIM(u.ShortNameEn)) = NCHAR(176) + N'C' THEN 1 ELSE 0 END
 FROM dbo.MeasurementDevices AS md
 LEFT JOIN dbo.MeasurementDeviceUnits AS u ON u.MeasurementDeviceUnitId = md.WorkRangeUnitId
 WHERE md.ID = @D1;
+/* NULL ends compare as equal: a Celsius range with one end missing comes back exactly as recorded */
 INSERT @Out SELECT N'2 range', N'the working range in Celsius reads back as recorded',
-       CASE WHEN @WIsCelsius = 1 THEN CONCAT(@WMin, N' to ', @WMax) ELSE N'NULL to NULL' END,
+       CASE WHEN @WIsCelsius = 1
+            THEN CONCAT(ISNULL(CAST(@WMin AS NVARCHAR(30)), N'NULL'), N' to ', ISNULL(CAST(@WMax AS NVARCHAR(30)), N'NULL'))
+            ELSE N'NULL to NULL' END,
        CONCAT(ISNULL(CAST(WorkRangeMin AS NVARCHAR(30)), N'NULL'), N' to ', ISNULL(CAST(WorkRangeMax AS NVARCHAR(30)), N'NULL')),
-       CASE WHEN (@WIsCelsius = 1 AND WorkRangeMin = @WMin AND WorkRangeMax = @WMax)
+       CASE WHEN (@WIsCelsius = 1
+                  AND (WorkRangeMin = @WMin OR (WorkRangeMin IS NULL AND @WMin IS NULL))
+                  AND (WorkRangeMax = @WMax OR (WorkRangeMax IS NULL AND @WMax IS NULL)))
               OR (ISNULL(@WIsCelsius, 0) = 0 AND WorkRangeMin IS NULL AND WorkRangeMax IS NULL)
             THEN N'PASS' ELSE N'FAIL' END
 FROM #G;
@@ -139,7 +145,9 @@ FROM #G;
 UPDATE dbo.MeasurementDevices
 SET WorkRangeMin = -10, WorkRangeMax = 30,
     WorkRangeUnitId = (SELECT TOP (1) MeasurementDeviceUnitId FROM dbo.MeasurementDeviceUnits
-                       WHERE ISNULL(LongNameEn, N'') <> N'Celsius' ORDER BY MeasurementDeviceUnitId)
+                       WHERE ISNULL(LTRIM(RTRIM(LongNameEn)), N'') <> N'Celsius'
+                         AND ISNULL(LTRIM(RTRIM(ShortNameEn)), N'') <> NCHAR(176) + N'C'
+                       ORDER BY MeasurementDeviceUnitId)
 WHERE ID = @D1;
 DELETE #G;
 INSERT #G EXEC dbo.GetSensorCoefficients @MabaID = @M1;

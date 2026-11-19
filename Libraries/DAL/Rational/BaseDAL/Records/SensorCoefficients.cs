@@ -47,37 +47,47 @@ namespace Maba.DAL.BaseDAL.Records
         }
 
         /// <summary>The ranges with both ends on file, lowest first.</summary>
+        /// <summary>The ranges with both ends on file, lowest first. Each pair is put low-to-high: range texts are
+        /// RTL and sometimes carry their minus signs at the wrong end (BackfillSensorWorkRangeFromText), so an end
+        /// swapped on entry must not make every reading "outside" (review of #63).</summary>
         private List<KeyValuePair<double, double>> WorkRanges()
         {
             var ranges = new List<KeyValuePair<double, double>>();
             if (WorkRangeMin.HasValue && WorkRangeMax.HasValue)
-                ranges.Add(new KeyValuePair<double, double>(WorkRangeMin.Value, WorkRangeMax.Value));
+                ranges.Add(Ordered(WorkRangeMin.Value, WorkRangeMax.Value));
             if (WorkRangeMin2.HasValue && WorkRangeMax2.HasValue)
-                ranges.Add(new KeyValuePair<double, double>(WorkRangeMin2.Value, WorkRangeMax2.Value));
+                ranges.Add(Ordered(WorkRangeMin2.Value, WorkRangeMax2.Value));
             return ranges.OrderBy(r => r.Key).ToList();
         }
 
+        private static KeyValuePair<double, double> Ordered(double a, double b) =>
+            new KeyValuePair<double, double>(System.Math.Min(a, b), System.Math.Max(a, b));
+
         /// <summary>
         /// MBA-831: where <paramref name="celsius"/> lies against the working range. 0 inside it, or when no
-        /// range is on file; -1 below the lowest range; +1 otherwise (above it, or between two ranges).
-        /// The ends are inside.
+        /// range is on file, or when the temperature is not a number (a failed conversion is not a reading
+        /// outside the range); -1 below the lowest range; +1 otherwise (above it, or between two ranges).
+        /// The ends are inside. With <paramref name="insideMargin"/>, inside means at least that far in from
+        /// both ends - how the 34401A decides an excursion is over.
         /// </summary>
-        public int CompareToWorkRange(double celsius)
+        public int CompareToWorkRange(double celsius, double insideMargin = 0)
         {
             var ranges = WorkRanges();
-            if (ranges.Count == 0 || ranges.Any(r => celsius >= r.Key && celsius <= r.Value))
+            if (ranges.Count == 0 || double.IsNaN(celsius) || double.IsInfinity(celsius)
+                || ranges.Any(r => celsius >= r.Key + insideMargin && celsius <= r.Value - insideMargin))
                 return 0;
-            return celsius < ranges[0].Key ? -1 : 1;
+            return celsius < ranges[0].Key + insideMargin ? -1 : 1;
         }
 
-        /// <summary>The working range as text ("-80 to 200", then the degree sign and C), or null when none is on file.</summary>
-        public string WorkRangeText()
+        /// <summary>The working range as text, "-80 to 200" and the unit, or null when none is on file. The
+        /// unit defaults to the degree sign and C, for the app; logs pass an ASCII "degC".</summary>
+        public string WorkRangeText(string unit = "°C")
         {
             var ranges = WorkRanges();
             if (ranges.Count == 0)
                 return null;
             return string.Join(" and ", ranges.Select(r => string.Format(CultureInfo.InvariantCulture,
-                "{0:0.###} to {1:0.###} °C", r.Key, r.Value)));
+                "{0:0.###} to {1:0.###} {2}", r.Key, r.Value, unit)));
         }
     }
 }

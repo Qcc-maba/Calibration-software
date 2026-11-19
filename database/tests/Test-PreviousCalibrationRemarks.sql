@@ -32,26 +32,40 @@ CREATE TABLE #P (CalibrationRemarkId INT, OrderDetailsItemId INT, Scope NVARCHAR
 DECLARE @Email NVARCHAR(255) = (SELECT TOP (1) Email FROM dbo.Users WHERE Email IS NOT NULL ORDER BY ID);
 DECLARE @Serial NVARCHAR(100) = CONCAT(N'MBA831-TEST-', LEFT(CONVERT(NVARCHAR(36), NEWID()), 8));
 
-/* three live, unlocked lines whose OrderDetailsItemId sits on one order line only */
-DECLARE @Lines TABLE (Rn INT IDENTITY, Id INT);
-INSERT @Lines (Id)
-SELECT TOP (3) i.OrderDetailsItemId
+/* live, unlocked lines with no remarks, whose OrderDetailsItemId sits on one order line only, with their
+   customer: A, B and C are one customer's, D another's */
+DECLARE @Eligible TABLE (Id INT, CustomerId INT);
+INSERT @Eligible (Id, CustomerId)
+SELECT i.OrderDetailsItemId, MIN(wp.CustomerId)
 FROM dbo.OrderDetailsItems AS i
+JOIN dbo.OrderDetails AS od ON od.OrderDetailId = i.OrderDetailId
+JOIN dbo.OrderWorkPlans AS wp ON wp.OrderWorkPlanId = od.OrderWorkPlanId
 WHERE i.IsDeleted = 0 AND ISNULL(i.IsCancelled, 0) = 0 AND i.RemarksLockedDate IS NULL
+  AND wp.CustomerId IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM dbo.CalibrationRemarks AS r WHERE r.OrderDetailsItemId = i.OrderDetailsItemId)
 GROUP BY i.OrderDetailsItemId
-HAVING COUNT(*) = 1
-ORDER BY i.OrderDetailsItemId DESC;
+HAVING COUNT(*) = 1;
+
+DECLARE @Customer INT = (SELECT TOP (1) CustomerId FROM @Eligible GROUP BY CustomerId
+                         HAVING COUNT(*) >= 3 ORDER BY COUNT(*) DESC, CustomerId);
+DECLARE @Lines TABLE (Rn INT IDENTITY, Id INT);
+INSERT @Lines (Id) SELECT TOP (3) Id FROM @Eligible WHERE CustomerId = @Customer ORDER BY Id DESC;
 
 DECLARE @A INT = (SELECT Id FROM @Lines WHERE Rn = 1),
         @B INT = (SELECT Id FROM @Lines WHERE Rn = 2),
-        @C INT = (SELECT Id FROM @Lines WHERE Rn = 3);
+        @C INT = (SELECT Id FROM @Lines WHERE Rn = 3),
+        @D INT = (SELECT TOP (1) Id FROM @Eligible WHERE CustomerId <> @Customer ORDER BY Id DESC);
 
 BEGIN TRANSACTION;
 
-UPDATE dbo.OrderDetailsItems SET SerialNumber = @Serial WHERE OrderDetailsItemId IN (@A, @B, @C);
+UPDATE dbo.OrderDetailsItems SET SerialNumber = @Serial WHERE OrderDetailsItemId IN (@A, @B, @C, @D);
+UPDATE dbo.OrderDetailsItems SET MbaReportNumber = N'TEST-A', ActualCalibrationDate = '2026-01-10'
+WHERE OrderDetailsItemId = @A;
 UPDATE dbo.OrderDetailsItems SET MbaReportNumber = N'TEST-B', ActualCalibrationDate = '2026-03-04'
 WHERE OrderDetailsItemId = @B;
+/* D: another customer's line with the same serial, calibrated last of all */
+UPDATE dbo.OrderDetailsItems SET MbaReportNumber = N'TEST-D', ActualCalibrationDate = '2026-06-01'
+WHERE OrderDetailsItemId = @D;
 
 /* a list row in A's sub-domain, so a list remark can be saved on A */
 DECLARE @Cat INT = COALESCE((SELECT od.SecondaryCategoryId FROM dbo.OrderDetailsItems AS i
@@ -106,6 +120,24 @@ INSERT @Out SELECT N'the last calibration wins, with its report number and date'
        CASE WHEN COUNT(*) = 1 AND MIN(SourceOrderDetailsItemId) = @B AND MIN(SourceReportNumber) = N'TEST-B'
              AND CONVERT(DATE, MIN(SourceCalibrationDate)) = '2026-03-04' AND MIN(TextHEB) = N'after adjustment'
             THEN N'PASS' ELSE N'FAIL' END FROM #P;
+
+/* A's older report is saved again (a typo fixed before it was signed): B, calibrated later, still wins */
+DECLARE @TA NVARCHAR(MAX) = CONCAT(N'[{"PredefinedRemarkId":', @Pre, N',"Values":["0.005 °C"]},',
+                                   N'{"Text":"R0=+2.013092E+02, AL=+3.846645E-03"}]');
+WAITFOR DELAY '00:00:01';
+DELETE #S; INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @A, N'Report', NULL, @TA, 1;
+DELETE #P; INSERT #P EXEC dbo.GetPreviousCalibrationRemarks @C;
+INSERT @Out SELECT N'remarks saved again on an older calibration do not make it the last',
+       CAST(@B AS NVARCHAR(12)), CONCAT(MIN(SourceOrderDetailsItemId), N''),
+       CASE WHEN MIN(SourceOrderDetailsItemId) = @B AND MAX(SourceOrderDetailsItemId) = @B THEN N'PASS' ELSE N'FAIL' END FROM #P;
+
+/* another customer's line with the same serial, calibrated later still, is never offered */
+SET @T = N'[{"Text":"another customer"}]';
+DELETE #S; INSERT #S EXEC dbo.SaveCalibrationRemarks @Email, @D, N'Report', NULL, @T, 1;
+DELETE #P; INSERT #P EXEC dbo.GetPreviousCalibrationRemarks @C;
+INSERT @Out SELECT N'another customer''s sensor with the same serial is never offered',
+       CAST(@B AS NVARCHAR(12)), CONCAT(MIN(SourceOrderDetailsItemId), N''),
+       CASE WHEN MIN(SourceOrderDetailsItemId) = @B AND MAX(SourceOrderDetailsItemId) = @B THEN N'PASS' ELSE N'FAIL' END FROM #P;
 
 /* the line's own remarks are never offered back to it */
 DELETE #P; INSERT #P EXEC dbo.GetPreviousCalibrationRemarks @B;

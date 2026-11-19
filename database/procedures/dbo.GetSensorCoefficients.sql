@@ -21,7 +21,9 @@
     over - outside it they can be off by degrees (21-290: about 87 degC at 100 degC, Jira 38168).
     Only a range recorded in Celsius is returned; any other unit comes back NULL, which the station
     reads as "no range on file". STAGE 2026-11: every precision sensor's range is in Celsius, none
-    has a second one. The unit is matched by its English name, not by id, which differs by server.
+    has a second one. The unit is matched by name, not by id, which differs by server: its English long
+    name 'Celsius' or its short name (degree sign + C), spaces ignored. PROD's unit row was not checked
+    from here - check it before deploying (review of #63).
 */
 CREATE OR ALTER PROCEDURE dbo.GetSensorCoefficients
     @MabaID               NVARCHAR(50) = NULL,
@@ -51,16 +53,22 @@ BEGIN
                MabaID = LTRIM(RTRIM(md.MabaID)),
                cp.RTP, cp.A4, cp.B4, cp.A7, cp.B7, cp.C7,
                cp.OrderDetailsItemId, cp.CreatedDate, cp.UpdateUserID,
-               WorkRangeMin  = CASE WHEN u1.LongNameEn = N'Celsius' THEN md.WorkRangeMin  END,
-               WorkRangeMax  = CASE WHEN u1.LongNameEn = N'Celsius' THEN md.WorkRangeMax  END,
-               WorkRangeMin2 = CASE WHEN u2.LongNameEn = N'Celsius' THEN md.WorkRangeMin2 END,
-               WorkRangeMax2 = CASE WHEN u2.LongNameEn = N'Celsius' THEN md.WorkRangeMax2 END,
+               WorkRangeMin  = CASE WHEN u1.IsCelsius = 1 THEN md.WorkRangeMin  END,
+               WorkRangeMax  = CASE WHEN u1.IsCelsius = 1 THEN md.WorkRangeMax  END,
+               WorkRangeMin2 = CASE WHEN u2.IsCelsius = 1 THEN md.WorkRangeMin2 END,
+               WorkRangeMax2 = CASE WHEN u2.IsCelsius = 1 THEN md.WorkRangeMax2 END,
                Rn = ROW_NUMBER() OVER (PARTITION BY cp.MeasurementDevicesId
                                        ORDER BY cp.ConversionParameterId DESC)
         FROM dbo.ConversionParameters AS cp
         JOIN dbo.MeasurementDevices AS md ON md.ID = cp.MeasurementDevicesId AND md.IsDeleted = 0
-        LEFT JOIN dbo.MeasurementDeviceUnits AS u1 ON u1.MeasurementDeviceUnitId = md.WorkRangeUnitId
-        LEFT JOIN dbo.MeasurementDeviceUnits AS u2 ON u2.MeasurementDeviceUnitId = md.WorkRangeUnitId2
+        OUTER APPLY (SELECT IsCelsius = 1 FROM dbo.MeasurementDeviceUnits AS u
+                     WHERE u.MeasurementDeviceUnitId = md.WorkRangeUnitId
+                       AND (LTRIM(RTRIM(u.LongNameEn)) = N'Celsius'
+                            OR LTRIM(RTRIM(u.ShortNameEn)) = NCHAR(176) + N'C')) AS u1
+        OUTER APPLY (SELECT IsCelsius = 1 FROM dbo.MeasurementDeviceUnits AS u
+                     WHERE u.MeasurementDeviceUnitId = md.WorkRangeUnitId2
+                       AND (LTRIM(RTRIM(u.LongNameEn)) = N'Celsius'
+                            OR LTRIM(RTRIM(u.ShortNameEn)) = NCHAR(176) + N'C')) AS u2
         WHERE cp.IsDeleted = 0
           AND (@MeasurementDevicesId IS NULL OR cp.MeasurementDevicesId = @MeasurementDevicesId)
           AND (@Maba IS NULL OR LTRIM(RTRIM(md.MabaID)) = @Maba)
