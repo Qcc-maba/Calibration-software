@@ -46,6 +46,14 @@
 .PARAMETER ServiceAccountPassword
     Password for -ServiceAccount.
 
+.PARAMETER AttachmentShare
+    The share the documents are read from. Defaults by -Environment: Prod reads
+    \\maba-priority\Priority\Attachments, Stage reads \\priority-test\Priority\Attachments.
+
+    Stage needs its own share because priority-test is a clone of the live Priority server: its
+    EXTFILES rows still say \\maba-priority\..., and the service swaps that root for this one
+    (AttachmentShareMap). Without it a Stage service would read the live share. MBA-930.
+
 .PARAMETER Port
     TCP port. Default 5313.
 
@@ -76,6 +84,7 @@ param(
     [string] $Environment = 'Prod',
     [string] $ServiceAccount,
     [System.Security.SecureString] $ServiceAccountPassword,
+    [string] $AttachmentShare,
     [int]    $Port = 5313,
     [string] $CacheDirectory = 'C:\ProgramData\Maba\OrderAttachments\pdf-cache',
     [string] $LibreOfficePath = 'C:\Program Files\LibreOffice\program\soffice.exe',
@@ -190,6 +199,11 @@ Set-MachineVar 'ConnectionStrings__Calibrator' $CalibratorConnectionString -Secr
 Set-MachineVar 'OrderAttachments__BrowsersPath' $BrowsersPath
 Set-MachineVar 'OrderAttachments__CacheDirectory' $CacheDirectory
 Set-MachineVar 'OrderAttachments__LibreOfficePath' $LibreOfficePath
+if (-not $AttachmentShare) {
+    $AttachmentShare = if ($Environment -eq 'Stage') { '\\priority-test\Priority\Attachments' }
+                       else { '\\maba-priority\Priority\Attachments' }
+}
+Set-MachineVar 'OrderAttachments__AttachmentShare' $AttachmentShare
 # Deliberately NOT ASPNETCORE_URLS - it is machine-wide and shared with every other ASP.NET
 # service on this box. OrderAttachments__Urls is read only by this service.
 Set-MachineVar 'OrderAttachments__Urls' "http://localhost:$Port"

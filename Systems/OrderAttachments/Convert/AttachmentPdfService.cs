@@ -25,6 +25,7 @@ public sealed class AttachmentPdfService(
     ChromiumRenderer renderer,
     ConversionCache cache,
     PdfCombiner combiner,
+    AttachmentShareMap shares,
     ILogger<AttachmentPdfService> log)
 {
     public const string BodyPartId = "body";
@@ -45,7 +46,8 @@ public sealed class AttachmentPdfService(
             ];
         }
 
-        var path = row.FilePath!;
+        // Priority's stored path names the live share; STAGE reads priority-test's copy.
+        var path = shares.Resolve(row.FilePath!);
 
         if (row.SourceKind != "OutlookMessage")
         {
@@ -132,7 +134,8 @@ public sealed class AttachmentPdfService(
         if (!row.CanBeServed)
             throw new PdfConversionException("Priority stored a truncated path for this file.");
 
-        var path = row.FilePath!;
+        // Priority's stored path names the live share; STAGE reads priority-test's copy.
+        var path = shares.Resolve(row.FilePath!);
 
         return await cache.GetOrCreateAsync(path, partId, async token =>
         {

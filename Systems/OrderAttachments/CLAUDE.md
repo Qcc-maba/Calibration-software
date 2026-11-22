@@ -63,6 +63,14 @@ Four things about the Priority data that will mislead you:
   encoding 1252"* — while `NU1510` insists the `System.Text.Encoding.CodePages` package is
   unnecessary and the project compiles fine without it. That warning is suppressed on purpose.
 
+**STAGE reads `\\priority-test`, although its rows say `\\maba-priority`.** priority-test is a clone
+of the live Priority server, so `EXTFILES` there stores the live share's absolute path. The service
+keeps Priority's path in `dbo.CrmOrderAttachments` as is and swaps the root
+`\\maba-priority\Priority\Attachments` for `OrderAttachments:AttachmentShare` when it opens a file
+(`Data/AttachmentShareMap.cs`). The install script sets that share from `-Environment`. Without it a
+STAGE service would read the live share. Checked 22/11/2026: every sampled test row exists under
+`\\priority-test\Priority\Attachments`, in the same layout.
+
 **A document that cannot be converted must still be visible.** The list returns such parts with an
 `Error` instead of omitting them, and the endpoint answers **422**, not 500 — the request was valid,
 this one document just cannot become a PDF. The calibrator needs to know the document exists.

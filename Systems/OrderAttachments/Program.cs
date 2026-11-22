@@ -54,6 +54,11 @@ var browsersPath = builder.Configuration["OrderAttachments:BrowsersPath"]
 Environment.SetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH", browsersPath);
 
 builder.Services.AddSingleton(new AttachmentCatalog(connectionString));
+
+// Priority stores \\maba-priority\... paths, and so does its clone priority-test. The share set
+// here is the one actually read (STAGE: \\priority-test\...). See AttachmentShareMap.
+var shareMap = new AttachmentShareMap(builder.Configuration["OrderAttachments:AttachmentShare"]);
+builder.Services.AddSingleton(shareMap);
 builder.Services.AddSingleton<MsgExtractor>();
 builder.Services.AddSingleton<ChromiumRenderer>();
 builder.Services.AddSingleton(sp =>
@@ -95,8 +100,7 @@ app.MapGet("/health", async (AttachmentCatalog catalog, CancellationToken ct) =>
         database = "FAILED: " + ex.Message;
     }
 
-    var share = builder.Configuration["OrderAttachments:AttachmentShare"]
-                ?? @"\\maba-priority\Priority\Attachments";
+    var share = shareMap.ShareRoot;
 
     // The directory THIS service points Playwright at (see the startup block). Reported rather
     // than assumed, because a browser the service cannot read is the difference between working
