@@ -39,6 +39,14 @@ GO
     one remote call per invoice: 65 seconds for 1,361 invoices, against one second before it
     existed. Inside OPENQUERY the join happens on the Priority server and the cost disappears.
     @Cust is an INT, so embedding it in the remote text carries no injection risk.
+
+    2026-11-22 - MBA-998: THE DOCUMENT COMES FROM S3
+    ---------------------------------------------------------------------------------------------
+    The portal runs on Vercel, which cannot reach Priority's share, so the directory above could
+    never be opened. The on-prem sync (ReportArchiveSync) now copies each invoice PDF to S3 and
+    records it in dbo.CustomerInvoiceDocument. This procedure no longer reads EXTFILES at all: it
+    returns IV and the S3 key (documentKey) from that table, and hasDocument means "a copy is in
+    S3". documentDirectory and documentFileSize are gone; the app signs a link to documentKey.
 */
 CREATE OR ALTER PROCEDURE dbo.GetCustomerInvoicesFromPriority
     @LoggedInUserEmail NVARCHAR(100)
@@ -60,28 +68,17 @@ BEGIN
     EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT;
 
     DECLARE @Quote CHAR(1) = CHAR(39);
-    DECLARE @Slash CHAR(1) = CHAR(92);
 
     /* The statement as the Priority server will see it. */
     DECLARE @RemoteQuery NVARCHAR(MAX) =
-        N'SELECT iv.IVNUM, iv.IVDATE, iv.TOTPRICE, iv.IVBALANCE,'
+        N'SELECT iv.IV, iv.IVNUM, iv.IVDATE, iv.TOTPRICE, iv.IVBALANCE,'
       + N' DocumentType = t.IVDES,'
-      + N' IsReceipt = CASE WHEN t.RECEIPT = ' + @Quote + N'Y' + @Quote + N' THEN 1 ELSE 0 END,'
-      + N' DocumentDirectory = LEFT(e.EXTFILENAME, LEN(e.EXTFILENAME) - CHARINDEX(' + @Quote + @Slash + @Quote + N', REVERSE(e.EXTFILENAME))),'
-      + N' DocumentFileSize = e.FILESIZE'
+      + N' IsReceipt = CASE WHEN t.RECEIPT = ' + @Quote + N'Y' + @Quote + N' THEN 1 ELSE 0 END'
       + N' FROM amaba.dbo.INVOICES AS iv'
       /* IVTYPES names the document: TYPE T is קבלה - every K-numbered row on this screen - while
          C is a חש. מרכזת or a חש. זיכוי. TYPE alone is not unique, so FNCPATTERN joins with it.
          OTYPE C keeps this to customer-side documents; the P types are supplier paperwork. */
       + N' LEFT JOIN amaba.dbo.IVTYPES AS t ON t.TYPE = iv.TYPE AND t.FNCPATTERN = iv.FNCPATTERN'
-      + N' OUTER APPLY ('
-      + N'   SELECT TOP (1) x.EXTFILENAME, x.FILESIZE'
-      + N'   FROM amaba.dbo.EXTFILES AS x'
-      + N'   WHERE x.IV = iv.IV'
-      + N'     AND x.EXTFILENAME LIKE ' + @Quote + N'%.pdf' + @Quote
-      + N'     AND CHARINDEX(' + @Quote + @Slash + @Quote + N', x.EXTFILENAME) > 0'
-      + N'   ORDER BY x.CURDATE DESC, x.EXTFILENUM DESC'
-      + N' ) AS e'
       + N' WHERE iv.CUST = ' + CAST(@Cust AS NVARCHAR(20))
       + N'   AND ISNULL(t.OTYPE, ' + @Quote + N'C' + @Quote + N') = ' + @Quote + N'C' + @Quote + N';';
 
@@ -94,10 +91,11 @@ BEGIN
       + N' CAST(CASE WHEN r.IVBALANCE = 0 THEN 1 ELSE 0 END AS bit) AS isPaid,'
       + N' r.DocumentType AS documentType,'
       + N' CAST(r.IsReceipt AS bit) AS isReceipt,'
-      + N' r.DocumentDirectory AS documentDirectory,'
-      + N' r.DocumentFileSize AS documentFileSize,'
-      + N' CAST(CASE WHEN r.DocumentDirectory IS NULL THEN 0 ELSE 1 END AS bit) AS hasDocument'
+      + N' d.StorageKey AS documentKey,'
+      + N' CAST(CASE WHEN d.StorageKey IS NULL THEN 0 ELSE 1 END AS bit) AS hasDocument'
       + N' FROM OPENQUERY(' + @PriorityLink + N', ' + @Quote + REPLACE(@RemoteQuery, @Quote, @Quote + @Quote) + @Quote + N') AS r'
+      /* MBA-998: the copy in S3, written by the on-prem sync. */
+      + N' LEFT JOIN dbo.CustomerInvoiceDocument AS d ON d.IV = r.IV'
       + N' ORDER BY r.IVDATE DESC;';
 
     EXEC sp_executesql @Sql;

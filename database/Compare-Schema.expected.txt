@@ -80,7 +80,7 @@ BODIES      | DIFFERS    | dbo.CreateCustomerPortalRequest                     |
 # ---- STAGE ahead of PROD, waiting for its app change ----------------------------------------------
 ROUTINES    | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)
 BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-904 @SummaryAsJson; deploy with app PR #166 (checklist item 6)
-BODIES      | DIFFERS    | dbo.GetCustomerInvoicesFromPriority                 | held back on 2026-10-25; deploy with MBA-998 (invoice PDFs via S3)
+BODIES      | DIFFERS    | dbo.GetCustomerInvoicesFromPriority                 | MBA-998 documentKey from dbo.CustomerInvoiceDocument; deploy with the MBA-998 block below
 BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToCalibrationCycle        | MBA-522 placeholder points keyed by name; on STAGE 2026-11-16, works with the current app too
 
 # ---- MBA-911 Priority calibration status + report-only outbox: on STAGE, PROD later ----------------
@@ -171,3 +171,10 @@ BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToCalibrationCycle        |
 BODIES      | DIFFERS    | dbo.GetCalibrationCycles                            | MBA-800 returns the Secondary* columns (on top of MBA-980), not deployed to PROD yet
 BODIES      | DIFFERS    | dbo.GetOrderDetailsDevices                          | MBA-800 returns the pair (on top of MBA-1004), not deployed to PROD yet
 BODIES      | DIFFERS    | dbo.AssignMeasurmentPointsToOrderDetailsItems       | MBA-800 PairId / ValueRole (on top of MBA-904), not deployed to PROD yet
+
+# ---- MBA-998 invoice PDFs to S3: on STAGE 2026-11-22, PROD together with the app change and a PROD ReportArchiveSync with -InvoiceRoot ----
+# Delete this block in the change that deploys MBA-998 to PROD.
+COLUMNS     | STAGE only | dbo.CustomerInvoiceDocument.*                       | MBA-998 invoice PDFs copied to S3, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.CustomerInvoiceDocument*                      | MBA-998, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.GetInvoiceDocumentsToSync                       | MBA-998, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.UpsertCustomerInvoiceDocument                   | MBA-998, not deployed to PROD yet

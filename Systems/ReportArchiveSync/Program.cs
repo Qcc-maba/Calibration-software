@@ -2,6 +2,7 @@ using Amazon.S3;
 using Maba.VCT.ReportArchiveSync;
 using Maba.VCT.ReportArchiveSync.Archive;
 using Maba.VCT.ReportArchiveSync.Data;
+using Maba.VCT.ReportArchiveSync.Invoices;
 using Maba.VCT.ReportArchiveSync.Options;
 using Maba.VCT.ReportArchiveSync.Storage;
 using Microsoft.Extensions.Options;
@@ -29,6 +30,14 @@ builder.Services
     .Validate(
         options => options.SourceId is 1 or 2,
         "ReportArchiveSync:SourceId must be 1 (MABA) or 2 (SEPHARM).")
+    .Validate(
+        // Empty turns invoice mirroring off (MBA-998); a value must be UNC for the same reason as ArchiveRoot.
+        options => string.IsNullOrWhiteSpace(options.InvoiceRoot)
+                   || !(options.InvoiceRoot.Length > 1 && options.InvoiceRoot[1] == ':'),
+        "ReportArchiveSync:InvoiceRoot must be a UNC path, not a mapped drive letter.")
+    .Validate(
+        options => options.InvoiceBatchSize > 0 && options.InvoiceRetryAfterDays > 0,
+        "ReportArchiveSync:InvoiceBatchSize and InvoiceRetryAfterDays must be positive.")
     .ValidateOnStart();
 
 builder.Services
@@ -56,6 +65,9 @@ builder.Services.AddSingleton<ReportBlobStore>();
 builder.Services.AddSingleton(provider => new ArchiveLocator(
     provider.GetRequiredService<IOptions<ReportArchiveSyncOptions>>().Value.ArchiveRoot,
     provider.GetRequiredService<ILogger<ArchiveLocator>>()));
+
+builder.Services.AddSingleton<InvoiceDocumentRepository>();
+builder.Services.AddSingleton<InvoiceMirror>();
 
 builder.Services.AddHostedService<SyncWorker>();
 

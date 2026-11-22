@@ -58,6 +58,13 @@
     Priority server. No default (MBA-1028), so a STAGE install can never read production's archive
     by omission. Required on a first install; omit to keep the current one.
 
+.PARAMETER InvoiceRoot
+    UNC root of Priority's own files, which invoice attachment paths (..\..\system\mail\...) are
+    relative to (MBA-998). PROD: \\maba-priority\Priority. STAGE: \\priority-test\Priority.
+    Set it to turn on copying invoice PDFs to S3 for the customer portal; leave it unset and the
+    service copies reports only. The service account needs read access to <root>\system\mail.
+    Omit to keep the current one.
+
 .EXAMPLE
     # First install: observe only
     .\Install-ReportArchiveSync-Service.ps1 -LogOnAccount MABA\svc-reportsync -LogOnPassword *** -ConnectionString "Server=...;Database=CalibratorProd;..."
@@ -77,7 +84,8 @@ param(
     [int]    $SourceId = 1,
     [ValidateSet('true', 'false')]
     [string] $DryRun = 'true',
-    [string] $ArchiveRoot
+    [string] $ArchiveRoot,
+    [string] $InvoiceRoot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -118,6 +126,13 @@ if ($EffectiveArchiveRoot -match '^[A-Za-z]:') {
     exit 1
 }
 
+$EffectiveInvoiceRoot = if ($InvoiceRoot) { $InvoiceRoot } else { [Environment]::GetEnvironmentVariable('ReportArchiveSync__InvoiceRoot', 'Machine') }
+
+if ($EffectiveInvoiceRoot -match '^[A-Za-z]:') {
+    Write-Host "ERROR: InvoiceRoot '$EffectiveInvoiceRoot' is a drive letter. Use the UNC path." -ForegroundColor Red
+    exit 1
+}
+
 # A running instance locks the executable the publish step wants to overwrite.
 $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($svc -and $svc.Status -eq 'Running') {
@@ -148,6 +163,7 @@ Write-Host 'Applying machine-scope configuration...' -ForegroundColor Yellow
 Set-MachineVar 'ReportArchiveSync__ConnectionString' $ConnectionString -Secret
 Set-MachineVar 'ReportArchiveSync__BucketName'       $BucketName
 Set-MachineVar 'ReportArchiveSync__ArchiveRoot'      $ArchiveRoot
+Set-MachineVar 'ReportArchiveSync__InvoiceRoot'      $InvoiceRoot
 Set-MachineVar 'ReportArchiveSync__SourceId'         "$SourceId"
 Set-MachineVar 'ReportArchiveSync__DryRun'           $DryRun
 Set-MachineVar 'AWS_ACCESS_KEY_ID'                   $AwsAccessKeyId -Secret
@@ -198,6 +214,7 @@ if ($svc.Status -ne 'Running') {
 Write-Host "Service '$ServiceName' is running." -ForegroundColor Green
 Write-Host "  archive : $EffectiveArchiveRoot" -ForegroundColor Gray
 Write-Host "  bucket  : $EffectiveBucketName" -ForegroundColor Gray
+Write-Host "  invoices: $(if ($EffectiveInvoiceRoot) { $EffectiveInvoiceRoot } else { 'off (no -InvoiceRoot)' })" -ForegroundColor Gray
 Write-Host "  source  : $SourceId $(if ($SourceId -eq 1) { '(MABA)' } else { '(SEPHARM)' })" -ForegroundColor Gray
 Write-Host "  dry run : $DryRun" -ForegroundColor $(if ($DryRun -eq 'true') { 'Yellow' } else { 'Gray' })
 
