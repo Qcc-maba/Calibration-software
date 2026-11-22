@@ -86,6 +86,7 @@
     <Compile Include="Device\Electronics\MeatestM142BL.cs" />
     <Compile Include="Device\Electronics\MeatestM142Readings.cs" />
     <Compile Include="Device\Calculations\HydraCalculations.cs" />
+    <Compile Include="Device\Calculations\MasterWorkRangeMonitor.cs" />
     <Compile Include="Device\Temperature\Hydra3DeviceBL.cs" />
     <Compile Include="BLCore\Temperature\Hydra2BLCore.cs" />
     <Compile Include="Device\Temperature\Hydra2DeviceBL.cs" />

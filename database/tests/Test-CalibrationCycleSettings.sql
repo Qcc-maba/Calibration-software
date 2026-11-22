@@ -294,7 +294,15 @@ DECLARE @Prev TABLE (PreviousOrderDetailsItemId INT, PreviousMbaReportNumber NVA
                      DisplayValue DECIMAL(18,6), DisplayResolution DECIMAL(18,6),
                      IsDisplayEnabled BIT, IsTargetValueEnabled BIT, ControllerTypeStatusId INT,
                      ControllerManufacturer NVARCHAR(100), ControllerModel NVARCHAR(100),
-                     CalculationResolution DECIMAL(18,6));
+                     CalculationResolution DECIMAL(18,6),
+                     /* MBA-800: the second measured value; Test-ChamberSecondaryValue.sql tests it */
+                     SecondaryUnitId INT, SecondaryUnitName NVARCHAR(200), SecondaryTestedValue DECIMAL(18,6),
+                     SecondaryToleranceValue DECIMAL(18,6), SecondaryToleranceStart DECIMAL(18,6),
+                     SecondaryToleranceEnd DECIMAL(18,6), SecondaryResolution DECIMAL(18,6),
+                     SecondaryUncertainty DECIMAL(18,6), SecondaryStabilityThreshold DECIMAL(18,6),
+                     SecondaryUniformityThreshold DECIMAL(18,6), SecondaryDisplayValue DECIMAL(18,6),
+                     SecondaryDisplayResolution DECIMAL(18,6), SecondaryIsDisplayEnabled BIT,
+                     SecondaryIsTargetValueEnabled BIT, SecondaryCalculationResolution DECIMAL(18,6));
 DECLARE @Expected INT = @A;   -- C was chosen to have run before A
 
 INSERT @Prev EXEC dbo.GetPreviousCalibrationCycleSettings @OrderDetailsItemId = @B;

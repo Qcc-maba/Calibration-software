@@ -28,7 +28,9 @@ DROP TABLE IF EXISTS #G;
 CREATE TABLE #G (ConversionParameterId INT, MeasurementDevicesId INT, MabaID NVARCHAR(50),
                  RTP DECIMAL(35,15), A4 DECIMAL(35,15), B4 DECIMAL(35,15), A7 DECIMAL(35,15),
                  B7 DECIMAL(35,15), C7 DECIMAL(35,15), OrderDetailsItemId INT, CreatedDate DATETIME2,
-                 UpdateUserID INT, IsCurrent BIT);
+                 UpdateUserID INT, IsCurrent BIT,
+                 WorkRangeMin DECIMAL(18,6), WorkRangeMax DECIMAL(18,6),
+                 WorkRangeMin2 DECIMAL(18,6), WorkRangeMax2 DECIMAL(18,6));
 
 DECLARE @Email NVARCHAR(255) = (SELECT TOP (1) Email FROM dbo.Users WHERE Email IS NOT NULL ORDER BY ID);
 
@@ -40,7 +42,10 @@ DECLARE @R2 DECIMAL(35,15) = 25.4011, @A42 DECIMAL(35,15) = -0.00010288,
         @B42 DECIMAL(35,15) = -0.0000052588, @A72 DECIMAL(35,15) = -0.00011873,
         @B72 DECIMAL(35,15) = -0.0000016079, @C72 DECIMAL(35,15) = -0.000003391;
 
-/* two live sensors whose MabaID is theirs alone - 21-214 first when it qualifies */
+/* two live sensors whose MabaID is theirs alone, preferring ones with no coefficients on file yet:
+   once the lab's sets are loaded (MBA-831), a sensor whose current set equals S1 - 21-214 - would
+   answer the first save with NoChange and fail every check after it. Among those, a working range in
+   Celsius first, so the range checks read a real range. */
 DECLARE @Unique TABLE (Rn INT IDENTITY, ID INT, MabaID NVARCHAR(50));
 INSERT @Unique (ID, MabaID)
 SELECT TOP (2) MIN(md.ID), LTRIM(RTRIM(md.MabaID))
@@ -48,7 +53,13 @@ FROM dbo.MeasurementDevices AS md
 WHERE md.IsDeleted = 0 AND NULLIF(LTRIM(RTRIM(md.MabaID)), N'') IS NOT NULL
 GROUP BY LTRIM(RTRIM(md.MabaID))
 HAVING COUNT(*) = 1
-ORDER BY CASE WHEN LTRIM(RTRIM(md.MabaID)) = N'21-214' THEN 0 ELSE 1 END, MIN(md.ID);
+ORDER BY CASE WHEN EXISTS (SELECT 1 FROM dbo.ConversionParameters AS cp
+                           WHERE cp.MeasurementDevicesId = MIN(md.ID) AND cp.IsDeleted = 0) THEN 1 ELSE 0 END,
+         CASE WHEN EXISTS (SELECT 1 FROM dbo.MeasurementDevices AS r
+                           JOIN dbo.MeasurementDeviceUnits AS u ON u.MeasurementDeviceUnitId = r.WorkRangeUnitId
+                           WHERE r.ID = MIN(md.ID) AND u.LongNameEn = N'Celsius'
+                             AND r.WorkRangeMin IS NOT NULL AND r.WorkRangeMax IS NOT NULL) THEN 0 ELSE 1 END,
+         MIN(md.ID);
 
 DECLARE @D1 INT, @M1 NVARCHAR(50), @D2 INT, @M2 NVARCHAR(50);
 SELECT @D1 = ID, @M1 = MabaID FROM @Unique WHERE Rn = 1;
@@ -78,6 +89,10 @@ FROM #S;
 /* =============================================================================================
    Section 2 - saves, read back through GetSensorCoefficients
    ============================================================================================= */
+/* sets sensor 1 already has: 21-214's are on file wherever the seed scripts ran (MBA-831), so the
+   history counts below are relative to them */
+DECLARE @Existing INT = (SELECT COUNT(*) FROM dbo.ConversionParameters WHERE MeasurementDevicesId = @D1 AND IsDeleted = 0);
+
 BEGIN TRANSACTION;
 
 /* S1 on sensor 1 */
@@ -105,6 +120,43 @@ INSERT @Out SELECT N'2 read back', N'the calibration it came from is kept',
        CASE WHEN OrderDetailsItemId = 424242 AND IsCurrent = 1 THEN N'PASS' ELSE N'FAIL' END
 FROM #G;
 
+/* MBA-831: the working range comes with the set, but only when it is recorded in Celsius */
+DECLARE @WMin DECIMAL(18,6), @WMax DECIMAL(18,6), @WIsCelsius BIT;
+SELECT @WMin = md.WorkRangeMin, @WMax = md.WorkRangeMax,
+       @WIsCelsius = CASE WHEN LTRIM(RTRIM(u.LongNameEn)) = N'Celsius'
+                           OR LTRIM(RTRIM(u.ShortNameEn)) = NCHAR(176) + N'C' THEN 1 ELSE 0 END
+FROM dbo.MeasurementDevices AS md
+LEFT JOIN dbo.MeasurementDeviceUnits AS u ON u.MeasurementDeviceUnitId = md.WorkRangeUnitId
+WHERE md.ID = @D1;
+/* NULL ends compare as equal: a Celsius range with one end missing comes back exactly as recorded */
+INSERT @Out SELECT N'2 range', N'the working range in Celsius reads back as recorded',
+       CASE WHEN @WIsCelsius = 1
+            THEN CONCAT(ISNULL(CAST(@WMin AS NVARCHAR(30)), N'NULL'), N' to ', ISNULL(CAST(@WMax AS NVARCHAR(30)), N'NULL'))
+            ELSE N'NULL to NULL' END,
+       CONCAT(ISNULL(CAST(WorkRangeMin AS NVARCHAR(30)), N'NULL'), N' to ', ISNULL(CAST(WorkRangeMax AS NVARCHAR(30)), N'NULL')),
+       CASE WHEN (@WIsCelsius = 1
+                  AND (WorkRangeMin = @WMin OR (WorkRangeMin IS NULL AND @WMin IS NULL))
+                  AND (WorkRangeMax = @WMax OR (WorkRangeMax IS NULL AND @WMax IS NULL)))
+              OR (ISNULL(@WIsCelsius, 0) = 0 AND WorkRangeMin IS NULL AND WorkRangeMax IS NULL)
+            THEN N'PASS' ELSE N'FAIL' END
+FROM #G;
+
+/* a range in another unit is not passed on as degrees: rolled back with the rest of section 2 */
+UPDATE dbo.MeasurementDevices
+SET WorkRangeMin = -10, WorkRangeMax = 30,
+    WorkRangeUnitId = (SELECT TOP (1) MeasurementDeviceUnitId FROM dbo.MeasurementDeviceUnits
+                       WHERE ISNULL(LTRIM(RTRIM(LongNameEn)), N'') <> N'Celsius'
+                         AND ISNULL(LTRIM(RTRIM(ShortNameEn)), N'') <> NCHAR(176) + N'C'
+                       ORDER BY MeasurementDeviceUnitId)
+WHERE ID = @D1;
+DELETE #G;
+INSERT #G EXEC dbo.GetSensorCoefficients @MabaID = @M1;
+INSERT @Out SELECT N'2 range', N'a working range in another unit comes back NULL',
+       N'NULL to NULL',
+       CONCAT(ISNULL(CAST(WorkRangeMin AS NVARCHAR(30)), N'NULL'), N' to ', ISNULL(CAST(WorkRangeMax AS NVARCHAR(30)), N'NULL')),
+       CASE WHEN WorkRangeMin IS NULL AND WorkRangeMax IS NULL THEN N'PASS' ELSE N'FAIL' END
+FROM #G;
+
 /* the same values again: nothing written, the existing row named */
 DELETE #S;
 SELECT @Before = COUNT(*) FROM dbo.ConversionParameters WHERE MeasurementDevicesId = @D1;
@@ -130,9 +182,10 @@ FROM #G;
 DELETE #G;
 INSERT #G EXEC dbo.GetSensorCoefficients @MabaID = @M1, @IncludeHistory = 1;
 INSERT @Out SELECT N'2 history', N'history keeps the old set, not current',
-       N'2 rows, 1 current', CONCAT(COUNT(*), N' rows, ', SUM(CAST(IsCurrent AS INT)), N' current'),
-       CASE WHEN COUNT(*) = 2 AND SUM(CAST(IsCurrent AS INT)) = 1
-             AND MAX(CASE WHEN IsCurrent = 0 THEN RTP END) = @R1 THEN N'PASS' ELSE N'FAIL' END
+       CONCAT(@Existing + 2, N' rows, 1 current'), CONCAT(COUNT(*), N' rows, ', SUM(CAST(IsCurrent AS INT)), N' current'),
+       CASE WHEN COUNT(*) = @Existing + 2 AND SUM(CAST(IsCurrent AS INT)) = 1
+             AND (SELECT TOP (1) RTP FROM #G WHERE IsCurrent = 0 ORDER BY ConversionParameterId DESC) = @R1
+            THEN N'PASS' ELSE N'FAIL' END
 FROM #G;
 
 /* back to S1: a real new calibration, so a third row - not NoChange against the older row */
@@ -140,10 +193,10 @@ DELETE #S;
 INSERT #S EXEC dbo.SaveSensorCoefficients @LoggedInUserEmail = @Email, @MabaID = @M1,
     @RTP = @R1, @A4 = @A41, @B4 = @B41, @A7 = @A71, @B7 = @B71, @C7 = @C71, @Apply = 1;
 INSERT @Out SELECT N'2 history', N'A, B, then A again: saved, three rows',
-       N'Saved 3', CONCAT(Outcome, N' ', (SELECT COUNT(*) FROM dbo.ConversionParameters
+       CONCAT(N'Saved ', @Existing + 3), CONCAT(Outcome, N' ', (SELECT COUNT(*) FROM dbo.ConversionParameters
                                           WHERE MeasurementDevicesId = @D1 AND IsDeleted = 0)),
        CASE WHEN Outcome = N'Saved' AND (SELECT COUNT(*) FROM dbo.ConversionParameters
-                                         WHERE MeasurementDevicesId = @D1 AND IsDeleted = 0) = 3
+                                         WHERE MeasurementDevicesId = @D1 AND IsDeleted = 0) = @Existing + 3
             THEN N'PASS' ELSE N'FAIL' END
 FROM #S;
 

@@ -34,6 +34,17 @@
     - NO_SENSOR does not exist on PROD (2026-11-16). There, only channel 99 marks a placeholder.
 
     The soft delete is scoped per (line, cycle) pair from the request, not per line x per date.
+
+    MBA-800 (2026-11-19): a point may carry "ValueRole" (1 = temperature, 2 = the chamber's second
+    value, RH) and "PairId" (the GUID its order-line point carries; the temperature and RH points of
+    one position share it). database/schema/dbo.MeasurmentPointsToCalibrationCycles.PairIdValueRole.sql
+    has the why. Both are written exactly as sent, NULL included; omitted = not stated, which is
+    every point sent before this change. A role other than 1 or 2, or a PairId that is not a GUID,
+    is refused with 51000 before anything is written, like the clash check. So is a pair that does
+    not hold together, checked the same way as dbo.AssignMeasurmentPointsToOrderDetailsItems does
+    (review of PR #62: the payload comes from the app, not from the order line): an RH point without
+    a PairId, or a PairId without exactly one temperature and one RH point of one sensor on two
+    different channels in its line and cycle. Refused rather than skipped, like everything here.
 */
 CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentPointsToCalibrationCycle]
     @LoggedInUserEmail NVARCHAR(200),
@@ -80,6 +91,11 @@ BEGIN
             UncertancyValue DECIMAL(10,4),
             MeasuredValue DECIMAL(10,4),
             MeasuredValueUnitId INT,
+            /* MBA-800 */
+            PairIdText NVARCHAR(50),
+            PairId UNIQUEIDENTIFIER,
+            ValueRoleText NVARCHAR(50),
+            ValueRole TINYINT,
             IsPlaceholder BIT NOT NULL DEFAULT 0,
             /* the point name as part of the key: trimmed, '' = unnamed; '' for real points */
             PointKeyName NVARCHAR(100) COLLATE Latin1_General_100_CI_AI_SC NOT NULL DEFAULT N''
@@ -101,7 +117,11 @@ BEGIN
             StabilityValue,
             UncertancyValue,
             MeasuredValue,
-            MeasuredValueUnitId
+            MeasuredValueUnitId,
+            PairIdText,
+            PairId,
+            ValueRoleText,
+            ValueRole
         )
         SELECT
             d.OrderDetailsItemId,
@@ -118,7 +138,11 @@ BEGIN
             c.StabilityValue,
             c.UncertancyValue,
             c.MeasuredValue,
-            c.MeasuredValueUnitId
+            c.MeasuredValueUnitId,
+            NULLIF(LTRIM(RTRIM(c.PairId)), N''),
+            TRY_CONVERT(UNIQUEIDENTIFIER, NULLIF(LTRIM(RTRIM(c.PairId)), N'')),
+            NULLIF(LTRIM(RTRIM(c.ValueRole)), N''),
+            TRY_CONVERT(TINYINT, NULLIF(LTRIM(RTRIM(c.ValueRole)), N''))
         FROM OPENJSON(@Data)
         WITH (
             OrderDetailsItemId INT,
@@ -139,8 +163,65 @@ BEGIN
             StabilityValue DECIMAL(10,4),
             UncertancyValue DECIMAL(10,4),
             MeasuredValue DECIMAL(10,4),
-            MeasuredValueUnitId INT
+            MeasuredValueUnitId INT,
+            PairId NVARCHAR(50),        /* MBA-800: text, so a bad value gets a message, not error 8169 */
+            ValueRole NVARCHAR(50)      /* MBA-800 */
         ) AS c
+
+        /* MBA-800: refuse a malformed role or pair before writing anything */
+        DECLARE @BadPair NVARCHAR(400);
+        SELECT TOP (1) @BadPair =
+              N'Order line ' + CAST(pd.OrderDetailsItemId AS NVARCHAR(20))
+            /* COLLATE: the name column is Latin1 (see #parsedData), the two text columns are not */
+            + N', point "' + COALESCE(NULLIF(LTRIM(RTRIM(pd.MeasurmentPointName)), N''), N'(unnamed)') COLLATE DATABASE_DEFAULT + N'": '
+            + CASE WHEN pd.ValueRoleText IS NOT NULL AND (pd.ValueRole IS NULL OR pd.ValueRole NOT IN (1, 2))
+                   THEN N'ValueRole must be 1 (temperature) or 2 (RH), got "' + pd.ValueRoleText + N'".'
+                   ELSE N'PairId is not a GUID: "' + pd.PairIdText + N'".' END
+        FROM #parsedData AS pd
+        WHERE (pd.ValueRoleText IS NOT NULL AND (pd.ValueRole IS NULL OR pd.ValueRole NOT IN (1, 2)))
+           OR (pd.PairIdText IS NOT NULL AND pd.PairId IS NULL);
+
+        /* The message quotes the caller's text; THROW reads a lone % as a format code and returns
+           an empty message (seen on STAGE), so double it. */
+        IF @BadPair IS NOT NULL
+        BEGIN
+            SET @BadPair = REPLACE(@BadPair, N'%', N'%%');
+            THROW 51000, @BadPair, 1;
+        END
+
+        /* The pair's makeup, as the order-line save checks it (review of PR #62): the payload comes
+           from the app, so nothing guarantees it is a copy of the order line's points. An RH point
+           needs its PairId; a PairId carries one temperature and one RH point of one sensor on two
+           different channels, per line and cycle. */
+        SELECT TOP (1) @BadPair =
+              N'Order line ' + CAST(pd.OrderDetailsItemId AS NVARCHAR(20))
+            + N', point "' + COALESCE(NULLIF(LTRIM(RTRIM(pd.MeasurmentPointName)), N''), N'(unnamed)') COLLATE DATABASE_DEFAULT
+            + N'": an RH point (ValueRole 2) needs the PairId of the temperature point at the same position.'
+        FROM #parsedData AS pd
+        WHERE pd.ValueRole = 2 AND pd.PairId IS NULL;
+
+        IF @BadPair IS NULL
+            SELECT TOP (1) @BadPair =
+                  N'Order line ' + CAST(g.OrderDetailsItemId AS NVARCHAR(20))
+                + N', cycle ' + CONVERT(NVARCHAR(19), g.CalibrationCycleStartDate, 120)
+                + N': PairId ' + CONVERT(NVARCHAR(36), g.PairId)
+                + N' needs exactly one temperature point (ValueRole 1) and one RH point (ValueRole 2), on one sensor and two different channels.'
+            FROM (SELECT OrderDetailsItemId, CalibrationCycleStartDate, PairId
+                  FROM #parsedData
+                  WHERE PairId IS NOT NULL
+                  GROUP BY OrderDetailsItemId, CalibrationCycleStartDate, PairId
+                  HAVING COUNT(*) <> 2
+                      OR SUM(CASE WHEN ValueRole = 1 THEN 1 ELSE 0 END) <> 1
+                      OR SUM(CASE WHEN ValueRole = 2 THEN 1 ELSE 0 END) <> 1
+                      OR COUNT(DISTINCT SensorMeasurementDeviceId) <> 1
+                      OR COUNT(DISTINCT ChannelNumber) <> 2) AS g
+            ORDER BY g.OrderDetailsItemId, g.CalibrationCycleStartDate;
+
+        IF @BadPair IS NOT NULL
+        BEGIN
+            SET @BadPair = REPLACE(@BadPair, N'%', N'%%');
+            THROW 51000, @BadPair, 1;
+        END
 
         UPDATE pd
         SET IsPlaceholder = 1,
@@ -211,6 +292,8 @@ BEGIN
                 d.UncertancyValue,
                 d.MeasuredValue,
                 d.MeasuredValueUnitId,
+                d.PairId,
+                d.ValueRole,
                 d.IsPlaceholder,
                 d.PointKeyName
             FROM #parsedData as d
@@ -239,6 +322,8 @@ BEGIN
                 OR COALESCE(dest.[UncertancyValue],0) <> COALESCE(source.[UncertancyValue],0)
                 OR COALESCE(dest.[MeasuredValue],0) <> COALESCE(source.[MeasuredValue],0)
                 OR COALESCE(dest.[MeasuredValueUnitId],0) <> COALESCE(source.[MeasuredValueUnitId],0)
+                /* MBA-800: NULL-safe */
+                OR NOT EXISTS (SELECT dest.[PairId], dest.[ValueRole] INTERSECT SELECT source.[PairId], source.[ValueRole])
         )
         THEN
             UPDATE
@@ -255,6 +340,8 @@ BEGIN
                 ,dest.[UncertancyValue] = source.[UncertancyValue]
                 ,dest.[MeasuredValue] = source.[MeasuredValue]
                 ,dest.[MeasuredValueUnitId] = source.[MeasuredValueUnitId]
+                ,dest.[PairId] = source.[PairId]          /* MBA-800 */
+                ,dest.[ValueRole] = source.[ValueRole]    /* MBA-800 */
         WHEN NOT MATCHED BY TARGET
         THEN
             INSERT (
@@ -273,7 +360,9 @@ BEGIN
                   [StabilityValue],
                   [UncertancyValue],
                   [MeasuredValue],
-                  [MeasuredValueUnitId]
+                  [MeasuredValueUnitId],
+                  [PairId],
+                  [ValueRole]
             )
             VALUES (
                  source.[OrderDetailsItemId]
@@ -292,6 +381,8 @@ BEGIN
                 ,source.[UncertancyValue]
                 ,source.[MeasuredValue]
                 ,source.[MeasuredValueUnitId]
+                ,source.[PairId]
+                ,source.[ValueRole]
             );
 
         COMMIT TRANSACTION;
