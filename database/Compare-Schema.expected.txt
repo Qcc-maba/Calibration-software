@@ -16,11 +16,31 @@ COLUMNS     | STAGE only | dbo.Backup_OrderDetailsItems_Calibrator_20260906.*  |
 COLUMNS     | STAGE only | dbo.CustomerContacts_PortalIdentityBackup_20260907.* | STAGE backup from the 2026-09-07 portal identity fix; never deployed
 COLUMNS     | STAGE only | dbo.Backup_OrderDetailsItems_ControllerType_*.*     | MBA-980 STAGE values of the dropped device-level ControllerType (2026-11-16); PROD column empty, no backup there
 
-# ---- PROD-only sync monitoring (live; must never be dropped) --------------------------------------
-COLUMNS     | PROD only  | etl.SyncRunLog.*                                    | etl.SyncRunLog, PROD sync monitoring; does not exist on STAGE
-ROUTINES    | PROD only  | dbo.usp_SyncHealthCheck                             | PROD sync monitoring; does not exist on STAGE
-ROUTINES    | PROD only  | etl.usp_SyncRun*                                    | PROD sync monitoring; does not exist on STAGE
-CONSTRAINTS | PROD only  | * etl.SyncRunLog*                                   | PROD sync monitoring; does not exist on STAGE
+# ---- MBA-1001 etl schema: retired on STAGE 2026-11-18, PROD deferred to MBA-1050 (database/schema/etl.RetireSchema.sql) ----
+# PROD (CalibratorProd) keeps these on purpose until MBA-1050 (due 2027-05-22). Delete this block in the change that runs
+# the script on PROD. Listed by name, as measured 2026-11-18 (database/_rollback/PROD.etl.before-MBA-1001.sql), so a new
+# etl object on PROD still shows as unexpected. The sync monitoring (SyncRunLog, usp_SyncRun*) is NOT live: 0 rows, no caller.
+COLUMNS     | PROD only  | etl.CalendarEvents.*                                | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+COLUMNS     | PROD only  | etl.CalendarEventsToParticipants.*                  | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+COLUMNS     | PROD only  | etl.CalibGetDataLog.*                               | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+COLUMNS     | PROD only  | etl.Cars.*                                          | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+COLUMNS     | PROD only  | etl.ETLExecutionLog.*                               | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+COLUMNS     | PROD only  | etl.SyncRunLog.*                                    | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+COLUMNS     | PROD only  | etl.Users.*                                         | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+ROUTINES    | PROD only  | etl.CalibGetDataLogGetSet                           | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+ROUTINES    | PROD only  | etl.MergeCalendarEventsToOnPrem                     | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+ROUTINES    | PROD only  | etl.MergeCalendarEventsToParticipantsToOnPrem       | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+ROUTINES    | PROD only  | etl.MergeCarsToOnPrem                               | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+ROUTINES    | PROD only  | etl.MergeUsersToOnPrem                              | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+ROUTINES    | PROD only  | etl.usp_SyncRunEnd                                  | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+ROUTINES    | PROD only  | etl.usp_SyncRunReport                               | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+ROUTINES    | PROD only  | etl.usp_SyncRunStart                                | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+ROUTINES    | PROD only  | stg.MergeCarsToOnPrem                               | MBA-1001: dead duplicate of etl.MergeCarsToOnPrem, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+CONSTRAINTS | PROD only  | * etl.CalibGetDataLog[ .]*                          | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+CONSTRAINTS | PROD only  | * etl.ETLExecutionLog[ .]*                          | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+CONSTRAINTS | PROD only  | * etl.SyncRunLog[ .]*                               | MBA-1001: dead etl schema, dropped on STAGE 2026-11-18; PROD deferred to MBA-1050
+# Not part of the etl retirement: despite its name it reads only dbo.* and stg.stg_*, never etl.
+ROUTINES    | PROD only  | dbo.usp_SyncHealthCheck                             | PROD-only read-only sync diagnostic, never deployed to STAGE; not etl, not dropped by MBA-1001
 
 # ---- MBA-816 sensor coefficients: on STAGE, waits for the coefficient screen (STATUS.md checklist item 2) ----
 COLUMNS     | STAGE only | dbo.ConversionParameters.*                          | MBA-816 coefficients, not deployed to PROD yet
