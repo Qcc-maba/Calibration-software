@@ -37,6 +37,16 @@ public sealed class InvoiceMirror(
         }
 
         var locator = new InvoiceFileLocator(_options.InvoiceRoot);
+
+        if (!locator.RootIsReachable())
+        {
+            // Judging invoices against a share that cannot be seen would record them all as
+            // missing and park them for InvoiceRetryAfterDays.
+            logger.LogWarning(
+                "Invoices: {Root} is not reachable; cycle skipped, nothing recorded", _options.InvoiceRoot);
+            return;
+        }
+
         var pending = await repository.GetPendingAsync(cancellationToken);
 
         if (pending.Count == 0)
@@ -45,7 +55,7 @@ public sealed class InvoiceMirror(
             return;
         }
 
-        int found = 0, uploaded = 0, unchanged = 0, noFile = 0, ambiguous = 0, refused = 0;
+        int found = 0, uploaded = 0, unchanged = 0, noFile = 0, ambiguous = 0, refused = 0, unreadable = 0;
 
         foreach (var invoice in pending)
         {
@@ -59,6 +69,7 @@ public sealed class InvoiceMirror(
                 case InvoiceFileStatus.Ambiguous: ambiguous++; break;
                 case InvoiceFileStatus.RefusedPath: refused++; break;
                 case InvoiceFileStatus.Found: found++; break;
+                case InvoiceFileStatus.Unreadable: unreadable++; break;
             }
 
             var key = StorageKeyFor(invoice.Iv);
@@ -68,6 +79,15 @@ public sealed class InvoiceMirror(
                 logger.LogInformation(
                     "[dry run] invoice {Invoice} (IV {Iv}): {Status} {Detail} => {Key}",
                     invoice.InvoiceNumber, invoice.Iv, result.Status, result.Detail, key);
+                continue;
+            }
+
+            if (result.Status == InvoiceFileStatus.Unreadable)
+            {
+                // Temporary: left pending, not recorded, so the next cycle tries again.
+                logger.LogWarning(
+                    "Invoice {Invoice} (IV {Iv}): {Detail}; left pending",
+                    invoice.InvoiceNumber, invoice.Iv, result.Detail);
                 continue;
             }
 
@@ -99,7 +119,7 @@ public sealed class InvoiceMirror(
 
         logger.LogInformation(
             "Invoices cycle done. Examined={Examined} Found={Found} Uploaded={Uploaded} Unchanged={Unchanged} "
-            + "NoFile={NoFile} Ambiguous={Ambiguous} Refused={Refused} DryRun={DryRun}",
-            pending.Count, found, uploaded, unchanged, noFile, ambiguous, refused, _options.DryRun);
+            + "NoFile={NoFile} Ambiguous={Ambiguous} Refused={Refused} Unreadable={Unreadable} DryRun={DryRun}",
+            pending.Count, found, uploaded, unchanged, noFile, ambiguous, refused, unreadable, _options.DryRun);
     }
 }

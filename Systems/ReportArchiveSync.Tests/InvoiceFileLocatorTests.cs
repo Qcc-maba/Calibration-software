@@ -75,10 +75,36 @@ public class InvoiceFileLocatorTests
     }
 
     [Fact]
-    public void An_unreadable_directory_counts_as_no_file()
+    public void A_missing_directory_counts_as_no_file()
     {
         var locator = new InvoiceFileLocator(Root, _ => throw new DirectoryNotFoundException());
         Assert.Equal(InvoiceFileStatus.NoFile, locator.Locate(@"..\..\system\mail\a\name.pdf", 1).Status);
+    }
+
+    [Fact]
+    public void A_network_error_is_unreadable_not_missing()
+    {
+        // What an unreachable \\priority-test gave on the first real STAGE run (2026-11-22).
+        var locator = new InvoiceFileLocator(Root, _ => throw new IOException("The network path was not found."));
+        var result = locator.Locate(@"..\..\system\mail\a\name.pdf", 1);
+        Assert.Equal(InvoiceFileStatus.Unreadable, result.Status);
+        Assert.Contains("network path", result.Detail);
+    }
+
+    [Fact]
+    public void Access_denied_is_unreadable_not_missing()
+    {
+        var locator = new InvoiceFileLocator(Root, _ => throw new UnauthorizedAccessException());
+        Assert.Equal(InvoiceFileStatus.Unreadable, locator.Locate(@"..\..\system\mail\a\name.pdf", 1).Status);
+    }
+
+    [Fact]
+    public void The_root_check_asks_about_the_root_itself()
+    {
+        string? asked = null;
+        var locator = new InvoiceFileLocator(Root + @"\", directoryExists: path => { asked = path; return false; });
+        Assert.False(locator.RootIsReachable());
+        Assert.Equal(Root, asked);
     }
 
     [Fact]

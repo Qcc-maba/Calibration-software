@@ -1,3 +1,4 @@
+using System.Data;
 using Maba.VCT.ReportArchiveSync.Options;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
@@ -65,17 +66,34 @@ public sealed class InvoiceDocumentRepository(IOptions<ReportArchiveSyncOptions>
             CommandType = System.Data.CommandType.StoredProcedure,
         };
 
-        command.Parameters.AddWithValue("@IV", invoice.Iv);
-        command.Parameters.AddWithValue("@InvoiceNumber", invoice.InvoiceNumber);
-        command.Parameters.AddWithValue("@ExtFileNum", invoice.ExtFileNum);
-        command.Parameters.AddWithValue("@SourcePath", Truncate(invoice.ExtFileName, 400));
-        command.Parameters.AddWithValue("@Outcome", (byte)outcome);
-        command.Parameters.AddWithValue("@Detail", (object?)Truncate(detail, 400) ?? DBNull.Value);
-        command.Parameters.AddWithValue("@StorageKey", (object?)storageKey ?? DBNull.Value);
-        command.Parameters.AddWithValue("@FileHash", (object?)fileHash ?? DBNull.Value);
-        command.Parameters.AddWithValue("@FileSize", (object?)fileSize ?? DBNull.Value);
+        AddRecordParameters(command.Parameters, invoice, outcome, detail, storageKey, fileHash, fileSize);
 
         await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Typed, not AddWithValue: a null hash (every outcome but Found) would go out as NVARCHAR, and
+    /// SQL Server refuses NVARCHAR into the BINARY(32) parameter (error 257). Found on the first
+    /// real STAGE run, 2026-11-22.
+    /// </summary>
+    public static void AddRecordParameters(
+        SqlParameterCollection parameters,
+        PendingInvoice invoice,
+        InvoiceFileStatus outcome,
+        string? detail,
+        string? storageKey,
+        byte[]? fileHash,
+        long? fileSize)
+    {
+        parameters.Add("@IV", SqlDbType.Int).Value = invoice.Iv;
+        parameters.Add("@InvoiceNumber", SqlDbType.NVarChar, 32).Value = invoice.InvoiceNumber;
+        parameters.Add("@ExtFileNum", SqlDbType.Int).Value = invoice.ExtFileNum;
+        parameters.Add("@SourcePath", SqlDbType.NVarChar, 400).Value = Truncate(invoice.ExtFileName, 400);
+        parameters.Add("@Outcome", SqlDbType.TinyInt).Value = (byte)outcome;
+        parameters.Add("@Detail", SqlDbType.NVarChar, 400).Value = (object?)Truncate(detail, 400) ?? DBNull.Value;
+        parameters.Add("@StorageKey", SqlDbType.NVarChar, 400).Value = (object?)storageKey ?? DBNull.Value;
+        parameters.Add("@FileHash", SqlDbType.Binary, 32).Value = (object?)fileHash ?? DBNull.Value;
+        parameters.Add("@FileSize", SqlDbType.BigInt).Value = (object?)fileSize ?? DBNull.Value;
     }
 
     private static string? Truncate(string? value, int length) =>

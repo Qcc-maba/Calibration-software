@@ -7,6 +7,14 @@ public enum InvoiceFileStatus
     NoFile = 2,
     Ambiguous = 3,
     RefusedPath = 4,
+
+    /// <summary>
+    /// The share could not be read (network error, access denied). Temporary, so it is never
+    /// recorded: the invoice stays pending and the next cycle tries again. Recording it as NoFile
+    /// parked every invoice for InvoiceRetryAfterDays when the share was unreachable (first real
+    /// STAGE run, 2026-11-22).
+    /// </summary>
+    Unreadable = 5,
 }
 
 /// <param name="FullPath">The PDF to copy, when <see cref="Status"/> is <see cref="InvoiceFileStatus.Found"/>.</param>
@@ -30,11 +38,22 @@ public sealed record InvoiceFileResult(InvoiceFileStatus Status, string? FullPat
 /// order attachments).
 /// </para>
 /// </remarks>
-public sealed class InvoiceFileLocator(string root, Func<string, IReadOnlyList<(string Path, long Length)>>? listPdfs = null)
+public sealed class InvoiceFileLocator(
+    string root,
+    Func<string, IReadOnlyList<(string Path, long Length)>>? listPdfs = null,
+    Func<string, bool>? directoryExists = null)
 {
     private readonly string _root = Path.TrimEndingDirectorySeparator(root);
 
     private readonly Func<string, IReadOnlyList<(string Path, long Length)>> _listPdfs = listPdfs ?? ListPdfsOnDisk;
+
+    private readonly Func<string, bool> _directoryExists = directoryExists ?? Directory.Exists;
+
+    /// <summary>
+    /// False when the root itself cannot be seen (host down, no network, no permission on the
+    /// share). A cycle stops there instead of judging every invoice against an unreachable share.
+    /// </summary>
+    public bool RootIsReachable() => _directoryExists(_root);
 
     /// <summary>The directory a stored EXTFILENAME points at, or null when the path is refused.</summary>
     public string? ResolveDirectory(string storedPath)
@@ -90,9 +109,16 @@ public sealed class InvoiceFileLocator(string root, Func<string, IReadOnlyList<(
         {
             pdfs = _listPdfs(directory);
         }
-        catch (Exception ex) when (ex is DirectoryNotFoundException or IOException or UnauthorizedAccessException)
+        catch (DirectoryNotFoundException)
         {
-            return new InvoiceFileResult(InvoiceFileStatus.NoFile, null, $"Directory not readable: {ex.GetType().Name}");
+            // The folder is really not there: a real answer, recorded and retried after days.
+            return new InvoiceFileResult(InvoiceFileStatus.NoFile, null, "Directory not found");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Must follow DirectoryNotFoundException, which is an IOException.
+            return new InvoiceFileResult(
+                InvoiceFileStatus.Unreadable, null, $"Directory not readable: {ex.GetType().Name}: {ex.Message}");
         }
 
         if (pdfs.Count == 0)
