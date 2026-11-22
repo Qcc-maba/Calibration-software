@@ -13,8 +13,10 @@
       <server>.amaba.dbo.<TABLE>. A synonym cannot take its server from a setting, which is why
       this procedure recreates them whenever the setting changes.
 
-    Refuses (51021) a server that is wrong for this database - see dbo.fnPriorityLinkRefusal.
-    STAGE cannot be pointed at live Priority, nor PROD at the copy, even by this procedure.
+    Refuses (51021) a server that is wrong for this database - see dbo.fnPriorityLinkRefusal - and
+    (51023) a link whose remote machine is not the expected one (MABA-PRIORITY for CalibratorProd,
+    PRIORITY-TEST elsewhere), asked of the remote server itself. STAGE cannot be pointed at live
+    Priority, nor PROD at the copy, even by this procedure.
 
         EXEC dbo.SetPriorityLinkedServer @LinkedServer = N'<linked server>',
              @UpdatedBy = N'<who>', @Reason = N'<why>';                      -- dry run: the plan
@@ -43,6 +45,31 @@ BEGIN
 
     IF NULLIF(LTRIM(RTRIM(@UpdatedBy)), N'') IS NULL OR NULLIF(LTRIM(RTRIM(@Reason)), N'') IS NULL
         THROW 51022, N'Say who is changing the Priority link and why: @UpdatedBy and @Reason are required.', 1;
+
+    /* Ask the server behind the link who it is, so a link whose address passes the allowlist but
+       reaches the wrong machine is still refused. The physical machine name, not @@SERVERNAME:
+       priority-test is a cloned VM whose @@SERVERNAME still says MABA-PRIORITY\PRI. */
+    DECLARE @ExpectedMachine SYSNAME = IIF(DB_NAME() = N'CalibratorProd', N'MABA-PRIORITY', N'PRIORITY-TEST'),
+            @Machine         SYSNAME = NULL,
+            @MachineError    NVARCHAR(2048) = NULL;
+    DECLARE @MachineSql NVARCHAR(MAX) =
+        N'SELECT @M = Machine FROM OPENQUERY(' + QUOTENAME(@LinkedServer)
+        + N', ''SELECT CAST(SERVERPROPERTY(''''ComputerNamePhysicalNetBIOS'''') AS NVARCHAR(128)) AS Machine'')';
+    BEGIN TRY
+        EXEC sys.sp_executesql @MachineSql, N'@M SYSNAME OUTPUT', @M = @Machine OUTPUT;
+    END TRY
+    BEGIN CATCH
+        SET @MachineError = ERROR_MESSAGE();
+    END CATCH
+
+    IF @Machine IS NULL OR @Machine <> @ExpectedMachine
+    BEGIN
+        DECLARE @MachineRefusal NVARCHAR(2048) =
+            N'Database ' + DB_NAME() + N' must reach ' + @ExpectedMachine + N' through ' + QUOTENAME(@LinkedServer)
+            + N', but ' + COALESCE(N'it answered as ' + @Machine, N'it could not be asked: ' + @MachineError, N'it did not answer')
+            + N'. Nothing changed.';
+        THROW 51023, @MachineRefusal, 1;
+    END
 
     /* The remote tables read by four-part name. Add a table here before a procedure reads it. */
     DECLARE @Tables TABLE (TableName SYSNAME PRIMARY KEY);

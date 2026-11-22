@@ -9,7 +9,8 @@
       2. The link reaches the right machine: PRIORITY-TEST from STAGE, MABA-PRIORITY from PROD.
          Asked of the server itself (ComputerNamePhysicalNetBIOS), because priority-test is a
          cloned VM whose @@SERVERNAME still says MABA-PRIORITY\PRI.
-      3. Every prio.* synonym points through the same link, and one of them answers.
+      3. Every prio.* synonym points through the same link, that link is allowed for the database
+         (dbo.fnPriorityLinkRefusal), and one of them answers.
       4. No module names a server itself: no production address outside
          dbo.fnPriorityLinkRefusal, no test-server name, no four-part [server].amaba. reference,
          no OPENQUERY on a literal bracketed name. Any of those would read whatever it names,
@@ -72,6 +73,18 @@ END
 INSERT INTO @Out (Test, Expected, Actual, Result)
 VALUES (N'3c prio.PART answers', N'1 row', COALESCE(CAST(@PartRows AS NVARCHAR(10)) + N' row', @Err, N'(not run)'),
         IIF(@PartRows = 1, N'PASS', N'FAIL'));
+
+/* 3d. The synonym readers never call the resolver, so check the server inside each synonym with
+       the same rule: a link recreated with another data_source, or a synonym edited by hand,
+       must fail here even though 3b still matches the name. */
+DECLARE @SynRefused NVARCHAR(MAX) =
+    (SELECT STRING_AGG(N'prio.' + sy.name + N': ' + r.Refusal, N'; ')
+     FROM sys.synonyms AS sy
+     CROSS APPLY (SELECT dbo.fnPriorityLinkRefusal(PARSENAME(sy.base_object_name, 4)) AS Refusal) AS r
+     WHERE sy.schema_id = SCHEMA_ID(N'prio') AND r.Refusal IS NOT NULL);
+INSERT INTO @Out (Test, Expected, Actual, Result)
+VALUES (N'3d every prio synonym''s server is allowed here', N'(allowed)', ISNULL(@SynRefused, N'(allowed)'),
+        IIF(@SynTotal > 0 AND @SynRefused IS NULL, N'PASS', N'FAIL'));
 
 /* 4. no module names a server */
 DECLARE @Hard TABLE (Module NVARCHAR(260), Why NVARCHAR(60));

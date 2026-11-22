@@ -31,6 +31,13 @@ Priority through `[31.168.173.93]`. Which one a database uses is the row in
   column in this database's Latin collation turns Hebrew into `?`.
 - `database/tests/Test-PriorityLinkedServer.sql` fails on any module that names a server, and checks
   that the link reaches the right machine. Run it after every deploy, on both databases.
+- **Deploy order on a database that does not have the setting yet** (PROD, a fresh copy): the
+  table `dbo.PriorityLinkedServer`, then `dbo.fnPriorityLinkRefusal`, `dbo.GetPriorityLinkedServer`,
+  `dbo.BuildPriorityOpenQuery`, `dbo.SetPriorityLinkedServer`, then `SetPriorityLinkedServer` with
+  `@Apply = 1` (it creates the row and the `prio` synonyms), and only then the readers. A reader
+  deployed earlier fails on every call (208 or 51020), the order screen included. Then the test.
+- One-off scripts that read Priority refuse to run outside `CalibratorProd` unless rewritten with
+  `dbo.BuildPriorityOpenQuery`; they are not modules, so the test cannot see them.
 
 The resolver refuses rather than guessing: no row (51020), or a server wrong for the database
 (51021, `dbo.fnPriorityLinkRefusal`, the only module that may contain the production address).

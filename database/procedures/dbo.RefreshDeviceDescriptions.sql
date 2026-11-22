@@ -27,7 +27,7 @@ BEGIN
        sp_executesql scope. NVARCHAR, not the source's varchar(48): a varchar column in this
        database's Latin collation would turn the Hebrew into question marks. */
     DROP TABLE IF EXISTS #D;
-    CREATE TABLE #D (SERNDES NVARCHAR(48) COLLATE DATABASE_DEFAULT NULL, Devices INT NULL, Parts INT NULL);
+    CREATE TABLE #D (SERNDES NVARCHAR(4000) COLLATE DATABASE_DEFAULT NULL, Devices INT NULL, Parts INT NULL);
 
     DECLARE @Oq NVARCHAR(MAX), @Sql NVARCHAR(MAX);
     EXEC dbo.BuildPriorityOpenQuery @OpenQuery = @Oq OUTPUT, @RemoteQuery = N'

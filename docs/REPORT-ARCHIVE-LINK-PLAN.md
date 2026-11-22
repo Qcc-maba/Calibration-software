@@ -353,6 +353,8 @@ SP: `dbo.GetCalibrationReportFiles` / `dbo.UpsertCalibrationReportFile` / `dbo.L
 
 `Storage/ReportBlobStore.cs` מעלה ל-bucket `calibrationsoftware` (אותו אחד לשתי הסביבות, לפי החלטה), שומר SHA-256 כמטא-דאטה של האובייקט ומדלג על קובץ שלא השתנה — בלי להוריד אותו חזרה. הרישום ב-DB קורה **רק אחרי** שה-blob במקומו, אחרת ה-UI היה מציג אייקון שלא נפתח.
 
+> **עדכון 2026-11-22 (MBA-1028):** ההחלטה "bucket אחד לשתי הסביבות" הוחלפה. ל-STAGE יש bucket משלו, `calibrationsoftware-stage`: הוא הוזן בכל הקבצים של PROD, ו-Vercel `stg` מצביע עליו מאז 2026-11-17. `calibrationsoftware` משמש את PROD בלבד. התקנת STAGE של השירות מקבלת `-BucketName calibrationsoftware-stage`.
+
 **ריצות DryRun מול STAGE, 250 פריטים כל אחת:**
 
 | ריצה | נפתרו | ללא קובץ | הערה |

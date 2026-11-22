@@ -106,7 +106,12 @@ foreach ($required in @(
     }
 }
 
-if ($ArchiveRoot -match '^[A-Za-z]:') {
+# An omitted value keeps the machine's current one; check and report that one, not an empty string.
+$EffectiveArchiveRoot = if ($ArchiveRoot) { $ArchiveRoot } else { [Environment]::GetEnvironmentVariable('ReportArchiveSync__ArchiveRoot', 'Machine') }
+$EffectiveBucketName  = if ($BucketName)  { $BucketName }  else { [Environment]::GetEnvironmentVariable('ReportArchiveSync__BucketName', 'Machine') }
+
+if ($EffectiveArchiveRoot -match '^[A-Za-z]:') {
+    $ArchiveRoot = $EffectiveArchiveRoot
     Write-Host "ERROR: ArchiveRoot '$ArchiveRoot' is a drive letter." -ForegroundColor Red
     Write-Host '       Drive mappings are per-user and do not exist in a service session, so the' -ForegroundColor Red
     Write-Host '       worker would find no reports and report success. Use the UNC path.' -ForegroundColor Red
@@ -191,8 +196,8 @@ if ($svc.Status -ne 'Running') {
 }
 
 Write-Host "Service '$ServiceName' is running." -ForegroundColor Green
-Write-Host "  archive : $ArchiveRoot" -ForegroundColor Gray
-Write-Host "  bucket  : $BucketName" -ForegroundColor Gray
+Write-Host "  archive : $EffectiveArchiveRoot" -ForegroundColor Gray
+Write-Host "  bucket  : $EffectiveBucketName" -ForegroundColor Gray
 Write-Host "  source  : $SourceId $(if ($SourceId -eq 1) { '(MABA)' } else { '(SEPHARM)' })" -ForegroundColor Gray
 Write-Host "  dry run : $DryRun" -ForegroundColor $(if ($DryRun -eq 'true') { 'Yellow' } else { 'Gray' })
 

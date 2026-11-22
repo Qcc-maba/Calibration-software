@@ -54,29 +54,32 @@ BEGIN
         INNER JOIN amaba.dbo.PART p ON p.FAMILY = f.FAMILY
         GROUP BY f.FAMILY, f.FAMILYNAME, f.FAMILYDES';
 
-    /* MBA-1028: the Priority server comes from dbo.PriorityLinkedServer, never from this file. */
-    DECLARE @PriorityLink NVARCHAR(258);
-    EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT;
-
-    /* ... wrapped as a string literal inside OPENQUERY, so every quote doubles */
-    DECLARE @Sql NVARCHAR(MAX) =
-        N'SELECT FAMILY, FAMILYNAME, FAMILYDES, PartCount FROM OPENQUERY(' + @PriorityLink + N', '
-        + @Quote + REPLACE(@RemoteQuery, @Quote, @Quote + @Quote) + @Quote + N')';
+    /* MBA-1028: the Priority server comes from dbo.PriorityLinkedServer, never from this file.
+       Resolved inside the TRY, so a missing or refused setting (51020/51021) gets the same
+       empty-list fallback as an unreachable link instead of breaking the screen. */
+    DECLARE @PriorityLink NVARCHAR(258) = NULL, @Sql NVARCHAR(MAX);
 
     BEGIN TRY
+        EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT;
+
+        /* ... wrapped as a string literal inside OPENQUERY, so every quote doubles */
+        SET @Sql =
+            N'SELECT FAMILY, FAMILYNAME, FAMILYDES, PartCount FROM OPENQUERY(' + @PriorityLink + N', '
+            + @Quote + REPLACE(@RemoteQuery, @Quote, @Quote + @Quote) + @Quote + N')';
+
         INSERT INTO #Families (FamilyId, FamilyName, Description, PartCount)
         EXEC sp_executesql @Sql;
     END TRY
     BEGIN CATCH
-        /* Linked server unreachable. An empty list is a better failure than a broken screen, and
-           the caller can tell the two apart by the row count. */
+        /* Linked server unreachable, or no usable setting. An empty list is a better failure than
+           a broken screen, and the caller can tell the two apart by the row count. */
         DELETE FROM #Families;
     END CATCH
 
     /* Which family the device itself belongs to, so the screen can preselect it. */
     DECLARE @DeviceFamilyId INT = NULL;
 
-    IF @Part IS NOT NULL
+    IF @Part IS NOT NULL AND @PriorityLink IS NOT NULL
     BEGIN
         DECLARE @PartSql NVARCHAR(MAX) =
             N'SELECT TOP (1) @Found = FAMILY FROM OPENQUERY(' + @PriorityLink + N', '

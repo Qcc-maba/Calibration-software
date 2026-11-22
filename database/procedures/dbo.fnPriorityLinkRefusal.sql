@@ -8,14 +8,18 @@
     anything, and by database/tests/Test-PriorityLinkedServer.sql.
 
     The rule is about where the link GOES (sys.servers.data_source), not what it is called, so an
-    alias of the production link under another name is refused just the same:
+    alias of the production link under another name is refused just the same. Both sides are
+    ALLOWLISTS: a source that is not listed is refused, so a production link spelled some other way
+    (host name, instance name, DNS alias) can never pass as "not production":
 
-        CalibratorProd  must use a link to live Priority, 31.168.173.93 on port 1433.
-        any other DB    must NOT use one. STAGE reads priority-test only (MBA-1028).
+        CalibratorProd  must use live Priority: 31.168.173.93 (port 1433).
+        any other DB    must use the test Priority: 31.168.173.93,14330 (priority-test, MBA-1028).
 
-    data_source is normalised before comparing: a "TCP:" prefix and the default port ",1433" are
-    dropped. priority-test is reached on the same office address but port 14330, so it stays
-    distinct.
+    data_source is normalised before comparing: spaces and a "TCP:" prefix are dropped, and so is
+    the default port ",1433". A new test source goes into @TestSources, nowhere else.
+
+    The address check catches a wrong link name; dbo.SetPriorityLinkedServer also asks the remote
+    server for its machine name before it stores anything.
 
     This function is the only module allowed to contain the production address; the test checks
     that no other module does.
@@ -36,19 +40,25 @@ BEGIN
     IF @Source IS NULL
         RETURN N'There is no linked server named ' + QUOTENAME(@LinkedServer) + N' on this instance.';
 
-    SET @Source = LTRIM(RTRIM(@Source));
+    /* Allowed sources for every database other than CalibratorProd. */
+    DECLARE @TestSources TABLE (Source NVARCHAR(100) PRIMARY KEY);
+    INSERT INTO @TestSources (Source) VALUES (N'31.168.173.93,14330');   -- priority-test
+
+    SET @Source = REPLACE(@Source, N' ', N'');
     IF @Source LIKE N'TCP:%'   SET @Source = SUBSTRING(@Source, 5, 4000);
     IF @Source LIKE N'%,1433'  SET @Source = LEFT(@Source, LEN(@Source) - 5);
 
-    DECLARE @IsProductionSource BIT = IIF(@Source = @ProductionSource, 1, 0);
+    IF DB_NAME() = @ProductionDatabase
+    BEGIN
+        IF @Source <> @ProductionSource
+            RETURN N'Database ' + DB_NAME() + N' must read live Priority, but ' + QUOTENAME(@LinkedServer)
+                 + N' goes to ' + @Source + N'.';
+        RETURN NULL;
+    END
 
-    IF DB_NAME() = @ProductionDatabase AND @IsProductionSource = 0
-        RETURN N'Database ' + DB_NAME() + N' must read live Priority, but ' + QUOTENAME(@LinkedServer)
-             + N' goes to ' + @Source + N'.';
-
-    IF DB_NAME() <> @ProductionDatabase AND @IsProductionSource = 1
-        RETURN N'Database ' + DB_NAME() + N' must not read live Priority, but ' + QUOTENAME(@LinkedServer)
-             + N' goes to it. STAGE reads priority-test only (MBA-1028).';
+    IF NOT EXISTS (SELECT 1 FROM @TestSources WHERE Source = @Source)
+        RETURN N'Database ' + DB_NAME() + N' may read only the test Priority, but ' + QUOTENAME(@LinkedServer)
+             + N' goes to ' + @Source + N', which is not on the test list in dbo.fnPriorityLinkRefusal (MBA-1028).';
 
     RETURN NULL;
 END
