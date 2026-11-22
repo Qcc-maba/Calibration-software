@@ -22,6 +22,8 @@
 --      WorkPlanOpenDate DESC, and that column is a date with no time: on STAGE 1,959 rows share
 --      120 dates, up to 39 orders on one day, with a 50-row page. Without a unique last key, the
 --      order inside a day is undefined and a row can repeat on, or vanish from, the next page.
+--      A NULL or blank @OrderBy now means OrderWorkPlanId (the parameter default) instead of
+--      building "ORDER BY  OFFSET", which failed. On STAGE since 2026-11-22; NOT on PROD yet.
 --
 -- Earlier: 'Finished' (status 75) leaves the working screens and is what @Page =
 --          'calibration-history' asks for; ClientConfirmationStatus falls back to 'New' (חדש).
@@ -185,9 +187,11 @@ BEGIN
 	/* MBA-1026: a unique last sort key, so a page boundary inside a run of equal values is stable.
 	   Captured here, before the blocks below rewrite @OrderBy and set @OrderByAsc to NULL.
 	   Left out when the caller already sorts by the key: SQL Server rejects the same column twice
-	   in one ORDER BY (Msg 169). */
+	   in one ORDER BY (Msg 169). Brackets are stripped before the alias, so [wp].[OrderWorkPlanId]
+	   is recognised too. */
+	SET @OrderBy = ISNULL(NULLIF(LTRIM(RTRIM(@OrderBy)), N''), N'OrderWorkPlanId')
 	DECLARE @TieBreak NVARCHAR(100) =
-		CASE WHEN REPLACE(REPLACE(REPLACE(@OrderBy, N'wp.', N''), N'[', N''), N']', N'') = N'OrderWorkPlanId'
+		CASE WHEN REPLACE(REPLACE(REPLACE(@OrderBy, N'[', N''), N']', N''), N'wp.', N'') = N'OrderWorkPlanId'
 		     THEN N''
 		     ELSE CONCAT(N', wp.[OrderWorkPlanId]', CASE WHEN @OrderByAsc = 0 THEN N' DESC' ELSE N' ASC' END)
 		END
