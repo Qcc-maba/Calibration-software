@@ -1,3 +1,4 @@
+using Amazon.S3;
 using Maba.VCT.ReportArchiveSync.Options;
 using Maba.VCT.ReportArchiveSync.Storage;
 using Microsoft.Extensions.Options;
@@ -25,6 +26,8 @@ public sealed class InvoiceMirror(
 {
     private readonly ReportArchiveSyncOptions _options = options.Value;
 
+    private const int MaxS3FailuresInARow = 3;
+
     public static string StorageKeyFor(int iv) => $"invoices/{iv}.pdf";
 
     public bool IsEnabled => !string.IsNullOrWhiteSpace(_options.InvoiceRoot);
@@ -43,7 +46,7 @@ public sealed class InvoiceMirror(
             // Judging invoices against a share that cannot be seen would record them all as
             // missing and park them for InvoiceRetryAfterDays.
             logger.LogWarning(
-                "Invoices: {Root} is not reachable; cycle skipped, nothing recorded", _options.InvoiceRoot);
+                "Invoices: {Folder} is not reachable; cycle skipped, nothing recorded", locator.MailFolder);
             return;
         }
 
@@ -56,6 +59,7 @@ public sealed class InvoiceMirror(
         }
 
         int found = 0, uploaded = 0, unchanged = 0, noFile = 0, ambiguous = 0, refused = 0, unreadable = 0;
+        int s3Failed = 0, s3FailedInARow = 0;
 
         foreach (var invoice in pending)
         {
@@ -82,13 +86,13 @@ public sealed class InvoiceMirror(
                 continue;
             }
 
-            if (result.Status == InvoiceFileStatus.Unreadable)
+            if (result.Status == InvoiceFileStatus.Unreadable && !locator.RootIsReachable())
             {
-                // Temporary: left pending, not recorded, so the next cycle tries again.
+                // The share went away mid-cycle: not this invoice's fault, so nothing is recorded.
                 logger.LogWarning(
-                    "Invoice {Invoice} (IV {Iv}): {Detail}; left pending",
-                    invoice.InvoiceNumber, invoice.Iv, result.Detail);
-                continue;
+                    "Invoices: {Root} stopped being reachable at invoice {Invoice}; cycle stopped",
+                    _options.InvoiceRoot, invoice.InvoiceNumber);
+                break;
             }
 
             if (result.Status != InvoiceFileStatus.Found)
@@ -100,7 +104,43 @@ public sealed class InvoiceMirror(
                 continue;
             }
 
-            var upload = await blobStore.MirrorAsync(result.FullPath!, key, cancellationToken);
+            UploadResult upload;
+
+            try
+            {
+                upload = await blobStore.MirrorAsync(result.FullPath!, key, cancellationToken);
+                s3FailedInARow = 0;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // The file itself: locked while Priority writes it, denied, or gone since it was
+                // listed. Recorded as unreadable (retried after hours) so it cannot block the batch.
+                unreadable++;
+                found--;
+                var detail = $"File not readable: {ex.GetType().Name}: {ex.Message}";
+                logger.LogWarning("Invoice {Invoice} (IV {Iv}): {Detail}", invoice.InvoiceNumber, invoice.Iv, detail);
+                await repository.RecordAsync(
+                    invoice, InvoiceFileStatus.Unreadable, detail, null, null, null, cancellationToken);
+                continue;
+            }
+            catch (AmazonS3Exception ex)
+            {
+                // Not recorded: S3 trouble says nothing about the invoice. Skipped so one object
+                // cannot stall the batch; several in a row is an outage or a permission problem.
+                s3Failed++;
+                logger.LogWarning(
+                    "Invoice {Invoice} (IV {Iv}): S3 refused {Key}: {Status} {Code}",
+                    invoice.InvoiceNumber, invoice.Iv, key, (int)ex.StatusCode, ex.ErrorCode);
+
+                if (++s3FailedInARow >= MaxS3FailuresInARow)
+                {
+                    logger.LogError(
+                        "Invoices: {Count} S3 failures in a row; cycle stopped", s3FailedInARow);
+                    break;
+                }
+
+                continue;
+            }
 
             if (upload.Uploaded)
             {
@@ -119,7 +159,9 @@ public sealed class InvoiceMirror(
 
         logger.LogInformation(
             "Invoices cycle done. Examined={Examined} Found={Found} Uploaded={Uploaded} Unchanged={Unchanged} "
-            + "NoFile={NoFile} Ambiguous={Ambiguous} Refused={Refused} Unreadable={Unreadable} DryRun={DryRun}",
-            pending.Count, found, uploaded, unchanged, noFile, ambiguous, refused, unreadable, _options.DryRun);
+            + "NoFile={NoFile} Ambiguous={Ambiguous} Refused={Refused} Unreadable={Unreadable} S3Failed={S3Failed} "
+            + "DryRun={DryRun}",
+            pending.Count, found, uploaded, unchanged, noFile, ambiguous, refused, unreadable, s3Failed,
+            _options.DryRun);
     }
 }

@@ -9,10 +9,12 @@ public enum InvoiceFileStatus
     RefusedPath = 4,
 
     /// <summary>
-    /// The share could not be read (network error, access denied). Temporary, so it is never
-    /// recorded: the invoice stays pending and the next cycle tries again. Recording it as NoFile
-    /// parked every invoice for InvoiceRetryAfterDays when the share was unreachable (first real
-    /// STAGE run, 2026-11-22).
+    /// The directory or file could not be read (network error, access denied, locked). Recorded
+    /// as its own outcome and retried after hours, not days (dbo.GetInvoiceDocumentsToSync), so
+    /// a folder that stays unreadable cannot hold the front of the newest-first queue. A share
+    /// that is down as a whole is caught earlier by <see cref="InvoiceFileLocator.RootIsReachable"/>
+    /// and records nothing: recording that as NoFile parked every invoice for days on the first
+    /// real STAGE run (2026-11-22).
     /// </summary>
     Unreadable = 5,
 }
@@ -50,10 +52,15 @@ public sealed class InvoiceFileLocator(
     private readonly Func<string, bool> _directoryExists = directoryExists ?? Directory.Exists;
 
     /// <summary>
-    /// False when the root itself cannot be seen (host down, no network, no permission on the
-    /// share). A cycle stops there instead of judging every invoice against an unreachable share.
+    /// False when <c>system\mail</c> under the root cannot be seen (host down, no network, no
+    /// permission). A cycle stops there instead of judging every invoice against an unreachable
+    /// share. It probes the folder the invoices live in, not the root: the service account is
+    /// granted read on <c>system\mail</c>, and may have no access to the root itself.
     /// </summary>
-    public bool RootIsReachable() => _directoryExists(_root);
+    public bool RootIsReachable() => _directoryExists(MailFolder);
+
+    /// <summary>The folder every invoice attachment lives under (19,837 of 19,838 on PROD).</summary>
+    public string MailFolder => Path.Combine(_root, "system", "mail");
 
     /// <summary>The directory a stored EXTFILENAME points at, or null when the path is refused.</summary>
     public string? ResolveDirectory(string storedPath)
@@ -81,7 +88,8 @@ public sealed class InvoiceFileLocator(
 
         // Anything still climbing, or rooted (a drive letter or another share), is not under the
         // root and is not followed.
-        if (directory.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(directory) || directory.Contains(':'))
+        // A ".." segment, not any name with two dots in it (a folder such as "v1..2" is fine).
+        if (directory.Split('\\').Contains("..") || Path.IsPathRooted(directory) || directory.Contains(':'))
         {
             return null;
         }

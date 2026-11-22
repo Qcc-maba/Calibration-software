@@ -99,12 +99,26 @@ public class InvoiceFileLocatorTests
     }
 
     [Fact]
-    public void The_root_check_asks_about_the_root_itself()
+    public void The_root_check_probes_system_mail_not_the_root()
     {
+        // The service account is granted read on system\mail, possibly not on the root (review of CS #68).
         string? asked = null;
         var locator = new InvoiceFileLocator(Root + @"\", directoryExists: path => { asked = path; return false; });
         Assert.False(locator.RootIsReachable());
-        Assert.Equal(Root, asked);
+        Assert.Equal(Root + @"\system\mail", asked);
+    }
+
+    [Fact]
+    public void A_folder_name_with_two_dots_is_not_a_climb()
+    {
+        var locator = With();
+        Assert.Equal(Root + @"\system\mail\v1..2\abc", locator.ResolveDirectory(@"..\..\system\mail\v1..2\abc\x.pdf"));
+    }
+
+    [Fact]
+    public void A_dot_dot_segment_is_still_refused()
+    {
+        Assert.Null(With().ResolveDirectory(@"..\..\system\mail\..\..\..\secret\x.pdf"));
     }
 
     [Fact]

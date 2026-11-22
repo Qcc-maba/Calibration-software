@@ -8,8 +8,14 @@
     An invoice is returned when:
       - it has never been tried;
       - its attachment changed in Priority (another EXTFILENUM: a re-issued PDF);
-      - the last attempt failed and is at least @RetryAfterDays old. A PDF that is not in its
-        directory yet usually appears later; retrying every hour would only repeat the same miss.
+      - the last attempt found no PDF or several (outcome 2, 3) and is at least @RetryAfterDays
+        old. A PDF that is not in its directory yet usually appears later; retrying every hour
+        would only repeat the same miss;
+      - the directory or file could not be read (outcome 5) and that was at least
+        @UnreadableRetryHours ago. Recorded rather than left pending, so a folder that stays
+        unreadable cannot hold the front of the newest-first queue.
+    A refused path (outcome 4) is not retried on time: it can only change with the attachment,
+    which the EXTFILENUM rule already catches.
 
     Which attachment: the same rule the portal used before MBA-998 - the newest PDF attached to
     the invoice (CURDATE, then EXTFILENUM), with a directory in its path. EXTFILES.TYPE = 'I'
@@ -29,7 +35,8 @@ GO
 
 CREATE OR ALTER PROCEDURE dbo.GetInvoiceDocumentsToSync
     @BatchSize      INT = 1000,
-    @RetryAfterDays INT = 7
+    @RetryAfterDays INT = 7,
+    @UnreadableRetryHours INT = 6
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -75,7 +82,8 @@ BEGIN
     LEFT JOIN dbo.CustomerInvoiceDocument AS d ON d.IV = r.IV
     WHERE d.IV IS NULL
        OR d.ExtFileNum <> r.ExtFileNum
-       OR (d.Outcome <> 1 AND d.AttemptedAt < DATEADD(DAY, -@RetryAfterDays, SYSUTCDATETIME()))
+       OR (d.Outcome IN (2, 3) AND d.AttemptedAt < DATEADD(DAY, -@RetryAfterDays, SYSUTCDATETIME()))
+       OR (d.Outcome = 5 AND d.AttemptedAt < DATEADD(HOUR, -@UnreadableRetryHours, SYSUTCDATETIME()))
     ORDER BY r.CurDate DESC, r.IV DESC;
 END
 GO

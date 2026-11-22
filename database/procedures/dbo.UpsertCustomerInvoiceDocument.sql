@@ -10,7 +10,7 @@
       @InvoiceNumber  NVARCHAR(32)   (required) INVOICES.IVNUM
       @ExtFileNum     INT            (required) EXTFILES.EXTFILENUM tried
       @SourcePath     NVARCHAR(400)  (required) EXTFILES.EXTFILENAME
-      @Outcome        TINYINT        (required) 1 uploaded, 2 no file, 3 ambiguous, 4 refused path
+      @Outcome        TINYINT        (required) 1 uploaded, 2 no file, 3 ambiguous, 4 refused path, 5 unreadable
       @Detail         NVARCHAR(400)  = NULL     why, for 2-4
       @StorageKey     NVARCHAR(400)  = NULL     required for 1
       @FileHash       BINARY(32)     = NULL
@@ -45,8 +45,8 @@ BEGIN
        OR NULLIF(@SourcePath, N'') IS NULL OR @Outcome IS NULL
         THROW 51111, N'UpsertCustomerInvoiceDocument: IV, InvoiceNumber, ExtFileNum, SourcePath and Outcome are required.', 1;
 
-    IF @Outcome NOT IN (1, 2, 3, 4)
-        THROW 51112, N'UpsertCustomerInvoiceDocument: Outcome must be 1 (uploaded), 2 (no file), 3 (ambiguous) or 4 (refused path).', 1;
+    IF @Outcome NOT IN (1, 2, 3, 4, 5)
+        THROW 51112, N'UpsertCustomerInvoiceDocument: Outcome must be 1 (uploaded), 2 (no file), 3 (ambiguous), 4 (refused path) or 5 (unreadable).', 1;
 
     IF @Outcome = 1 AND NULLIF(@StorageKey, N'') IS NULL
         THROW 51113, N'UpsertCustomerInvoiceDocument: an uploaded document needs its StorageKey.', 1;

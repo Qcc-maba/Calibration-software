@@ -61,9 +61,14 @@
 .PARAMETER InvoiceRoot
     UNC root of Priority's own files, which invoice attachment paths (..\..\system\mail\...) are
     relative to (MBA-998). PROD: \\maba-priority\Priority. STAGE: \\priority-test\Priority.
-    Set it to turn on copying invoice PDFs to S3 for the customer portal; leave it unset and the
-    service copies reports only. The service account needs read access to <root>\system\mail.
-    Omit to keep the current one.
+    Set it to turn on copying invoice PDFs to S3 for the customer portal. On a first install,
+    leaving it unset means the service copies reports only; on a later run, omitting it keeps the
+    current one (use -DisableInvoices to turn copying off). The service account needs read access
+    to <root>\system\mail.
+
+.PARAMETER DisableInvoices
+    Turns invoice copying off: removes the ReportArchiveSync__InvoiceRoot machine variable.
+    Cannot be combined with -InvoiceRoot.
 
 .EXAMPLE
     # First install: observe only
@@ -85,7 +90,8 @@ param(
     [ValidateSet('true', 'false')]
     [string] $DryRun = 'true',
     [string] $ArchiveRoot,
-    [string] $InvoiceRoot
+    [string] $InvoiceRoot,
+    [switch] $DisableInvoices
 )
 
 $ErrorActionPreference = 'Stop'
@@ -126,10 +132,18 @@ if ($EffectiveArchiveRoot -match '^[A-Za-z]:') {
     exit 1
 }
 
-$EffectiveInvoiceRoot = if ($InvoiceRoot) { $InvoiceRoot } else { [Environment]::GetEnvironmentVariable('ReportArchiveSync__InvoiceRoot', 'Machine') }
+if ($DisableInvoices -and $InvoiceRoot) {
+    Write-Host 'ERROR: -DisableInvoices and -InvoiceRoot cannot be used together.' -ForegroundColor Red
+    exit 1
+}
 
-if ($EffectiveInvoiceRoot -match '^[A-Za-z]:') {
-    Write-Host "ERROR: InvoiceRoot '$EffectiveInvoiceRoot' is a drive letter. Use the UNC path." -ForegroundColor Red
+$EffectiveInvoiceRoot = if ($DisableInvoices) { '' }
+    elseif ($InvoiceRoot) { $InvoiceRoot }
+    else { [Environment]::GetEnvironmentVariable('ReportArchiveSync__InvoiceRoot', 'Machine') }
+
+# The service refuses anything but \\server\share at startup; fail here instead, before publishing.
+if ($EffectiveInvoiceRoot -and -not $EffectiveInvoiceRoot.StartsWith('\\')) {
+    Write-Host "ERROR: InvoiceRoot '$EffectiveInvoiceRoot' is not a UNC path (\\server\share)." -ForegroundColor Red
     exit 1
 }
 
@@ -164,6 +178,10 @@ Set-MachineVar 'ReportArchiveSync__ConnectionString' $ConnectionString -Secret
 Set-MachineVar 'ReportArchiveSync__BucketName'       $BucketName
 Set-MachineVar 'ReportArchiveSync__ArchiveRoot'      $ArchiveRoot
 Set-MachineVar 'ReportArchiveSync__InvoiceRoot'      $InvoiceRoot
+if ($DisableInvoices) {
+    [Environment]::SetEnvironmentVariable('ReportArchiveSync__InvoiceRoot', $null, 'Machine')
+    Write-Host '  ReportArchiveSync__InvoiceRoot removed (invoice copying off)' -ForegroundColor Gray
+}
 Set-MachineVar 'ReportArchiveSync__SourceId'         "$SourceId"
 Set-MachineVar 'ReportArchiveSync__DryRun'           $DryRun
 Set-MachineVar 'AWS_ACCESS_KEY_ID'                   $AwsAccessKeyId -Secret

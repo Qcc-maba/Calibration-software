@@ -137,8 +137,7 @@ CREATE TABLE #Req (status NVARCHAR(402), quoteNumber NVARCHAR(20), deviceCount I
                    calibrationLocation VARCHAR(8), price DECIMAL(18,2), note NVARCHAR(255), customerName NVARCHAR(50));
 DROP TABLE IF EXISTS #Inv;
 CREATE TABLE #Inv (invoiceNumber NVARCHAR(50), invoiceDate VARCHAR(10), totalPrice FLOAT, balance FLOAT, isPaid BIT,
-                   documentType NVARCHAR(100), isReceipt BIT, documentDirectory NVARCHAR(400), documentFileSize BIGINT,
-                   hasDocument BIT);
+                   documentType NVARCHAR(100), isReceipt BIT, documentKey NVARCHAR(400), hasDocument BIT);
 DROP TABLE IF EXISTS #Quo;
 CREATE TABLE #Quo (quoteNumber NVARCHAR(50), quoteDate VARCHAR(10), validUntil VARCHAR(10), totalPrice FLOAT,
                    finalPrice FLOAT, discount FLOAT, statusCode NVARCHAR(50));

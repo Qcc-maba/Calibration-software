@@ -31,10 +31,12 @@ builder.Services
         options => options.SourceId is 1 or 2,
         "ReportArchiveSync:SourceId must be 1 (MABA) or 2 (SEPHARM).")
     .Validate(
-        // Empty turns invoice mirroring off (MBA-998); a value must be UNC for the same reason as ArchiveRoot.
+        // Empty turns invoice mirroring off (MBA-998). A value must really be UNC: a drive letter
+        // does not exist for a service account, and a relative path would resolve against the
+        // service's working directory and quietly skip every cycle.
         options => string.IsNullOrWhiteSpace(options.InvoiceRoot)
-                   || !(options.InvoiceRoot.Length > 1 && options.InvoiceRoot[1] == ':'),
-        "ReportArchiveSync:InvoiceRoot must be a UNC path, not a mapped drive letter.")
+                   || options.InvoiceRoot.StartsWith(@"\\", StringComparison.Ordinal),
+        @"ReportArchiveSync:InvoiceRoot must be a UNC path (\\server\share), not a drive letter or a relative path.")
     .Validate(
         options => options.InvoiceBatchSize > 0 && options.InvoiceRetryAfterDays > 0,
         "ReportArchiveSync:InvoiceBatchSize and InvoiceRetryAfterDays must be positive.")
