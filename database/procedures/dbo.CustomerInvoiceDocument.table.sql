@@ -31,11 +31,13 @@
       StorageKey     S3 key, invoices/<IV>.pdf. Kept from the last success even when a later
                      attempt fails, so a PDF that was once served stays served.
       FileHash       SHA-256 of the uploaded file. FileSize: its bytes.
-      AttemptedAt    UTC of the last attempt. Failed rows are retried after a few days.
+      AttemptedAt    UTC of the last attempt. Retries: 2-3 after days, 5 after hours, 4 only when
+                     the attachment changes (dbo.GetInvoiceDocumentsToSync).
       UploadedAt     UTC of the last successful upload.
 
     Idempotent: creates the table only when it is missing, and widens the Outcome check to
-    include 5 on a table created before that outcome existed (STAGE, 2026-11-22).
+    include 5 on a table created before that outcome existed (STAGE, 2026-11-22). Run it before
+    dbo.UpsertCustomerInvoiceDocument: that procedure accepts outcome 5, which the old check refuses.
 */
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;

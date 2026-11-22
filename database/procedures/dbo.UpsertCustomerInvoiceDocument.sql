@@ -11,12 +11,12 @@
       @ExtFileNum     INT            (required) EXTFILES.EXTFILENUM tried
       @SourcePath     NVARCHAR(400)  (required) EXTFILES.EXTFILENAME
       @Outcome        TINYINT        (required) 1 uploaded, 2 no file, 3 ambiguous, 4 refused path, 5 unreadable
-      @Detail         NVARCHAR(400)  = NULL     why, for 2-4
+      @Detail         NVARCHAR(400)  = NULL     why, for 2-5
       @StorageKey     NVARCHAR(400)  = NULL     required for 1
       @FileHash       BINARY(32)     = NULL
       @FileSize       BIGINT         = NULL
 
-    A failed attempt (2-4) keeps the StorageKey, hash and size of an earlier success: the PDF that
+    A failed attempt (2-5) keeps the StorageKey, hash and size of an earlier success: the PDF that
     was served stays served, and Outcome / Detail / AttemptedAt say what went wrong since.
 
     Idempotent: one row per IV, updated in place. The caller is a service, not a person, so there is
