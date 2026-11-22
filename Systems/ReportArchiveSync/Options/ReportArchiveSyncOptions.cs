@@ -8,8 +8,11 @@ public sealed class ReportArchiveSyncOptions
     /// UNC root of Priority's Tomax archive. Must be a UNC path, never a mapped drive letter:
     /// drive mappings are per-user and do not exist in the session a Windows service runs in, so
     /// "P:\Tomax\..." resolves to nothing under a service account.
+    /// No default (MBA-1028): STAGE and PROD read different Priority servers, and a default would
+    /// let a STAGE install that forgot this setting read production's archive. Startup refuses an
+    /// empty value.
     /// </summary>
-    public string ArchiveRoot { get; set; } = @"\\maba-priority\priority\Tomax\Archives\DOC_Q\Out";
+    public string ArchiveRoot { get; set; } = string.Empty;
 
     /// <summary>Connection string for CalibratorProd / Calibrator. Supplied per environment.</summary>
     public string ConnectionString { get; set; } = string.Empty;

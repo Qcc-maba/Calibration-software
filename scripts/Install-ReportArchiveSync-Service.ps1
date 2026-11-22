@@ -31,7 +31,8 @@
     Calibrator database (CalibratorProd or Calibrator). Omit to keep the current one.
 
 .PARAMETER BucketName
-    S3 bucket the app reads reports from. Default calibrationsoftware.
+    S3 bucket the app reads reports from: calibrationsoftware (PROD) or calibrationsoftware-stage
+    (STAGE). No default (MBA-1028). Required on a first install; omit to keep the current one.
 
 .PARAMETER AwsAccessKeyId
     AWS credentials for that bucket. Omit to keep the current ones.
@@ -53,6 +54,9 @@
 .PARAMETER ArchiveRoot
     UNC path of the Tomax archive. Must be UNC, never a mapped drive letter - a service account
     has no drive mappings, so "P:\..." would resolve to nothing and find no reports at all.
+    PROD: \\maba-priority\priority\Tomax\Archives\DOC_Q\Out. STAGE: the same folder on the test
+    Priority server. No default (MBA-1028), so a STAGE install can never read production's archive
+    by omission. Required on a first install; omit to keep the current one.
 
 .EXAMPLE
     # First install: observe only
@@ -66,14 +70,14 @@ param(
     [string] $LogOnAccount,
     [string] $LogOnPassword,
     [string] $ConnectionString,
-    [string] $BucketName = 'calibrationsoftware',
+    [string] $BucketName,
     [string] $AwsAccessKeyId,
     [string] $AwsSecretAccessKey,
     [ValidateSet(1, 2)]
     [int]    $SourceId = 1,
     [ValidateSet('true', 'false')]
     [string] $DryRun = 'true',
-    [string] $ArchiveRoot = '\\maba-priority\priority\Tomax\Archives\DOC_Q\Out'
+    [string] $ArchiveRoot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -90,6 +94,17 @@ $BinaryPath = Join-Path $PublishDir 'Maba.VCT.ReportArchiveSync.exe'
 Write-Host '=== Maba Report Archive Sync - Service Installer ===' -ForegroundColor Cyan
 
 if (-not (Test-Path $Project)) { Write-Error "Project not found at $Project"; exit 1 }
+
+# No defaults for these two (MBA-1028): a value that is neither passed nor already on the machine
+# would otherwise point a STAGE install at production's archive or bucket.
+foreach ($required in @(
+        @{ Param = 'ArchiveRoot'; Var = 'ReportArchiveSync__ArchiveRoot'; Value = $ArchiveRoot },
+        @{ Param = 'BucketName';  Var = 'ReportArchiveSync__BucketName';  Value = $BucketName })) {
+    if (-not $required.Value -and -not [Environment]::GetEnvironmentVariable($required.Var, 'Machine')) {
+        Write-Host "ERROR: -$($required.Param) is required: $($required.Var) is not set on this machine yet." -ForegroundColor Red
+        exit 1
+    }
+}
 
 if ($ArchiveRoot -match '^[A-Za-z]:') {
     Write-Host "ERROR: ArchiveRoot '$ArchiveRoot' is a drive letter." -ForegroundColor Red
