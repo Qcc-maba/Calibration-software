@@ -216,7 +216,7 @@ GO
             EXEC dbo.usp_SyncHealthCheck @StaleHours = 4;
    ============================================================================ */
 
-CREATE   PROCEDURE dbo.usp_SyncHealthCheck
+ALTER PROCEDURE dbo.usp_SyncHealthCheck
     @StaleHours INT = 2
 AS
 BEGIN
@@ -694,7 +694,7 @@ GO
 
 
 /* --- ׳“׳•׳— ׳׳¦׳‘: ׳׳” ׳¨׳¥, ׳׳” ׳ ׳›׳©׳, ׳׳” ׳×׳§׳•׳¢ ------------------------------------ */
-CREATE   PROCEDURE etl.usp_SyncRunReport
+ALTER PROCEDURE etl.usp_SyncRunReport
     @Hours INT = 24
 AS
 BEGIN
@@ -744,7 +744,7 @@ GO
    ׳—׳׳§ ׳‘ ג€” ׳₪׳¨׳•׳¦׳“׳•׳¨׳•׳× ׳”׳¨׳™׳©׳•׳
    ========================================================================== */
 
-CREATE   PROCEDURE etl.usp_SyncRunStart
+ALTER PROCEDURE etl.usp_SyncRunStart
     @ProcedureName NVARCHAR(128),
     @TargetTable   NVARCHAR(128) = NULL,
     @SourceRows    INT           = NULL,
