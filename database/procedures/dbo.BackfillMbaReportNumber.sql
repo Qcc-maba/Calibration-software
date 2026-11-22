@@ -40,6 +40,11 @@
 SET XACT_ABORT ON;
 SET NOCOUNT ON;
 
+/* MBA-1028: this one-off names live Priority's link. Anywhere but CalibratorProd it would read
+   production from STAGE, so it refuses; rewrite it with dbo.BuildPriorityOpenQuery to run it there. */
+IF DB_NAME() <> N'CalibratorProd'
+    THROW 50000, N'Stopped, nothing changed: this script reads live Priority and runs on CalibratorProd only (MBA-1028).', 1;
+
 /* ---------------------------------------------------------------------------------------------
    1. Pull the mapping across the linked server once, into a local temp table.
       OPENQUERY (not a four-part name) keeps the filter on the remote side; a four-part join

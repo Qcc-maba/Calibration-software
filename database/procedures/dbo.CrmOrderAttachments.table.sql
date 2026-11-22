@@ -3,7 +3,7 @@
     ---------------------------------------------------------------------------------------------
     Local cache of the documents Priority hangs off an order — the "נספחים" sub-form of
     "אישור הזמנה". Filled by dbo.RefreshOrderAttachmentsCache over the existing linked server
-    [31.168.173.93], read by dbo.GetOrderAttachmentsByOrder and dbo.GetOrderAttachmentCounts.
+    (dbo.PriorityLinkedServer), read by dbo.GetOrderAttachmentsByOrder and dbo.GetOrderAttachmentCounts.
 
     Same reasoning as dbo.CrmCatalogText / CrmDeviceText / CrmOrderInstructions: the screens are
     served from here so no page request ever pays for a linked-server round-trip.

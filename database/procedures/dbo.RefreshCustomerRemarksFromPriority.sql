@@ -30,14 +30,16 @@ BEGIN
     CREATE TABLE #Src (CUST INT PRIMARY KEY, Rebuilt NVARCHAR(MAX));
 
     /* OPENQUERY so the aggregation runs on the Priority side. */
-    INSERT INTO #Src (CUST, Rebuilt)
-    SELECT CUST, Rebuilt
-    FROM OPENQUERY([31.168.173.93], '
+    DECLARE @Oq NVARCHAR(MAX), @Sql NVARCHAR(MAX);
+    EXEC dbo.BuildPriorityOpenQuery @OpenQuery = @Oq OUTPUT, @RemoteQuery = N'
         SELECT CUST,
                STRING_AGG(REVERSE(CAST(TEXT AS NVARCHAR(MAX))), '' '')
                    WITHIN GROUP (ORDER BY TEXTLINE, TEXTORD) AS Rebuilt
         FROM amaba.dbo.CUSTOMERSTEXT
-        GROUP BY CUST');
+        GROUP BY CUST';
+    SET @Sql = N'SELECT CUST, Rebuilt FROM ' + @Oq;
+    INSERT INTO #Src (CUST, Rebuilt)
+    EXEC sys.sp_executesql @Sql;
 
     SELECT r.CustomerId, s.Rebuilt,
            CAST(DECOMPRESS(r.CustomerRemark) AS NVARCHAR(MAX)) AS Current_

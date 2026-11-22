@@ -2,7 +2,7 @@
     dbo.RefreshOrderAttachmentsCache                                                   MBA-930
     ---------------------------------------------------------------------------------------------
     Fills dbo.CrmOrderAttachments from Priority's EXTFILES over the linked server
-    [31.168.173.93]. Mirrors dbo.RefreshCrmTextCache: full rebuild by default, incremental
+    (dbo.PriorityLinkedServer). Mirrors dbo.RefreshCrmTextCache: full rebuild by default, incremental
     top-up for the rows a sync has just introduced.
 
         @IncrementalOnly = 0 : full rebuild (default).
@@ -62,12 +62,13 @@ BEGIN
 
     /* FILESIZE is not selected: it holds the length of EXTFILENAME, not the file size.
        See the header of dbo.CrmOrderAttachments.table.sql. */
-    INSERT INTO #Ext (ORD, EXTFILENUM, LINE, FilePath, DescriptionRaw)
-    SELECT q.IV, q.EXTFILENUM, q.LINE, q.EXTFILENAME, q.EXTFILEDES
-    FROM OPENQUERY([31.168.173.93],
-        'SELECT IV, LINE, EXTFILENUM, EXTFILENAME, EXTFILEDES
+    DECLARE @Oq NVARCHAR(MAX), @Sql NVARCHAR(MAX);
+    EXEC dbo.BuildPriorityOpenQuery @OpenQuery = @Oq OUTPUT, @RemoteQuery = N'SELECT IV, LINE, EXTFILENUM, EXTFILENAME, EXTFILEDES
            FROM amaba.dbo.EXTFILES
-          WHERE TYPE = ''O''') AS q;
+          WHERE TYPE = ''O''';
+    SET @Sql = N'SELECT q.IV, q.EXTFILENUM, q.LINE, q.EXTFILENAME, q.EXTFILEDES FROM ' + @Oq + N' AS q';
+    INSERT INTO #Ext (ORD, EXTFILENUM, LINE, FilePath, DescriptionRaw)
+    EXEC sys.sp_executesql @Sql;
 
     /* Keep only orders we hold, and in incremental mode only those not cached yet. */
     CREATE TABLE #Wanted (ORD INT NOT NULL PRIMARY KEY);

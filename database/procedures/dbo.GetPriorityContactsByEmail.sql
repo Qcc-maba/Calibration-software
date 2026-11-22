@@ -37,9 +37,13 @@ BEGIN
         N'SELECT PHONE, CUST, NAME, PHONENUM FROM amaba.dbo.PHONEBOOK WHERE LOWER(LTRIM(RTRIM(EMAIL))) = '
         + @Quote + REPLACE(@NormalizedEmail, @Quote, @Quote + @Quote) + @Quote;
 
+    /* MBA-1028: the Priority server comes from dbo.PriorityLinkedServer, never from this file. */
+    DECLARE @PriorityLink NVARCHAR(258);
+    EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT;
+
     /* ... wrapped as a string literal inside OPENQUERY, so every quote doubles again */
     DECLARE @Sql NVARCHAR(MAX) =
-        N'SELECT PHONE, CUST, NAME, PHONENUM FROM OPENQUERY([31.168.173.93], '
+        N'SELECT PHONE, CUST, NAME, PHONENUM FROM OPENQUERY(' + @PriorityLink + N', '
         + @Quote + REPLACE(@RemoteQuery, @Quote, @Quote + @Quote) + @Quote + N')';
 
     EXEC sp_executesql @Sql;

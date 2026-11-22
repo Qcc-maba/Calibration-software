@@ -18,6 +18,10 @@ GO
 IF COL_LENGTH('dbo.MeasurementDevices','AllowMaxOutOfRange') IS NULL
     ALTER TABLE dbo.MeasurementDevices ADD AllowMaxOutOfRange BIT NULL;
 GO
+/* MBA-1028: the load below names live Priority's link. Anywhere but CalibratorProd it would read
+   production from STAGE, so it refuses; rewrite it with dbo.BuildPriorityOpenQuery to run it there. */
+IF DB_NAME() <> N'CalibratorProd'
+    THROW 50000, N'Stopped before the load: it reads live Priority and runs on CalibratorProd only (MBA-1028). The columns above were added.', 1;
 DROP TABLE IF EXISTS #K;
 SELECT * INTO #K FROM OPENQUERY([31.168.173.93], '
   SELECT MabaID, AllowMinOOR, AllowMaxOOR FROM kyulan.dbo.tblInstr WHERE MabaID IS NOT NULL

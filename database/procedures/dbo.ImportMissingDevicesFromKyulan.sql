@@ -64,10 +64,8 @@ BEGIN
     );
 
     /* OPENQUERY so the join to the manufacturer table runs on the remote server. */
-    INSERT INTO #K
-    SELECT MabaID, Description, Manufacturer, Model, SerialNumber, Note, MainClass,
-           WorkRangeUnit, WorkRangeMin, WorkRangeMax, Added, Calibrated, NextCalibration
-    FROM OPENQUERY([31.168.173.93], '
+    DECLARE @Oq NVARCHAR(MAX), @Sql NVARCHAR(MAX);
+    EXEC dbo.BuildPriorityOpenQuery @OpenQuery = @Oq OUTPUT, @RemoteQuery = N'
         SELECT i.MabaID,
                i.Description,
                mnf.Name AS Manufacturer,
@@ -84,7 +82,10 @@ BEGIN
         FROM kyulan.dbo.tblInstr AS i
         LEFT JOIN kyulan.dbo.tblInstrMnf AS mnf ON mnf.ID = i.Manufacturer
         WHERE i.MabaID IS NOT NULL
-          AND i.Removed IS NULL');
+          AND i.Removed IS NULL';
+    SET @Sql = N'SELECT MabaID, Description, Manufacturer, Model, SerialNumber, Note, MainClass, WorkRangeUnit, WorkRangeMin, WorkRangeMax, Added, Calibrated, NextCalibration FROM ' + @Oq;
+    INSERT INTO #K
+    EXEC sys.sp_executesql @Sql;
 
     SELECT k.*,
            u.MeasurementDeviceUnitId AS WorkRangeUnitId

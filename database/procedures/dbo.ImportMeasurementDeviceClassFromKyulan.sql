@@ -61,15 +61,17 @@ BEGIN
     );
 
     /* OPENQUERY so the scan runs on the remote server rather than dragging tblInstr across. */
-    INSERT INTO #Kyulan (MabaID, MainClass)
-    SELECT MabaID COLLATE DATABASE_DEFAULT, MainClass
-    FROM OPENQUERY([31.168.173.93], '
+    DECLARE @Oq NVARCHAR(MAX), @Sql NVARCHAR(MAX);
+    EXEC dbo.BuildPriorityOpenQuery @OpenQuery = @Oq OUTPUT, @RemoteQuery = N'
         SELECT MabaID, MIN(MainClass) AS MainClass
         FROM kyulan.dbo.tblInstr
         WHERE MabaID IS NOT NULL
           AND Removed IS NULL
           AND MainClass IS NOT NULL
-        GROUP BY MabaID');
+        GROUP BY MabaID';
+    SET @Sql = N'SELECT MabaID COLLATE DATABASE_DEFAULT, MainClass FROM ' + @Oq;
+    INSERT INTO #Kyulan (MabaID, MainClass)
+    EXEC sys.sp_executesql @Sql;
 
     /* A class kyulan names but this system does not have would be worse than no class at all. */
     DELETE k

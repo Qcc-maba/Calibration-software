@@ -24,7 +24,7 @@
 
     HOW IT TALKS TO PRIORITY
     ------------------------
-    OPENQUERY over the existing linked server [31.168.173.93], so filtering and joins run on the
+    OPENQUERY over the Priority linked server (dbo.PriorityLinkedServer), so filtering and joins run on the
     Priority side. The Doc list is pushed into the remote query as an IN list of integers taken
     from our own table, in batches of @BatchSize (OPENQUERY text is limited to 8,000 characters:
     500 Docs is about 4,400). The INSERT sits INSIDE the dynamic SQL, writing to a temp table the
@@ -75,12 +75,17 @@ BEGIN
     /* COLLATE DATABASE_DEFAULT: values arrive from OPENQUERY as Latin1_General_100_CI_AI_SC and
        are compared below with columns of this database. Without it the comparisons fail. */
 
-    INSERT INTO #Codes (PriorityStatusId, StatusCode, DescriptionHEB)
-    SELECT q.CALIBSTATUSES, q.STATCODE, q.STATDES
-    FROM OPENQUERY([31.168.173.93],
-        'SELECT CALIBSTATUSES, STATCODE, system.dbo.tabula_hebconvert(STATDES) AS STATDES
+    /* MBA-1028: the Priority server comes from dbo.PriorityLinkedServer, never from this file. */
+    DECLARE @PriorityLink NVARCHAR(258);
+    EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT;
+
+    DECLARE @Oq NVARCHAR(MAX), @CodesSql NVARCHAR(MAX);
+    EXEC dbo.BuildPriorityOpenQuery @OpenQuery = @Oq OUTPUT, @RemoteQuery = N'SELECT CALIBSTATUSES, STATCODE, system.dbo.tabula_hebconvert(STATDES) AS STATDES
            FROM amaba.dbo.MBA_CALIBSTATUSES
-          WHERE STATCODE <> ''''') AS q;
+          WHERE STATCODE <> ''''';
+    SET @CodesSql = N'SELECT q.CALIBSTATUSES, q.STATCODE, q.STATDES FROM ' + @Oq + N' AS q';
+    INSERT INTO #Codes (PriorityStatusId, StatusCode, DescriptionHEB)
+    EXEC sys.sp_executesql @CodesSql;
 
     /* ------------------------------------------------------------------------------------
        2. The Docs we hold.
@@ -130,7 +135,7 @@ BEGIN
                    + N' AND ' + CAST(@MaxDoc AS NVARCHAR(12));
         SET @Sql = N'INSERT INTO #Src (Doc, Kline, StatusCode, CDATE, UDATE, StatusByUserName, UpdateReportNumber) '
                  + N'SELECT DOC, KLINE, STATCODE, CDATE, UDATE, CALIB_USERNAME, MBA_UPDTRPORTNUM '
-                 + N'FROM OPENQUERY([31.168.173.93], ''' + REPLACE(@RemoteSelect + @Where, N'''', N'''''') + N''')';
+                 + N'FROM OPENQUERY(' + @PriorityLink + N', ''' + REPLACE(@RemoteSelect + @Where, N'''', N'''''') + N''')';
         EXEC sys.sp_executesql @Sql;
         SET @RoundTrips += 1;
     END
@@ -169,7 +174,7 @@ BEGIN
         SET @Where = N'WHERE l.DOC IN (' + @List + N')';
         SET @Sql = N'INSERT INTO #Src (Doc, Kline, StatusCode, CDATE, UDATE, StatusByUserName, UpdateReportNumber) '
                  + N'SELECT DOC, KLINE, STATCODE, CDATE, UDATE, CALIB_USERNAME, MBA_UPDTRPORTNUM '
-                 + N'FROM OPENQUERY([31.168.173.93], ''' + REPLACE(@RemoteSelect + @Where, N'''', N'''''') + N''')';
+                 + N'FROM OPENQUERY(' + @PriorityLink + N', ''' + REPLACE(@RemoteSelect + @Where, N'''', N'''''') + N''')';
         EXEC sys.sp_executesql @Sql;
         SET @RoundTrips += 1;
 

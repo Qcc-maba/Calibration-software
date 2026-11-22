@@ -40,14 +40,16 @@ BEGIN
     );
 
     /* OPENQUERY so the scan runs on the remote server rather than dragging tblInstr across. */
-    INSERT INTO #Kyulan (MabaID, WorkRangeMin, WorkRangeMax, WorkRangeUnit)
-    SELECT MabaID COLLATE DATABASE_DEFAULT, WorkRangeMin, WorkRangeMax, WorkRangeUnit
-    FROM OPENQUERY([31.168.173.93], '
+    DECLARE @Oq NVARCHAR(MAX), @Sql NVARCHAR(MAX);
+    EXEC dbo.BuildPriorityOpenQuery @OpenQuery = @Oq OUTPUT, @RemoteQuery = N'
         SELECT MabaID, WorkRangeMin, WorkRangeMax, WorkRangeUnit
         FROM kyulan.dbo.tblInstr
         WHERE MabaID IS NOT NULL
           AND WorkRangeMin IS NOT NULL
-          AND WorkRangeMax IS NOT NULL');
+          AND WorkRangeMax IS NOT NULL';
+    SET @Sql = N'SELECT MabaID COLLATE DATABASE_DEFAULT, WorkRangeMin, WorkRangeMax, WorkRangeUnit FROM ' + @Oq;
+    INSERT INTO #Kyulan (MabaID, WorkRangeMin, WorkRangeMax, WorkRangeUnit)
+    EXEC sys.sp_executesql @Sql;
 
     /* One row per MabaID: the registry has a few duplicates, and a silent double-match would make
        the UPDATE non-deterministic. Lowest range wins only so the choice is repeatable. */

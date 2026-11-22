@@ -127,6 +127,30 @@ CONSTRAINTS | STAGE only | DEFAULT dbo.OrderDetailsItems.ShouldShowPercentOfSpec
 ROUTINES    | STAGE only | dbo.SetReportDisplayOptions                         | MBA-1004, not deployed to PROD yet
 BODIES      | DIFFERS    | dbo.GetOrderDetailsDevices                          | MBA-1004 returns ShouldShowPercentOfSpec; deploy with the column
 
+# ---- MBA-1028 Priority server from a per-database setting: on STAGE 2026-11-17, PROD not yet (STATUS item 19) ----
+COLUMNS     | STAGE only | dbo.PriorityLinkedServer.*                          | MBA-1028 setting table, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.PriorityLinkedServer*                         | MBA-1028 setting table, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.fnPriorityLinkRefusal                           | MBA-1028, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.GetPriorityLinkedServer                         | MBA-1028, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.BuildPriorityOpenQuery                          | MBA-1028, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.SetPriorityLinkedServer                         | MBA-1028, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetCatalogTextByPart                            | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetCustomerQuotesFromPriority                   | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetCustomerTechnicalInstructionsFromPriority    | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetDevicesGroupsByOrder                         | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetOrderInstructionsByOrder                     | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetPriorityCalibrationItems                     | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetPriorityContactsByEmail                      | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.ImportInstrumentWorkRangeFromKyulan             | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.ImportMeasurementDeviceClassFromKyulan          | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.ImportMissingDevicesFromKyulan                  | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.RefreshCrmTextCache                             | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.RefreshCustomerRemarksFromPriority              | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.RefreshDeviceDescriptions                       | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.RefreshOrderAttachmentsCache                    | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.RefreshPackingDataFromPriority                  | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+BODIES      | DIFFERS    | stg.LoadCustomerContactsFromPriority                | MBA-1028 server name from dbo.PriorityLinkedServer, not deployed to PROD yet
+
 # ---- MBA-800 chamber Temperature + RH: on STAGE 2026-11-19, PROD before the app change reaches main ----
 # Delete this block in the change that deploys MBA-800's DB part to PROD. On PROD the order-line points
 # procedure must be the combined MBA-904 + MBA-800 version (both are in the git file).

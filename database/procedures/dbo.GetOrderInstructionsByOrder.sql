@@ -2,7 +2,7 @@
 -- Proc:        dbo.GetOrderInstructionsByOrder
 -- Jira:        MBA-806 ("Add description to the device") — order-level execution instructions
 -- Description: Returns the CRM order text ("הנחיות לביצוע" / Execution Instructions) for an order,
---              from Priority amaba.dbo.ORDERSTEXT via the existing linked server [31.168.173.93].
+--              from Priority amaba.dbo.ORDERSTEXT via the Priority linked server.
 --              Key: ORDERSTEXT.ORD = OrderWorkPlans.OrderSourceId.
 --              CRM text is multi-line, CHARACTER-REVERSED HTML; reconstructed with
 --              STRING_AGG(REVERSE(TEXT)) ordered by TEXTLINE, TEXTORD.

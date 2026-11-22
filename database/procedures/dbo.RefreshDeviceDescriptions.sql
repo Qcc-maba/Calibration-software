@@ -22,15 +22,25 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
+    /* MBA-1028: dynamic, because the Priority server comes from dbo.PriorityLinkedServer. The
+       temp table is declared rather than created by SELECT INTO, which cannot cross the
+       sp_executesql scope. NVARCHAR, not the source's varchar(48): a varchar column in this
+       database's Latin collation would turn the Hebrew into question marks. */
     DROP TABLE IF EXISTS #D;
-    SELECT * INTO #D FROM OPENQUERY([31.168.173.93], '
+    CREATE TABLE #D (SERNDES NVARCHAR(4000) COLLATE DATABASE_DEFAULT NULL, Devices INT NULL, Parts INT NULL);
+
+    DECLARE @Oq NVARCHAR(MAX), @Sql NVARCHAR(MAX);
+    EXEC dbo.BuildPriorityOpenQuery @OpenQuery = @Oq OUTPUT, @RemoteQuery = N'
       SELECT SERNDES = LTRIM(RTRIM(dl.SERNDES)),
              Devices = COUNT(*),
              Parts   = COUNT(DISTINCT dl.PART)
       FROM amaba.dbo.MBA_DOCLOAD dl
       WHERE LTRIM(RTRIM(ISNULL(dl.SERNDES, ''''))) <> ''''
       GROUP BY LTRIM(RTRIM(dl.SERNDES))
-    ');
+    ';
+    SET @Sql = N'SELECT SERNDES, Devices, Parts FROM ' + @Oq;
+    INSERT INTO #D (SERNDES, Devices, Parts)
+    EXEC sys.sp_executesql @Sql;
 
     IF NOT EXISTS (SELECT 1 FROM #D)
     BEGIN

@@ -31,7 +31,8 @@
     Calibrator database (CalibratorProd or Calibrator). Omit to keep the current one.
 
 .PARAMETER BucketName
-    S3 bucket the app reads reports from. Default calibrationsoftware.
+    S3 bucket the app reads reports from: calibrationsoftware (PROD) or calibrationsoftware-stage
+    (STAGE). No default (MBA-1028). Required on a first install; omit to keep the current one.
 
 .PARAMETER AwsAccessKeyId
     AWS credentials for that bucket. Omit to keep the current ones.
@@ -53,6 +54,9 @@
 .PARAMETER ArchiveRoot
     UNC path of the Tomax archive. Must be UNC, never a mapped drive letter - a service account
     has no drive mappings, so "P:\..." would resolve to nothing and find no reports at all.
+    PROD: \\maba-priority\priority\Tomax\Archives\DOC_Q\Out. STAGE: the same folder on the test
+    Priority server. No default (MBA-1028), so a STAGE install can never read production's archive
+    by omission. Required on a first install; omit to keep the current one.
 
 .EXAMPLE
     # First install: observe only
@@ -66,14 +70,14 @@ param(
     [string] $LogOnAccount,
     [string] $LogOnPassword,
     [string] $ConnectionString,
-    [string] $BucketName = 'calibrationsoftware',
+    [string] $BucketName,
     [string] $AwsAccessKeyId,
     [string] $AwsSecretAccessKey,
     [ValidateSet(1, 2)]
     [int]    $SourceId = 1,
     [ValidateSet('true', 'false')]
     [string] $DryRun = 'true',
-    [string] $ArchiveRoot = '\\maba-priority\priority\Tomax\Archives\DOC_Q\Out'
+    [string] $ArchiveRoot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -91,7 +95,23 @@ Write-Host '=== Maba Report Archive Sync - Service Installer ===' -ForegroundCol
 
 if (-not (Test-Path $Project)) { Write-Error "Project not found at $Project"; exit 1 }
 
-if ($ArchiveRoot -match '^[A-Za-z]:') {
+# No defaults for these two (MBA-1028): a value that is neither passed nor already on the machine
+# would otherwise point a STAGE install at production's archive or bucket.
+foreach ($required in @(
+        @{ Param = 'ArchiveRoot'; Var = 'ReportArchiveSync__ArchiveRoot'; Value = $ArchiveRoot },
+        @{ Param = 'BucketName';  Var = 'ReportArchiveSync__BucketName';  Value = $BucketName })) {
+    if (-not $required.Value -and -not [Environment]::GetEnvironmentVariable($required.Var, 'Machine')) {
+        Write-Host "ERROR: -$($required.Param) is required: $($required.Var) is not set on this machine yet." -ForegroundColor Red
+        exit 1
+    }
+}
+
+# An omitted value keeps the machine's current one; check and report that one, not an empty string.
+$EffectiveArchiveRoot = if ($ArchiveRoot) { $ArchiveRoot } else { [Environment]::GetEnvironmentVariable('ReportArchiveSync__ArchiveRoot', 'Machine') }
+$EffectiveBucketName  = if ($BucketName)  { $BucketName }  else { [Environment]::GetEnvironmentVariable('ReportArchiveSync__BucketName', 'Machine') }
+
+if ($EffectiveArchiveRoot -match '^[A-Za-z]:') {
+    $ArchiveRoot = $EffectiveArchiveRoot
     Write-Host "ERROR: ArchiveRoot '$ArchiveRoot' is a drive letter." -ForegroundColor Red
     Write-Host '       Drive mappings are per-user and do not exist in a service session, so the' -ForegroundColor Red
     Write-Host '       worker would find no reports and report success. Use the UNC path.' -ForegroundColor Red
@@ -176,8 +196,8 @@ if ($svc.Status -ne 'Running') {
 }
 
 Write-Host "Service '$ServiceName' is running." -ForegroundColor Green
-Write-Host "  archive : $ArchiveRoot" -ForegroundColor Gray
-Write-Host "  bucket  : $BucketName" -ForegroundColor Gray
+Write-Host "  archive : $EffectiveArchiveRoot" -ForegroundColor Gray
+Write-Host "  bucket  : $EffectiveBucketName" -ForegroundColor Gray
 Write-Host "  source  : $SourceId $(if ($SourceId -eq 1) { '(MABA)' } else { '(SEPHARM)' })" -ForegroundColor Gray
 Write-Host "  dry run : $DryRun" -ForegroundColor $(if ($DryRun -eq 'true') { 'Yellow' } else { 'Gray' })
 

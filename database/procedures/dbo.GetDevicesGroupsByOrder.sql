@@ -71,7 +71,7 @@ SELECT DISTINCT v.Value FROM dbo.ParseCSVToTable(@DeviceModels) as v
 -- MBA 15/09: the device texts are pulled from amaba in ONE remote round trip.
 --
 -- The join above used to be a four-part name:
---     JOIN [31.168.173.93].[amaba].[dbo].[SERNUMBERSTEXT] AS st ON st.SERN = odt.SERN
+--     JOIN <priority link>.[amaba].[dbo].[SERNUMBERSTEXT] AS st ON st.SERN = odt.SERN
 -- which is a DISTRIBUTED join - SQL Server decides how to satisfy it across the link, and for a
 -- large order it decides badly. Measured on PROD for LA26102992 (137 devices): that join alone
 -- took 8,184 ms of the procedure's 13,454 ms, and returned 12 text rows. Asking the remote server
@@ -98,14 +98,20 @@ WHERE op.OrderNumber = TRIM(@OrderNumber) AND od.PART IS NOT NULL
 DROP TABLE IF EXISTS #RemotePartText
 CREATE TABLE #RemotePartText (PART INT NOT NULL, TEXTORD INT NULL, TEXTLINE INT NULL, [TEXT] NVARCHAR(MAX) NULL)
 
+/* MBA-1028: the Priority server comes from dbo.PriorityLinkedServer, never from this file.
+   Resolved only when a remote call is actually made: an order with nothing to fetch never needs it. */
+DECLARE @PriorityLink NVARCHAR(258);
+
 DECLARE @PartList NVARCHAR(MAX) = (SELECT STRING_AGG(CAST(PART AS NVARCHAR(20)), ',') FROM #OrderParts)
 
 IF @PartList IS NOT NULL
 BEGIN
+    IF @PriorityLink IS NULL EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT;
+
     DECLARE @PartSql NVARCHAR(MAX) = N'
         INSERT #RemotePartText (PART, TEXTORD, TEXTLINE, [TEXT])
         SELECT PART, TEXTORD, TEXTLINE, [TEXT]
-        FROM OPENQUERY([31.168.173.93], ''
+        FROM OPENQUERY(' + @PriorityLink + N', ''
             SELECT pt.PART, pt.TEXTORD, pt.TEXTLINE, pt.TEXT
             FROM amaba.dbo.PARTTEXT pt
             WHERE pt.PART IN (' + @PartList + N')
@@ -132,10 +138,12 @@ DECLARE @SernList NVARCHAR(MAX) = (SELECT STRING_AGG(CAST(SERN AS NVARCHAR(20)),
 -- An order with no registered serials needs no remote call at all.
 IF @SernList IS NOT NULL
 BEGIN
+    IF @PriorityLink IS NULL EXEC dbo.GetPriorityLinkedServer @QuotedName = @PriorityLink OUTPUT;
+
     DECLARE @TextSql NVARCHAR(MAX) = N'
         INSERT #RemoteDeviceText (SERN, TEXTORD, TEXTLINE, [TEXT])
         SELECT SERN, TEXTORD, TEXTLINE, [TEXT]
-        FROM OPENQUERY([31.168.173.93], ''
+        FROM OPENQUERY(' + @PriorityLink + N', ''
             SELECT st.SERN, st.TEXTORD, st.TEXTLINE, st.TEXT
             FROM amaba.dbo.SERNUMBERSTEXT st
             WHERE st.SERN IN (' + @SernList + N')

@@ -14,7 +14,7 @@
 -- Proc:        dbo.RefreshCrmTextCache
 -- Jira:        MBA-806 (device/catalog text) · MBA-666 (part description + family) · MBA-792 (order instructions)
 -- Description: Local cache of the Priority CRM text, filled over the existing linked server
---              [31.168.173.93]. Everything the screens need is served from these tables, so no
+--              (prio.* synonyms). Everything the screens need is served from these tables, so no
 --              request ever pays for a linked-server round-trip.
 --
 --   dbo.CrmPartInfo(PartName, PART, PartDescription, FamilyId, FamilyDescription)
@@ -143,9 +143,9 @@ BEGIN
         -- both sides collated explicitly: the remote PARTNAME comes back as
         -- Latin1_General_100_CI_AI_SC and the local column is Hebrew_CI_AS, which cannot be
         -- compared without this.
-        JOIN [31.168.173.93].amaba.dbo.PART AS p
+        JOIN prio.PART AS p
              ON LTRIM(RTRIM(p.PARTNAME)) COLLATE Hebrew_BIN = w.PartName COLLATE Hebrew_BIN
-        LEFT JOIN [31.168.173.93].amaba.dbo.FAMILY AS f ON f.FAMILY = p.FAMILY;
+        LEFT JOIN prio.FAMILY AS f ON f.FAMILY = p.FAMILY;
 
     -- ── catalog text, for the PARTs we just resolved ─────────────────────────────────────────
     CREATE TABLE #WantedPart(PART INT PRIMARY KEY);
@@ -158,7 +158,7 @@ BEGIN
         INSERT INTO dbo.CrmCatalogText(PART, CatalogText)
         SELECT pt.PART,
                STRING_AGG(REVERSE(CONVERT(NVARCHAR(MAX), pt.[TEXT])), N' ') WITHIN GROUP (ORDER BY pt.TEXTLINE, pt.TEXTORD)
-        FROM [31.168.173.93].amaba.dbo.PARTTEXT AS pt
+        FROM prio.PARTTEXT AS pt
         WHERE pt.PART IN (SELECT PART FROM #WantedPart)
         GROUP BY pt.PART;
 
@@ -166,7 +166,7 @@ BEGIN
         INSERT INTO dbo.CrmDeviceText(SERN, DeviceText)
         SELECT st.SERN,
                STRING_AGG(REVERSE(CONVERT(NVARCHAR(MAX), st.[TEXT])), N' ') WITHIN GROUP (ORDER BY st.TEXTLINE, st.TEXTORD)
-        FROM [31.168.173.93].amaba.dbo.SERNUMBERSTEXT AS st
+        FROM prio.SERNUMBERSTEXT AS st
         WHERE st.SERN IN (SELECT SERN FROM #WantedSern)
         GROUP BY st.SERN;
 
@@ -187,7 +187,7 @@ BEGIN
             INSERT INTO dbo.CrmOrderInstructions(ORD, OrderInstructionsZ)
             SELECT -ot.ORD,
                    COMPRESS(STRING_AGG(REVERSE(CONVERT(NVARCHAR(MAX), ot.[TEXT])), N' ') WITHIN GROUP (ORDER BY ot.TEXTLINE, ot.TEXTORD))
-            FROM [31.168.173.93].amaba.dbo.ORDERSTEXT AS ot
+            FROM prio.ORDERSTEXT AS ot
             WHERE ot.ORD IN (SELECT -ORD FROM @OrdBatch)
             GROUP BY ot.ORD;
 
