@@ -1,5 +1,6 @@
 using Maba.VCT.ReportArchiveSync.Archive;
 using Maba.VCT.ReportArchiveSync.Data;
+using Maba.VCT.ReportArchiveSync.Invoices;
 using Maba.VCT.ReportArchiveSync.Options;
 using Maba.VCT.ReportArchiveSync.Storage;
 using Microsoft.Extensions.Options;
@@ -22,6 +23,7 @@ public sealed class SyncWorker(
     ArchiveLocator locator,
     CalibrationReportRepository repository,
     ReportBlobStore blobStore,
+    InvoiceMirror invoiceMirror,
     IOptions<ReportArchiveSyncOptions> options,
     ILogger<SyncWorker> logger) : BackgroundService
 {
@@ -30,8 +32,10 @@ public sealed class SyncWorker(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation(
-            "ReportArchiveSync starting. Archive={Archive} SourceId={SourceId} DryRun={DryRun} Interval={Interval}",
-            _options.ArchiveRoot, _options.SourceId, _options.DryRun, _options.Interval);
+            "ReportArchiveSync starting. Archive={Archive} SourceId={SourceId} DryRun={DryRun} Interval={Interval} "
+            + "Invoices={Invoices}",
+            _options.ArchiveRoot, _options.SourceId, _options.DryRun, _options.Interval,
+            invoiceMirror.IsEnabled ? _options.InvoiceRoot : "off (InvoiceRoot not set)");
 
         if (_options.DryRun)
         {
@@ -55,6 +59,21 @@ public sealed class SyncWorker(
                 // A cycle failing must not kill the service; the next one retries. The share can be
                 // briefly unreachable and the database is restarted for maintenance.
                 logger.LogError(ex, "Sync cycle failed; retrying at the next interval");
+            }
+
+            // Invoices (MBA-998) run after the reports, in their own try: one failing must not
+            // stop the other.
+            try
+            {
+                await invoiceMirror.RunCycleAsync(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Invoice cycle failed; retrying at the next interval");
             }
 
             await Task.Delay(_options.Interval, stoppingToken);

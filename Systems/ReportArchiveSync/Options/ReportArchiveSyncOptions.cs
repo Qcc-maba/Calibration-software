@@ -53,4 +53,22 @@ public sealed class ReportArchiveSyncOptions
 
     /// <summary>Items to resolve per cycle. Keeps a first run over ~7,600 items off one long transaction.</summary>
     public int BatchSize { get; set; } = 250;
+
+    /// <summary>
+    /// UNC root of Priority's own files - the folder EXTFILES paths such as
+    /// <c>..\..\system\mail\26\9\...</c> are relative to. PROD: <c>\\maba-priority\Priority</c>;
+    /// STAGE: <c>\\priority-test\Priority</c>. Empty turns invoice mirroring off (MBA-998), and there
+    /// is deliberately no default (MBA-1028): a STAGE install must never read production's files
+    /// by omission.
+    /// </summary>
+    public string InvoiceRoot { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Invoices copied per cycle. PROD holds ~19,800 invoice PDFs, so the first copy takes about
+    /// 20 hourly cycles at the default; after that a cycle only carries the new ones.
+    /// </summary>
+    public int InvoiceBatchSize { get; set; } = 1000;
+
+    /// <summary>Days before an invoice whose PDF was not found is tried again.</summary>
+    public int InvoiceRetryAfterDays { get; set; } = 7;
 }
