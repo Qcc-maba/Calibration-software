@@ -55,8 +55,8 @@ builder.Services
         @"ReportArchiveSync:OrderAttachmentShare must be a UNC path (\\server\share), not a drive letter or a relative path.")
     .Validate(
         options => options.OrderAttachmentBatchSize > 0 && options.OrderAttachmentRetryAfterHours > 0
-                   && options.OrderAttachmentRetryNotFoundDays > 0,
-        "ReportArchiveSync:OrderAttachmentBatchSize and the two retry settings must be positive.")
+                   && options.OrderAttachmentRetryNotFoundDays > 0 && options.OrderAttachmentRetryErrorPartsDays > 0,
+        "ReportArchiveSync:OrderAttachmentBatchSize and the three retry settings must be positive.")
     .ValidateOnStart();
 
 builder.Services

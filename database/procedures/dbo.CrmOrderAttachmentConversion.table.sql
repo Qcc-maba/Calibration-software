@@ -19,8 +19,10 @@
       SourcePath        EXTFILES.EXTFILENAME at the time of the attempt. A different path in the
                         cache means Priority re-attached the file, and it is converted again.
       Outcome           The LAST attempt: 1 converted (each part carries its own error, if any),
-                        2 the file could not be read (locked, access denied, network error;
-                        retried after hours), 3 the file does not exist (retried after days).
+                        2 a temporary failure: the file could not be read (locked, access
+                        denied, network error), no converter was available, or the conversion
+                        failed unexpectedly; retried after hours. 3 the file does not exist, or
+                        is on a server this installation must not read; retried after days.
       Detail            Why, for 2-3.
       MergedStorageKey  S3 key of all parts as one PDF. When only one part converted, that part's
                         own key. NULL when nothing converted.

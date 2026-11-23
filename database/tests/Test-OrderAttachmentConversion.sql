@@ -76,6 +76,25 @@ INSERT INTO @Due EXEC dbo.GetOrderAttachmentsToConvert @BatchSize = 100000;
 SELECT @n = COUNT(*) FROM @Due WHERE ORD = @Ord AND EXTFILENUM = @FileNum;
 INSERT INTO @Out VALUES (N'converted: no longer due', N'0', @n, IIF(@n = 0, 'PASS', 'FAIL'));
 
+/* 2b. It has an error part, so it is due again after @RetryErrorPartsDays: the error may have
+       been the server's, e.g. LibreOffice installed since (review of PR #69). */
+UPDATE dbo.CrmOrderAttachmentConversion SET AttemptedAt = DATEADD(DAY, -8, SYSUTCDATETIME())
+WHERE ORD = @Ord AND EXTFILENUM = @FileNum;
+DELETE FROM @Due;
+INSERT INTO @Due EXEC dbo.GetOrderAttachmentsToConvert @BatchSize = 100000, @RetryErrorPartsDays = 7;
+SELECT @n = COUNT(*) FROM @Due WHERE ORD = @Ord AND EXTFILENUM = @FileNum;
+INSERT INTO @Out VALUES (N'error part: due again after 7 days', N'1', @n, IIF(@n = 1, 'PASS', 'FAIL'));
+
+DELETE FROM dbo.CrmOrderAttachmentPart WHERE ORD = @Ord AND EXTFILENUM = @FileNum AND Kind = 'Error';
+DELETE FROM @Due;
+INSERT INTO @Due EXEC dbo.GetOrderAttachmentsToConvert @BatchSize = 100000, @RetryErrorPartsDays = 7;
+SELECT @n = COUNT(*) FROM @Due WHERE ORD = @Ord AND EXTFILENUM = @FileNum;
+INSERT INTO @Out VALUES (N'no error part: never due again', N'0', @n, IIF(@n = 0, 'PASS', 'FAIL'));
+
+/* back to both parts for the steps below */
+EXEC dbo.SaveOrderAttachmentConversion @ORD = @Ord, @EXTFILENUM = @FileNum, @SourcePath = @Path, @Outcome = 1,
+     @MergedStorageKey = N'order-attachments/x/body.pdf', @PartsJson = @Parts;
+
 /* 3. A later attempt cannot read the file: the parts stay served. */
 EXEC dbo.SaveOrderAttachmentConversion @ORD = @Ord, @EXTFILENUM = @FileNum, @SourcePath = @Path, @Outcome = 2,
      @Detail = N'IOException: locked';

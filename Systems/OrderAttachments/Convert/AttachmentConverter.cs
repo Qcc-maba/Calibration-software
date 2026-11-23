@@ -10,7 +10,12 @@ namespace Maba.VCT.OrderAttachments.Convert;
 /// <param name="Kind">MailBody | Document | Error.</param>
 /// <param name="Error">Why this part could not be produced. The part is still listed (AC #6).</param>
 /// <param name="Pdf">The PDF; null exactly when <paramref name="Error"/> is set.</param>
-public sealed record ConvertedPart(string PartId, int Seq, string Name, string Kind, string? Error, byte[]? Pdf);
+/// <param name="IsInfrastructureFailure">
+/// The part failed because a converter was not available (see
+/// <see cref="PdfConversionException.IsInfrastructure"/>), not because of the document.
+/// </param>
+public sealed record ConvertedPart(
+    string PartId, int Seq, string Name, string Kind, string? Error, byte[]? Pdf, bool IsInfrastructureFailure = false);
 
 /// <summary>Everything one Priority file turned into.</summary>
 /// <param name="MergedPdf">
@@ -29,6 +34,13 @@ public sealed class AttachmentSourceUnreadableException(string message, bool not
     /// <summary>The file (or its folder) does not exist, as opposed to being unreadable now.</summary>
     public bool NotFound { get; } = notFound;
 }
+
+/// <summary>
+/// Nothing in the file could be converted because a converter was not available (Chromium would
+/// not start, LibreOffice missing). Says nothing about the document, so the sync retries it after
+/// hours instead of recording it as converted.
+/// </summary>
+public sealed class AttachmentConversionUnavailableException(string message) : Exception(message);
 
 /// <summary>
 /// Turns one Priority file into the PDFs behind it, all in one pass (MBA-930).
@@ -54,12 +66,22 @@ public sealed class AttachmentConverter(
 
     public async Task<ConvertedAttachment> ConvertAsync(OrderAttachmentSource source, CancellationToken ct)
     {
-        // Priority's stored path names the live share; STAGE reads priority-test's copy.
-        var path = shares.Resolve(source.FilePath);
+        // Priority's stored path names the live share; STAGE reads priority-test's copy. A path on
+        // the live server that this install must not read comes back null.
+        var path = shares.Resolve(source.FilePath)
+            ?? throw new AttachmentSourceUnreadableException(
+                "This path is on the live Priority server, which this installation does not read.",
+                notFound: true);
 
         var parts = source.SourceKind == "OutlookMessage"
             ? await ConvertMessageAsync(source, path, ct)
             : [await ConvertSingleFileAsync(source, path, ct)];
+
+        if (parts.All(p => p.Pdf is null) && parts.Any(p => p.IsInfrastructureFailure))
+        {
+            throw new AttachmentConversionUnavailableException(
+                parts.First(p => p.IsInfrastructureFailure).Error ?? "A converter was not available.");
+        }
 
         var good = parts.Where(p => p.Pdf is not null).Select(p => p.Pdf!).ToList();
 
@@ -101,7 +123,7 @@ public sealed class AttachmentConverter(
         }
         catch (PdfConversionException ex)
         {
-            return Failed(BodyPartId, 0, name, ex.Message);
+            return Failed(BodyPartId, 0, name, ex.Message, ex.IsInfrastructure);
         }
     }
 
@@ -117,7 +139,12 @@ public sealed class AttachmentConverter(
             // Inline images become data: URIs, so the rendered page needs no file or network access.
             msg = extractor.Extract(path, DataUri);
         }
-        catch (Exception ex) when (ex is not IOException and not UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The probe read one byte; the reader can still lose the file halfway (locked, network).
+            throw Unreadable(path, ex);
+        }
+        catch (Exception ex)
         {
             log.LogWarning(ex, "Could not open {Path} as an Outlook message", path);
             return [Failed("unavailable", 0, source.Description ?? source.FileName,
@@ -140,7 +167,7 @@ public sealed class AttachmentConverter(
             }
             catch (PdfConversionException ex)
             {
-                parts.Add(Failed(BodyPartId, seq, subject, ex.Message));
+                parts.Add(Failed(BodyPartId, seq, subject, ex.Message, ex.IsInfrastructure));
             }
             seq++;
         }
@@ -167,7 +194,7 @@ public sealed class AttachmentConverter(
             }
             catch (PdfConversionException ex)
             {
-                parts.Add(Failed(partId, seq - 1, file.FileName, ex.Message));
+                parts.Add(Failed(partId, seq - 1, file.FileName, ex.Message, ex.IsInfrastructure));
             }
         }
 
@@ -209,8 +236,9 @@ public sealed class AttachmentConverter(
             notFound: ex is FileNotFoundException or DirectoryNotFoundException,
             ex);
 
-    private static ConvertedPart Failed(string partId, int seq, string name, string error) =>
-        new(partId, seq, name, "Error", error, null);
+    private static ConvertedPart Failed(
+        string partId, int seq, string name, string error, bool isInfrastructure = false) =>
+        new(partId, seq, name, "Error", error, null, isInfrastructure);
 
     /// <summary>
     /// A URL-safe id for an attachment name. Hebrew file names are common here, so the name itself

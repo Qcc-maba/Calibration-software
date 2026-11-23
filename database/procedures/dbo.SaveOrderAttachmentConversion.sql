@@ -9,7 +9,7 @@
     Parameters
       @ORD, @EXTFILENUM  INT            (required) the attachment
       @SourcePath        NVARCHAR(200)  (required) the path converted, as Priority stores it
-      @Outcome           TINYINT        (required) 1 converted, 2 unreadable, 3 not found
+      @Outcome           TINYINT        (required) 1 converted, 2 temporary failure, 3 not found
       @Detail            NVARCHAR(400)  = NULL     why, for 2-3
       @MergedStorageKey  NVARCHAR(400)  = NULL     for 1
       @PartsJson         NVARCHAR(MAX)  = NULL     for 1, required: a JSON array of

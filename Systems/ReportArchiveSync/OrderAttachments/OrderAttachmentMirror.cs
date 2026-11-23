@@ -80,6 +80,7 @@ public sealed class OrderAttachmentMirror(
         }
 
         int converted = 0, partsOk = 0, partsFailed = 0, uploaded = 0, unreadable = 0, notFound = 0;
+        int unavailable = 0, failedOther = 0;
         int s3Failed = 0, s3FailedInARow = 0;
 
         foreach (var source in pending)
@@ -108,6 +109,30 @@ public sealed class OrderAttachmentMirror(
 
                 if (!_options.DryRun)
                     await repository.SaveAsync(source, outcome, ex.Message, null, null, ct);
+                continue;
+            }
+            catch (AttachmentConversionUnavailableException ex)
+            {
+                // No converter, so nothing converted: retried after hours, not recorded as done.
+                unavailable++;
+                logger.LogWarning(
+                    "ORD {Ord} file {File}: no converter available - {Detail}", source.Ord, source.FileNumber, ex.Message);
+
+                if (!_options.DryRun)
+                    await repository.SaveAsync(source, OrderAttachmentOutcome.Unreadable, ex.Message, null, null, ct);
+                continue;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+            {
+                // Anything else is this file's problem, never the batch's: recorded as a retryable
+                // failure so the next file still gets its turn. Unhandled, it aborted the cycle on
+                // the same newest file every hour and nothing older ever converted (review of #69).
+                failedOther++;
+                logger.LogWarning(ex, "ORD {Ord} file {File}: conversion failed", source.Ord, source.FileNumber);
+
+                if (!_options.DryRun)
+                    await repository.SaveAsync(
+                        source, OrderAttachmentOutcome.Unreadable, $"{ex.GetType().Name}: {ex.Message}", null, null, ct);
                 continue;
             }
 
@@ -152,10 +177,11 @@ public sealed class OrderAttachmentMirror(
                     if (upload.Uploaded) uploaded++;
                     mergedKey = upload.StorageKey;
                 }
-                else
+                else if (saved.Count(p => p.StorageKey is not null) == 1)
                 {
-                    // One part, or none: the single part already is the whole attachment.
-                    mergedKey = saved.FirstOrDefault(p => p.StorageKey is not null)?.StorageKey;
+                    // Exactly one part opens: that part already is the whole attachment. With more,
+                    // the merge failed, and offering one of them as "all" would hide the others.
+                    mergedKey = saved.Single(p => p.StorageKey is not null).StorageKey;
                 }
 
                 s3FailedInARow = 0;
@@ -183,7 +209,8 @@ public sealed class OrderAttachmentMirror(
         logger.LogInformation(
             "Order attachments cycle done. Examined={Examined} Converted={Converted} PartsOk={PartsOk} "
             + "PartsFailed={PartsFailed} Uploaded={Uploaded} Unreadable={Unreadable} NotFound={NotFound} "
-            + "S3Failed={S3Failed} DryRun={DryRun}",
-            pending.Count, converted, partsOk, partsFailed, uploaded, unreadable, notFound, s3Failed, _options.DryRun);
+            + "NoConverter={NoConverter} FailedOther={FailedOther} S3Failed={S3Failed} DryRun={DryRun}",
+            pending.Count, converted, partsOk, partsFailed, uploaded, unreadable, notFound,
+            unavailable, failedOther, s3Failed, _options.DryRun);
     }
 }

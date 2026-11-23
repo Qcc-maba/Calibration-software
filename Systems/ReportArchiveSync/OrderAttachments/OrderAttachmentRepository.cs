@@ -61,6 +61,7 @@ public sealed class OrderAttachmentRepository(IOptions<ReportArchiveSyncOptions>
         command.Parameters.Add("@BatchSize", SqlDbType.Int).Value = _options.OrderAttachmentBatchSize;
         command.Parameters.Add("@RetryAfterHours", SqlDbType.Int).Value = _options.OrderAttachmentRetryAfterHours;
         command.Parameters.Add("@RetryNotFoundDays", SqlDbType.Int).Value = _options.OrderAttachmentRetryNotFoundDays;
+        command.Parameters.Add("@RetryErrorPartsDays", SqlDbType.Int).Value = _options.OrderAttachmentRetryErrorPartsDays;
 
         var pending = new List<OrderAttachmentSource>();
         await using var reader = await command.ExecuteReaderAsync(ct);

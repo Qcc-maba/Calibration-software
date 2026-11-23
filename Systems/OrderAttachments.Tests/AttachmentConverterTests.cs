@@ -12,7 +12,10 @@ public sealed class AttachmentConverterTests : IAsyncDisposable
 
     private AttachmentConverter Converter(string shareRoot) => new(
         new MsgExtractor(NullLogger<MsgExtractor>.Instance),
-        new PdfConverterRegistry([new PdfPassthroughConverter()]),
+        new PdfConverterRegistry([
+            new PdfPassthroughConverter(),
+            new OfficePdfConverter(@"C:\no-such-libreoffice\soffice.exe", NullLogger<OfficePdfConverter>.Instance),
+        ]),
         _renderer,
         new PdfCombiner(NullLogger<PdfCombiner>.Instance),
         new AttachmentShareMap(shareRoot),
@@ -60,6 +63,27 @@ public sealed class AttachmentConverterTests : IAsyncDisposable
         Assert.Equal("Error", part.Kind);
         Assert.Contains(".dwg", part.Error);
         Assert.Null(part.Pdf);
+    }
+
+    [Fact]
+    public async Task A_missing_converter_is_a_retry_not_a_converted_file()
+    {
+        // Recorded as converted, the file would never be tried again once LibreOffice is
+        // installed (review of PR #69). Nothing converted and a converter missing: retry.
+        var root = Directory.CreateTempSubdirectory("oa-share-").FullName;
+        await File.WriteAllBytesAsync(Path.Combine(root, "list.xlsx"), [1, 2, 3]);
+
+        await Assert.ThrowsAsync<AttachmentConversionUnavailableException>(() => Converter(root).ConvertAsync(
+            Source(@"\\maba-priority\Priority\Attachments\list.xlsx", "xlsx", "Document"), default));
+    }
+
+    [Fact]
+    public async Task Stage_refuses_a_live_server_path_outside_the_mapped_folder()
+    {
+        var ex = await Assert.ThrowsAsync<AttachmentSourceUnreadableException>(() => Converter(@"\\priority-test\Priority\Attachments")
+            .ConvertAsync(Source(@"\\maba-priority\Priority\system\mail\x.pdf", "pdf", "Pdf"), default));
+
+        Assert.True(ex.NotFound);
     }
 
     public async ValueTask DisposeAsync() => await _renderer.DisposeAsync();

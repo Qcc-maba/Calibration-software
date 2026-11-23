@@ -71,8 +71,8 @@
     Cannot be combined with -InvoiceRoot.
 
 .PARAMETER OrderAttachmentShare
-    UNC folder of Priority's order attachments (MBA-930). PROD: \maba-priority\Priority\Attachments.
-    STAGE: \priority-test\Priority\Attachments - priority-test's rows still name \maba-priority,
+    UNC folder of Priority's order attachments (MBA-930). PROD: \\maba-priority\Priority\Attachments.
+    STAGE: \\priority-test\Priority\Attachments - priority-test's rows still name \\maba-priority,
     and the service reads this root instead. Set it to turn on converting the documents Priority
     attaches to an order into PDFs in S3, for the work-assignment screen. Omitting it keeps the
     current one; on a first install that means off. Turning it on also installs Chromium into
@@ -89,7 +89,9 @@
 
 .PARAMETER LibreOfficePath
     soffice.exe, for Word/Excel documents inside a mail. Optional: without it those parts are listed
-    with "LibreOffice is not installed" and everything else converts.
+    as errors (the Word/Excel converter is not installed) and everything else converts. Files that
+    got such an error are converted again after OrderAttachmentRetryErrorPartsDays (default 7), so
+    installing LibreOffice later fills them in.
 
 .EXAMPLE
     # First install: observe only
@@ -181,8 +183,8 @@ $EffectiveAttachmentShare = if ($DisableOrderAttachments) { '' }
     elseif ($OrderAttachmentShare) { $OrderAttachmentShare.TrimEnd('\') }
     else { [Environment]::GetEnvironmentVariable('ReportArchiveSync__OrderAttachmentShare', 'Machine') }
 
-if ($EffectiveAttachmentShare -and -not $EffectiveAttachmentShare.StartsWith('\')) {
-    Write-Host "ERROR: OrderAttachmentShare '$EffectiveAttachmentShare' is not a UNC path (\server\share)." -ForegroundColor Red
+if ($EffectiveAttachmentShare -and -not $EffectiveAttachmentShare.StartsWith('\\')) {
+    Write-Host "ERROR: OrderAttachmentShare '$EffectiveAttachmentShare' is not a UNC path (\\server\share)." -ForegroundColor Red
     exit 1
 }
 

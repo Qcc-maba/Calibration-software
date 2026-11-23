@@ -37,10 +37,12 @@ BEGIN
          wp.OrderWorkPlanId
         ,wp.OrderNumber
         ,a.EXTFILENUM AS FileNumber
+        /* Old rows use / (P:/Tomax/...); normalised first, as OrderAttachmentSource.FileName does. */
         ,FileName = CASE
                         WHEN a.IsPathTruncated = 1 THEN NULL
-                        WHEN CHARINDEX('\', REVERSE(a.FilePath)) = 0 THEN a.FilePath
-                        ELSE RIGHT(a.FilePath, CHARINDEX('\', REVERSE(a.FilePath)) - 1)
+                        WHEN CHARINDEX('\', REVERSE(REPLACE(a.FilePath, '/', '\'))) = 0 THEN a.FilePath
+                        ELSE RIGHT(REPLACE(a.FilePath, '/', '\'),
+                                   CHARINDEX('\', REVERSE(REPLACE(a.FilePath, '/', '\'))) - 1)
                     END
         ,a.Description AS FileDescription
         ,FileStatus = CASE

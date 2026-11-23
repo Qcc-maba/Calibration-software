@@ -91,6 +91,13 @@ public sealed class ReportArchiveSyncOptions
     public int OrderAttachmentRetryNotFoundDays { get; set; } = 7;
 
     /// <summary>
+    /// Days before a converted file that still has parts listed as errors is converted again. The
+    /// error may have been the server's (LibreOffice not installed yet, Chromium down for one part),
+    /// and installing the missing piece has to reach files already converted (review of PR #69).
+    /// </summary>
+    public int OrderAttachmentRetryErrorPartsDays { get; set; } = 7;
+
+    /// <summary>
     /// How often the attachment cache gets a full rebuild, which also drops files Priority removed.
     /// Every other cycle only adds new orders. The first cycle after a start is always a full one.
     /// </summary>

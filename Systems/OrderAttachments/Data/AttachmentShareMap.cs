@@ -31,7 +31,17 @@ public sealed class AttachmentShareMap
     /// <summary>The share this installation reads.</summary>
     public string ShareRoot { get; }
 
-    public string Resolve(string storedPath)
+    private const string LiveServerPrefix = @"\\maba-priority\";
+
+    /// <summary>Whether this installation reads the live Priority server (PROD).</summary>
+    public bool ReadsLiveServer => ShareRoot.StartsWith(LiveServerPrefix, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The path to open, or null when the stored path is on the live server and this installation
+    /// reads another share: a STAGE install must never read production's files (MBA-1028), and a
+    /// row naming any other <c>\\maba-priority\...</c> folder would otherwise be opened as is.
+    /// </summary>
+    public string? Resolve(string storedPath)
     {
         ArgumentNullException.ThrowIfNull(storedPath);
 
@@ -42,6 +52,11 @@ public sealed class AttachmentShareMap
             && storedPath[PriorityStoredRoot.Length] is '\\' or '/')
         {
             return ShareRoot + storedPath[PriorityStoredRoot.Length..];
+        }
+
+        if (!ReadsLiveServer && storedPath.StartsWith(LiveServerPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
         }
 
         return storedPath;

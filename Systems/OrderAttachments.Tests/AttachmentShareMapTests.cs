@@ -39,10 +39,27 @@ public class AttachmentShareMapTests
     [Theory]
     [InlineData(@"K:\folder\file.pdf")]
     [InlineData(@"P:/Tomax/Archives/DOC_N/Out/2021/PO210.pdf")]
-    [InlineData(@"\\maba-priority\Priority\AttachmentsOld\a.msg")]
-    [InlineData(@"\\maba-priority\Priority\Attachments")]
-    public void Paths_outside_the_stored_root_are_left_alone(string stored)
+    public void Paths_on_no_server_are_left_alone(string stored)
     {
         Assert.Equal(stored, new AttachmentShareMap(@"\\priority-test\Priority\Attachments").Resolve(stored));
+    }
+
+    [Theory]
+    [InlineData(@"\\maba-priority\Priority\AttachmentsOld\a.msg")]
+    [InlineData(@"\\maba-priority\Priority\Attachments")]
+    [InlineData(@"\\maba-priority\Priority\system\mail\26\9\x.msg")]
+    [InlineData(@"\\MABA-PRIORITY\other\a.pdf")]
+    public void Stage_never_opens_any_other_path_on_the_live_server(string stored)
+    {
+        // MBA-1028: a STAGE install must never read production's files, not even outside the
+        // folder it maps (review of PR #69).
+        Assert.Null(new AttachmentShareMap(@"\\priority-test\Priority\Attachments").Resolve(stored));
+    }
+
+    [Fact]
+    public void Prod_opens_other_live_server_paths_as_stored()
+    {
+        const string stored = @"\\maba-priority\Priority\system\mail\26\9\x.msg";
+        Assert.Equal(stored, new AttachmentShareMap(@"\\maba-priority\Priority\Attachments").Resolve(stored));
     }
 }
