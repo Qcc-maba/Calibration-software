@@ -3,9 +3,17 @@ using Maba.VCT.ReportArchiveSync;
 using Maba.VCT.ReportArchiveSync.Archive;
 using Maba.VCT.ReportArchiveSync.Data;
 using Maba.VCT.ReportArchiveSync.Invoices;
+using Maba.VCT.OrderAttachments.Convert;
+using Maba.VCT.OrderAttachments.Data;
+using Maba.VCT.OrderAttachments.Msg;
+using Maba.VCT.ReportArchiveSync.OrderAttachments;
 using Maba.VCT.ReportArchiveSync.Options;
 using Maba.VCT.ReportArchiveSync.Storage;
 using Microsoft.Extensions.Options;
+
+// Priority's .msg files carry Windows-1255 and .NET ships only Unicode code pages (MBA-930).
+// First thing, before any thread can open a mail.
+MsgEncoding.EnsureRegistered();
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -40,6 +48,15 @@ builder.Services
     .Validate(
         options => options.InvoiceBatchSize > 0 && options.InvoiceRetryAfterDays > 0,
         "ReportArchiveSync:InvoiceBatchSize and InvoiceRetryAfterDays must be positive.")
+    .Validate(
+        // Same rule as InvoiceRoot (MBA-930): empty turns it off, a value must really be UNC.
+        options => string.IsNullOrWhiteSpace(options.OrderAttachmentShare)
+                   || options.OrderAttachmentShare.StartsWith(@"\\", StringComparison.Ordinal),
+        @"ReportArchiveSync:OrderAttachmentShare must be a UNC path (\\server\share), not a drive letter or a relative path.")
+    .Validate(
+        options => options.OrderAttachmentBatchSize > 0 && options.OrderAttachmentRetryAfterHours > 0
+                   && options.OrderAttachmentRetryNotFoundDays > 0 && options.OrderAttachmentRetryErrorPartsDays > 0,
+        "ReportArchiveSync:OrderAttachmentBatchSize and the three retry settings must be positive.")
     .ValidateOnStart();
 
 builder.Services
@@ -70,6 +87,34 @@ builder.Services.AddSingleton(provider => new ArchiveLocator(
 
 builder.Services.AddSingleton<InvoiceDocumentRepository>();
 builder.Services.AddSingleton<InvoiceMirror>();
+
+// MBA-930: order attachments to PDF in S3. The converters are registered even when
+// OrderAttachmentShare is empty; nothing launches Chromium until a file is converted.
+var syncOptions = builder.Configuration.GetSection(ReportArchiveSyncOptions.SectionName);
+
+// Our browser directory, for this process and the driver it spawns only. Machine-wide, the
+// variable redirected another project's Playwright, which pins a different build (07/09/2026).
+Environment.SetEnvironmentVariable(
+    "PLAYWRIGHT_BROWSERS_PATH",
+    syncOptions["BrowsersPath"] is { Length: > 0 } browsers ? browsers : new ReportArchiveSyncOptions().BrowsersPath);
+
+builder.Services.AddSingleton(new AttachmentShareMap(syncOptions["OrderAttachmentShare"]));
+builder.Services.AddSingleton<MsgExtractor>();
+builder.Services.AddSingleton<ChromiumRenderer>();
+
+// Order matters: the first converter that claims an extension wins, so the passthrough sits
+// ahead of anything that would re-render a PDF that is already fine.
+builder.Services.AddSingleton<IPdfConverter, PdfPassthroughConverter>();
+builder.Services.AddSingleton<IPdfConverter>(sp => new ImagePdfConverter(sp.GetRequiredService<ChromiumRenderer>()));
+builder.Services.AddSingleton<IPdfConverter>(sp => new TextPdfConverter(sp.GetRequiredService<ChromiumRenderer>()));
+builder.Services.AddSingleton<IPdfConverter>(sp => new OfficePdfConverter(
+    sp.GetRequiredService<IOptions<ReportArchiveSyncOptions>>().Value.LibreOfficePath,
+    sp.GetRequiredService<ILogger<OfficePdfConverter>>()));
+builder.Services.AddSingleton<PdfConverterRegistry>();
+builder.Services.AddSingleton<PdfCombiner>();
+builder.Services.AddSingleton<AttachmentConverter>();
+builder.Services.AddSingleton<OrderAttachmentRepository>();
+builder.Services.AddSingleton<OrderAttachmentMirror>();
 
 builder.Services.AddHostedService<SyncWorker>();
 

@@ -70,6 +70,29 @@
     Turns invoice copying off: removes the ReportArchiveSync__InvoiceRoot machine variable.
     Cannot be combined with -InvoiceRoot.
 
+.PARAMETER OrderAttachmentShare
+    UNC folder of Priority's order attachments (MBA-930). PROD: \\maba-priority\Priority\Attachments.
+    STAGE: \\priority-test\Priority\Attachments - priority-test's rows still name \\maba-priority,
+    and the service reads this root instead. Set it to turn on converting the documents Priority
+    attaches to an order into PDFs in S3, for the work-assignment screen. Omitting it keeps the
+    current one; on a first install that means off. Turning it on also installs Chromium into
+    -BrowsersPath and grants -LogOnAccount read access to it.
+
+.PARAMETER DisableOrderAttachments
+    Turns order-attachment conversion off: removes ReportArchiveSync__OrderAttachmentShare.
+    Cannot be combined with -OrderAttachmentShare.
+
+.PARAMETER BrowsersPath
+    Where Chromium is installed for the attachment conversion. Default C:\ProgramData\ms-playwright.
+    Set for this service only, never as a machine-wide PLAYWRIGHT_BROWSERS_PATH: another Playwright
+    on the box pins a different build and stopped launching when that happened (07/09/2026).
+
+.PARAMETER LibreOfficePath
+    soffice.exe, for Word/Excel documents inside a mail. Optional: without it those parts are listed
+    as errors (the Word/Excel converter is not installed) and everything else converts. Files that
+    got such an error are converted again after OrderAttachmentRetryErrorPartsDays (default 7), so
+    installing LibreOffice later fills them in.
+
 .EXAMPLE
     # First install: observe only
     .\Install-ReportArchiveSync-Service.ps1 -LogOnAccount MABA\svc-reportsync -LogOnPassword *** -ConnectionString "Server=...;Database=CalibratorProd;..."
@@ -91,7 +114,11 @@ param(
     [string] $DryRun = 'true',
     [string] $ArchiveRoot,
     [string] $InvoiceRoot,
-    [switch] $DisableInvoices
+    [switch] $DisableInvoices,
+    [string] $OrderAttachmentShare,
+    [switch] $DisableOrderAttachments,
+    [string] $BrowsersPath = 'C:\ProgramData\ms-playwright',
+    [string] $LibreOfficePath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -147,6 +174,20 @@ if ($EffectiveInvoiceRoot -and -not $EffectiveInvoiceRoot.StartsWith('\\')) {
     exit 1
 }
 
+if ($DisableOrderAttachments -and $OrderAttachmentShare) {
+    Write-Host 'ERROR: -DisableOrderAttachments and -OrderAttachmentShare cannot be used together.' -ForegroundColor Red
+    exit 1
+}
+
+$EffectiveAttachmentShare = if ($DisableOrderAttachments) { '' }
+    elseif ($OrderAttachmentShare) { $OrderAttachmentShare.TrimEnd('\') }
+    else { [Environment]::GetEnvironmentVariable('ReportArchiveSync__OrderAttachmentShare', 'Machine') }
+
+if ($EffectiveAttachmentShare -and -not $EffectiveAttachmentShare.StartsWith('\\')) {
+    Write-Host "ERROR: OrderAttachmentShare '$EffectiveAttachmentShare' is not a UNC path (\\server\share)." -ForegroundColor Red
+    exit 1
+}
+
 # A running instance locks the executable the publish step wants to overwrite.
 $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($svc -and $svc.Status -eq 'Running') {
@@ -163,6 +204,33 @@ Write-Host "Publishing to $PublishDir ..." -ForegroundColor Yellow
 dotnet publish $Project -c Release -o $PublishDir --nologo | Out-Null
 if ($LASTEXITCODE -ne 0) { Write-Error "dotnet publish failed (exit $LASTEXITCODE)"; exit 1 }
 if (-not (Test-Path $BinaryPath)) { Write-Error "Published executable not found at $BinaryPath"; exit 1 }
+
+# -- Chromium for the order attachments (MBA-930) -------------------------------------------------
+# PLAYWRIGHT_BROWSERS_PATH is set for THIS script's child only, so the install lands in the
+# machine-wide directory. The service points itself there from ReportArchiveSync__BrowsersPath.
+if ($EffectiveAttachmentShare) {
+    $node = Get-ChildItem (Join-Path $PublishDir '.playwright\node') -Recurse -Filter node.exe -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+    $cli  = Join-Path $PublishDir '.playwright\package\cli.js'
+    if (-not $node -or -not (Test-Path $cli)) {
+        Write-Host "ERROR: Playwright's driver is missing from $PublishDir\.playwright - check the Microsoft.Playwright package." -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "Installing Chromium into $BrowsersPath (about 300 MB the first time)..." -ForegroundColor Yellow
+    $previous = $env:PLAYWRIGHT_BROWSERS_PATH
+    $env:PLAYWRIGHT_BROWSERS_PATH = $BrowsersPath
+    & $node.FullName $cli install chromium
+    $code = $LASTEXITCODE
+    $env:PLAYWRIGHT_BROWSERS_PATH = $previous
+    if ($code -ne 0) { Write-Error "Chromium install failed (exit $code)"; exit 1 }
+    if (@(Get-ChildItem $BrowsersPath -Directory -Filter 'chromium*' -ErrorAction SilentlyContinue).Count -eq 0) {
+        Write-Host "ERROR: no Chromium under $BrowsersPath after the install - mail bodies cannot be rendered." -ForegroundColor Red
+        exit 1
+    }
+    if ($LogOnAccount) {
+        icacls $BrowsersPath /grant "${LogOnAccount}:(OI)(CI)RX" /T /Q | Out-Null
+    }
+}
 
 function Set-MachineVar {
     param([string] $Name, [string] $Value, [switch] $Secret)
@@ -182,6 +250,15 @@ if ($DisableInvoices) {
     [Environment]::SetEnvironmentVariable('ReportArchiveSync__InvoiceRoot', $null, 'Machine')
     Write-Host '  ReportArchiveSync__InvoiceRoot removed (invoice copying off)' -ForegroundColor Gray
 }
+Set-MachineVar 'ReportArchiveSync__OrderAttachmentShare' $(if ($OrderAttachmentShare) { $EffectiveAttachmentShare })
+if ($DisableOrderAttachments) {
+    [Environment]::SetEnvironmentVariable('ReportArchiveSync__OrderAttachmentShare', $null, 'Machine')
+    Write-Host '  ReportArchiveSync__OrderAttachmentShare removed (order attachments off)' -ForegroundColor Gray
+}
+if ($EffectiveAttachmentShare) {
+    Set-MachineVar 'ReportArchiveSync__BrowsersPath' $BrowsersPath
+}
+Set-MachineVar 'ReportArchiveSync__LibreOfficePath' $LibreOfficePath
 Set-MachineVar 'ReportArchiveSync__SourceId'         "$SourceId"
 Set-MachineVar 'ReportArchiveSync__DryRun'           $DryRun
 Set-MachineVar 'AWS_ACCESS_KEY_ID'                   $AwsAccessKeyId -Secret
@@ -233,6 +310,7 @@ Write-Host "Service '$ServiceName' is running." -ForegroundColor Green
 Write-Host "  archive : $EffectiveArchiveRoot" -ForegroundColor Gray
 Write-Host "  bucket  : $EffectiveBucketName" -ForegroundColor Gray
 Write-Host "  invoices: $(if ($EffectiveInvoiceRoot) { $EffectiveInvoiceRoot } else { 'off (no -InvoiceRoot)' })" -ForegroundColor Gray
+Write-Host "  attachments: $(if ($EffectiveAttachmentShare) { $EffectiveAttachmentShare } else { 'off (no -OrderAttachmentShare)' })" -ForegroundColor Gray
 Write-Host "  source  : $SourceId $(if ($SourceId -eq 1) { '(MABA)' } else { '(SEPHARM)' })" -ForegroundColor Gray
 Write-Host "  dry run : $DryRun" -ForegroundColor $(if ($DryRun -eq 'true') { 'Yellow' } else { 'Gray' })
 
@@ -242,6 +320,9 @@ Write-Host 'It syncs on a one-hour cycle. To confirm the first cycle actually di
 Write-Host '  Get-EventLog -LogName Application -Source .NET* -Newest 20' -ForegroundColor Gray
 Write-Host '  ...or query the index directly:' -ForegroundColor Gray
 Write-Host '  SELECT COUNT(*) FROM dbo.CalibrationReportFile WHERE IsDeleted = 0;' -ForegroundColor Gray
+if ($EffectiveAttachmentShare) {
+    Write-Host '  SELECT Outcome, COUNT(*) FROM dbo.CrmOrderAttachmentConversion GROUP BY Outcome;' -ForegroundColor Gray
+}
 if ($DryRun -eq 'true') {
     Write-Host ''
     Write-Host 'DryRun is ON: nothing will be uploaded or written until you re-run with -DryRun false.' -ForegroundColor Yellow

@@ -55,7 +55,7 @@ one application:
 | Area | Stack | Notes |
 |------|-------|-------|
 | `Systems/VCT/`, `Systems/Hydra-Group/` | C# **.NET 4.8** | The VCT hardware server. `UnifiedSystemV1.sln`. |
-| `Systems/CustomerPortalApi/`, `InstructionAssistant/`, `OrderAttachments/`, `Priority/`, `ReportArchiveSync/` | C# **net10.0** | Separate services, own csproj each. Several run as Windows Services **on the same box** — see the `installing-a-windows-service` skill. |
+| `Systems/CustomerPortalApi/`, `InstructionAssistant/`, `OrderAttachments/`, `Priority/`, `ReportArchiveSync/` | C# **net10.0** | Separate services, own csproj each (`OrderAttachments` is a library that `ReportArchiveSync` runs). Several run as Windows Services **on the same box** — see the `installing-a-windows-service` skill. |
 | `customer-analysis/` | Node + React + Postgres | QCC Analytics dashboard. Undocumented in README — see `customer-analysis/CLAUDE.md`. |
 | `app` (separate repo) | Next.js | The web app **and** the customer portal. **Its own git repo** (`Qcc-maba/app`), normally cloned beside this one as `GIT_ROOT\app`; `/app/` is gitignored in case it is cloned inside. Not a submodule — do not merge it into this one, and do not run it from inside OneDrive. |
 | `database/procedures/` | T-SQL | One file per SQL Server object, named `<schema>.<Object>.sql`. |
@@ -73,7 +73,7 @@ up. Read the one for the area before changing it.
 | The QCC Analytics dashboard — `customer-analysis/` | `customer-analysis/CLAUDE.md`; skills `run-customer-analysis` and `deploying-customer-analysis` in `customer-analysis/.claude/skills/` |
 | The VCT server core: sessions, discovery, identification, WebSocket, alerts — `Systems/VCT/` | `Systems/VCT/CLAUDE.md` |
 | Instruments and loggers — `Systems/Hydra-Group/` | `Systems/Hydra-Group/CLAUDE.md`; skills `bringing-up-an-instrument`, `diagnosing-a-station` |
-| The order-attachments service — `Systems/OrderAttachments/` | `Systems/OrderAttachments/CLAUDE.md` |
+| Order attachments to PDF — `Systems/OrderAttachments/`, run by `ReportArchiveSync` | `Systems/OrderAttachments/CLAUDE.md` |
 | The portal's sign-in API — `Systems/CustomerPortalApi/` | `Systems/CustomerPortalApi/CLAUDE.md`; skill `exposing-a-service-publicly` |
 | Installing any net10 service on a MABA server | skill `installing-a-windows-service` |
 | The calibration station installer — `Installer/` | `Installer/CLAUDE.md`; skills `shipping-a-station-installer`, `diagnosing-a-station` |
@@ -99,11 +99,10 @@ project path on a former developer's machine**, so elsewhere run MSBuild on
 `VCT.Core.Tests` is SDK-style and does run under `dotnet test`. The net10.0 services under `Systems/` do use
 `dotnet build` / `dotnet test` normally.
 
-### The order-attachments service (net10)
+### Order attachments (net10 library, run by ReportArchiveSync)
 ```powershell
 dotnet test  Systems/OrderAttachments.Tests      # unit + a live .msg pipeline suite
-dotnet run --project Systems/OrderAttachments    # console mode, listens on 5313
-.\scripts\Install-OrderAttachments-Service.ps1   # installs it as MabaOrderAttachments
+dotnet test  Systems/ReportArchiveSync.Tests     # the worker that converts into S3
 ```
 
 ### customer-analysis

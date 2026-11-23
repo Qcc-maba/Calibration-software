@@ -68,10 +68,20 @@ public sealed class ChromiumRenderer : IAsyncDisposable
         // ("Executable doesn't exist ... run playwright install"), and if that escapes raw it
         // reaches the endpoint as a 500 instead of the 422 that tells the caller which document
         // failed and why. Caught here so every failure leaves as a PdfConversionException.
+        IBrowser browser;
+        try
+        {
+            browser = await BrowserAsync();
+        }
+        catch (Exception ex)
+        {
+            // No browser at all says nothing about the document: retried later, not recorded.
+            throw new PdfConversionException("Chromium could not be started.", ex, isInfrastructure: true);
+        }
+
         IPage? page = null;
         try
         {
-            var browser = await BrowserAsync();
             page = await browser.NewPageAsync();
 
             await page.SetContentAsync(EnsureCharset(html), new PageSetContentOptions
@@ -93,7 +103,10 @@ public sealed class ChromiumRenderer : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            throw new PdfConversionException("Chromium failed to render the document.", ex);
+            // A browser that died mid-render is the server's problem; one that is still up and
+            // failed on this page is the document's.
+            throw new PdfConversionException(
+                "Chromium failed to render the document.", ex, isInfrastructure: !browser.IsConnected);
         }
         finally
         {

@@ -102,6 +102,40 @@ public sealed class ReportBlobStore(Lazy<IAmazonS3> s3, IOptions<ReportArchiveSy
         return new UploadResult(storageKey, hash, length, Uploaded: true);
     }
 
+    /// <summary>
+    /// Uploads a PDF held in memory (a converted order attachment, MBA-930) unless the same bytes
+    /// are already under <paramref name="storageKey"/>. These keys are this service's alone, so
+    /// there is no foreign object to protect.
+    /// </summary>
+    public async Task<UploadResult> MirrorBytesAsync(
+        byte[] content, string storageKey, CancellationToken cancellationToken)
+    {
+        var hash = SHA256.HashData(content);
+        var hex = Convert.ToHexStringLower(hash);
+
+        var existing = await DescribeAsync(storageKey, cancellationToken);
+        if (existing is not null &&
+            string.Equals(existing.Metadata[HashMetadataKey], hex, StringComparison.OrdinalIgnoreCase))
+        {
+            return new UploadResult(storageKey, hash, content.Length, Uploaded: false);
+        }
+
+        using var stream = new MemoryStream(content, writable: false);
+        var request = new PutObjectRequest
+        {
+            BucketName = _options.BucketName,
+            Key = storageKey,
+            InputStream = stream,
+            ContentType = "application/pdf",
+            AutoCloseStream = false,
+        };
+        request.Metadata.Add(HashMetadataKey, hex);
+
+        await S3.PutObjectAsync(request, cancellationToken);
+
+        return new UploadResult(storageKey, hash, content.Length, Uploaded: true);
+    }
+
     /// <summary>Object metadata, or null when nothing is stored under that key.</summary>
     private async Task<GetObjectMetadataResponse?> DescribeAsync(
         string storageKey, CancellationToken cancellationToken)

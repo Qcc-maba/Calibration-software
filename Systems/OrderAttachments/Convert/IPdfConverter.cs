@@ -24,5 +24,13 @@ public interface IPdfConverter
 /// Raised when a file cannot be turned into a PDF. Deliberately not swallowed: a document the
 /// calibrator cannot see must surface as a failed entry in the list, never as a silent omission.
 /// </summary>
-public sealed class PdfConversionException(string message, Exception? inner = null)
-    : Exception(message, inner);
+/// <param name="isInfrastructure">
+/// The converter itself was not available (no LibreOffice, Chromium would not start, a timeout),
+/// as opposed to this document being unconvertible. The sync retries such a file instead of
+/// recording it as converted (MBA-930 review of PR #69).
+/// </param>
+public sealed class PdfConversionException(string message, Exception? inner = null, bool isInfrastructure = false)
+    : Exception(message, inner)
+{
+    public bool IsInfrastructure { get; } = isInfrastructure;
+}

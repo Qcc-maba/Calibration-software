@@ -97,9 +97,12 @@ public sealed class OfficePdfConverter(
     {
         if (string.IsNullOrWhiteSpace(sofficePath) || !File.Exists(sofficePath))
         {
+            // The calibrator reads this, so no paths or setting names. The log has the path.
+            log.LogWarning("LibreOffice not found at {Path} (ReportArchiveSync:LibreOfficePath)", sofficePath);
             throw new PdfConversionException(
-                $"'{source.FileName}' needs LibreOffice but it is not installed at " +
-                $"'{sofficePath}'. Set OrderAttachments:LibreOfficePath.");
+                $"'{source.FileName}' is a Word/Excel document, and the converter for those " +
+                "is not installed on the server yet.",
+                isInfrastructure: true);
         }
 
         // LibreOffice converts files on disk, and it will not accept two concurrent conversions
@@ -126,8 +129,18 @@ public sealed class OfficePdfConverter(
             psi.ArgumentList.Add(work.FullName);
             psi.ArgumentList.Add(input);
 
-            using var proc = Process.Start(psi)
-                ?? throw new PdfConversionException("Could not start LibreOffice.");
+            Process? started;
+            try
+            {
+                started = Process.Start(psi);
+            }
+            catch (System.ComponentModel.Win32Exception ex)
+            {
+                throw new PdfConversionException("Could not start LibreOffice.", ex, isInfrastructure: true);
+            }
+
+            using var proc = started
+                ?? throw new PdfConversionException("Could not start LibreOffice.", isInfrastructure: true);
 
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(TimeSpan.FromMinutes(2));
@@ -139,7 +152,8 @@ public sealed class OfficePdfConverter(
             catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
                 TryKill(proc);
-                throw new PdfConversionException($"LibreOffice timed out converting '{source.FileName}'.");
+                throw new PdfConversionException(
+                    $"LibreOffice timed out converting '{source.FileName}'.", isInfrastructure: true);
             }
 
             var pdf = Path.Combine(work.FullName, Path.GetFileNameWithoutExtension(input) + ".pdf");

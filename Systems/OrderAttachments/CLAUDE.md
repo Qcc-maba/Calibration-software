@@ -1,52 +1,41 @@
-# Systems/OrderAttachments — the order-attachments service
+# Systems/OrderAttachments — order attachments to PDF (MBA-930)
 
-Claude Code loads this file when working under `Systems/OrderAttachments/`. Installing it as a
-Windows service, and the ports it shares a machine with, are the **`installing-a-windows-service`**
-skill. The SQL objects behind it follow the **`changing-a-database`** skill.
+Claude Code loads this file when working under `Systems/OrderAttachments/`. The SQL objects behind it
+follow the **`changing-a-database`** skill.
+
+## What it is
+
+A **library** that turns the documents Priority hangs off an order (quotes, purchase orders, mail
+threads; 99% Outlook `.msg`) into PDFs. **`Systems/ReportArchiveSync` runs it** on-prem and puts the
+PDFs in S3; the app reads the S3 keys from the database and serves signed links.
+
+```
+Priority EXTFILES --(RefreshOrderAttachmentsCache)--> dbo.CrmOrderAttachments
+      ReportArchiveSync, each cycle: tops up that cache, takes dbo.GetOrderAttachmentsToConvert,
+      converts each file (this library), uploads order-attachments/<ORD>/<EXTFILENUM>/<part>.pdf
+      and all.pdf, then dbo.SaveOrderAttachmentConversion
+        -> dbo.CrmOrderAttachmentConversion (one row per file) + dbo.CrmOrderAttachmentPart (per part)
+  app --> dbo.GetOrderAttachmentDocuments (one row per part) --> signed S3 link
+```
+
+**Why ahead of time and not on request.** Until 23/11/2026 this was a web service
+(`MabaOrderAttachments`, port 5313) that converted when the screen asked. The app runs on Vercel,
+which cannot reach Priority's share or a LAN service, and STAGE and PROD could not both run it on one
+machine. Converting into S3 from the on-prem `ReportArchiveSync` (the MBA-998 invoice pattern) removes
+both problems. The old service and its installer are in git history before that date.
 
 ## Commands
 
 ```powershell
-dotnet test  Systems/OrderAttachments.Tests      # unit + a live .msg pipeline suite
-dotnet run --project Systems/OrderAttachments    # console mode, listens on 5313
-.\scripts\Install-OrderAttachments-Service.ps1   # installs it as MabaOrderAttachments
+dotnet test Systems/OrderAttachments.Tests     # unit + a live .msg pipeline suite
+dotnet test Systems/ReportArchiveSync.Tests    # the worker side
 ```
-`Systems/OrderAttachments.Tests/LiveMsgPipelineTests.cs` reads real `.msg` files off the Priority
-share; it is skipped where the share is unreachable rather than failing, so a green run does **not**
-prove the conversion path works. Prove that with `/health` and one real PDF.
+`LiveMsgPipelineTests.cs` reads real `.msg` files off the Priority share; it is skipped where the share
+is unreachable rather than failing, so a green run does **not** prove the conversion path works. Run
+`ReportArchiveSync` in DryRun against STAGE for that: it converts real files and logs every part.
+`database/tests/Test-OrderAttachmentConversion.sql` covers the SQL side and rolls back.
 
-## Configured in-process, on purpose
-
-This service shares a machine with others, so nothing it needs is set through a variable another
-process also reads — the `installing-a-windows-service` skill has the two incidents behind that rule.
-In `Program.cs`:
-
-- Its URL comes from its own key, `OrderAttachments__Urls`, applied with
-  `builder.WebHost.UseUrls(...)` — never from the machine-wide `ASPNETCORE_URLS`, which every ASP.NET
-  service on the box reads.
-- `PLAYWRIGHT_BROWSERS_PATH` is set with `Environment.SetEnvironmentVariable`, which affects this
-  process and the browser driver it spawns and nothing else. Set machine-wide, it redirected a
-  different project's Playwright (pinned to chromium-**1208**) into a directory holding only **1234**.
-
-## The order-attachments service (MBA-930)
-
-Serves the documents Priority hangs off an order — quotes, mail threads, drawings — to the calibrator,
-converted to PDF. `Systems/OrderAttachments/`, listening on 5313, plus five SQL objects and a proxy
-route in `app/`.
-
-```
-Priority EXTFILES --(OPENQUERY, cached)--> dbo.CrmOrderAttachments
-                                                   |
-  browser --> app /api/order-attachments/... --> :5313 --> convert --> PDF cache on disk
-```
-
-**The cache table is refreshed, not queried live.** `dbo.RefreshOrderAttachmentsCache` does the whole
-`TYPE='O'` set in **one** `OPENQUERY` round-trip and MERGEs it; `@IncrementalOnly BIT = 0` follows the
-house dry-run convention. The read side is `dbo.GetOrderAttachmentsByOrder` (one row per file) and
-`dbo.GetOrderAttachmentCounts` (batched by CSV of order ids, because the work-assignment grid renders
-a page of orders and must not issue one call per row).
-
-Four things about the Priority data that will mislead you:
+## Things about the Priority data that will mislead you
 
 - **The key is `(order, EXTFILENUM)`, not `(order, LINE)`.** `LINE` has three distinct values in the
   whole table and repeats within an order — order 106663 has two files, both `LINE = 0`. Measured:
@@ -54,16 +43,31 @@ Four things about the Priority data that will mislead you:
   `LINE` gives a primary-key violation on the first full rebuild, and an order can hold **12** files,
   not 4.
 - **`EXTFILES.FILESIZE` is not the file size.** 15,225 of 15,326 rows report `74`, which is the length
-  of the path string. A row reporting `74` was a 522,752-byte `.msg`. It is deliberately not cached —
-  do not use it to pick "the real document".
+  of the path string. A row reporting `74` was a 522,752-byte `.msg`. It is deliberately not cached.
 - **Paths are truncated at 80 characters.** `LEN(RTRIM(path)) >= 80` flags exactly 35 rows; those
-  files cannot be opened and the UI must say so rather than showing a broken button.
+  files cannot be opened and the screen must say so (`FileStatus = 'Unavailable'`).
+- **STAGE reads `\\priority-test`, although its rows say `\\maba-priority`.** priority-test is a clone
+  of the live server, so `EXTFILES` there stores the live share's absolute path. The path is kept as
+  Priority wrote it; `Data/AttachmentShareMap.cs` swaps the root `\\maba-priority\Priority\Attachments`
+  for `ReportArchiveSync:OrderAttachmentShare` when a file is opened. Without it a STAGE install would
+  read the live share. Checked 22/11/2026: every sampled test row exists under
+  `\\priority-test\Priority\Attachments`, in the same layout.
 - `.msg` files carry **Windows-1255**, and .NET ships only Unicode code pages. Without
   `CodePagesEncodingProvider` every Hebrew mail fails at runtime with *"No data is available for
   encoding 1252"* — while `NU1510` insists the `System.Text.Encoding.CodePages` package is
   unnecessary and the project compiles fine without it. That warning is suppressed on purpose.
+  The host calls `MsgEncoding.EnsureRegistered()` first thing.
 
-**A document that cannot be converted must still be visible.** The list returns such parts with an
-`Error` instead of omitting them, and the endpoint answers **422**, not 500 — the request was valid,
-this one document just cannot become a PDF. The calibrator needs to know the document exists.
+## Rules the code keeps
 
+- **A part that cannot be converted is still listed**, with its reason (AC #6). The converter returns
+  it as an `Error` part, the table stores the error text, the read procedure returns it.
+- **A file that cannot be read at all is not a broken document.** `AttachmentSourceUnreadableException`
+  goes back to the sync as outcome 2 (unreadable, retried after hours) or 3 (not found, after days),
+  and parts from an earlier success stay served.
+- **Recorded only after every PDF is in S3**, so the screen never offers a link that opens nothing.
+- **`dbo.CrmOrderAttachments` is truncated on a full refresh**; conversion state therefore lives in its
+  own two tables, or every nightly rebuild would convert everything again.
+- **Chromium's location is set for the process only** (`PLAYWRIGHT_BROWSERS_PATH` via
+  `Environment.SetEnvironmentVariable` in the host). Set machine-wide, it redirected a different
+  project's Playwright, pinned to chromium-**1208**, into a directory holding only **1234**.
