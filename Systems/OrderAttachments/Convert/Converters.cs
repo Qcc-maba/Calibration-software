@@ -97,9 +97,11 @@ public sealed class OfficePdfConverter(
     {
         if (string.IsNullOrWhiteSpace(sofficePath) || !File.Exists(sofficePath))
         {
+            // The calibrator reads this, so no paths or setting names. The log has the path.
+            log.LogWarning("LibreOffice not found at {Path} (ReportArchiveSync:LibreOfficePath)", sofficePath);
             throw new PdfConversionException(
-                $"'{source.FileName}' needs LibreOffice but it is not installed at " +
-                $"'{sofficePath}'. Set OrderAttachments:LibreOfficePath.");
+                $"'{source.FileName}' is a Word/Excel document, and the converter for those " +
+                "is not installed on the server yet.");
         }
 
         // LibreOffice converts files on disk, and it will not accept two concurrent conversions
