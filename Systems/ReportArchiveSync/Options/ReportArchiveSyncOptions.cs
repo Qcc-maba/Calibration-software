@@ -71,4 +71,37 @@ public sealed class ReportArchiveSyncOptions
 
     /// <summary>Days before an invoice whose PDF was not found is tried again.</summary>
     public int InvoiceRetryAfterDays { get; set; } = 7;
+
+    /// <summary>
+    /// UNC folder of Priority's order attachments (MBA-930). PROD:
+    /// <c>\\maba-priority\Priority\Attachments</c>; STAGE: <c>\\priority-test\Priority\Attachments</c>.
+    /// priority-test's rows still name <c>\\maba-priority</c>, and this root replaces it when a file is
+    /// opened. Empty turns order-attachment conversion off, and there is deliberately no default
+    /// (MBA-1028): a STAGE install must never read production's files by omission.
+    /// </summary>
+    public string OrderAttachmentShare { get; set; } = string.Empty;
+
+    /// <summary>Attachment files converted per cycle. PROD's cache held 3,078 on 22/11/2026.</summary>
+    public int OrderAttachmentBatchSize { get; set; } = 200;
+
+    /// <summary>Hours before a file that could not be read (locked, denied) is tried again.</summary>
+    public int OrderAttachmentRetryAfterHours { get; set; } = 6;
+
+    /// <summary>Days before a file that was not found is tried again.</summary>
+    public int OrderAttachmentRetryNotFoundDays { get; set; } = 7;
+
+    /// <summary>
+    /// How often the attachment cache gets a full rebuild, which also drops files Priority removed.
+    /// Every other cycle only adds new orders. The first cycle after a start is always a full one.
+    /// </summary>
+    public TimeSpan OrderAttachmentFullRefreshInterval { get; set; } = TimeSpan.FromHours(24);
+
+    /// <summary>
+    /// Chromium for rendering mail bodies. Set for this process only, never machine-wide: another
+    /// Playwright on the same box pins a different browser build (incident 07/09/2026).
+    /// </summary>
+    public string BrowsersPath { get; set; } = @"C:\ProgramData\ms-playwright";
+
+    /// <summary>LibreOffice, for Word/Excel inside a mail. Missing = those parts are listed as errors.</summary>
+    public string LibreOfficePath { get; set; } = @"C:\Program Files\LibreOffice\program\soffice.exe";
 }

@@ -1,6 +1,7 @@
 using Maba.VCT.ReportArchiveSync.Archive;
 using Maba.VCT.ReportArchiveSync.Data;
 using Maba.VCT.ReportArchiveSync.Invoices;
+using Maba.VCT.ReportArchiveSync.OrderAttachments;
 using Maba.VCT.ReportArchiveSync.Options;
 using Maba.VCT.ReportArchiveSync.Storage;
 using Microsoft.Extensions.Options;
@@ -24,6 +25,7 @@ public sealed class SyncWorker(
     CalibrationReportRepository repository,
     ReportBlobStore blobStore,
     InvoiceMirror invoiceMirror,
+    OrderAttachmentMirror orderAttachmentMirror,
     IOptions<ReportArchiveSyncOptions> options,
     ILogger<SyncWorker> logger) : BackgroundService
 {
@@ -33,9 +35,10 @@ public sealed class SyncWorker(
     {
         logger.LogInformation(
             "ReportArchiveSync starting. Archive={Archive} SourceId={SourceId} DryRun={DryRun} Interval={Interval} "
-            + "Invoices={Invoices}",
+            + "Invoices={Invoices} OrderAttachments={OrderAttachments}",
             _options.ArchiveRoot, _options.SourceId, _options.DryRun, _options.Interval,
-            invoiceMirror.IsEnabled ? _options.InvoiceRoot : "off (InvoiceRoot not set)");
+            invoiceMirror.IsEnabled ? _options.InvoiceRoot : "off (InvoiceRoot not set)",
+            orderAttachmentMirror.IsEnabled ? _options.OrderAttachmentShare : "off (OrderAttachmentShare not set)");
 
         if (_options.DryRun)
         {
@@ -74,6 +77,20 @@ public sealed class SyncWorker(
             catch (Exception ex)
             {
                 logger.LogError(ex, "Invoice cycle failed; retrying at the next interval");
+            }
+
+            // Order attachments (MBA-930), last and in their own try for the same reason.
+            try
+            {
+                await orderAttachmentMirror.RunCycleAsync(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Order-attachment cycle failed; retrying at the next interval");
             }
 
             await Task.Delay(_options.Interval, stoppingToken);

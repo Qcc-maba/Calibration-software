@@ -31,7 +31,6 @@ not help when the mechanism lets either installer overwrite the other's setting.
 | Service | Port | Reads its URL from |
 |---|---|---|
 | `MabaInstructionAssistant` | 5312 *on the dev workstation* | its own key |
-| `MabaOrderAttachments` | 5313 | `OrderAttachments__Urls` |
 | `MabaCustomerPortalApi` | **5312 on `MbaCustWeb`**, 5314 in dev | its own key |
 
 **The same number means different services on different machines**, which is worse than a collision
@@ -48,8 +47,8 @@ answer for a machine with no IIS. Run `hostname` first, every time, and believe 
 Get-NetTCPConnection -State Listen -OwningProcess <pid>
 ```
 
-Check with that, not with a source comment. The header comment in `Systems/OrderAttachments/Program.cs`
-names CustomerPortalApi as the service it collided with on 5312; the port is the Instruction
+Check with that, not with a source comment. The header comment of the retired order-attachments
+service named CustomerPortalApi as the service it collided with on 5312; the port was the Instruction
 Assistant's. A comment written during an outage records what someone believed at the time.
 
 ## Order of work
@@ -63,8 +62,10 @@ Assistant's. A comment written during an outage records what someone believed at
 5. Start it, then read `/health` — not the service status. `Running` only means the process did not
    exit.
 
-`scripts/Install-OrderAttachments-Service.ps1` is the reference implementation; it does all five and
-reads its connection string from the app's env file rather than taking one on the command line.
+The reference implementation that did all five, reading its connection string from the app's env
+file rather than the command line, was `scripts/Install-OrderAttachments-Service.ps1`. It was retired
+with that service on 23/11/2026 (MBA-930; the conversion now runs inside `ReportArchiveSync`); read it
+with `git show 6dc24e6:scripts/Install-OrderAttachments-Service.ps1`.
 
 ## A health endpoint reports what it can reach, not that it started
 
@@ -73,8 +74,8 @@ see a share, a browser installed under a developer's profile, a missing connecti
 unwritable cache directory. Report each one, and report the **identity the service is running as** —
 that is the field that explains most of the others.
 
-`libreOfficeInstalled: false` on the attachments service is the current live example: the service is
-up, healthy and converting everything except Office documents, which fail with a 422.
+`libreOfficeInstalled: false` on the retired attachments service was the example: up, healthy, and
+converting everything except Office documents.
 
 ## The four failures and what they actually mean
 

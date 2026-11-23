@@ -178,3 +178,13 @@ COLUMNS     | STAGE only | dbo.CustomerInvoiceDocument.*                       |
 CONSTRAINTS | STAGE only | * dbo.CustomerInvoiceDocument*                      | MBA-998, not deployed to PROD yet
 ROUTINES    | STAGE only | dbo.GetInvoiceDocumentsToSync                       | MBA-998, not deployed to PROD yet
 ROUTINES    | STAGE only | dbo.UpsertCustomerInvoiceDocument                   | MBA-998, not deployed to PROD yet
+
+# ---- MBA-930 order attachments converted into S3: on STAGE 2026-11-23, PROD with a PROD ReportArchiveSync with -OrderAttachmentShare ----
+# Delete this block in the change that deploys it to PROD. Safe ahead of the service: nothing reads these until it runs.
+COLUMNS     | STAGE only | dbo.CrmOrderAttachmentConversion.*                  | MBA-930 conversion state per file, not deployed to PROD yet
+COLUMNS     | STAGE only | dbo.CrmOrderAttachmentPart.*                        | MBA-930 one row per PDF part, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.CrmOrderAttachmentConversion*                 | MBA-930, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.CrmOrderAttachmentPart*                       | MBA-930, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.GetOrderAttachmentsToConvert                    | MBA-930, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.SaveOrderAttachmentConversion                   | MBA-930, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.GetOrderAttachmentDocuments                     | MBA-930, not deployed to PROD yet

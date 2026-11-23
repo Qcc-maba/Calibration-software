@@ -31,4 +31,9 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.10" />
   </ItemGroup>
 
+  <!-- MBA-930: converts Priority's order attachments (.msg) to PDF; this service puts them in S3. -->
+  <ItemGroup>
+    <ProjectReference Include="..\OrderAttachments\Maba.VCT.OrderAttachments.csproj" />
+  </ItemGroup>
+
 </Project>
