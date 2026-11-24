@@ -31,6 +31,9 @@ public sealed class SyncWorker(
 {
     private readonly ReportArchiveSyncOptions _options = options.Value;
 
+    // In memory on purpose (MBA-1054): after a restart the sweep starts again at the top.
+    private readonly PendingSweep _sweep = new(options.Value.BatchSize);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation(
@@ -99,7 +102,10 @@ public sealed class SyncWorker(
 
     private async Task RunCycleAsync(CancellationToken cancellationToken)
     {
-        var pending = await repository.GetPendingAsync(cancellationToken);
+        // Newest page plus the next page of the sweep (MBA-1054). NoFile and BadNumber items stay
+        // pending, so a plain "newest N" would pick the same items every cycle.
+        var batch = await _sweep.NextAsync(repository.GetPendingAsync, cancellationToken);
+        var pending = batch.Items;
 
         if (pending.Count == 0)
         {
@@ -215,8 +221,12 @@ public sealed class SyncWorker(
         }
 
         logger.LogInformation(
-            "Cycle done. Examined={Examined} Resolved={Resolved} NoFile={NoFile} BadNumber={BadNumber} "
-            + "Uploaded={Uploaded} Registered={Registered}",
-            pending.Count, resolved, notInArchive, unresolvedNumber, uploaded, registered);
+            "Cycle done. Examined={Examined} (newest {Newest} + sweep {Sweep} below {SweepFrom}, ids {MaxId}-{MinId}) "
+            + "Resolved={Resolved} NoFile={NoFile} BadNumber={BadNumber} Uploaded={Uploaded} Registered={Registered} "
+            + "NextSweep={NextSweep}",
+            pending.Count, batch.NewestCount, batch.SweepCount, batch.SweepFrom?.ToString() ?? "top",
+            pending.Max(item => item.OrderDetailsItemId), pending.Min(item => item.OrderDetailsItemId),
+            resolved, notInArchive, unresolvedNumber, uploaded, registered,
+            batch.NextCursor is { } next ? $"below {next}" : "top");
     }
 }

@@ -12,14 +12,19 @@ public sealed class CalibrationReportRepository(IOptions<ReportArchiveSyncOption
     private readonly ReportArchiveSyncOptions _options = options.Value;
 
     /// <summary>
-    /// Devices to resolve this cycle: they carry a report number, and nothing is registered for
-    /// them in dbo.CalibrationReportFile yet.
+    /// One page of devices to resolve: they carry a report number, and nothing is registered for
+    /// them in dbo.CalibrationReportFile yet. Highest id first, at most <c>BatchSize</c>.
     /// </summary>
+    /// <param name="beforeId">
+    /// Only items with a lower <c>OrderDetailsItemId</c>; null = from the newest. Keyset paging for
+    /// <see cref="PendingSweep"/> (MBA-1054).
+    /// </param>
     /// <remarks>
     /// Restricted to one Priority source — see <see cref="ReportArchiveSyncOptions.SourceId"/> for
     /// why joining on Doc across both companies is unsafe.
     /// </remarks>
-    public async Task<IReadOnlyList<PendingItem>> GetPendingAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<PendingItem>> GetPendingAsync(
+        int? beforeId, CancellationToken cancellationToken)
     {
         const string sql = """
             SELECT TOP (@BatchSize)
@@ -34,6 +39,7 @@ public sealed class CalibrationReportRepository(IOptions<ReportArchiveSyncOption
               AND wp.SourceId   = @SourceId
               AND NULLIF(itm.MbaReportNumber, N'') IS NOT NULL
               AND (@OnlyOrderNumber IS NULL OR wp.OrderNumber = @OnlyOrderNumber)
+              AND (@BeforeId IS NULL OR itm.OrderDetailsItemId < @BeforeId)
               AND NOT EXISTS (SELECT 1
                               FROM dbo.CalibrationReportFile AS f
                               WHERE f.OrderDetailsItemId = itm.OrderDetailsItemId
@@ -49,6 +55,10 @@ public sealed class CalibrationReportRepository(IOptions<ReportArchiveSyncOption
         command.Parameters.AddWithValue("@SourceId", _options.SourceId);
         command.Parameters.AddWithValue(
             "@OnlyOrderNumber", (object?)_options.OnlyOrderNumber ?? DBNull.Value);
+        // Typed explicitly: AddWithValue(DBNull) would send NVARCHAR, and the comparison against
+        // an INT column would then convert per row.
+        command.Parameters.Add("@BeforeId", System.Data.SqlDbType.Int).Value =
+            (object?)beforeId ?? DBNull.Value;
 
         var pending = new List<PendingItem>();
 

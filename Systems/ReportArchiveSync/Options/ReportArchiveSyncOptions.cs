@@ -51,7 +51,11 @@ public sealed class ReportArchiveSyncOptions
     /// </summary>
     public bool DryRun { get; set; } = true;
 
-    /// <summary>Items to resolve per cycle. Keeps a first run over ~7,600 items off one long transaction.</summary>
+    /// <summary>
+    /// Page size for pending reports. Keeps a first run over ~7,600 items off one long transaction.
+    /// A cycle examines up to two pages - the newest one and the next one of the sweep (MBA-1054) -
+    /// so up to twice this many items.
+    /// </summary>
     public int BatchSize { get; set; } = 250;
 
     /// <summary>
