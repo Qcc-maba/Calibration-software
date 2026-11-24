@@ -24,8 +24,15 @@
     account with READ access to the share. The service never writes there: that is Priority's own
     document archive.
 
+    Omit it on a re-run to keep the service's current registration and account: the binaries are
+    republished in place and the service restarted. Pass it to (re)create the service under that
+    account.
+
 .PARAMETER LogOnPassword
-    Password for -LogOnAccount.
+    Password for -LogOnAccount, as a SecureString. Omit it to be prompted (masked), which keeps it
+    out of the command line and the PowerShell history. It is checked against the domain before
+    anything is changed, and handed to New-Service as a PSCredential: sc.exe with password= fails
+    with 1639 when the password holds characters its parser treats specially.
 
 .PARAMETER ConnectionString
     Calibrator database (CalibratorProd or Calibrator). Omit to keep the current one.
@@ -93,25 +100,35 @@
     got such an error are converted again after OrderAttachmentRetryErrorPartsDays (default 7), so
     installing LibreOffice later fills them in.
 
-.EXAMPLE
-    # First install: observe only
-    .\Install-ReportArchiveSync-Service.ps1 -LogOnAccount MABA\svc-reportsync -LogOnPassword *** -ConnectionString "Server=...;Database=CalibratorProd;..."
+.PARAMETER DryRun
+    'true' converts and logs without uploading or writing; 'false' acts. Omit to keep the current
+    value; a first install with no value starts in DryRun.
+
+.PARAMETER PromptForSecrets
+    Ask (masked) for the connection string and the AWS keys instead of taking them as parameters,
+    so they never appear in the command line or the PowerShell history. Leave a prompt empty to
+    keep the machine's current value.
 
 .EXAMPLE
-    # Let it act, after reviewing the dry-run log
-    .\Install-ReportArchiveSync-Service.ps1 -DryRun false -AwsAccessKeyId AKIA... -AwsSecretAccessKey ***
+    # First install: observe only. Prompts for the account password and the secrets.
+    .\Install-ReportArchiveSync-Service.ps1 -LogOnAccount MABA\svc-reportsync -PromptForSecrets -BucketName calibrationsoftware-stage -ArchiveRoot ...
+
+.EXAMPLE
+    # Let it act, after reviewing the dry-run log. Keeps the account, the secrets and every path.
+    .\Install-ReportArchiveSync-Service.ps1 -DryRun false
 #>
 param(
     [string] $LogOnAccount,
-    [string] $LogOnPassword,
+    [System.Security.SecureString] $LogOnPassword,
+    [switch] $PromptForSecrets,
     [string] $ConnectionString,
     [string] $BucketName,
     [string] $AwsAccessKeyId,
     [string] $AwsSecretAccessKey,
     [ValidateSet(1, 2)]
     [int]    $SourceId = 1,
-    [ValidateSet('true', 'false')]
-    [string] $DryRun = 'true',
+    [ValidateSet('', 'true', 'false')]
+    [string] $DryRun = '',
     [string] $ArchiveRoot,
     [string] $InvoiceRoot,
     [switch] $DisableInvoices,
@@ -135,6 +152,61 @@ $BinaryPath = Join-Path $PublishDir 'Maba.VCT.ReportArchiveSync.exe'
 Write-Host '=== Maba Report Archive Sync - Service Installer ===' -ForegroundColor Cyan
 
 if (-not (Test-Path $Project)) { Write-Error "Project not found at $Project"; exit 1 }
+
+# -- Secrets and the account, settled before anything on the machine changes ----------------------
+function ConvertFrom-SecureText([System.Security.SecureString] $Secure) {
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Secure)
+    try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+}
+
+if ($PromptForSecrets) {
+    # Masked, and never in the history. Empty keeps the machine's current value.
+    if (-not $ConnectionString) {
+        $ConnectionString = ConvertFrom-SecureText (Read-Host -Prompt 'Calibrator connection string (empty = keep current)' -AsSecureString)
+    }
+    if (-not $AwsAccessKeyId) {
+        $AwsAccessKeyId = ConvertFrom-SecureText (Read-Host -Prompt 'AWS access key id (empty = keep current)' -AsSecureString)
+    }
+    if (-not $AwsSecretAccessKey) {
+        $AwsSecretAccessKey = ConvertFrom-SecureText (Read-Host -Prompt 'AWS secret access key (empty = keep current)' -AsSecureString)
+    }
+}
+
+$Credential = $null
+if ($LogOnAccount) {
+    if ($LogOnAccount -notmatch '^[^\\]+\\[^\\]+$') {
+        Write-Host "ERROR: -LogOnAccount '$LogOnAccount' must be DOMAIN\user." -ForegroundColor Red
+        exit 1
+    }
+    if (-not $LogOnPassword) {
+        $LogOnPassword = Read-Host -Prompt "Password for $LogOnAccount" -AsSecureString
+    }
+    $Credential = New-Object System.Management.Automation.PSCredential($LogOnAccount, $LogOnPassword)
+
+    # A mistyped password into a masked prompt otherwise surfaces three steps later as a vague
+    # logon failure. Check it now, against the domain, while nothing has changed yet.
+    $domain, $user = $LogOnAccount.Split('\', 2)
+    try {
+        Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+        $context = New-Object System.DirectoryServices.AccountManagement.PrincipalContext('Domain', $domain)
+        $isValid = $context.ValidateCredentials($user, $Credential.GetNetworkCredential().Password)
+    } catch {
+        Write-Host "WARNING: could not check the password against domain '$domain': $($_.Exception.Message)" -ForegroundColor Yellow
+        $isValid = $null
+    }
+    if ($isValid -eq $false) {
+        Write-Host "ERROR: the domain rejected the password for $LogOnAccount (wrong, expired, locked or disabled)." -ForegroundColor Red
+        exit 1
+    }
+    if ($isValid) { Write-Host "  password for $LogOnAccount checked against the domain" -ForegroundColor Gray }
+}
+
+# Omitted means "keep the machine's value"; a first install with none starts in DryRun.
+$EffectiveDryRun = if ($DryRun) { $DryRun }
+    elseif ([Environment]::GetEnvironmentVariable('ReportArchiveSync__DryRun', 'Machine')) {
+        [Environment]::GetEnvironmentVariable('ReportArchiveSync__DryRun', 'Machine') }
+    else { 'true' }
 
 # No defaults for these two (MBA-1028): a value that is neither passed nor already on the machine
 # would otherwise point a STAGE install at production's archive or bucket.
@@ -260,38 +332,100 @@ if ($EffectiveAttachmentShare) {
 }
 Set-MachineVar 'ReportArchiveSync__LibreOfficePath' $LibreOfficePath
 Set-MachineVar 'ReportArchiveSync__SourceId'         "$SourceId"
-Set-MachineVar 'ReportArchiveSync__DryRun'           $DryRun
+Set-MachineVar 'ReportArchiveSync__DryRun'           $EffectiveDryRun
 Set-MachineVar 'AWS_ACCESS_KEY_ID'                   $AwsAccessKeyId -Secret
 Set-MachineVar 'AWS_SECRET_ACCESS_KEY'               $AwsSecretAccessKey -Secret
 
 if (-not [Environment]::GetEnvironmentVariable('ReportArchiveSync__ConnectionString', 'Machine')) {
     Write-Host 'WARNING: no connection string - the worker cannot find anything to sync.' -ForegroundColor Yellow
 }
-if ($DryRun -eq 'false' -and -not [Environment]::GetEnvironmentVariable('AWS_ACCESS_KEY_ID', 'Machine')) {
+if ($EffectiveDryRun -eq 'false' -and -not [Environment]::GetEnvironmentVariable('AWS_ACCESS_KEY_ID', 'Machine')) {
     Write-Host 'WARNING: DryRun is off but no AWS credentials are configured - uploads will fail.' -ForegroundColor Yellow
 }
 
-if ($svc) {
-    Write-Host 'Removing existing service registration...' -ForegroundColor Yellow
-    sc.exe delete $ServiceName | Out-Null
-    Start-Sleep -Seconds 2
+# A domain account cannot run a service without "Log on as a service". Without it the service is
+# created happily and then refuses to start with 1069, which reads like a password problem and is
+# not one. There is no cmdlet for this; secedit is the supported route.
+function Grant-LogonAsService {
+    param([string] $Account)
+
+    $sid = (New-Object System.Security.Principal.NTAccount($Account)
+           ).Translate([System.Security.Principal.SecurityIdentifier]).Value
+
+    $export = Join-Path $env:TEMP 'maba-rights-export.inf'
+    $import = Join-Path $env:TEMP 'maba-rights-import.inf'
+    $sdb    = Join-Path $env:TEMP 'maba-rights.sdb'
+    secedit /export /cfg $export /areas USER_RIGHTS | Out-Null
+
+    $line    = Get-Content $export | Where-Object { $_ -like 'SeServiceLogonRight*' }
+    $current = if ($line) { ($line -split '=', 2)[1].Trim() } else { '' }
+
+    if (($current -split ',' | ForEach-Object { $_.Trim() }) -contains "*$sid") {
+        Write-Host '  log on as a service: already granted' -ForegroundColor Gray
+    } else {
+        $updated = if ($current) { "$current,*$sid" } else { "*$sid" }
+        @(
+            '[Unicode]'
+            'Unicode=yes'
+            '[Version]'
+            'signature="$CHICAGO$"'
+            'Revision=1'
+            '[Privilege Rights]'
+            "SeServiceLogonRight = $updated"
+        ) | Set-Content $import -Encoding Unicode
+        secedit /configure /db $sdb /cfg $import /areas USER_RIGHTS | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "secedit could not grant Log on as a service (exit $LASTEXITCODE)" }
+        Write-Host "  log on as a service: granted to $Account" -ForegroundColor Gray
+    }
+    Remove-Item $export, $import, $sdb -ErrorAction SilentlyContinue
 }
 
-Write-Host "Creating Windows Service '$ServiceName'..." -ForegroundColor Yellow
-if ($LogOnAccount) {
-    sc.exe create $ServiceName binPath= "`"$BinaryPath`"" start= auto DisplayName= "$DisplayName" `
-        obj= "$LogOnAccount" password= "$LogOnPassword" | Out-Null
-    Write-Host "  running as $LogOnAccount" -ForegroundColor Gray
+if ($svc -and -not $Credential) {
+    # A re-run without -LogOnAccount (e.g. only to turn DryRun off) used to delete the service and
+    # recreate it as LocalSystem, which cannot read the share. Keep the registration: the binary
+    # path has not changed, only its contents.
+    $runsAs = (Get-CimInstance Win32_Service -Filter "Name='$ServiceName'").StartName
+    Write-Host "Keeping the existing service registration (runs as $runsAs)." -ForegroundColor Yellow
 } else {
-    sc.exe create $ServiceName binPath= "`"$BinaryPath`"" start= auto DisplayName= "$DisplayName" | Out-Null
-    Write-Host '  running as LocalSystem' -ForegroundColor Gray
-    Write-Host 'WARNING: LocalSystem reaches other machines as the COMPUTER account, which' -ForegroundColor Yellow
-    Write-Host "         \\maba-priority will usually refuse. The worker would then log" -ForegroundColor Yellow
-    Write-Host '         "could not be listed" every cycle and sync nothing. Prefer -LogOnAccount.' -ForegroundColor Yellow
-}
-if ($LASTEXITCODE -ne 0) { Write-Host "ERROR: Failed to create service (exit $LASTEXITCODE)" -ForegroundColor Red; exit 1 }
+    if ($svc) {
+        Write-Host 'Removing existing service registration...' -ForegroundColor Yellow
+        sc.exe delete $ServiceName | Out-Null
+        Start-Sleep -Seconds 2
+    }
 
-sc.exe description $ServiceName $Description | Out-Null
+    Write-Host "Creating Windows Service '$ServiceName'..." -ForegroundColor Yellow
+    # New-Service, never sc.exe password=: a password holding a character the native-argument parser
+    # treats specially fails with 1639 (ERROR_INVALID_COMMAND_LINE), which names nothing useful.
+    $newServiceArgs = @{
+        Name           = $ServiceName
+        BinaryPathName = "`"$BinaryPath`""
+        DisplayName    = $DisplayName
+        Description    = $Description
+        StartupType    = 'Automatic'
+        ErrorAction    = 'Stop'
+    }
+    if ($Credential) {
+        Grant-LogonAsService -Account $LogOnAccount
+        # The service reads its own binaries; a clone under an admin's profile is not readable.
+        icacls $PublishDir /grant "${LogOnAccount}:(OI)(CI)RX" /T /Q | Out-Null
+        $newServiceArgs.Credential = $Credential
+    }
+    try {
+        New-Service @newServiceArgs | Out-Null
+    } catch {
+        Write-Host "ERROR: Failed to create service: $($_.Exception.Message)" -ForegroundColor Red
+        exit 1
+    }
+    if ($Credential) {
+        Write-Host "  running as $LogOnAccount" -ForegroundColor Gray
+    } else {
+        Write-Host '  running as LocalSystem' -ForegroundColor Gray
+        Write-Host 'WARNING: LocalSystem reaches other machines as the COMPUTER account, which' -ForegroundColor Yellow
+        Write-Host "         \\maba-priority will usually refuse. The worker would then log" -ForegroundColor Yellow
+        Write-Host '         "could not be listed" every cycle and sync nothing. Prefer -LogOnAccount.' -ForegroundColor Yellow
+    }
+}
+
 # Restart on failure: 1st and 2nd after 30s, subsequent after 60s; counter resets daily.
 sc.exe failure $ServiceName reset= 86400 actions= restart/30000/restart/30000/restart/60000 | Out-Null
 
@@ -312,7 +446,7 @@ Write-Host "  bucket  : $EffectiveBucketName" -ForegroundColor Gray
 Write-Host "  invoices: $(if ($EffectiveInvoiceRoot) { $EffectiveInvoiceRoot } else { 'off (no -InvoiceRoot)' })" -ForegroundColor Gray
 Write-Host "  attachments: $(if ($EffectiveAttachmentShare) { $EffectiveAttachmentShare } else { 'off (no -OrderAttachmentShare)' })" -ForegroundColor Gray
 Write-Host "  source  : $SourceId $(if ($SourceId -eq 1) { '(MABA)' } else { '(SEPHARM)' })" -ForegroundColor Gray
-Write-Host "  dry run : $DryRun" -ForegroundColor $(if ($DryRun -eq 'true') { 'Yellow' } else { 'Gray' })
+Write-Host "  dry run : $EffectiveDryRun" -ForegroundColor $(if ($EffectiveDryRun -eq 'true') { 'Yellow' } else { 'Gray' })
 
 # The worker has no HTTP endpoint, so "is it running" is not the same as "is it working".
 Write-Host ''
@@ -323,7 +457,7 @@ Write-Host '  SELECT COUNT(*) FROM dbo.CalibrationReportFile WHERE IsDeleted = 0
 if ($EffectiveAttachmentShare) {
     Write-Host '  SELECT Outcome, COUNT(*) FROM dbo.CrmOrderAttachmentConversion GROUP BY Outcome;' -ForegroundColor Gray
 }
-if ($DryRun -eq 'true') {
+if ($EffectiveDryRun -eq 'true') {
     Write-Host ''
     Write-Host 'DryRun is ON: nothing will be uploaded or written until you re-run with -DryRun false.' -ForegroundColor Yellow
 }

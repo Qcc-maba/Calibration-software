@@ -58,8 +58,10 @@
 
 ```powershell
 & "<repo>\scripts\Install-ReportArchiveSync-Service.ps1" `
-  -LogOnAccount 'MABA\svc-reportsync' -LogOnPassword '<password>' `
+  -LogOnAccount 'MABA\svc-reportsync' -PromptForSecrets `
   -OrderAttachmentShare '\\maba-priority\Priority\Attachments'
 ```
+
+הסקריפט מבקש את הסיסמה (מוסתרת) ובודק אותה מול הדומיין לפני שהוא משנה משהו. הוא מעניק "Log on as a service" ויוצר את השירות עם `New-Service`, כך שהסיסמה לא עוברת בשורת פקודה (זה מה שגרם ל-1639).
 
 השירות כותב ללוג בכל מחזור אם השיתוף נגיש (`... is not reachable; cycle skipped`). ההתקנה מתחילה ב-DryRun: היא ממירה ורושמת ללוג, בלי להעלות ובלי לכתוב.
