@@ -18,13 +18,16 @@ public class PendingSweepTests
 
         public List<int?> Calls { get; } = [];
 
-        public Task<IReadOnlyList<PendingItem>> FetchAsync(int? beforeId, CancellationToken _)
+        public List<int> Takes { get; } = [];
+
+        public Task<IReadOnlyList<PendingItem>> FetchAsync(int? beforeId, int take, CancellationToken _)
         {
             Calls.Add(beforeId);
+            Takes.Add(take);
             IReadOnlyList<PendingItem> page = Ids
                 .Reverse()
                 .Where(id => beforeId is null || id < beforeId)
-                .Take(Batch)
+                .Take(take)
                 .Select(id => new PendingItem(id, "SO000001", $"2610103\\{id}"))
                 .ToList();
             return Task.FromResult(page);
@@ -34,8 +37,13 @@ public class PendingSweepTests
     private static List<int> IdsOf(PendingBatch batch) =>
         batch.Items.Select(item => item.OrderDetailsItemId).ToList();
 
-    private static Task<PendingBatch> Next(PendingSweep sweep, FakePending pending) =>
-        sweep.NextAsync(pending.FetchAsync, CancellationToken.None);
+    /// <summary>One cycle that runs to the end: read the batch, then commit it.</summary>
+    private static async Task<PendingBatch> Next(PendingSweep sweep, FakePending pending)
+    {
+        var batch = await sweep.NextAsync(pending.FetchAsync, CancellationToken.None);
+        sweep.Commit(batch);
+        return batch;
+    }
 
     [Fact]
     public async Task At_the_top_one_query_serves_as_newest_and_first_sweep_page()
@@ -177,6 +185,52 @@ public class PendingSweepTests
 
         Assert.Empty(batch.Items);
         Assert.Null(sweep.Cursor);
+    }
+
+    [Fact]
+    public async Task Reading_a_batch_does_not_move_the_cursor_until_it_is_committed()
+    {
+        // Review of PR #71: a cycle that fails part-way must not skip the rest of its sweep page.
+        var pending = new FakePending(Enumerable.Range(1, 600));
+        var sweep = new PendingSweep(Batch);
+        await Next(sweep, pending);                 // cursor 351
+
+        var failedCycle = await sweep.NextAsync(pending.FetchAsync, CancellationToken.None);
+        Assert.Equal(101, failedCycle.NextCursor);
+        Assert.Equal(351, sweep.Cursor);            // not committed: the cycle threw
+
+        var retry = await Next(sweep, pending);
+        Assert.Equal(351, retry.SweepFrom);         // the same sweep page again
+        Assert.Equal(101, sweep.Cursor);
+    }
+
+    [Fact]
+    public async Task A_stale_batch_cannot_move_the_cursor()
+    {
+        var pending = new FakePending(Enumerable.Range(1, 600));
+        var sweep = new PendingSweep(Batch);
+
+        var stale = await sweep.NextAsync(pending.FetchAsync, CancellationToken.None);
+        await Next(sweep, pending);                 // committed: cursor 351
+        await Next(sweep, pending);                 // committed: cursor 101
+
+        sweep.Commit(stale);                        // read at the top, cursor has moved since
+
+        Assert.Equal(101, sweep.Cursor);
+    }
+
+    [Fact]
+    public async Task The_query_is_asked_for_the_same_page_size_the_wrap_test_uses()
+    {
+        // Review of PR #71: TOP and the "short page = bottom" test must be one number.
+        var pending = new FakePending(Enumerable.Range(1, 600));
+        var sweep = new PendingSweep(100);
+
+        await Next(sweep, pending);
+        await Next(sweep, pending);
+
+        Assert.All(pending.Takes, take => Assert.Equal(100, take));
+        Assert.Equal(401, sweep.Cursor);            // 600..501, then 500..401: both full pages
     }
 
     [Fact]

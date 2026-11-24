@@ -23,11 +23,15 @@ public sealed class CalibrationReportRepository(IOptions<ReportArchiveSyncOption
     /// Restricted to one Priority source — see <see cref="ReportArchiveSyncOptions.SourceId"/> for
     /// why joining on Doc across both companies is unsafe.
     /// </remarks>
+    /// <param name="take">Page size, given by the caller (<see cref="PendingSweep"/>).</param>
     public async Task<IReadOnlyList<PendingItem>> GetPendingAsync(
-        int? beforeId, CancellationToken cancellationToken)
+        int? beforeId, int take, CancellationToken cancellationToken)
     {
+        // OPTION (RECOMPILE): with the catch-all "@BeforeId IS NULL OR ..." a plan cached for the
+        // newest page (NULL) would be reused for sweep pages and scan down from the top instead of
+        // seeking to the cursor (review of PR #71). Two queries an hour; the compile is cheap.
         const string sql = """
-            SELECT TOP (@BatchSize)
+            SELECT TOP (@Take)
                  itm.OrderDetailsItemId
                 ,wp.OrderNumber
                 ,itm.MbaReportNumber
@@ -44,14 +48,15 @@ public sealed class CalibrationReportRepository(IOptions<ReportArchiveSyncOption
                               FROM dbo.CalibrationReportFile AS f
                               WHERE f.OrderDetailsItemId = itm.OrderDetailsItemId
                                 AND f.IsDeleted = 0)
-            ORDER BY itm.OrderDetailsItemId DESC;
+            ORDER BY itm.OrderDetailsItemId DESC
+            OPTION (RECOMPILE);
             """;
 
         await using var connection = new SqlConnection(_options.ConnectionString);
         await connection.OpenAsync(cancellationToken);
 
         await using var command = new SqlCommand(sql, connection);
-        command.Parameters.AddWithValue("@BatchSize", _options.BatchSize);
+        command.Parameters.Add("@Take", System.Data.SqlDbType.Int).Value = take;
         command.Parameters.AddWithValue("@SourceId", _options.SourceId);
         command.Parameters.AddWithValue(
             "@OnlyOrderNumber", (object?)_options.OnlyOrderNumber ?? DBNull.Value);

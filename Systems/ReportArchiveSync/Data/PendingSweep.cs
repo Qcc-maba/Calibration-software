@@ -5,7 +5,9 @@ namespace Maba.VCT.ReportArchiveSync.Data;
 /// <param name="NewestCount">Items from the newest page.</param>
 /// <param name="SweepCount">Items from the sweep page that were not already in the newest page.</param>
 /// <param name="SweepFrom">The cursor this cycle read below; null when the sweep was at the top.</param>
-/// <param name="NextCursor">The cursor for the next cycle; null means the next cycle starts again at the top.</param>
+/// <param name="NextCursor">
+/// The cursor once this batch is committed; null means the next cycle starts again at the top.
+/// </param>
 public sealed record PendingBatch(
     IReadOnlyList<PendingItem> Items,
     int NewestCount,
@@ -57,15 +59,21 @@ public sealed class PendingSweep
     /// <summary>Exclusive upper bound of the next sweep page; null = start at the top.</summary>
     public int? Cursor { get; private set; }
 
+    /// <summary>
+    /// Reads this cycle's pages. Does <b>not</b> move the cursor: call <see cref="Commit"/> once
+    /// the cycle has worked through the batch (review of PR #71). A cycle that fails part-way
+    /// reads the same sweep page again next time instead of skipping what it never reached.
+    /// </summary>
     /// <param name="fetchPage">
-    /// Returns up to <c>batchSize</c> pending items with an id below the given one (null = no bound),
-    /// highest id first.
+    /// Returns up to <c>take</c> pending items with an id below <c>beforeId</c> (null = no bound),
+    /// highest id first. The page size is passed in so that the wrap test and the query's TOP
+    /// are always the same number.
     /// </param>
     public async Task<PendingBatch> NextAsync(
-        Func<int?, CancellationToken, Task<IReadOnlyList<PendingItem>>> fetchPage,
+        Func<int?, int, CancellationToken, Task<IReadOnlyList<PendingItem>>> fetchPage,
         CancellationToken cancellationToken)
     {
-        var newest = await fetchPage(null, cancellationToken);
+        var newest = await fetchPage(null, _batchSize, cancellationToken);
         var sweepFrom = Cursor;
 
         IReadOnlyList<PendingItem> sweep;
@@ -77,15 +85,15 @@ public sealed class PendingSweep
         }
         else
         {
-            sweep = await fetchPage(sweepFrom, cancellationToken);
+            sweep = await fetchPage(sweepFrom, _batchSize, cancellationToken);
         }
 
         // A short page means the bottom was reached: wrap. A full page may be followed by more.
-        Cursor = sweep.Count < _batchSize ? null : sweep[^1].OrderDetailsItemId;
+        int? nextCursor = sweep.Count < _batchSize ? null : sweep[^1].OrderDetailsItemId;
 
         if (sweepFrom is null)
         {
-            return new PendingBatch(newest, newest.Count, 0, null, Cursor);
+            return new PendingBatch(newest, newest.Count, 0, null, nextCursor);
         }
 
         // The pages can overlap once registrations shrink the pending set below the cursor's
@@ -101,6 +109,19 @@ public sealed class PendingSweep
             }
         }
 
-        return new PendingBatch(items, newest.Count, items.Count - newest.Count, sweepFrom, Cursor);
+        return new PendingBatch(items, newest.Count, items.Count - newest.Count, sweepFrom, nextCursor);
+    }
+
+    /// <summary>Moves the cursor past a batch whose cycle ran to the end.</summary>
+    /// <remarks>
+    /// Ignored if the cursor has moved since the batch was read, so a stale batch can never
+    /// rewind or skip the sweep.
+    /// </remarks>
+    public void Commit(PendingBatch batch)
+    {
+        if (batch.SweepFrom == Cursor)
+        {
+            Cursor = batch.NextCursor;
+        }
     }
 }
