@@ -349,6 +349,17 @@ Set-MachineVar 'ReportArchiveSync__DryRun'           $EffectiveDryRun
 Set-MachineVar 'AWS_ACCESS_KEY_ID'                   $AwsAccessKeyId -Secret
 Set-MachineVar 'AWS_SECRET_ACCESS_KEY'               $AwsSecretAccessKey -Secret
 
+# The Event Log is the only log a service has here. Two defaults hide everything a healthy cycle
+# says (seen on priority-test, 24/11/2026): the EventLog provider keeps only Warning and above, and
+# its source (the assembly name) can only be registered by an administrator, which the service
+# account is not. Register it now and let Information through.
+$EventSource = 'Maba.VCT.ReportArchiveSync'
+if (-not [Diagnostics.EventLog]::SourceExists($EventSource)) {
+    New-EventLog -LogName Application -Source $EventSource
+    Write-Host "  event source $EventSource registered" -ForegroundColor Gray
+}
+Set-MachineVar 'Logging__EventLog__LogLevel__Default' 'Information'
+
 if (-not [Environment]::GetEnvironmentVariable('ReportArchiveSync__ConnectionString', 'Machine')) {
     Write-Host 'WARNING: no connection string - the worker cannot find anything to sync.' -ForegroundColor Yellow
 }
@@ -464,7 +475,7 @@ Write-Host "  dry run : $EffectiveDryRun" -ForegroundColor $(if ($EffectiveDryRu
 # The worker has no HTTP endpoint, so "is it running" is not the same as "is it working".
 Write-Host ''
 Write-Host 'It syncs on a one-hour cycle. To confirm the first cycle actually did something:' -ForegroundColor Cyan
-Write-Host '  Get-EventLog -LogName Application -Source .NET* -Newest 20' -ForegroundColor Gray
+Write-Host "  Get-EventLog -LogName Application -Source $EventSource -Newest 30 | ft TimeGenerated, EntryType, Message -Wrap" -ForegroundColor Gray
 Write-Host '  ...or query the index directly:' -ForegroundColor Gray
 Write-Host '  SELECT COUNT(*) FROM dbo.CalibrationReportFile WHERE IsDeleted = 0;' -ForegroundColor Gray
 if ($EffectiveAttachmentShare) {
