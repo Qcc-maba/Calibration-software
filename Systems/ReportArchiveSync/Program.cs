@@ -46,6 +46,11 @@ builder.Services
                    || options.InvoiceRoot.StartsWith(@"\\", StringComparison.Ordinal),
         @"ReportArchiveSync:InvoiceRoot must be a UNC path (\\server\share), not a drive letter or a relative path.")
     .Validate(
+        // MBA-1054: the pending sweep pages by BatchSize and wraps on a short page; zero would
+        // make every page short and the sweep would never move.
+        options => options.BatchSize > 0,
+        "ReportArchiveSync:BatchSize must be positive.")
+    .Validate(
         options => options.InvoiceBatchSize > 0 && options.InvoiceRetryAfterDays > 0,
         "ReportArchiveSync:InvoiceBatchSize and InvoiceRetryAfterDays must be positive.")
     .Validate(

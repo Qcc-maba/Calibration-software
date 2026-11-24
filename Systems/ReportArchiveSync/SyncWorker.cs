@@ -31,6 +31,9 @@ public sealed class SyncWorker(
 {
     private readonly ReportArchiveSyncOptions _options = options.Value;
 
+    // In memory on purpose (MBA-1054): after a restart the sweep starts again at the top.
+    private readonly PendingSweep _sweep = new(options.Value.BatchSize);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation(
@@ -99,10 +102,14 @@ public sealed class SyncWorker(
 
     private async Task RunCycleAsync(CancellationToken cancellationToken)
     {
-        var pending = await repository.GetPendingAsync(cancellationToken);
+        // Newest page plus the next page of the sweep (MBA-1054). NoFile and BadNumber items stay
+        // pending, so a plain "newest N" would pick the same items every cycle.
+        var batch = await _sweep.NextAsync(repository.GetPendingAsync, cancellationToken);
+        var pending = batch.Items;
 
         if (pending.Count == 0)
         {
+            _sweep.Commit(batch);
             logger.LogInformation("Nothing pending");
             return;
         }
@@ -112,111 +119,135 @@ public sealed class SyncWorker(
         var notInArchive = 0;
         var registered = 0;
         var uploaded = 0;
+        var failed = 0;
 
         foreach (var item in pending)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!ReportNumber.TryParse(item.MbaReportNumber, out var number))
+            // One item failing - a path the share refuses, an object S3 will not take, a database
+            // restart mid-upsert - must not end the cycle (review of PR #71). Otherwise an item in
+            // the newest page that always throws would stop every cycle before the sweep page.
+            try
             {
-                // Real values on PROD include "123" and "\1". Log and move on — attaching a
-                // guessed file would be worse than showing no report.
-                unresolvedNumber++;
-                logger.LogWarning(
-                    "Item {ItemId} has an unparseable report number {Number}; skipped",
-                    item.OrderDetailsItemId, item.MbaReportNumber);
-                continue;
-            }
-
-            var candidates = locator.FindCurrent(number.Value);
-
-            if (candidates.Count == 0)
-            {
-                // Usually a report from the last few weeks that has not been filed yet.
-                notInArchive++;
-                logger.LogInformation(
-                    "Item {ItemId} report {Number} has no file in the archive yet",
-                    item.OrderDetailsItemId, item.MbaReportNumber);
-                continue;
-            }
-
-            resolved++;
-
-            for (var index = 0; index < candidates.Count; index++)
-            {
-                var candidate = candidates[index];
-
-                // The first variant is the device's main report and takes the canonical
-                // report.pdf name, which is the only name today's UI looks for. Later variants —
-                // the rare a/b/c domain splits — go beside it and surface once the UI reads
-                // dbo.CalibrationReportFile instead of listing S3.
-                var isPrimary = index == 0;
-                var storageKey = ReportStorageKey.For(
-                    item.OrderNumber, item.OrderDetailsItemId, candidate.Name, isPrimary);
-
-                if (string.IsNullOrWhiteSpace(item.OrderNumber))
+                if (!ReportNumber.TryParse(item.MbaReportNumber, out var number))
                 {
-                    // The key is built from the order number; without it the object would land
-                    // somewhere the app never looks.
+                    // Real values on PROD include "123" and "\1". Log and move on — attaching a
+                    // guessed file would be worse than showing no report.
+                    unresolvedNumber++;
                     logger.LogWarning(
-                        "Item {ItemId} has no order number; cannot place its report", item.OrderDetailsItemId);
+                        "Item {ItemId} has an unparseable report number {Number}; skipped",
+                        item.OrderDetailsItemId, item.MbaReportNumber);
                     continue;
                 }
 
-                if (_options.DryRun)
+                var candidates = locator.FindCurrent(number.Value);
+
+                if (candidates.Count == 0)
                 {
+                    // Usually a report from the last few weeks that has not been filed yet.
+                    notInArchive++;
                     logger.LogInformation(
-                        "[dry run] item {ItemId} -> {File} (variant '{Variant}' u{Update}, covers {From}-{To}) => {Key}",
-                        item.OrderDetailsItemId, candidate.Name.FileName, candidate.Name.Variant,
-                        candidate.Name.UpdateLevel, candidate.Name.CoversFrom, candidate.Name.CoversTo,
-                        storageKey);
+                        "Item {ItemId} report {Number} has no file in the archive yet",
+                        item.OrderDetailsItemId, item.MbaReportNumber);
                     continue;
                 }
 
-                var upload = await blobStore.MirrorAsync(
-                    candidate.FullPath,
-                    storageKey,
-                    cancellationToken,
-                    // Only the canonical key can already hold a report the calibrator produced and
-                    // signed in the app. That one wins over anything in the archive.
-                    protectForeignObject: isPrimary && !candidate.Name.IsConsolidated);
+                resolved++;
 
-                if (upload.Skipped)
+                for (var index = 0; index < candidates.Count; index++)
                 {
-                    logger.LogInformation(
-                        "Item {ItemId} already has an app-generated report at {Key}; archive copy not applied",
-                        item.OrderDetailsItemId, storageKey);
-                    continue;
+                    var candidate = candidates[index];
+
+                    // The first variant is the device's main report and takes the canonical
+                    // report.pdf name, which is the only name today's UI looks for. Later variants —
+                    // the rare a/b/c domain splits — go beside it and surface once the UI reads
+                    // dbo.CalibrationReportFile instead of listing S3.
+                    var isPrimary = index == 0;
+                    var storageKey = ReportStorageKey.For(
+                        item.OrderNumber, item.OrderDetailsItemId, candidate.Name, isPrimary);
+
+                    if (string.IsNullOrWhiteSpace(item.OrderNumber))
+                    {
+                        // The key is built from the order number; without it the object would land
+                        // somewhere the app never looks.
+                        logger.LogWarning(
+                            "Item {ItemId} has no order number; cannot place its report", item.OrderDetailsItemId);
+                        continue;
+                    }
+
+                    if (_options.DryRun)
+                    {
+                        logger.LogInformation(
+                            "[dry run] item {ItemId} -> {File} (variant '{Variant}' u{Update}, covers {From}-{To}) => {Key}",
+                            item.OrderDetailsItemId, candidate.Name.FileName, candidate.Name.Variant,
+                            candidate.Name.UpdateLevel, candidate.Name.CoversFrom, candidate.Name.CoversTo,
+                            storageKey);
+                        continue;
+                    }
+
+                    var upload = await blobStore.MirrorAsync(
+                        candidate.FullPath,
+                        storageKey,
+                        cancellationToken,
+                        // Only the canonical key can already hold a report the calibrator produced and
+                        // signed in the app. That one wins over anything in the archive.
+                        protectForeignObject: isPrimary && !candidate.Name.IsConsolidated);
+
+                    if (upload.Skipped)
+                    {
+                        logger.LogInformation(
+                            "Item {ItemId} already has an app-generated report at {Key}; archive copy not applied",
+                            item.OrderDetailsItemId, storageKey);
+                        continue;
+                    }
+
+                    if (upload.Uploaded)
+                    {
+                        uploaded++;
+                    }
+
+                    // Registered only after the blob is in place. The reverse order would let the UI
+                    // show an icon that opens nothing.
+                    await repository.UpsertAsync(
+                        item.OrderDetailsItemId,
+                        item.MbaReportNumber,
+                        storageKey,
+                        candidate.Name.Variant,
+                        candidate.Name.UpdateLevel,
+                        candidate.Name.CoversFrom,
+                        candidate.Name.CoversTo,
+                        candidate.FullPath,
+                        upload.Sha256,
+                        upload.Length,
+                        candidate.LastWriteTimeUtc,
+                        cancellationToken);
+
+                    registered++;
                 }
-
-                if (upload.Uploaded)
-                {
-                    uploaded++;
-                }
-
-                // Registered only after the blob is in place. The reverse order would let the UI
-                // show an icon that opens nothing.
-                await repository.UpsertAsync(
-                    item.OrderDetailsItemId,
-                    item.MbaReportNumber,
-                    storageKey,
-                    candidate.Name.Variant,
-                    candidate.Name.UpdateLevel,
-                    candidate.Name.CoversFrom,
-                    candidate.Name.CoversTo,
-                    candidate.FullPath,
-                    upload.Sha256,
-                    upload.Length,
-                    candidate.LastWriteTimeUtc,
-                    cancellationToken);
-
-                registered++;
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Still pending, so it is examined again: next cycle if it is in the newest page,
+                // otherwise on the next sweep.
+                failed++;
+                logger.LogError(ex, "Item {ItemId} report {Number} failed; skipped this cycle",
+                    item.OrderDetailsItemId, item.MbaReportNumber);
             }
         }
 
+        // Only now does the sweep move on. A cycle that threw before this line (the pending query,
+        // cancellation) reads the same sweep page again next time. Items that failed one by one
+        // are not a reason to hold it: they are logged above and come round again.
+        _sweep.Commit(batch);
+
         logger.LogInformation(
-            "Cycle done. Examined={Examined} Resolved={Resolved} NoFile={NoFile} BadNumber={BadNumber} "
-            + "Uploaded={Uploaded} Registered={Registered}",
-            pending.Count, resolved, notInArchive, unresolvedNumber, uploaded, registered);
+            "Cycle done. Examined={Examined} (newest {Newest} + sweep {Sweep} below {SweepFrom}, ids {MaxId}-{MinId}) "
+            + "Resolved={Resolved} NoFile={NoFile} BadNumber={BadNumber} Uploaded={Uploaded} Registered={Registered} "
+            + "Failed={Failed} NextSweep={NextSweep}",
+            pending.Count, batch.NewestCount, batch.SweepCount, batch.SweepFrom?.ToString() ?? "top",
+            pending.Max(item => item.OrderDetailsItemId), pending.Min(item => item.OrderDetailsItemId),
+            resolved, notInArchive, unresolvedNumber, uploaded, registered, failed,
+            batch.NextCursor is { } next ? $"below {next}" : "top");
     }
 }
