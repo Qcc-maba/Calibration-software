@@ -109,6 +109,12 @@
     so they never appear in the command line or the PowerShell history. Leave a prompt empty to
     keep the machine's current value.
 
+.PARAMETER SkipPublish
+    Use the binaries already in Systems\ReportArchiveSync\publish instead of running dotnet
+    publish. For a server without the .NET SDK: build the package on a workstation with
+    scripts\New-ReportArchiveSyncPackage.ps1, copy and unzip it there, and run this script from
+    the package's scripts folder. On an upgrade, stop the service before unzipping over it.
+
 .EXAMPLE
     # First install: observe only. Prompts for the account password and the secrets.
     .\Install-ReportArchiveSync-Service.ps1 -LogOnAccount MABA\svc-reportsync -PromptForSecrets -BucketName calibrationsoftware-stage -ArchiveRoot ...
@@ -121,6 +127,7 @@ param(
     [string] $LogOnAccount,
     [System.Security.SecureString] $LogOnPassword,
     [switch] $PromptForSecrets,
+    [switch] $SkipPublish,
     [string] $ConnectionString,
     [string] $BucketName,
     [string] $AwsAccessKeyId,
@@ -151,7 +158,7 @@ $BinaryPath = Join-Path $PublishDir 'Maba.VCT.ReportArchiveSync.exe'
 
 Write-Host '=== Maba Report Archive Sync - Service Installer ===' -ForegroundColor Cyan
 
-if (-not (Test-Path $Project)) { Write-Error "Project not found at $Project"; exit 1 }
+if (-not $SkipPublish -and -not (Test-Path $Project)) { Write-Error "Project not found at $Project"; exit 1 }
 
 # -- Secrets and the account, settled before anything on the machine changes ----------------------
 function ConvertFrom-SecureText([System.Security.SecureString] $Secure) {
@@ -272,9 +279,15 @@ Get-Process -Name 'Maba.VCT.ReportArchiveSync' -ErrorAction SilentlyContinue | F
     Stop-Process -Id $_.Id -Force
 }
 
-Write-Host "Publishing to $PublishDir ..." -ForegroundColor Yellow
-dotnet publish $Project -c Release -o $PublishDir --nologo | Out-Null
-if ($LASTEXITCODE -ne 0) { Write-Error "dotnet publish failed (exit $LASTEXITCODE)"; exit 1 }
+if ($SkipPublish) {
+    # A package built elsewhere (scripts\New-ReportArchiveSyncPackage.ps1): self-contained, so this
+    # machine needs neither the .NET SDK nor the runtime.
+    Write-Host "Using the pre-built binaries in $PublishDir" -ForegroundColor Yellow
+} else {
+    Write-Host "Publishing to $PublishDir ..." -ForegroundColor Yellow
+    dotnet publish $Project -c Release -o $PublishDir --nologo | Out-Null
+    if ($LASTEXITCODE -ne 0) { Write-Error "dotnet publish failed (exit $LASTEXITCODE)"; exit 1 }
+}
 if (-not (Test-Path $BinaryPath)) { Write-Error "Published executable not found at $BinaryPath"; exit 1 }
 
 # -- Chromium for the order attachments (MBA-930) -------------------------------------------------
