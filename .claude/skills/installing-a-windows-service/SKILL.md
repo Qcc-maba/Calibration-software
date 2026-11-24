@@ -62,10 +62,14 @@ Assistant's. A comment written during an outage records what someone believed at
 5. Start it, then read `/health` — not the service status. `Running` only means the process did not
    exit.
 
-The reference implementation that did all five, reading its connection string from the app's env
-file rather than the command line, was `scripts/Install-OrderAttachments-Service.ps1`. It was retired
-with that service on 23/11/2026 (MBA-930; the conversion now runs inside `ReportArchiveSync`); read it
-with `git show 6dc24e6:scripts/Install-OrderAttachments-Service.ps1`.
+The reference implementation is `scripts/Install-ReportArchiveSync-Service.ps1` (since 24/11/2026,
+MBA-930). It prompts for the password as a SecureString and validates it against the domain first,
+then grants the right with `secedit` and creates the service with `New-Service -Credential`.
+`-PromptForSecrets` keeps the connection string and keys out of the history. A re-run without
+`-LogOnAccount` keeps the existing registration instead of recreating it as LocalSystem. Until
+24/11 it still used `sc.exe password=` and granted nothing, which would have hit both 1639 and 1069.
+The retired `Install-OrderAttachments-Service.ps1` did the same and is in
+`git show 6dc24e6:scripts/Install-OrderAttachments-Service.ps1`.
 
 ## A health endpoint reports what it can reach, not that it started
 
