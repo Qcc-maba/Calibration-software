@@ -42,6 +42,10 @@ dotnet publish $Project -c Release -r win-x64 --self-contained true -o $publish 
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed (exit $LASTEXITCODE)" }
 if (-not (Test-Path (Join-Path $publish 'Maba.VCT.ReportArchiveSync.exe'))) { throw 'published executable missing' }
 if (-not (Test-Path (Join-Path $publish '.playwright\package\cli.js'))) { throw "Playwright's driver is missing from the publish output" }
+# The installer runs cli.js with this node.exe to fetch Chromium on the server.
+if (-not (Get-ChildItem (Join-Path $publish '.playwright\node') -Recurse -Filter node.exe -ErrorAction SilentlyContinue)) {
+    throw "Playwright's node.exe is missing from the publish output"
+}
 
 New-Item -ItemType Directory -Path (Join-Path $stage 'scripts') | Out-Null
 Copy-Item (Join-Path $PSScriptRoot 'Install-ReportArchiveSync-Service.ps1') (Join-Path $stage 'scripts')

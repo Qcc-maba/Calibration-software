@@ -279,6 +279,13 @@ Get-Process -Name 'Maba.VCT.ReportArchiveSync' -ErrorAction SilentlyContinue | F
     Stop-Process -Id $_.Id -Force
 }
 
+# Who the service will run as: the account given now, or, on a re-run that keeps the registration,
+# the one it already has. Every grant below goes to this account.
+$existing = if ($svc) { Get-CimInstance Win32_Service -Filter "Name='$ServiceName'" }
+$ServiceAccount = if ($LogOnAccount) { $LogOnAccount }
+    elseif ($existing -and $existing.StartName -and $existing.StartName -ne 'LocalSystem') { $existing.StartName }
+    else { $null }
+
 if ($SkipPublish) {
     # A package built elsewhere (scripts\New-ReportArchiveSyncPackage.ps1): self-contained, so this
     # machine needs neither the .NET SDK nor the runtime.
@@ -312,8 +319,8 @@ if ($EffectiveAttachmentShare) {
         Write-Host "ERROR: no Chromium under $BrowsersPath after the install - mail bodies cannot be rendered." -ForegroundColor Red
         exit 1
     }
-    if ($LogOnAccount) {
-        icacls $BrowsersPath /grant "${LogOnAccount}:(OI)(CI)RX" /T /Q | Out-Null
+    if ($ServiceAccount) {
+        icacls $BrowsersPath /grant "${ServiceAccount}:(OI)(CI)RX" /T /Q | Out-Null
     }
 }
 
@@ -349,16 +356,20 @@ Set-MachineVar 'ReportArchiveSync__DryRun'           $EffectiveDryRun
 Set-MachineVar 'AWS_ACCESS_KEY_ID'                   $AwsAccessKeyId -Secret
 Set-MachineVar 'AWS_SECRET_ACCESS_KEY'               $AwsSecretAccessKey -Secret
 
-# The Event Log is the only log a service has here. Two defaults hide everything a healthy cycle
-# says (seen on priority-test, 24/11/2026): the EventLog provider keeps only Warning and above, and
-# its source (the assembly name) can only be registered by an administrator, which the service
-# account is not. Register it now and let Information through.
+# The Event Log is the only log a service has here, and its source (the assembly name) can only be
+# registered by an administrator, which the service account is not (seen on priority-test,
+# 24/11/2026). Register it now. The Information level is set in the service's own appsettings.json:
+# a machine-wide Logging__ variable would raise the level of every .NET service on the box.
 $EventSource = 'Maba.VCT.ReportArchiveSync'
 if (-not [Diagnostics.EventLog]::SourceExists($EventSource)) {
     New-EventLog -LogName Application -Source $EventSource
     Write-Host "  event source $EventSource registered" -ForegroundColor Gray
 }
-Set-MachineVar 'Logging__EventLog__LogLevel__Default' 'Information'
+if ([Environment]::GetEnvironmentVariable('Logging__EventLog__LogLevel__Default', 'Machine')) {
+    # Left by an earlier version of this script; it reached every .NET service on the machine.
+    [Environment]::SetEnvironmentVariable('Logging__EventLog__LogLevel__Default', $null, 'Machine')
+    Write-Host '  Logging__EventLog__LogLevel__Default removed (now set in appsettings.json)' -ForegroundColor Gray
+}
 
 if (-not [Environment]::GetEnvironmentVariable('ReportArchiveSync__ConnectionString', 'Machine')) {
     Write-Host 'WARNING: no connection string - the worker cannot find anything to sync.' -ForegroundColor Yellow
@@ -370,6 +381,14 @@ if ($EffectiveDryRun -eq 'false' -and -not [Environment]::GetEnvironmentVariable
 # A domain account cannot run a service without "Log on as a service". Without it the service is
 # created happily and then refuses to start with 1069, which reads like a password problem and is
 # not one. There is no cmdlet for this; secedit is the supported route.
+# '*S-1-5-...' or 'S-1-5-...' -> the SID; 'DOMAIN\user' -> its SID; unresolvable -> as given.
+function ConvertTo-Sid([string] $Entry) {
+    $bare = $Entry.TrimStart('*')
+    if ($bare -match '^S-1-') { return $bare }
+    try { (New-Object System.Security.Principal.NTAccount($bare)).Translate([System.Security.Principal.SecurityIdentifier]).Value }
+    catch { $bare }
+}
+
 function Grant-LogonAsService {
     param([string] $Account)
 
@@ -379,37 +398,75 @@ function Grant-LogonAsService {
     $export = Join-Path $env:TEMP 'maba-rights-export.inf'
     $import = Join-Path $env:TEMP 'maba-rights-import.inf'
     $sdb    = Join-Path $env:TEMP 'maba-rights.sdb'
-    secedit /export /cfg $export /areas USER_RIGHTS | Out-Null
-
-    $line    = Get-Content $export | Where-Object { $_ -like 'SeServiceLogonRight*' }
-    $current = if ($line) { ($line -split '=', 2)[1].Trim() } else { '' }
-
-    if (($current -split ',' | ForEach-Object { $_.Trim() }) -contains "*$sid") {
-        Write-Host '  log on as a service: already granted' -ForegroundColor Gray
-    } else {
-        $updated = if ($current) { "$current,*$sid" } else { "*$sid" }
-        @(
-            '[Unicode]'
-            'Unicode=yes'
-            '[Version]'
-            'signature="$CHICAGO$"'
-            'Revision=1'
-            '[Privilege Rights]'
-            "SeServiceLogonRight = $updated"
-        ) | Set-Content $import -Encoding Unicode
-        secedit /configure /db $sdb /cfg $import /areas USER_RIGHTS | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "secedit could not grant Log on as a service (exit $LASTEXITCODE)" }
-        Write-Host "  log on as a service: granted to $Account" -ForegroundColor Gray
-    }
+    # A stale .sdb from an aborted run would be merged into by /configure /db.
     Remove-Item $export, $import, $sdb -ErrorAction SilentlyContinue
+    try {
+        secedit /export /cfg $export /areas USER_RIGHTS | Out-Null
+
+        $line    = Get-Content $export | Where-Object { $_ -like 'SeServiceLogonRight*' }
+        $current = if ($line) { ($line -split '=', 2)[1].Trim() } else { '' }
+
+        # Entries are usually *S-1-..., but secedit lists an account it cannot resolve to a SID by
+        # name; compare SIDs either way.
+        $grantedSids = $current -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ } |
+                       ForEach-Object { ConvertTo-Sid $_ }
+
+        if ($grantedSids -contains $sid) {
+            Write-Host '  log on as a service: already granted' -ForegroundColor Gray
+        } else {
+            $updated = if ($current) { "$current,*$sid" } else { "*$sid" }
+            @(
+                '[Unicode]'
+                'Unicode=yes'
+                '[Version]'
+                'signature="$CHICAGO$"'
+                'Revision=1'
+                '[Privilege Rights]'
+                "SeServiceLogonRight = $updated"
+            ) | Set-Content $import -Encoding Unicode
+            secedit /configure /db $sdb /cfg $import /areas USER_RIGHTS | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "secedit could not grant Log on as a service (exit $LASTEXITCODE)" }
+            Write-Host "  log on as a service: granted to $Account" -ForegroundColor Gray
+        }
+    } finally {
+        Remove-Item $export, $import, $sdb -ErrorAction SilentlyContinue
+    }
+
+    # secedit writes LOCAL policy. When a domain GPO defines this right, the next policy refresh
+    # (about 90 minutes) replaces the local list, and the service fails with 1069 on its next start.
+    # Only IT can fix that, in the GPO.
+    $fromGpo = $null
+    try {
+        $fromGpo = Get-CimInstance -Namespace 'root\rsop\computer' -ClassName RSOP_UserPrivilegeRight `
+                       -Filter "UserRight='SeServiceLogonRight' AND precedence=1" -ErrorAction Stop
+    } catch { }
+    if ($fromGpo) {
+        $gpoSids = @($fromGpo.AccountList | ForEach-Object { ConvertTo-Sid $_ })
+        if ($gpoSids -notcontains $sid) {
+            Write-Host 'WARNING: "Log on as a service" is set by a domain Group Policy that does not list' -ForegroundColor Yellow
+            Write-Host "         $Account. The local grant works until the next policy refresh (about" -ForegroundColor Yellow
+            Write-Host '         90 minutes); after that the service fails to start with 1069. Ask IT to' -ForegroundColor Yellow
+            Write-Host '         add the account to that GPO (docs\IT-REQUEST-service-account.md).' -ForegroundColor Yellow
+        }
+    }
 }
 
 if ($svc -and -not $Credential) {
     # A re-run without -LogOnAccount (e.g. only to turn DryRun off) used to delete the service and
-    # recreate it as LocalSystem, which cannot read the share. Keep the registration: the binary
-    # path has not changed, only its contents.
-    $runsAs = (Get-CimInstance Win32_Service -Filter "Name='$ServiceName'").StartName
-    Write-Host "Keeping the existing service registration (runs as $runsAs)." -ForegroundColor Yellow
+    # recreate it as LocalSystem, which cannot read the share. Keep the account, but point the
+    # service at these binaries: they may have moved (a git clone before, an unzipped package now).
+    Write-Host "Keeping the existing service registration (runs as $($existing.StartName))." -ForegroundColor Yellow
+    $wantedPath = "`"$BinaryPath`""
+    if ($existing.PathName -ne $wantedPath) {
+        # Win32_Service.Change, not sc.exe binPath=: Windows PowerShell mangles the embedded quotes
+        # on a native command line.
+        $result = Invoke-CimMethod -InputObject $existing -MethodName Change -Arguments @{ PathName = $wantedPath }
+        if ($result.ReturnValue -ne 0) { Write-Error "Could not change the binary path (Win32_Service.Change returned $($result.ReturnValue))"; exit 1 }
+        Write-Host "  binary path changed: $($existing.PathName) -> $wantedPath" -ForegroundColor Gray
+    }
+    if ($ServiceAccount) {
+        icacls $PublishDir /grant "${ServiceAccount}:(OI)(CI)RX" /T /Q | Out-Null
+    }
 } else {
     if ($svc) {
         Write-Host 'Removing existing service registration...' -ForegroundColor Yellow
