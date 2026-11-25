@@ -1,3 +1,9 @@
+/* QUOTED_IDENTIFIER / ANSI_NULLS ON, whatever client deploys this (sqlcmd defaults QUOTED_IDENTIFIER
+   to OFF): the filtered unique index on dbo.CalibrationCycleMarkers needs them, and so does every
+   procedure that writes the table, which keeps the settings it was created with. */
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
 /*
     dbo.CalibrationCycleMarkers                                                            MBA-983
     ---------------------------------------------------------------------------------------------
@@ -21,7 +27,8 @@
         Stabilization  2 lines  results from line 1 to line 2, plus PeakMode:
                                 Overshoot = the highest reading, Undershoot = the lowest
         DoorOpening    3 lines  1 = event starts, 2 = event ends, 3 = chamber stable again;
-        PowerFailure   3 lines  results from line 2 to line 3 (the recovery)
+                                results from line 2 to line 3 (the recovery)
+        PowerFailure   3 lines  the same lines as DoorOpening; results from line 2 to line 3
         General        1 or 2   a visual mark only, no results
     The lines of a marker are strictly in time order. Across markers, the Stabilization end may be
     at the Calibration start but not after it; that rule needs two rows, so

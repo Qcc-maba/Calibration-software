@@ -1,3 +1,9 @@
+/* QUOTED_IDENTIFIER / ANSI_NULLS ON, whatever client deploys this (sqlcmd defaults QUOTED_IDENTIFIER
+   to OFF): the filtered unique index on dbo.CalibrationCycleMarkers needs them, and so does every
+   procedure that writes the table, which keeps the settings it was created with. */
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
 /*
     dbo.MoveCalibrationCycleMarkers                                                        MBA-983
     ---------------------------------------------------------------------------------------------

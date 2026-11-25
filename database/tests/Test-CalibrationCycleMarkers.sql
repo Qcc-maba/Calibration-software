@@ -219,7 +219,23 @@ INSERT @Cases (Test, Markers, Expected) VALUES
  (N'stabilization ends after the calibration starts',
   N'[{"Type":"Stabilization","Time1":"2026-11-20T09:50:00","Time2":"2026-11-20T10:00:01"},
      {"Type":"Calibration","Time1":"2026-11-20T10:00:00","Time2":"2026-11-20T10:30:00"}]',
-  N'The Stabilization marker must end at or before the Calibration marker starts.');
+  N'The Stabilization marker must end at or before the Calibration marker starts.'),
+ (N'a time in UTC (Z)', N'[{"Type":"General","Time1":"2026-11-20T08:00:00.000Z"}]',
+  N'Times are the station''s wall-clock time: send them without a time zone (no Z or +hh:mm).'),
+ (N'a time with an offset', N'[{"Type":"Calibration","Time1":"2026-11-20T10:00:00","Time2":"2026-11-20T10:30:00+02:00"}]',
+  N'Times are the station''s wall-clock time: send them without a time zone (no Z or +hh:mm).'),
+ (N'a time that is not a date', N'[{"Type":"General","Time1":"10:00"}]',
+  N'A time is not a valid date and time: send yyyy-mm-ddThh:mi:ss.mmm.'),
+ (N'a month 13', N'[{"Type":"General","Time1":"2026-13-01T10:00:00"}]',
+  N'A time is not a valid date and time: send yyyy-mm-ddThh:mi:ss.mmm.'),
+ (N'a result that is not a number',
+  N'[{"Type":"Calibration","Time1":"2026-11-20T10:00:00","Time2":"2026-11-20T10:30:00","Min":"n/a"}]',
+  N'Min, Max, Average and Secondary* must be numbers.'),
+ (N'accepted: an array after a newline and a tab',
+  NCHAR(13) + NCHAR(10) + NCHAR(9) + N'[{"Type":"General","Time1":"2026-11-20T10:00:00"}]', N'(no error)'),
+ (N'accepted: a result in exponent notation',
+  N'[{"Type":"Calibration","Time1":"2026-11-20T10:00:00","Time2":"2026-11-20T10:30:00","Min":2e1,"Max":2.1E1}]',
+  N'(no error)');
 
 DECLARE @I INT = 1, @Max INT = (SELECT MAX(Seq) FROM @Cases), @Case NVARCHAR(MAX), @Exp NVARCHAR(200);
 WHILE @I <= @Max

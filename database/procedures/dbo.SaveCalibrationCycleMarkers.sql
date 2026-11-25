@@ -1,3 +1,9 @@
+/* QUOTED_IDENTIFIER / ANSI_NULLS ON, whatever client deploys this (sqlcmd defaults QUOTED_IDENTIFIER
+   to OFF): the filtered unique index on dbo.CalibrationCycleMarkers needs them, and so does every
+   procedure that writes the table, which keeps the settings it was created with. */
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
 /*
     dbo.SaveCalibrationCycleMarkers                                                        MBA-983
     ---------------------------------------------------------------------------------------------
@@ -15,7 +21,9 @@
          "Min": 19.8, "Max": 20.4, "Average": 20.1,
          "SecondaryMin": null, "SecondaryMax": null, "SecondaryAverage": null}
         Type      Calibration | Stabilization | DoorOpening | PowerFailure | General
-        Time1-3   the lines, wall-clock time like the cycle's start; as many as the type has
+        Time1-3   the lines, wall-clock time like the cycle's start, as yyyy-mm-ddThh:mi:ss[.mmm]
+                  with no time zone (a Z or +hh:mm is refused: converting would drop it
+                  silently); as many as the type has
                   (Calibration, Stabilization 2; DoorOpening, PowerFailure 3; General 1 or 2)
         PeakMode  Overshoot | Undershoot, Stabilization only; null = not chosen yet
         Min, Max, Average (+ Secondary* for the RH value of a Temperature + RH cycle)
@@ -30,7 +38,8 @@
         - the type's number of lines, strictly in time order;
         - the Stabilization end may be at the Calibration start but not after it;
         - PeakMode only on Stabilization; no results on General; Min <= Max.
-    Also refused: an unknown user, a cycle that does not exist or is deleted, malformed JSON.
+    Also refused: an unknown user, a cycle that does not exist or is deleted, malformed JSON, a time
+    or a result that does not convert.
 
     The report lock (dbo.SetCalibrationRemarksLock) is not checked, as it is not for the cycle's
     point values: the graph screen saves both the same way.
@@ -67,7 +76,7 @@ BEGIN
         THROW 51000, 'Unknown user.', 1;
     IF @CalibrationCycleStartDate IS NULL
         THROW 51000, 'CalibrationCycleStartDate is needed.', 1;
-    IF @Markers IS NULL OR ISJSON(@Markers) = 0 OR LEFT(LTRIM(@Markers), 1) <> N'['
+    IF @Markers IS NULL OR ISJSON(@Markers) = 0 OR LEFT(LTRIM(REPLACE(REPLACE(REPLACE(@Markers, NCHAR(13), N' '), NCHAR(10), N' '), NCHAR(9), N' ')), 1) <> N'['
         THROW 51000, 'Markers must be a JSON array.', 1;
     IF EXISTS (SELECT 1 FROM OPENJSON(@Markers) AS e WHERE e.[type] <> 5)
         THROW 51000, 'Every marker must be a JSON object.', 1;
@@ -80,26 +89,59 @@ BEGIN
         THROW 51000, 'Unknown key in a marker: only Type, Time1-3, PeakMode, Min, Max, Average and Secondary* are read.', 1;
 
     /* ---- the set as sent ------------------------------------------------------------------- */
-    DROP TABLE IF EXISTS #New;
-    SELECT MarkerType            = NULLIF(LTRIM(RTRIM(j.MarkerType)), N'') COLLATE DATABASE_DEFAULT,
-           j.Time1, j.Time2, j.Time3,
-           PeakMode              = NULLIF(LTRIM(RTRIM(j.PeakMode)), N'') COLLATE DATABASE_DEFAULT,
-           j.MinValue, j.MaxValue, j.AverageValue,
-           j.SecondaryMinValue, j.SecondaryMaxValue, j.SecondaryAverageValue
-    INTO #New
+    /* Read as text, then converted here: a value that does not convert gets a refusal of its own
+       instead of a raw conversion error, and a time zone is refused instead of dropped. */
+    DROP TABLE IF EXISTS #Sent;
+    SELECT j.*
+    INTO #Sent
     FROM OPENJSON(@Markers) AS e
     CROSS APPLY OPENJSON(e.[value])
          WITH (MarkerType            NVARCHAR(20)  N'$.Type',
-               Time1                 DATETIME2(3)  N'$.Time1',
-               Time2                 DATETIME2(3)  N'$.Time2',
-               Time3                 DATETIME2(3)  N'$.Time3',
+               Time1                 NVARCHAR(100) N'$.Time1',
+               Time2                 NVARCHAR(100) N'$.Time2',
+               Time3                 NVARCHAR(100) N'$.Time3',
                PeakMode              NVARCHAR(10)  N'$.PeakMode',
-               MinValue              DECIMAL(18,6) N'$.Min',
-               MaxValue              DECIMAL(18,6) N'$.Max',
-               AverageValue          DECIMAL(18,6) N'$.Average',
-               SecondaryMinValue     DECIMAL(18,6) N'$.SecondaryMin',
-               SecondaryMaxValue     DECIMAL(18,6) N'$.SecondaryMax',
-               SecondaryAverageValue DECIMAL(18,6) N'$.SecondaryAverage') AS j;
+               MinValue              NVARCHAR(100) N'$.Min',
+               MaxValue              NVARCHAR(100) N'$.Max',
+               AverageValue          NVARCHAR(100) N'$.Average',
+               SecondaryMinValue     NVARCHAR(100) N'$.SecondaryMin',
+               SecondaryMaxValue     NVARCHAR(100) N'$.SecondaryMax',
+               SecondaryAverageValue NVARCHAR(100) N'$.SecondaryAverage') AS j;
+
+    IF EXISTS (SELECT 1 FROM #Sent AS s
+               CROSS APPLY (VALUES (RTRIM(s.Time1)), (RTRIM(s.Time2)), (RTRIM(s.Time3))) AS t(v)
+               WHERE t.v LIKE N'%[Zz]'
+                  OR t.v LIKE N'%[-+][0-9][0-9]:[0-9][0-9]'
+                  OR t.v LIKE N'%[-+][0-9][0-9][0-9][0-9]')
+        THROW 51000, 'Times are the station''s wall-clock time: send them without a time zone (no Z or +hh:mm).', 1;
+    IF EXISTS (SELECT 1 FROM #Sent AS s
+               CROSS APPLY (VALUES (s.Time1), (s.Time2), (s.Time3)) AS t(v)
+               WHERE t.v IS NOT NULL
+                 AND (t.v NOT LIKE N'[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]%'
+                      /* a time alone ("10:00") would convert to 1900-01-01 */
+                      OR TRY_CONVERT(DATETIME2(3), t.v, 126) IS NULL))
+        THROW 51000, 'A time is not a valid date and time: send yyyy-mm-ddThh:mi:ss.mmm.', 1;
+    IF EXISTS (SELECT 1 FROM #Sent AS s
+               CROSS APPLY (VALUES (s.MinValue), (s.MaxValue), (s.AverageValue),
+                                   (s.SecondaryMinValue), (s.SecondaryMaxValue), (s.SecondaryAverageValue)) AS n(v)
+               WHERE n.v IS NOT NULL
+                 AND COALESCE(TRY_CONVERT(DECIMAL(18,6), n.v), TRY_CONVERT(DECIMAL(18,6), TRY_CONVERT(FLOAT, n.v))) IS NULL)
+        THROW 51000, 'Min, Max, Average and Secondary* must be numbers.', 1;
+
+    DROP TABLE IF EXISTS #New;
+    SELECT MarkerType            = NULLIF(LTRIM(RTRIM(s.MarkerType)), N'') COLLATE DATABASE_DEFAULT,
+           Time1                 = TRY_CONVERT(DATETIME2(3), s.Time1, 126),
+           Time2                 = TRY_CONVERT(DATETIME2(3), s.Time2, 126),
+           Time3                 = TRY_CONVERT(DATETIME2(3), s.Time3, 126),
+           PeakMode              = NULLIF(LTRIM(RTRIM(s.PeakMode)), N'') COLLATE DATABASE_DEFAULT,
+           MinValue              = COALESCE(TRY_CONVERT(DECIMAL(18,6), s.MinValue), TRY_CONVERT(DECIMAL(18,6), TRY_CONVERT(FLOAT, s.MinValue))),
+           MaxValue              = COALESCE(TRY_CONVERT(DECIMAL(18,6), s.MaxValue), TRY_CONVERT(DECIMAL(18,6), TRY_CONVERT(FLOAT, s.MaxValue))),
+           AverageValue          = COALESCE(TRY_CONVERT(DECIMAL(18,6), s.AverageValue), TRY_CONVERT(DECIMAL(18,6), TRY_CONVERT(FLOAT, s.AverageValue))),
+           SecondaryMinValue     = COALESCE(TRY_CONVERT(DECIMAL(18,6), s.SecondaryMinValue), TRY_CONVERT(DECIMAL(18,6), TRY_CONVERT(FLOAT, s.SecondaryMinValue))),
+           SecondaryMaxValue     = COALESCE(TRY_CONVERT(DECIMAL(18,6), s.SecondaryMaxValue), TRY_CONVERT(DECIMAL(18,6), TRY_CONVERT(FLOAT, s.SecondaryMaxValue))),
+           SecondaryAverageValue = COALESCE(TRY_CONVERT(DECIMAL(18,6), s.SecondaryAverageValue), TRY_CONVERT(DECIMAL(18,6), TRY_CONVERT(FLOAT, s.SecondaryAverageValue)))
+    INTO #New
+    FROM #Sent AS s;
 
     /* compared in binary so that "calibration" is refused, not stored in another spelling */
     IF EXISTS (SELECT 1 FROM #New
