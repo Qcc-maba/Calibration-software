@@ -18,6 +18,23 @@
     Fixed by ignoring blank and non-numeric entries when building #Channels, and by treating an
     empty list as "I have nothing to say about the channels" rather than "remove them all".
     Deliberate removal has its own procedure, DeleteCalibratorSensorChannelAssignment.
+
+    MBA-1056 (2026-11-25): saving a sensor+logger pair that another calibrator already owned kept it
+    theirs. The take-over UPDATE ran only WHERE UpdateUserID IS NULL, and
+    dbo.GetLogersConfiguredByCalibrator shows a calibrator only their own and unowned relations - so
+    the logger vanished from page 2 of the user who had just configured it, and the save said 200.
+    Found on STAGE with 21-337 / 21-675 (devices 625 / 801), owned by user 14, saved by 2063.
+
+    Decision (MBA-1056): a logger has one owner and the last save wins. One person uses a logger at
+    a time, and its settings are stored once, on its MeasurementDevices row, which this procedure
+    already overwrote on every save. So the save now takes the WHOLE logger: every live relation
+    of it, not only this sensor's, so the previous owner's station stops picking up a COM port that
+    was just changed under it. Each previous owner gets a dbo.LoggerOwnershipTransfer row, which
+    page 2 shows them; the saver's own open rows for this logger are closed, since they have it back.
+
+    Also: errors now reach the caller. The CATCH used to SELECT ERROR_MESSAGE() and roll back, which
+    the app ignored, so a failed save reported success. And an e-mail that resolves to no user is
+    refused instead of saving a relation that belongs to nobody (and so shows to everybody).
 */
 CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentDevicesToCalibrator]
 @LoggedInUserEmail NVARCHAR(100),
@@ -33,14 +50,20 @@ CREATE OR ALTER PROCEDURE [dbo].[AssignMeasurmentDevicesToCalibrator]
 
 AS
 BEGIN
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
 
-DECLARE @LoggedInUserId INT 
+DECLARE @LoggedInUserId INT
 DECLARE @SourceId TINYINT
 
-SELECT 
- @LoggedInUserId  = d.UserId 
+SELECT
+ @LoggedInUserId  = d.UserId
 ,@SourceId = d.SourceId
 FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) as d
+
+/* MBA-1056: a NULL owner is "nobody's", which every calibrator sees. */
+IF @LoggedInUserId IS NULL
+THROW 51002, 'Incorrect @LoggedInUserEmail passed. No such user.', 1;
 
 if NOT EXISTS (
 SELECT 1 FROM dbo.MeasurementDevices as md
@@ -99,14 +122,42 @@ BEGIN TRY
 	                  AND [LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
 					  AND [IsDeleted] = 0)
 
-	/* an existing relation re-used by this calibrator becomes theirs to see */
+	/* MBA-1056: the last save takes the whole logger. First tell each previous owner... */
+	INSERT [dbo].[LoggerOwnershipTransfer]([LoggerMeasurementDeviceId],[FromUserId],[ToUserId])
+	SELECT DISTINCT @LoggerMeasurementDeviceId, srl.UpdateUserID, @LoggedInUserId
+	FROM [dbo].[SensorToLoggerRelation] AS srl
+	/* PR #72 review: an owner id with no Users row would fail the FK and with it the whole save,
+	   leaving the logger unsaveable. There is nobody to tell then, so no row. */
+	JOIN [dbo].[Users] AS u ON u.ID = srl.UpdateUserID
+	WHERE srl.[LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
+	  AND srl.[IsDeleted] = 0
+	  AND srl.UpdateUserID IS NOT NULL
+	  AND srl.UpdateUserID <> @LoggedInUserId
+
+	/* ...then take every live relation of the logger, not only this sensor's. */
 	UPDATE [dbo].[SensorToLoggerRelation]
 	SET UpdateUserID = @LoggedInUserId, UpdatedDate = GETDATE()
-	WHERE [SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
-	  AND [LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
+	WHERE [LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
 	  AND [IsDeleted] = 0
-	  AND UpdateUserID IS NULL
-	
+	  AND (UpdateUserID IS NULL OR UpdateUserID <> @LoggedInUserId)
+
+	/* The saver has this logger now: whatever told them it was taken from them is over. */
+	UPDATE [dbo].[LoggerOwnershipTransfer]
+	SET DismissedDate = SYSUTCDATETIME()
+	WHERE [FromUserId] = @LoggedInUserId
+	  AND [LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
+	  AND DismissedDate IS NULL
+
+	/* MBA-1056: never report success for a save the caller cannot see on page 2. The INSERT and
+	   UPDATE above make this true by construction, so today it cannot fire: it is a guard, so that a
+	   future change to either statement fails loudly instead of bringing the silent 200 back. */
+	IF NOT EXISTS (SELECT 1 FROM [dbo].[SensorToLoggerRelation]
+	               WHERE [SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
+	                 AND [LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
+	                 AND [IsDeleted] = 0
+	                 AND UpdateUserID = @LoggedInUserId)
+		THROW 51003, 'The sensor-logger relation was saved but is not owned by the caller.', 1;
+
 --Insert new data
 	INSERT [dbo].[ChannelsToSensorRelation]([SensorMeasurementDeviceId],[LoggerMeasurementDeviceId],[ChannelNumber])
 	SELECT @SensorMeasurementDeviceId,@LoggerMeasurementDeviceId, c.ChannelNumber
@@ -136,8 +187,10 @@ BEGIN TRY
 END TRY
 
 BEGIN CATCH
-	SELECT ERROR_MESSAGE() as error
-	ROLLBACK
-END CATCH 
+	/* MBA-1056: re-raise. SELECT ERROR_MESSAGE() returned a result set nobody read, so a failed save
+	   reached the app as success. */
+	IF @@TRANCOUNT > 0 ROLLBACK;
+	THROW;
+END CATCH
 END
 GO
