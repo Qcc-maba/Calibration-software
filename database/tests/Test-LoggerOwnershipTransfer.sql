@@ -15,7 +15,7 @@
     No address is printed; the output names cases, not people.
 
         @A, @B   two active users with a unique e-mail
-        @L       a live data logger with no live sensor relation, so the case starts clean
+        @L       a live data logger with no relation, channel or transfer row ever, so it starts clean
         @S1,@S2  two live sensors
 
     The scenario is the one found on STAGE on 25.11.2026: A configured the logger, B saves one of
@@ -59,10 +59,13 @@ SELECT TOP (1) @L = md.ID
 FROM dbo.MeasurementDevices AS md
 JOIN dbo.MeasurementDevicesMainClasses AS mc ON md.MainClassId = mc.Id
 WHERE mc.NameEnglish = 'Data logger' AND md.IsDeleted = 0
+  /* no history of any kind, deleted rows included: the cases count rows on this logger */
   AND NOT EXISTS (SELECT 1 FROM dbo.SensorToLoggerRelation AS r
-                  WHERE r.LoggerMeasurementDeviceId = md.ID AND r.IsDeleted = 0)
+                  WHERE r.LoggerMeasurementDeviceId = md.ID)
   AND NOT EXISTS (SELECT 1 FROM dbo.ChannelsToSensorRelation AS c
                   WHERE c.LoggerMeasurementDeviceId = md.ID)
+  AND NOT EXISTS (SELECT 1 FROM dbo.LoggerOwnershipTransfer AS t
+                  WHERE t.LoggerMeasurementDeviceId = md.ID)
 ORDER BY md.ID;
 
 DECLARE @Sensors TABLE (n INT IDENTITY, ID INT);
@@ -259,6 +262,67 @@ SELECT @RowsAfter4 = COUNT(*) FROM dbo.SensorToLoggerRelation WHERE LoggerMeasur
 INSERT @Out (Test, Expected, Actual, Result)
 VALUES (N'4 unknown e-mail refused with 51002', N'51002 / 0', CONCAT(@Err4, N' / ', @RowsAfter4),
         IIF(@Err4 = 51002 AND @RowsAfter4 = 0, N'PASS', N'FAIL'));
+
+/* ---------------------------------------------------------------------------------------------
+   Case 6 (PR #72 review): an owner id with no Users row does not make the logger unsaveable.
+   SKIP if the database refuses such a row in the first place.
+   --------------------------------------------------------------------------------------------- */
+DECLARE @Err6 NVARCHAR(4000), @Ghost INT = (SELECT MAX(ID) + 1000 FROM dbo.Users), @GhostInserted BIT = 0,
+        @GhostTransfers INT, @GhostOwnedByB INT;
+BEGIN TRY
+    BEGIN TRAN;
+    BEGIN TRY
+        INSERT dbo.SensorToLoggerRelation (SensorMeasurementDeviceId, LoggerMeasurementDeviceId, UpdateUserID)
+        VALUES (@S2, @L, @Ghost);
+        SET @GhostInserted = 1;
+    END TRY
+    BEGIN CATCH
+        SET @GhostInserted = 0;
+    END CATCH
+    IF @GhostInserted = 1
+    BEGIN
+        EXEC dbo.AssignMeasurmentDevicesToCalibrator @LoggedInUserEmail = @B, @LoggerMeasurementDeviceId = @L,
+             @FlowRate = N'Slow', @Interval = 1, @CommunicationProtocol = N'COM', @CommunicationDetails = N'COM5',
+             @SensorMeasurementDeviceId = @S1, @UnitId = NULL, @WorkRangeUnitId = NULL, @ChannelNumbers = N'0';
+        SELECT @GhostTransfers = COUNT(*) FROM dbo.LoggerOwnershipTransfer WHERE LoggerMeasurementDeviceId = @L;
+        SELECT @GhostOwnedByB = COUNT(*) FROM dbo.SensorToLoggerRelation
+        WHERE LoggerMeasurementDeviceId = @L AND IsDeleted = 0 AND UpdateUserID = @BId;
+    END
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END TRY
+BEGIN CATCH
+    SET @Err6 = ERROR_MESSAGE();
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH
+INSERT @Out (Test, Expected, Actual, Result)
+VALUES (N'6 owner with no Users row: save still works', N'0 / 2',
+        COALESCE(LEFT(@Err6, 60), IIF(@GhostInserted = 1, CONCAT(@GhostTransfers, N' / ', @GhostOwnedByB), N'-')),
+        CASE WHEN @Err6 IS NOT NULL THEN N'FAIL'
+             WHEN @GhostInserted = 0 THEN N'SKIP - the database refuses an owner with no Users row'
+             WHEN @GhostTransfers = 0 AND @GhostOwnedByB = 2 THEN N'PASS' ELSE N'FAIL' END);
+
+/* ---------------------------------------------------------------------------------------------
+   Case 7 (PR #72 review): an unknown e-mail asking who else owns a logger is told nothing.
+   --------------------------------------------------------------------------------------------- */
+DECLARE @Err7 NVARCHAR(4000), @UnknownSees INT;
+BEGIN TRY
+    BEGIN TRAN;
+    EXEC dbo.AssignMeasurmentDevicesToCalibrator @LoggedInUserEmail = @A, @LoggerMeasurementDeviceId = @L,
+         @FlowRate = N'Slow', @Interval = 1, @CommunicationProtocol = N'COM', @CommunicationDetails = N'COM3',
+         @SensorMeasurementDeviceId = @S1, @UnitId = NULL, @WorkRangeUnitId = NULL, @ChannelNumbers = N'0';
+    DELETE #Others;
+    INSERT #Others EXEC dbo.GetLoggerOtherOwners @LoggedInUserEmail = N'nobody+mba1056@invalid.example',
+                                                 @LoggerMeasurementDeviceId = @L;
+    SELECT @UnknownSees = COUNT(*) FROM #Others;
+    ROLLBACK;
+END TRY
+BEGIN CATCH
+    SET @Err7 = ERROR_MESSAGE();
+    IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH
+INSERT @Out (Test, Expected, Actual, Result)
+VALUES (N'7 unknown e-mail: no other owners listed', N'0', COALESCE(LEFT(@Err7, 60), CONCAT(@UnknownSees, N'')),
+        IIF(@Err7 IS NULL AND @UnknownSees = 0, N'PASS', N'FAIL'));
 
 /* ---------------------------------------------------------------------------------------------
    Case 5: the file left nothing behind.

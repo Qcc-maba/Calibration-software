@@ -25,6 +25,10 @@ DECLARE @LoggedInUserId INT
 SELECT @LoggedInUserId = d.UserId
 FROM dbo.GetSourceFilterByEmail(@LoggedInUserEmail) AS d
 
+/* PR #72 review: an unknown caller would see every owner, itself included, and be warned about a
+   save that AssignMeasurmentDevicesToCalibrator then refuses (51002) anyway. */
+IF @LoggedInUserId IS NULL RETURN;
+
 SELECT
        u.ID AS UserId,
        LTRIM(RTRIM(CONCAT(u.FirstName, N' ', u.LastName))) AS FullName,
@@ -33,7 +37,7 @@ FROM dbo.SensorToLoggerRelation AS srl
 JOIN dbo.Users AS u ON u.ID = srl.UpdateUserID
 WHERE srl.LoggerMeasurementDeviceId = @LoggerMeasurementDeviceId
   AND srl.IsDeleted = 0
-  AND (@LoggedInUserId IS NULL OR srl.UpdateUserID <> @LoggedInUserId)
+  AND srl.UpdateUserID <> @LoggedInUserId
 GROUP BY u.ID, u.FirstName, u.LastName
 ORDER BY OwnedSince DESC
 

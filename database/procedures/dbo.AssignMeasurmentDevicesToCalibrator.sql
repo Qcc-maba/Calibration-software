@@ -126,6 +126,9 @@ BEGIN TRY
 	INSERT [dbo].[LoggerOwnershipTransfer]([LoggerMeasurementDeviceId],[FromUserId],[ToUserId])
 	SELECT DISTINCT @LoggerMeasurementDeviceId, srl.UpdateUserID, @LoggedInUserId
 	FROM [dbo].[SensorToLoggerRelation] AS srl
+	/* PR #72 review: an owner id with no Users row would fail the FK and with it the whole save,
+	   leaving the logger unsaveable. There is nobody to tell then, so no row. */
+	JOIN [dbo].[Users] AS u ON u.ID = srl.UpdateUserID
 	WHERE srl.[LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
 	  AND srl.[IsDeleted] = 0
 	  AND srl.UpdateUserID IS NOT NULL
@@ -145,7 +148,9 @@ BEGIN TRY
 	  AND [LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
 	  AND DismissedDate IS NULL
 
-	/* MBA-1056: never report success for a save the caller cannot see on page 2. */
+	/* MBA-1056: never report success for a save the caller cannot see on page 2. The INSERT and
+	   UPDATE above make this true by construction, so today it cannot fire: it is a guard, so that a
+	   future change to either statement fails loudly instead of bringing the silent 200 back. */
 	IF NOT EXISTS (SELECT 1 FROM [dbo].[SensorToLoggerRelation]
 	               WHERE [SensorMeasurementDeviceId] = @SensorMeasurementDeviceId
 	                 AND [LoggerMeasurementDeviceId] = @LoggerMeasurementDeviceId
