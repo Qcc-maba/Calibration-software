@@ -197,3 +197,16 @@ ROUTINES    | STAGE only | dbo.GetLoggerOtherOwners                            |
 ROUTINES    | STAGE only | dbo.GetLoggersTakenFromCalibrator                   | MBA-1056, not deployed to PROD yet
 ROUTINES    | STAGE only | dbo.DismissLoggerOwnershipTransfers                 | MBA-1056, not deployed to PROD yet
 BODIES      | DIFFERS    | dbo.AssignMeasurmentDevicesToCalibrator             | MBA-1056 save takes the whole logger, on STAGE 2026-11-25, not deployed to PROD yet
+
+# ---- MBA-950 humidity compensation points: on STAGE 2026-11-25 (PR #73), not on PROD yet ----
+# Delete this block in the change that deploys it to PROD. PROD needs MBA-802's PairId column on
+# MeasurmentPointsToOrderDetailsItems first: both read procedures below read it.
+COLUMNS     | STAGE only | dbo.MeasurementDevicesHumidityCorrections.*          | MBA-950 humidity certificate points, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.MeasurementDevicesHumidityCorrections*         | MBA-950, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.SaveMasterHumidityCorrectionPoints               | MBA-950, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.GetMasterHumidityCorrectionPoints                | MBA-950, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.GetMasterValuesAfterCorrection                   | MBA-950, not deployed to PROD yet
+ROUTINES    | DIFFERS    | dbo.fnHumidityAfterCorrection                        | MBA-950 rewritten (inline -> multi-statement, new signature), not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.fnHumidityAfterCorrection                        | MBA-950 triangle interpolation over the points table, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetCalibrationValuesForOrderDetailItem           | MBA-950 RH rows compensated at the pair's temperature, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetCalibrationValuesForManyOrderDetailItems      | MBA-950 same as the singular procedure, not deployed to PROD yet

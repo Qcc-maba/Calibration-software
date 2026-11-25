@@ -56,3 +56,18 @@ procedure, read the exception, `rollback()`. Only a faithful payload reproduces 
 "succeeds" and proves nothing. This is what produced the real text behind two "Internal server
 error"s in one afternoon.
 
+## Master compensation: two certificate shapes (MBA-950)
+
+- **Temperature** certificates are one-axis RANGES in `dbo.MeasurementDevicesCorrections`
+  (`Value1..Value2`, one equation per range), read by `dbo.fnMasterValueAfterCorrection`.
+- **Humidity** certificates are POINTS (temperature, reference %RH, deviation) in
+  `dbo.MeasurementDevicesHumidityCorrections`, read by `dbo.fnHumidityAfterCorrection`: triangle
+  interpolation at the master's *compensated* temperature (Nofar, 38472). Written only by
+  `dbo.SaveMasterHumidityCorrectionPoints`. Never put points in the range table, or ranges in the
+  points table: each function reads its table only one way.
+- An RH row's temperature input is the other row of its `PairId`, compensated against that row's own
+  master. Old one-axis `%RH` curves still answer when a master has no points.
+- `THROW` returns an **empty message** when its text contains `%`. Write "percent RH".
+- `dbo.GetMasterValuesAfterCorrection` gives the sensors table the same numbers before a save.
+  The browser must not compute compensation itself.
+
