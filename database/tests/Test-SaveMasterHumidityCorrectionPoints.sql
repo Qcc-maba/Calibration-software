@@ -17,6 +17,8 @@
       5  the master's temperature certificate is untouched
       6  refused: a duplicate point, a humidity over 100, an unknown MabaID, no points
       7  dbo.GetMasterHumidityCorrectionPoints returns the newest version
+      8  the same points with a corrected note are a change: a new version (review of #73)
+      9  refused: an e-mail that matches no user
 */
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -78,6 +80,14 @@ SELECT 3, STRING_AGG(Outcome, N','), STRING_AGG(CAST(CorVersion AS NVARCHAR(10))
        (SELECT COUNT(*) FROM dbo.MeasurementDevicesHumidityCorrections WHERE MeasurementDevicesId = @D) FROM #R;
 DELETE #R;
 
+/* 8 same points, corrected note */
+INSERT #R EXEC dbo.SaveMasterHumidityCorrectionPoints @LoggedInUserEmail = @Email, @MeasurementDevicesId = @D, @Data = @V1,
+     @Note = N'certificate 950-B', @Apply = 1;
+INSERT @Snap (Step, Outcomes, Versions, Stored)
+SELECT 8, STRING_AGG(Outcome, N','), STRING_AGG(CAST(CorVersion AS NVARCHAR(10)), N','),
+       (SELECT COUNT(*) FROM dbo.MeasurementDevicesHumidityCorrections WHERE MeasurementDevicesId = @D) FROM #R;
+DELETE #R;
+
 /* 4 changed */
 INSERT #R EXEC dbo.SaveMasterHumidityCorrectionPoints @LoggedInUserEmail = @Email, @MeasurementDevicesId = @D, @Data = @V2, @Apply = 1;
 INSERT @Snap (Step, Outcomes, Versions, Stored, Corrected, TempRows)
@@ -126,6 +136,13 @@ END TRY BEGIN CATCH SET @Err = ERROR_MESSAGE(); END CATCH;
 INSERT @Out VALUES (N'6 refused: no points', N'At least one point', @Err,
                     IIF(@Err LIKE N'At least one point%', N'PASS', N'FAIL'));
 
+BEGIN TRY
+    EXEC dbo.SaveMasterHumidityCorrectionPoints @LoggedInUserEmail = N'nobody-950@example.invalid', @MeasurementDevicesId = @D, @Data = @V1;
+    SET @Err = N'(accepted)';
+END TRY BEGIN CATCH SET @Err = ERROR_MESSAGE(); END CATCH;
+INSERT @Out VALUES (N'9 refused: an e-mail that matches no user', N'No user', @Err,
+                    IIF(@Err LIKE N'No user%', N'PASS', N'FAIL'));
+
 INSERT @Out SELECT N'1 dry run: WouldSave, nothing stored', N'WouldSave x3, 0 rows', CONCAT(Outcomes, N', ', Stored, N' rows'),
        IIF(Outcomes = N'WouldSave,WouldSave,WouldSave' AND Stored = 0, N'PASS', N'FAIL') FROM @Snap WHERE Step = 1;
 INSERT @Out SELECT N'2 saved as version 1, deviation = reading - reference', N'v1 0.400000,0.000000,-0.800000', CONCAT(N'v', LEFT(Versions, 1), N' ', Devs),
@@ -134,12 +151,14 @@ INSERT @Out SELECT N'2 the function removes it: 50.0 at 50 reads back 50', N'50.
        IIF(Corrected = 50, N'PASS', N'FAIL') FROM @Snap WHERE Step = 2;
 INSERT @Out SELECT N'3 same points again: NoChange, still 3 rows', N'NoChange v1, 3 rows', CONCAT(LEFT(Outcomes, 8), N' v', LEFT(Versions, 1), N', ', Stored, N' rows'),
        IIF(Outcomes = N'NoChange,NoChange,NoChange' AND Versions = N'1,1,1' AND Stored = 3, N'PASS', N'FAIL') FROM @Snap WHERE Step = 3;
-INSERT @Out SELECT N'4 changed points: version 2, read alone', N'Saved v2, 4 rows, 29.700000', CONCAT(Outcomes, N' v', Versions, N', ', Stored, N' rows, ', Corrected),
-       IIF(Outcomes = N'Saved' AND Versions = N'2' AND Stored = 4 AND Corrected = 29.7, N'PASS', N'FAIL') FROM @Snap WHERE Step = 4;
+INSERT @Out SELECT N'8 same points, corrected note: a new version', N'Saved x3 v2, 6 rows', CONCAT(LEFT(Outcomes, 5), N' v', LEFT(Versions, 1), N', ', Stored, N' rows'),
+       IIF(Outcomes = N'Saved,Saved,Saved' AND Versions = N'2,2,2' AND Stored = 6, N'PASS', N'FAIL') FROM @Snap WHERE Step = 8;
+INSERT @Out SELECT N'4 changed points: version 3, read alone', N'Saved v3, 7 rows, 29.700000', CONCAT(Outcomes, N' v', Versions, N', ', Stored, N' rows, ', Corrected),
+       IIF(Outcomes = N'Saved' AND Versions = N'3' AND Stored = 7 AND Corrected = 29.7, N'PASS', N'FAIL') FROM @Snap WHERE Step = 4;
 INSERT @Out SELECT N'5 the temperature certificate is untouched', CAST(@TempRowsBefore AS NVARCHAR(10)), CAST(TempRows AS NVARCHAR(10)),
        IIF(TempRows = @TempRowsBefore, N'PASS', N'FAIL') FROM @Snap WHERE Step = 4;
-INSERT @Out SELECT N'7 the reader returns the newest version', N'2 (1 row)', CONCAT(Versions, N' (', Stored, N' row)'),
-       IIF(Versions = N'2' AND Stored = 1, N'PASS', N'FAIL') FROM @Snap WHERE Step = 7;
+INSERT @Out SELECT N'7 the reader returns the newest version', N'3 (1 row)', CONCAT(Versions, N' (', Stored, N' row)'),
+       IIF(Versions = N'3' AND Stored = 1, N'PASS', N'FAIL') FROM @Snap WHERE Step = 7;
 INSERT @Out SELECT N'rolled back', N'0', CAST(COUNT(*) AS NVARCHAR(10)), IIF(COUNT(*) = 0, N'PASS', N'FAIL')
 FROM dbo.MeasurementDevicesHumidityCorrections WHERE MeasurementDevicesId = @D;
 

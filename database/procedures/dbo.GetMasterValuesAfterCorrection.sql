@@ -1,7 +1,8 @@
 /*
     dbo.GetMasterValuesAfterCorrection                                                   MBA-950
     ---------------------------------------------------------------------------------------------
-    "מד אב אחרי קיזוז" for values the calibrator is still typing - before anything is saved.
+    The master value after compensation, for values the calibrator is still typing - before
+    anything is saved.
 
     The sensors table shows the compensated master value as soon as a master number or a reading
     changes ("any change ... shall trigger the relevant compensation calculations automatically",
@@ -14,7 +15,8 @@
 
     @Data   JSON array, one entry per table row:
               [{"Key":"row-7","MabaID":"30-1165","UnitId":12,"Reading":45.3,"PairId":"<guid>"}, ...]
-            Key       anything; echoed back so the caller can match rows
+            Key       anything, echoed back for the caller. Rows are matched to each other by
+                      their position in the array, so a missing or repeated Key is harmless.
             MabaID    the row's master
             UnitId    the row's unit (MeasurementDeviceUnitId); decides temperature vs humidity
             Reading   the master's reading
@@ -40,7 +42,7 @@ BEGIN
     DECLARE @TempId INT = (SELECT TOP (1) ID FROM dbo.Measurements WHERE LTRIM(RTRIM(NameEn)) = N'°C' ORDER BY ID);
 
     DROP TABLE IF EXISTS #Row;
-    SELECT j.[Key], j.MabaID, j.UnitId, j.Reading,
+    SELECT RowNo = CAST(a.[key] AS INT), j.[Key], j.MabaID, j.UnitId, j.Reading,
            PairId = TRY_CONVERT(UNIQUEIDENTIFIER, NULLIF(LTRIM(RTRIM(j.PairId)), N'')),
            /* a MabaID held by two live devices is not guessed at: no device, no compensation */
            DeviceId = (SELECT CASE WHEN COUNT(*) = 1 THEN MIN(md.ID) END
@@ -53,7 +55,8 @@ BEGIN
                           AND ISNULL(u.IsDeleted, 0) = 0
                          WHERE u.MeasurementDeviceUnitId = j.UnitId)
     INTO #Row
-    FROM OPENJSON(@Data)
+    FROM OPENJSON(@Data) AS a
+    CROSS APPLY OPENJSON(a.value)
     WITH ([Key]   NVARCHAR(200)  '$.Key',
           MabaID  NVARCHAR(50)   '$.MabaID',
           UnitId  INT            '$.UnitId',
@@ -62,7 +65,7 @@ BEGIN
 
     /* temperature rows (and rows of unknown quantity) first: an RH row needs its pair's answer */
     DROP TABLE IF EXISTS #Temp;
-    SELECT r.[Key], r.PairId, f.Deviation, f.Corrected, f.CorrectedExact, f.OutOfRange, f.Extrapolated
+    SELECT r.RowNo, r.PairId, f.Deviation, f.Corrected, f.CorrectedExact, f.OutOfRange, f.Extrapolated
     INTO #Temp
     FROM #Row AS r
     OUTER APPLY dbo.fnMasterValueAfterCorrection(r.DeviceId, r.Reading, r.QuantityId) AS f
@@ -94,18 +97,19 @@ BEGIN
            CompensationMethod = IIF(r.QuantityId = @RhId, h.Method, IIF(t.Deviation IS NOT NULL, N'range', NULL)),
            HumidityTemperatureInput = h.TemperatureUsed
     FROM #Row AS r
-    LEFT JOIN #Temp AS t ON t.[Key] = r.[Key] AND (r.QuantityId IS NULL OR r.QuantityId <> @RhId)
+    LEFT JOIN #Temp AS t ON t.RowNo = r.RowNo AND (r.QuantityId IS NULL OR r.QuantityId <> @RhId)
     /* the other row of the pair, compensated against ITS master's °C curve - as the read
        procedures do, so a pair row with no unit is never given a humidity curve */
     OUTER APPLY (SELECT TOP (1) pt.CorrectedExact
                  FROM #Row AS p
                  CROSS APPLY dbo.fnMasterValueAfterCorrection(p.DeviceId, p.Reading, @TempId) AS pt
                  WHERE r.QuantityId = @RhId AND r.PairId IS NOT NULL
-                   AND p.PairId = r.PairId AND p.[Key] <> r.[Key]
+                   AND p.PairId = r.PairId AND p.RowNo <> r.RowNo
                    AND (p.QuantityId IS NULL OR p.QuantityId <> @RhId)
-                 ORDER BY p.[Key]) AS pair
+                 ORDER BY p.RowNo) AS pair
     OUTER APPLY dbo.fnHumidityAfterCorrection(
         CASE WHEN r.QuantityId = @RhId THEN r.DeviceId END,
         pair.CorrectedExact,
-        r.Reading) AS h;
+        r.Reading) AS h
+    ORDER BY r.RowNo;
 END;

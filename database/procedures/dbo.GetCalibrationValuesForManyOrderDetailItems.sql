@@ -122,6 +122,10 @@ BEGIN
                    WHEN EXISTS (SELECT 1 FROM dbo.MeasurementDevicesCorrections AS mc
                                 WHERE mc.MeasurementDevicesId = md.ID
                                   AND ISNULL(mc.IsDeleted, 0) = 0) THEN 1
+                   /* MBA-950: a humidity certificate entered as points is a certificate too */
+                   WHEN EXISTS (SELECT 1 FROM dbo.MeasurementDevicesHumidityCorrections AS hcc
+                                WHERE hcc.MeasurementDevicesId = md.ID
+                                  AND hcc.IsDeleted = 0) THEN 1
                    ELSE 0 END AS BIT) as [MasterHasCertificate]
         ,cmp.LastCalibratedPoint as [LastCalibratedPoint]
         /* MBA-475: whether this instrument is permitted to go out of range at all, from the
@@ -256,6 +260,14 @@ BEGIN
                    AND p.PairId = combined.[PairId]
                    AND p.IsDeleted = 0
                    AND p.MeasurmentPointsToOrderDetailsItemId <> combined.[MeasurmentPointsToOrderDetailsItemId]
+                   /* never an RH row: the same rule as dbo.GetMasterValuesAfterCorrection */
+                   AND NOT EXISTS (SELECT 1
+                                   FROM dbo.MeasurementDeviceUnits AS pu
+                                   JOIN dbo.Measurements AS pm
+                                     ON LTRIM(RTRIM(pm.NameEn)) = LTRIM(RTRIM(pu.ShortNameEn))
+                                   WHERE pu.MeasurementDeviceUnitId = COALESCE(p.MasterValueUnitId, p.MeasuredValueUnitId)
+                                     AND ISNULL(pu.IsDeleted, 0) = 0
+                                     AND LTRIM(RTRIM(pm.NameEn)) = N'%RH')
                  ORDER BY p.MeasurmentPointsToOrderDetailsItemId) AS pr
     OUTER APPLY dbo.fnMasterValueAfterCorrection(
         pr.SensorMeasurementDeviceId,

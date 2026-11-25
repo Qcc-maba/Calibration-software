@@ -53,7 +53,7 @@ FROM Bare WHERE Rn <= 3;
 
 DECLARE @RhId INT = (SELECT TOP (1) ID FROM dbo.Measurements WHERE LTRIM(RTRIM(NameEn)) = N'%RH' ORDER BY ID);
 
-DECLARE @Got TABLE (Test NVARCHAR(30), Deviation DECIMAL(18,6), CorrectedExact DECIMAL(18,6), Corrected DECIMAL(18,6),
+DECLARE @Got TABLE (Test NVARCHAR(30), TempUsed DECIMAL(18,6), Deviation DECIMAL(18,6), CorrectedExact DECIMAL(18,6), Corrected DECIMAL(18,6),
                     OutOfRange BIT, Extrapolated BIT, Source NVARCHAR(20), Method NVARCHAR(20), Rows_ INT);
 
 BEGIN TRAN;
@@ -62,19 +62,19 @@ INSERT dbo.MeasurementDevicesHumidityCorrections (MeasurementDevicesId, CorVersi
 VALUES (@A, 1, 23, 10, 10.4, 0.4), (@A, 1, 23, 50, 50.0, 0.0), (@A, 1, 23, 90, 89.2, -0.8),
        (@B, 1, 15, 20, 20.5, 0.5), (@B, 1, 35, 20, 21.0, 1.0), (@B, 1, 25, 80, 79.0, -1.0);
 
-INSERT @Got SELECT N'A 23/30', Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@A, 23, 30);
-INSERT @Got SELECT N'A 30/30', Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@A, 30, 30);
-INSERT @Got SELECT N'A -/30',  Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@A, NULL, 30);
-INSERT @Got SELECT N'A 23/95', Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@A, 23, 95);
-INSERT @Got SELECT N'B 25/40', Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@B, 25, 40);
-INSERT @Got SELECT N'B 40/20', Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@B, 40, 20);
-INSERT @Got SELECT N'B -/40',  Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@B, NULL, 40);
+INSERT @Got SELECT N'A 23/30', TemperatureUsed, Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@A, 23, 30);
+INSERT @Got SELECT N'A 30/30', TemperatureUsed, Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@A, 30, 30);
+INSERT @Got SELECT N'A -/30',  TemperatureUsed, Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@A, NULL, 30);
+INSERT @Got SELECT N'A 23/95', TemperatureUsed, Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@A, 23, 95);
+INSERT @Got SELECT N'B 25/40', TemperatureUsed, Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@B, 25, 40);
+INSERT @Got SELECT N'B 40/20', TemperatureUsed, Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@B, 40, 20);
+INSERT @Got SELECT N'B -/40',  TemperatureUsed, Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@B, NULL, 40);
 
 INSERT dbo.MeasurementDevicesHumidityCorrections (MeasurementDevicesId, CorVersion, Temperature, ReferenceHumidity, ReadingHumidity, Deviation)
 VALUES (@A, 2, 23, 50, 50.3, 0.3);
-INSERT @Got SELECT N'C 23/30', Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@A, 23, 30);
+INSERT @Got SELECT N'C 23/30', TemperatureUsed, Deviation, CorrectedExact, Corrected, OutOfRange, Extrapolated, Source, Method, 1 FROM dbo.fnHumidityAfterCorrection(@A, 23, 30);
 
-INSERT @Got SELECT N'D', NULL, NULL, NULL, NULL, NULL, N'-', N'-', (SELECT COUNT(*) FROM dbo.fnHumidityAfterCorrection(@Z, 23, 30));
+INSERT @Got SELECT N'D', NULL, NULL, NULL, NULL, NULL, NULL, N'-', N'-', (SELECT COUNT(*) FROM dbo.fnHumidityAfterCorrection(@Z, 23, 30));
 
 ROLLBACK;
 
@@ -89,6 +89,12 @@ FROM @Got WHERE Test = N'A 30/30';
 INSERT @Out SELECT N'A line: no temperature needed at one temperature', N'0.200000 line', CONCAT(Deviation, N' ', Method),
        IIF(Deviation = 0.2 AND Method = N'line', N'PASS', N'FAIL')
 FROM @Got WHERE Test = N'A -/30';
+INSERT @Out SELECT N'A no temperature passed: TemperatureUsed stays NULL', N'NULL', ISNULL(CAST(TempUsed AS NVARCHAR(60)), N'NULL'),
+       IIF(TempUsed IS NULL, N'PASS', N'FAIL')
+FROM @Got WHERE Test = N'A -/30';
+INSERT @Out SELECT N'A temperature passed: TemperatureUsed is it', N'30.000000', CAST(TempUsed AS NVARCHAR(60)),
+       IIF(TempUsed = 30, N'PASS', N'FAIL')
+FROM @Got WHERE Test = N'A 30/30';
 INSERT @Out SELECT N'A line: past the top, last segment continued', N'-0.900000 95.900000 1/1', CONCAT(Deviation, N' ', CorrectedExact, N' ', CAST(Extrapolated AS INT), N'/', CAST(OutOfRange AS INT)),
        IIF(Deviation = -0.9 AND CorrectedExact = 95.9 AND Extrapolated = 1 AND OutOfRange = 1, N'PASS', N'FAIL')
 FROM @Got WHERE Test = N'A 23/95';

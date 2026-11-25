@@ -26,7 +26,8 @@
     @Data   JSON array, e.g. [{"Temperature":23,"Reference":10.2,"Reading":10.6}, ...]. At least
             one point; no NULLs; reference humidity within 0..100; no two points at the same
             (temperature, reference).
-    @Note   free text kept on every row (certificate number, lab, ...)
+    @Note   free text kept on every row (certificate number, lab, ...). Compared as given: saving the
+            same points with a different note - or with none - writes a new version.
     @Apply  0 (default) returns what WOULD be written and touches nothing - the screen can show it
             before the calibrator confirms. 1 writes it.
 
@@ -34,6 +35,16 @@
     Temperature, ReferenceHumidity, ReadingHumidity, Deviation. Saving the same points again writes
     nothing (NoChange), so a double click cannot create a second identical version.
 */
+/*
+    QUOTED_IDENTIFIER / ANSI_NULLS must be ON: set explicitly so the object does not depend on the
+    client that deploys it (sqlcmd defaults QUOTED_IDENTIFIER to OFF). The table's filtered unique
+    index needs them ON when it is created and in every session that writes the table - a
+    procedure keeps the settings it was created with. Same convention as
+    dbo.CustomerDevices.table.sql.
+*/
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
 CREATE OR ALTER PROCEDURE dbo.SaveMasterHumidityCorrectionPoints
     @LoggedInUserEmail    NVARCHAR(255),
     @Data                 NVARCHAR(MAX),
@@ -47,6 +58,9 @@ BEGIN
     SET XACT_ABORT ON;
 
     DECLARE @UserId INT = (SELECT ID FROM dbo.Users WHERE Email = @LoggedInUserEmail);
+    /* a certificate saved under no one cannot be traced back to who entered it */
+    IF @UserId IS NULL
+        THROW 51000, 'No user has that e-mail address.', 1;
 
     IF @MeasurementDevicesId IS NULL AND NULLIF(LTRIM(RTRIM(@MabaID)), N'') IS NOT NULL
     BEGIN
@@ -97,7 +111,8 @@ BEGIN
              ELSE (SELECT MAX(CorVersion) FROM dbo.MeasurementDevicesHumidityCorrections
                    WHERE MeasurementDevicesId = @MeasurementDevicesId AND IsDeleted = 0) END;
 
-    /* unchanged = the same points exactly, no more and no fewer */
+    /* unchanged = the same points exactly, no more and no fewer, and the same note. A corrected
+       note alone (a fixed certificate number) is a change and writes a new version. */
     DECLARE @NoChange BIT =
         CASE WHEN @Current IS NOT NULL
               AND NOT EXISTS (SELECT Temperature, ReferenceHumidity, ReadingHumidity FROM #New
@@ -110,6 +125,9 @@ BEGIN
                               WHERE MeasurementDevicesId = @MeasurementDevicesId AND CorVersion = @Current AND IsDeleted = 0
                               EXCEPT
                               SELECT Temperature, ReferenceHumidity, ReadingHumidity FROM #New)
+              AND NOT EXISTS (SELECT 1 FROM dbo.MeasurementDevicesHumidityCorrections
+                              WHERE MeasurementDevicesId = @MeasurementDevicesId AND CorVersion = @Current AND IsDeleted = 0
+                                AND ISNULL(Note, N'') <> ISNULL(@Note, N''))
              THEN 1 ELSE 0 END;
 
     DECLARE @Version INT = CASE WHEN @NoChange = 1 THEN @Current ELSE ISNULL(@Current, 0) + 1 END;

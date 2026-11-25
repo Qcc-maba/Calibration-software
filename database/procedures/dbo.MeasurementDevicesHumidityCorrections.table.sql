@@ -40,6 +40,16 @@
     Keyed by MeasurementDevicesId, not by MabaID, so the merge of 30-1000-1 / 30-1000-2 into one
     device 30-1000 (MBA-1019) re-points rows by device id like every other certificate.
 */
+/*
+    QUOTED_IDENTIFIER / ANSI_NULLS must be ON: set explicitly so the object does not depend on the
+    client that deploys it (sqlcmd defaults QUOTED_IDENTIFIER to OFF). The table's filtered unique
+    index needs them ON when it is created and in every session that writes the table - a
+    procedure keeps the settings it was created with. Same convention as
+    dbo.CustomerDevices.table.sql.
+*/
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
 IF OBJECT_ID('dbo.MeasurementDevicesHumidityCorrections', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.MeasurementDevicesHumidityCorrections

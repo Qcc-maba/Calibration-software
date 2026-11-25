@@ -1,8 +1,8 @@
 /*
     dbo.fnHumidityAfterCorrection                                              MBA-811, MBA-950
     ---------------------------------------------------------------------------------------------
-    "מד אב אחרי קיזוז" for a HUMIDITY reading: the master's humidity with its certificate deviation
-    removed. The humidity counterpart of dbo.fnMasterValueAfterCorrection, with the same output
+    The master value after compensation for a HUMIDITY reading: the master's humidity with its
+    certificate deviation removed. The humidity counterpart of dbo.fnMasterValueAfterCorrection, with the same output
     columns, so a caller can pick one or the other by the row's quantity.
 
     What the lab defined (Nofar, MBA-950, 25.11.2026)
@@ -44,6 +44,13 @@
        30-1165-1 and 30-300-1 both corrections are by temperature"). On STAGE and PROD only
        30-1187-2 is such a curve today (25.11.2026). Computed by dbo.fnMasterValueAfterCorrection
        at the right input, then subtracted from the HUMIDITY reading.
+       The axis is not stored anywhere, so this is the only rule the data allows. A curve that goes
+       below 0 cannot be over humidity, so that half is certain. A curve within 0..100 is read
+       over humidity, as the read procedures have done since MBA-802: that is what the one writer
+       of new curves, dbo.SaveMasterSensorCorrectionsBatch, stores (its reference values are the
+       quantity's own), and the 409 humidity-only masters measured on 02/09 all fit it. A
+       temperature-laid curve starting at or above 0 would be misread; none is known, and new
+       humidity certificates go to the points table instead.
     3. Neither: no row. The caller shows a dash, as for a master with no certificate.
 
     Without a temperature, a temperature-dependent answer is not given: the row comes back with
@@ -63,7 +70,8 @@
     Source  'points' | 'curve-humidity' | 'curve-temperature'
     Method  'triangle' | 'line' | 'single' | 'range' | 'needs-temperature'
     CorVersion, PointCount   of the points used (POINTS only)
-    TemperatureUsed          the temperature the answer depends on, if any
+    TemperatureUsed          the temperature passed in (NULL when none was), whenever the answer
+                             depends on it
 
     OutOfRange is 1 when the humidity is outside the certificate's humidity span, or - when the
     certificate spans temperatures at all - the temperature is outside its temperature span.
@@ -209,7 +217,9 @@ BEGIN
                           ELSE 0 END AS BIT),
                 @Extrap,
                 CAST(@MaxH AS DECIMAL(18,6)), CAST(@MaxH AS DECIMAL(18,6)),
-                N'points', @Method, @Ver, @N, CAST(@qT AS DECIMAL(18,6)));
+                /* what was passed in, never the certificate's own temperature standing in for it:
+                   the column is read as "the master temperature this row was compensated at" */
+                N'points', @Method, @Ver, @N, @Temperature);
         RETURN;
     END;
 
