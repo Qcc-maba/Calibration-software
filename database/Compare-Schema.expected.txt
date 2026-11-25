@@ -188,3 +188,12 @@ CONSTRAINTS | STAGE only | * dbo.CrmOrderAttachmentPart*                       |
 ROUTINES    | STAGE only | dbo.GetOrderAttachmentsToConvert                    | MBA-930, not deployed to PROD yet
 ROUTINES    | STAGE only | dbo.SaveOrderAttachmentConversion                   | MBA-930, not deployed to PROD yet
 ROUTINES    | STAGE only | dbo.GetOrderAttachmentDocuments                     | MBA-930, not deployed to PROD yet
+
+# ---- MBA-1056 logger ownership: on STAGE 2026-11-25, PROD before app PR #216 reaches main (STATUS item 23) ----
+# Delete this block in the change that deploys it to PROD. Safe ahead of the app: the current app ignores the save's result.
+COLUMNS     | STAGE only | dbo.LoggerOwnershipTransfer.*                       | MBA-1056 one row per logger taken from a calibrator, not deployed to PROD yet
+CONSTRAINTS | STAGE only | * dbo.LoggerOwnershipTransfer*                      | MBA-1056, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.GetLoggerOtherOwners                            | MBA-1056, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.GetLoggersTakenFromCalibrator                   | MBA-1056, not deployed to PROD yet
+ROUTINES    | STAGE only | dbo.DismissLoggerOwnershipTransfers                 | MBA-1056, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.AssignMeasurmentDevicesToCalibrator             | MBA-1056 save takes the whole logger, on STAGE 2026-11-25, not deployed to PROD yet
