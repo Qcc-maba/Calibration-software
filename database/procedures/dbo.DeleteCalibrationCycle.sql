@@ -6,7 +6,7 @@
 
     Brought into git on 2026-11-01 for MBA-848, from the STAGE definition (kept in
     database/_rollback/STAGE.dbo.DeleteCalibrationCycle.before-MBA-848.sql). The only change is the
-    remarks step.
+    remarks step; MBA-983 added the markers step (deploy dbo.CalibrationCycleMarkers first).
 
     Why the remarks must go too: dbo.AddCalibrationCycle does not insert when a row already exists at
     the same (OrderDetailsItemId, CalibrationCycleStartDate) - it revives the deleted one. Remarks
@@ -49,6 +49,15 @@ BEGIN
         UpdateUserID = @LoggedInUserId
     WHERE OrderDetailsItemId = @OrderDetailsItemId
       AND Scope = N'Cycle'
+      AND CalibrationCycleStartDate = @CalibrationCycleStartDate
+      AND IsDeleted = 0;
+
+    -- Soft delete its markers (MBA-983), for the same reason as the remarks
+    UPDATE [dbo].[CalibrationCycleMarkers]
+    SET IsDeleted = 1,
+        UpdatedDate = GETDATE(),
+        UpdateUserID = @LoggedInUserId
+    WHERE OrderDetailsItemId = @OrderDetailsItemId
       AND CalibrationCycleStartDate = @CalibrationCycleStartDate
       AND IsDeleted = 0;
 END
