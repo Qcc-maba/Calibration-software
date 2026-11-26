@@ -169,6 +169,9 @@ Source: "assets\Set-StationUsbPower.ps1";   DestDir: "{app}\assets";           F
 ; The file is NI's and gitignored (Installer\drivers\); skipifsourcedoesntexist keeps a fresh clone
 ; building, and Build-Station-Installer.ps1 records whether it made it in. See Installer\DRIVERS.md.
 Source: "drivers\ni-visa_*_online.exe";     DestDir: "{app}\drivers";          Flags: ignoreversion skipifsourcedoesntexist
+; What to install and how, beside the installer it describes. Committed, so it ships even when the
+; NI file itself was not bundled.
+Source: "assets\README-NI-VISA.txt";        DestDir: "{app}\drivers";          Flags: ignoreversion
 Source: "assets\start-consolehost.bat";     DestDir: "{app}\assets";           Flags: ignoreversion
 Source: "assets\start-all.bat";             DestDir: "{app}\assets";           Flags: ignoreversion
 Source: "assets\start-silent.vbs";          DestDir: "{app}\assets";           Flags: ignoreversion
@@ -392,6 +395,8 @@ begin
       Result := Result + 'run ' + AddBackslash(DriversDir) + BundledVisaInstaller(DriversDir)
     else
       Result := Result + 'this build carries no NI-VISA installer - download it from ni.com/visa';
+    if DriversDir <> '' then
+      Result := Result + ' - steps in ' + AddBackslash(DriversDir) + 'README-NI-VISA.txt';
   end;
 end;
 

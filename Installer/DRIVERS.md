@@ -111,8 +111,10 @@ USBTMC: only 64-bit VISA found - the x86 ComServer cannot use it; USB instrument
 
   When the build carried no installer, the line says to download it from ni.com/visa instead.
 
-**Installing it on a station that gets a USB instrument:** run the file from `{app}\drivers` as
-administrator, with internet. Keep the 32-bit (x86) VISA runtime support selected. Reboot, and
+**Installing it on a station that gets a USB instrument:** the steps ship beside the file as
+`{app}\drivers\README-NI-VISA.txt` (source: `Installer\assets\README-NI-VISA.txt`). In short: run
+the file from `{app}\drivers` as administrator, with internet, and allow 30+ minutes. On the first
+laptop (2026-11-26) it installed 274 NI packages, two LabVIEW runtimes among them. Keep the 32-bit (x86) VISA runtime support selected. Reboot, and
 confirm that Device Manager lists the instrument under *USB Test and Measurement Devices (IVI)*
 instead of with code 28.
 
