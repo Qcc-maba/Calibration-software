@@ -8,7 +8,8 @@
 | [Fluke-Hydra-2625A](Fluke-Hydra-2625A/) | לוגר רב-ערוצי | סריאלי / TCP |
 | [Fluke-Hydra-2638A](Fluke-Hydra-2638A/) | לוגר רב-ערוצי | סריאלי / TCP |
 | [Additel](Additel/) | סורק PT100 | סריאלי |
-| [Instek](Instek/) | סורק תרמוקופלים | סריאלי |
+| [GW-Instek-DAQ-9600](GW-Instek-DAQ-9600/protocol.md) | לוגר רב-ערוצי (2×DAQ-901, עד 40 ערוצים) | USBTMC — ✅ אומת 2026-11-26 |
+| [Instek](Instek/) | סורק תרמוקופלים — ⚠️ BL שלא הושלם, הוחלף ב-DAQ-9600 | סריאלי |
 | [Optidew](Optidew/) | מד נקודת טל / לחות | Modbus |
 | [TTI](TTI/) | גשר מדידה ל-PRT | סריאלי |
 | [Agilent-34401A](Agilent-34401A/) | מודד ספרתי | RS-232 |

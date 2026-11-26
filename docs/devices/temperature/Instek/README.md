@@ -1,5 +1,10 @@
 # Instek (GW Instek)
 
+> ⚠️ **ה-BL הזה מעולם לא הושלם ואינו נטען בתחנות.** ה-GW Instek DAQ-9600 מזוהה לפני הענף הזה ומטופל
+> ב-`Daq9600BL` — ראה [`../GW-Instek-DAQ-9600/protocol.md`](../GW-Instek-DAQ-9600/protocol.md) (MBA-1058).
+> הרצף כאן (`TRIG:COUN INF` ואחריו `READ?`) לא היה מחזיר קריאה לעולם, ו-`Build_InstekConf` דורס את
+> הפקודה ב-R, ב-RTD וב-VDC.
+
 ## זיהוי
 - **דגם מלא:** GW Instek — מכשיר מדידה / ספק כוח
 - **טוקן זיהוי ב-SN (`*IDN?`):** `Instek`
