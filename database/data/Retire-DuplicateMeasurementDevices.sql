@@ -56,6 +56,8 @@
                            those correction rows stay on the retired copy, dormant.
           STAGE 21-675: 4653 ("check", created 2026-09-24) has a 6-range test curve from
                 2026-10-06; the real sensor 801 keeps its own 35 rows.
+      @RescueCertMabaIds - move a certificate stranded on a copy retired before this run.
+          STAGE 21-260: 182 corrections on 622 (retired by MBA-902, 2026-08-25), active 810 has none.
       @SkipMabaIds - leave alone. None today.
     The lists are filled per database below, so a tab on the other database cannot apply them.
 
@@ -68,9 +70,11 @@
                   are skipped (PROD has neither the humidity table nor ConversionParameters'
                   device column yet).
 
-    STRANDED CERTIFICATES: when a MabaID's one surviving active copy has no rows in a certificate
-    table and exactly one retired copy (retired earlier, or by this run) has some, those rows move
-    to the surviving copy (MOVE CERT rows in the plan). The readers skip retired devices, so
+    STRANDED CERTIFICATES: for a MabaID of this run's duplicate groups, or one listed in
+    @RescueCertMabaIds, when the one surviving active copy has no rows in a certificate table and
+    exactly one retired copy (retired earlier, or by this run) has some, those rows move to the
+    surviving copy (MOVE CERT rows in the plan). Never for any other MabaID: a number reused after
+    its device was deleted must not inherit the old device's certificate. The readers skip retired devices, so
     otherwise the certificate is lost to the station. STAGE 2026-11-26: 21-260's 182 corrections
     sit on 622, retired by MBA-902's merge, while the active 810 has none. PROD: none. Two retired
     copies with rows for the same table refuse the MabaID instead.
@@ -95,6 +99,7 @@ DECLARE @Apply BIT = 0;
 DECLARE @SkipMabaIds                TABLE (MabaID NVARCHAR(50) COLLATE DATABASE_DEFAULT PRIMARY KEY);
 DECLARE @MoveLinksMabaIds           TABLE (MabaID NVARCHAR(50) COLLATE DATABASE_DEFAULT PRIMARY KEY);
 DECLARE @RetireDifferingCertMabaIds TABLE (MabaID NVARCHAR(50) COLLATE DATABASE_DEFAULT PRIMARY KEY);
+DECLARE @RescueCertMabaIds          TABLE (MabaID NVARCHAR(50) COLLATE DATABASE_DEFAULT PRIMARY KEY);
 
 IF DB_NAME() = N'CalibratorProd'
 BEGIN
@@ -104,6 +109,7 @@ ELSE IF DB_NAME() = N'Calibrator'
 BEGIN
     INSERT @MoveLinksMabaIds (MabaID) VALUES (N'21-500');
     INSERT @RetireDifferingCertMabaIds (MabaID) VALUES (N'21-675');
+    INSERT @RescueCertMabaIds (MabaID) VALUES (N'21-260');
 END
 
 DECLARE @RunStamp DATETIME2(0) = SYSDATETIME();
@@ -331,8 +337,9 @@ UPDATE p SET Moves = (SELECT STRING_AGG(CONCAT(mv.Tbl, N'.', mv.Col, N' [', ISNU
 FROM #Plan AS p;
 
 /* ---- certificates stranded on a retired copy -------------------------------------------------
-   A MabaID whose one surviving active copy has no rows in a certificate table, while a retired
-   copy (retired earlier, or by this run) has some: those rows move to the surviving copy.
+   A MabaID of this run's duplicate groups, or listed in @RescueCertMabaIds, whose one surviving
+   active copy has no rows in a certificate table, while a retired copy (retired earlier, or by
+   this run) has some: those rows move to the surviving copy.
    Otherwise the certificate is unreachable, because the readers skip retired devices
    (dbo.GetMeasurementDevicesCorrections since MBA-1060). Found on STAGE: 21-260's 182 corrections
    sit on 622, which MBA-902's merge retired on 2026-08-25, while the active 810 has none.
@@ -343,6 +350,9 @@ SELECT md.MabaID, MIN(md.ID)
 FROM dbo.MeasurementDevices AS md
 WHERE md.IsDeleted = 0
   AND NOT EXISTS (SELECT 1 FROM #Plan AS p WHERE p.ID = md.ID AND p.Action = 'RETIRE')
+  /* only this run's duplicate groups, and MabaIDs named on purpose: a number reused after its old
+     device was deleted (CreateEquipmentRecord allows that) must never inherit the old certificate */
+  AND (md.MabaID IN (SELECT MabaID FROM #Plan) OR md.MabaID IN (SELECT MabaID FROM @RescueCertMabaIds))
 GROUP BY md.MabaID
 HAVING COUNT(*) = 1;
 

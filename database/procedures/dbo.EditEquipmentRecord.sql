@@ -1,3 +1,6 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
 /*
     MBA-1060: refuse to change a device's MABA number to one another active device has.
 
@@ -10,6 +13,10 @@
     Now, before the TRY, a NEW number that an active device already has raises error 51070 with
     the number and that device's ID. The app shows it as "MABA number already in use". Re-saving
     a device with its own unchanged number is never refused, even while duplicates still exist.
+
+    The CATCH now re-raises instead of "ROLLBACK SELECT ERROR_MESSAGE()", so whatever fails inside
+    the TRY (the index's 2601 when two users save the same number at once, a 1934, ...) reaches the
+    app as an error, not as a result row the screen reads as success.
 */
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -93,7 +100,7 @@ SELECT 1 FROM Cars WHERE CarId = @CarId and IsDeleted = 0
 THROW 51000, 'Incorrect car was assigned.', 1;
 
 if @MabaID IS NOT NULL
-   AND @MabaID <> (SELECT [MabaID] FROM [dbo].[MeasurementDevices] WHERE ID = @ID)
+   AND NOT EXISTS (SELECT 1 FROM [dbo].[MeasurementDevices] WHERE ID = @ID AND [MabaID] = @MabaID)
    AND EXISTS (SELECT 1 FROM [dbo].[MeasurementDevices] WHERE [MabaID] = @MabaID AND [IsDeleted] = 0 AND ID <> @ID)
 BEGIN
 	DECLARE @TakenById INT = (SELECT TOP (1) ID FROM [dbo].[MeasurementDevices]
@@ -149,7 +156,10 @@ BEGIN TRY
 END TRY
 
 BEGIN CATCH
-	ROLLBACK SELECT ERROR_MESSAGE()
+	/* MBA-1060: re-raise, so a failure (2601 from the unique index, 1934, ...) reaches the app
+	   instead of coming back as an ordinary result row that the screen reads as success */
+	IF @@TRANCOUNT > 0 ROLLBACK;
+	THROW;
 END CATCH
 END
 

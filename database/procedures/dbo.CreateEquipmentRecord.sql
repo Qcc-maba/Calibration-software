@@ -1,3 +1,6 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
 /*
     MBA-1060: refuse a MABA number that an active device already has, and say so.
 
@@ -11,6 +14,10 @@
     already in use". A number held only by deleted rows can be reused. This matches the unique
     index UX_MeasurementDevices_MabaID_Active (database/constraints), which is the backstop for
     any other writer.
+
+    The CATCH now re-raises instead of "SELECT ERROR_MESSAGE(); ROLLBACK", so whatever fails inside
+    the TRY (the index's 2601 when two users save the same number at once, a 1934, ...) reaches the
+    app as an error, not as a result row the screen reads as success.
 */
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -158,8 +165,10 @@ BEGIN TRY
 END TRY
 
 BEGIN CATCH
-	SELECT ERROR_MESSAGE()
-	ROLLBACK 
+	/* MBA-1060: re-raise, so a failure (2601 from the unique index, 1934, ...) reaches the app
+	   instead of coming back as an ordinary result row that the screen reads as success */
+	IF @@TRANCOUNT > 0 ROLLBACK;
+	THROW;
 END CATCH
 
 END

@@ -24,8 +24,15 @@ SET XACT_ABORT OFF;
 DECLARE @R TABLE (N INT, CheckName NVARCHAR(100), Result VARCHAR(4), Seen NVARCHAR(1000));
 
 DECLARE @A INT, @AMaba NVARCHAR(50), @B INT;
-SELECT TOP (1) @A = ID, @AMaba = MabaID FROM dbo.MeasurementDevices WHERE IsDeleted = 0 ORDER BY ID;
-SELECT TOP (1) @B = ID FROM dbo.MeasurementDevices WHERE IsDeleted = 0 AND MabaID <> @AMaba ORDER BY ID;
+SELECT TOP (1) @A = ID, @AMaba = MabaID FROM dbo.MeasurementDevices WHERE IsDeleted = 0 AND MabaID <> N'' ORDER BY ID;
+SELECT TOP (1) @B = ID FROM dbo.MeasurementDevices WHERE IsDeleted = 0 AND MabaID <> N'' AND MabaID <> @AMaba ORDER BY ID;
+
+IF @A IS NULL OR @B IS NULL
+BEGIN
+    /* fewer than two numbered active devices: checks 1-4 have nothing to work with */
+    INSERT @R VALUES (1, N'edit to a taken number refused', 'SKIP', N'needs two active devices with a MABA number');
+    GOTO Certs;
+END
 
 BEGIN TRAN;
 
@@ -99,6 +106,7 @@ ELSE
 Report:
 IF @@TRANCOUNT > 0 ROLLBACK;
 
+Certs:
 /* 5 */
 DECLARE @CMaba NVARCHAR(50) =
 (

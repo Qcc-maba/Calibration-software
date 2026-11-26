@@ -109,10 +109,13 @@ GO
     copies are retired (database/data/Retire-DuplicateMeasurementDevices.sql), the same join would
     keep feeding new corrections onto retired rows.
 
-    Change: the device join of the corrections INSERT also requires md.IsDeleted = 0. With one
-    active row per MabaID that inserts exactly what it inserted before, once. A MabaID with no
-    active row is handled as an unknown one already was (MeasurementDevicesId NULL). The
-    MeasurementId update above it is left as it was: it writes the same value to every copy.
+    Change: the corrections INSERT attaches each staging row to ONE device: the active one, or,
+    when the MabaID has only retired rows, the lowest retired one. That way the row stays findable
+    (the retire script's stranded-certificate step can move it), instead of landing with
+    MeasurementDevicesId NULL, where the SourceId dedupe would never insert it again. A MabaID no
+    row has gets NULL, as before. With duplicates still active it also stops inserting one copy
+    per row. The MeasurementId update above it is left as it was: it writes the same value to
+    every copy.
     Otherwise this is the definition deployed on PROD and STAGE (identical on both, 2026-11-26).
 */
 CREATE OR ALTER PROCEDURE [stg].[MergeMeasurementDevicesCorrection]
@@ -206,7 +209,8 @@ JOIN [dbo].[MainCategories] as mc ON
             WHEN N'מסה' THEN N'מסה' 
         END = mc.MainCategoryName
 JOIN [dbo].[Measurements] as m ON m.[NameEn] = stg.ShortNameEn
-LEFT JOIN [dbo].[MeasurementDevices] as md ON md.MabaID = stg.MabaID AND md.IsDeleted = 0
+OUTER APPLY (SELECT TOP (1) d.[ID] FROM [dbo].[MeasurementDevices] as d
+             WHERE d.MabaID = stg.MabaID ORDER BY d.IsDeleted, d.ID) as md
 LEFT JOIN [dbo].[MeasurementDevicesCorrections] as dest ON stg.[MeasurementDevicesCorrectionsSourceId] = dest.[MeasurementDevicesCorrectionsSourceId]
 WHERE dest.[MeasurementDevicesCorrectionsSourceId] IS NULL
 
@@ -235,6 +239,10 @@ GO
     already in use". A number held only by deleted rows can be reused. This matches the unique
     index UX_MeasurementDevices_MabaID_Active (database/constraints), which is the backstop for
     any other writer.
+
+    The CATCH now re-raises instead of "SELECT ERROR_MESSAGE(); ROLLBACK", so whatever fails inside
+    the TRY (the index's 2601 when two users save the same number at once, a 1934, ...) reaches the
+    app as an error, not as a result row the screen reads as success.
 */
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -382,8 +390,10 @@ BEGIN TRY
 END TRY
 
 BEGIN CATCH
-	SELECT ERROR_MESSAGE()
-	ROLLBACK 
+	/* MBA-1060: re-raise, so a failure (2601 from the unique index, 1934, ...) reaches the app
+	   instead of coming back as an ordinary result row that the screen reads as success */
+	IF @@TRANCOUNT > 0 ROLLBACK;
+	THROW;
 END CATCH
 
 END
@@ -402,6 +412,10 @@ GO
     Now, before the TRY, a NEW number that an active device already has raises error 51070 with
     the number and that device's ID. The app shows it as "MABA number already in use". Re-saving
     a device with its own unchanged number is never refused, even while duplicates still exist.
+
+    The CATCH now re-raises instead of "ROLLBACK SELECT ERROR_MESSAGE()", so whatever fails inside
+    the TRY (the index's 2601 when two users save the same number at once, a 1934, ...) reaches the
+    app as an error, not as a result row the screen reads as success.
 */
 -- =============================================
 -- Author:		Eduard Kudlaiev
@@ -485,7 +499,7 @@ SELECT 1 FROM Cars WHERE CarId = @CarId and IsDeleted = 0
 THROW 51000, 'Incorrect car was assigned.', 1;
 
 if @MabaID IS NOT NULL
-   AND @MabaID <> (SELECT [MabaID] FROM [dbo].[MeasurementDevices] WHERE ID = @ID)
+   AND NOT EXISTS (SELECT 1 FROM [dbo].[MeasurementDevices] WHERE ID = @ID AND [MabaID] = @MabaID)
    AND EXISTS (SELECT 1 FROM [dbo].[MeasurementDevices] WHERE [MabaID] = @MabaID AND [IsDeleted] = 0 AND ID <> @ID)
 BEGIN
 	DECLARE @TakenById INT = (SELECT TOP (1) ID FROM [dbo].[MeasurementDevices]
@@ -541,7 +555,10 @@ BEGIN TRY
 END TRY
 
 BEGIN CATCH
-	ROLLBACK SELECT ERROR_MESSAGE()
+	/* MBA-1060: re-raise, so a failure (2601 from the unique index, 1934, ...) reaches the app
+	   instead of coming back as an ordinary result row that the screen reads as success */
+	IF @@TRANCOUNT > 0 ROLLBACK;
+	THROW;
 END CATCH
 END
 GO

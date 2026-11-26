@@ -469,7 +469,14 @@ After step 3, `dbo.ImportInstrumentWorkRangeFromKyulan` (the MBA-902 hand-run im
 1934 if it is run again on PROD, because PROD's copy was created with `QUOTED_IDENTIFIER OFF`.
 Re-create it with it `ON` first. STAGE's copy is already `ON`.
 
-STAGE gets the same three steps: 7 rows to retire, 1 point moved from 4645 to 691, 21-675's test row
+**STAGE** (`Calibrator`): step 1 is not the bundle, which refuses any database but `CalibratorProd`. Deploy the four
+files from `database/procedures/` instead (`dbo.GetMeasurementDevicesCorrections`, `stg.MergeMeasurementDevicesCorrection`,
+`dbo.CreateEquipmentRecord`, `dbo.EditEquipmentRecord`). Each starts with `SET ANSI_NULLS ON; SET QUOTED_IDENTIFIER ON;`,
+so even `sqlcmd` without `-I` creates them with the settings the unique index needs. Check before step 3:
+`SELECT COUNT(*) FROM sys.sql_modules WHERE object_id IN (OBJECT_ID('dbo.GetMeasurementDevicesCorrections'),
+OBJECT_ID('stg.MergeMeasurementDevicesCorrection'), OBJECT_ID('dbo.CreateEquipmentRecord'), OBJECT_ID('dbo.EditEquipmentRecord'))
+AND definition LIKE '%MBA-1060%' AND uses_quoted_identifier = 1 AND uses_ansi_nulls = 1` must return 4. Steps 2-4 are the
+same files as on PROD. Expected on STAGE: 7 rows to retire, 1 point moved from 4645 to 691, 21-675's test row
 4653 retired with its own test curve, and 21-260's 182 corrections moved from 622 (retired by MBA-902 in
 August) to the active 810 (`MOVE CERT` rows). The whole sequence, and `database/tests/Test-MabaIdOneActiveDevice.sql`
 before (4 of 6 failing) and after (6 of 6 passing), was run on a fresh local copy of STAGE on 2026-11-26.

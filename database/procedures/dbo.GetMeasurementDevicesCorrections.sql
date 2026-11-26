@@ -1,3 +1,6 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 30/03/2025
