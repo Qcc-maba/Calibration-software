@@ -24,6 +24,9 @@
 --      order inside a day is undefined and a row can repeat on, or vanish from, the next page.
 --      A NULL or blank @OrderBy now means OrderWorkPlanId (the parameter default) instead of
 --      building "ORDER BY  OFFSET", which failed. On STAGE since 2026-11-22; NOT on PROD yet.
+--   4. MBA-885: the "קוד לקוח" filter (@ClientCode, and @ClientId read as a code) returns the
+--      orders of every active customer with that code, not of one picked by TOP (1). See the
+--      customer filter block at the top of the body.
 --
 -- Earlier: 'Finished' (status 75) leaves the working screens and is what @Page =
 --          'calibration-history' asks for; ClientConfirmationStatus falls back to 'New' (חדש).
@@ -101,25 +104,36 @@ BEGIN
 	   different company ('פינקלמן') with no work plans - so filtering by the typed code
 	   against CustomerId silently returned an empty screen.
 	   @ClientCode is the correct input. @ClientId is kept for back-compat and is resolved
-	   as a CODE first (that is what the UI sends today), falling back to a real CustomerId.
+	   as a CODE first, falling back to a real CustomerId.
+
+	   MBA-885: a code resolves to EVERY active customer carrying it, not to one of them.
+	   CustomerCode is not unique: on STAGE 30 codes are shared by two non-deleted customers
+	   each (60 rows; e.g. T000070 = CustomerId 4702 and 11042). The previous TOP (1) with no
+	   ORDER BY kept one of the two at random, so the screen showed one company's orders and
+	   could show the other's on the next call. None of those 60 customers has a work plan on
+	   STAGE yet, so this changes no result today. The ids go into #ClientCustomerIds and are
+	   joined like the other id filters, so the typed code is never spliced into @sql.
 	   --------------------------------------------------------------------------------- */
-	DECLARE @ResolvedCustomerId INT = NULL;
+	CREATE TABLE #ClientCustomerIds (CustomerId INT NOT NULL PRIMARY KEY);
+	DECLARE @FilterByClient BIT = IIF(@ClientCode IS NOT NULL OR @ClientId IS NOT NULL, 1, 0);
 
 	IF @ClientCode IS NOT NULL
 	BEGIN
-		SELECT TOP (1) @ResolvedCustomerId = c.CustomerId
+		INSERT INTO #ClientCustomerIds (CustomerId)
+		SELECT DISTINCT c.CustomerId
 		FROM dbo.Customers AS c
 		WHERE c.CustomerCode = @ClientCode AND ISNULL(c.IsDeleted, 0) = 0;
-
-		IF @ResolvedCustomerId IS NULL SET @ResolvedCustomerId = -1;  -- unknown code -> no rows
+		-- unknown code -> #ClientCustomerIds stays empty -> the JOIN returns no rows
 	END
 	ELSE IF @ClientId IS NOT NULL
 	BEGIN
-		SELECT TOP (1) @ResolvedCustomerId = c.CustomerId
+		INSERT INTO #ClientCustomerIds (CustomerId)
+		SELECT DISTINCT c.CustomerId
 		FROM dbo.Customers AS c
 		WHERE c.CustomerCode = CAST(@ClientId AS NVARCHAR(20)) AND ISNULL(c.IsDeleted, 0) = 0;
 
-		IF @ResolvedCustomerId IS NULL SET @ResolvedCustomerId = @ClientId;  -- treat as a real CustomerId
+		IF NOT EXISTS (SELECT 1 FROM #ClientCustomerIds)
+			INSERT INTO #ClientCustomerIds (CustomerId) VALUES (@ClientId);  -- treat as a real CustomerId
 	END
 
 	DECLARE @LoggedInUserId INT = 0
@@ -581,6 +595,7 @@ CONCAT(
 	,IIF(@EquipmentIds IS NOT NULL,' JOIN #EquipmentId as eid ON wp.OrderWorkPlanId = eid.OrderWorkPlanId ',' ')
 	,IIF(@CarsIds IS NOT NULL,' JOIN #CarsIds as cid ON wp.OrderWorkPlanId = cid.OrderWorkPlanId ',' ')
 	,IIF(@OrderNumber IS NOT NULL,' JOIN #OrderNumbers as ordnf ON wp.OrderWorkPlanId = ordnf.OrderWorkPlanId ',' ')
+	,IIF(@FilterByClient = 1,' JOIN #ClientCustomerIds as ccid ON wp.CustomerId = ccid.CustomerId ',' ')
 	,'JOIN [dbo].[OrderDetails] as od ON wp.OrderWorkPlanId = od.OrderWorkPlanId
 	  LEFT JOIN [dbo].[OrderDetailsItems] as itm ON itm.OrderDetailId = od.OrderDetailId
 	  LEFT JOIN [dbo].[Customers] as c ON wp.[CustomerId] = c.[CustomerId]
@@ -617,7 +632,6 @@ CONCAT(
 	,CASE WHEN @LoggedInUserEmail IS NOT NULL AND @SourceId IS NOT NULL THEN ' AND wp.SourceId = '+CAST(@SourceId AS NVARCHAR(50))  ELSE ' ' END
 	,CASE WHEN @ExcludeRejectedOrders = 1 THEN ' AND COALESCE(wp.ClientConfirmationStatusId,0) NOT IN ('+@ClientConfirmationStatus+') 'ELSE ' ' END
 	,CASE WHEN @ClientName IS NOT NULL THEN ' AND c.CustomerName LIKE N''%'+ @ClientName +'%'' 'ELSE ' ' END
-	,CASE WHEN @ResolvedCustomerId IS NOT NULL THEN ' AND wp.CustomerId = '+ CAST(@ResolvedCustomerId AS NVARCHAR(20)) +' 'ELSE ' ' END
 --	,CASE WHEN @Date IS NOT NULL AND  @Date > '1900-01-01' THEN ' AND wp.AssigmentDate = '''+CAST(@Date as NVARCHAR(MAX)) +''' 'ELSE ' ' END
 	,CASE WHEN @Location  IS NOT NULL THEN ' AND IIF(css.CustomerSiteId IS NOT NULL,CONCAT_WS('', '',css.CustomerSiteAddress,css.CustomerSiteState,css.CustomerSiteZIP), CONCAT_WS('', '',c.CustomerAddress, c.CustomerCity)) LIKE N''%'+@Location +'%'' 'ELSE ' ' END
 	,CASE WHEN @ProductType IS NOT NULL THEN ' AND od.PartName LIKE N''%'+ @ProductType +'%'' 'ELSE ' ' END
