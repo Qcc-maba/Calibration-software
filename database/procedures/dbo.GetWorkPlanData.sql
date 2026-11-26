@@ -1,4 +1,7 @@
-﻿-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-08-23.
+﻿-- STALE SNAPSHOT - DO NOT DEPLOY. The live lineage is dbo.GetWorkPlanData.MbaReportNumber.sql;
+-- deploying this file to STAGE or PROD rolls back every change made since (MBA-1026 paging, MBA-885
+-- client-code filter, MBA-902 validator screens, ...). Kept for history only.
+-- Mirrors the definition deployed on STAGE (Calibrator) as of 2026-08-23.
 -- Regenerated from the live object; see the in-body comments for what each change does
 -- and why. Do not hand-edit without redeploying — this file is a mirror, not the source.
 -- =============================================
