@@ -4,7 +4,8 @@
     The plan of database/data/Retire-DuplicateMeasurementDevices.sql as ONE read-only SELECT, so it
     can run through the SELECT-only PROD query helper (no temp tables, no dynamic SQL, no CTE).
 
-    Same rule, same refusals, no @KeepOverride / @SkipMabaIds. It counts only the reference
+    Same rule, same refusals, and the same PROD @MoveLinksMabaIds (21-422; keep it in step with
+    the script's list). It does not show the moved rows' keys. It counts only the reference
     tables PROD has today. UnknownFks lists any foreign key to MeasurementDevices outside them.
     If it is not empty, this plan is incomplete: run the real script's dry run instead.
 
@@ -19,16 +20,16 @@ SELECT
     q.MabaID, q.ID,
     CASE WHEN q.Refused = 1 THEN 'REFUSED' WHEN q.ID = q.KeepId THEN 'KEEP' ELSE 'RETIRE' END AS Action,
     CASE WHEN q.Refused = 1 THEN CONCAT_WS(N'; ',
-             IIF(q.LinkedCopies > 1, CONCAT(N'links on ', q.LinkedCopies, N' copies'), NULL),
-             IIF(q.LinkedDrops > 0 AND q.LinkedCopies <= 1, N'links on a copy that would be retired', NULL),
+             IIF(q.MoveLinks = 0 AND q.LinkedCopies > 1, CONCAT(N'links on ', q.LinkedCopies, N' copies'), NULL),
+             IIF(q.MoveLinks = 0 AND q.LinkedDrops > 0 AND q.LinkedCopies <= 1, N'links on a copy that would be retired', NULL),
              IIF(q.CertMismatch > 0, N'certificate on a retired copy differs from the kept copy', NULL),
              IIF(q.LoggerDrops > 0, N'a retired copy is the Data logger, the kept copy is not', NULL))
          WHEN q.ID = q.KeepId THEN
-             CASE WHEN q.Links > 0 THEN N'has the links'
+             CASE WHEN q.MoveLinks = 0 AND q.Links > 0 THEN N'has the links'
                   WHEN q.Certs > 0 THEN N'has the certificate'
                   WHEN q.HasClass = 1 THEN N'nothing referenced, the classed copy'
                   ELSE N'nothing referenced, lowest id' END
-         ELSE CONCAT(N'duplicate of ', q.KeepId, IIF(q.Certs > 0, N', identical certificate stays on it', N''))
+         ELSE CONCAT(N'duplicate of ', q.KeepId, IIF(q.Certs > 0, N', identical certificate stays on it', N''), IIF(q.MoveLinks = 1 AND q.Links > 0, N', links move to the kept copy', N''))
     END AS Reason,
     q.Links, q.Certs,
     CONCAT_WS(N' ',
@@ -55,7 +56,7 @@ SELECT
                   N'CarsToEquipment.MeasurementDeviceId', N'MeasurementDevicesCorrections.MeasurementDevicesId')), N'') AS UnknownFks
 FROM (
     SELECT g.*,
-           IIF(g.LinkedCopies > 1 OR g.LinkedDrops > 0 OR g.CertMismatch > 0 OR g.LoggerDrops > 0, 1, 0) AS Refused
+           IIF((g.MoveLinks = 0 AND (g.LinkedCopies > 1 OR g.LinkedDrops > 0)) OR g.CertMismatch > 0 OR g.LoggerDrops > 0, 1, 0) AS Refused
     FROM (
         SELECT k.*,
                SUM(IIF(k.ID <> k.KeepId AND k.Links > 0, 1, 0)) OVER (PARTITION BY k.MabaID) AS LinkedDrops,
@@ -67,17 +68,18 @@ FROM (
             SELECT r.*,
                    SUM(IIF(r.Links > 0, 1, 0)) OVER (PARTITION BY r.MabaID) AS LinkedCopies,
                    FIRST_VALUE(r.ID) OVER (PARTITION BY r.MabaID
-                       ORDER BY IIF(r.Links > 0, 0, 1), IIF(r.Certs > 0, 0, 1), IIF(r.HasClass = 1, 0, 1), r.ID
+                       ORDER BY IIF(r.MoveLinks = 0 AND r.Links > 0, 0, 1), IIF(r.Certs > 0, 0, 1), IIF(r.HasClass = 1, 0, 1), r.ID
                        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS KeepId,
                    FIRST_VALUE(r.CertSig) OVER (PARTITION BY r.MabaID
-                       ORDER BY IIF(r.Links > 0, 0, 1), IIF(r.Certs > 0, 0, 1), IIF(r.HasClass = 1, 0, 1), r.ID
+                       ORDER BY IIF(r.MoveLinks = 0 AND r.Links > 0, 0, 1), IIF(r.Certs > 0, 0, 1), IIF(r.HasClass = 1, 0, 1), r.ID
                        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS KeepSig,
                    FIRST_VALUE(r.IsLogger) OVER (PARTITION BY r.MabaID
-                       ORDER BY IIF(r.Links > 0, 0, 1), IIF(r.Certs > 0, 0, 1), IIF(r.HasClass = 1, 0, 1), r.ID
+                       ORDER BY IIF(r.MoveLinks = 0 AND r.Links > 0, 0, 1), IIF(r.Certs > 0, 0, 1), IIF(r.HasClass = 1, 0, 1), r.ID
                        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS KeepIsLogger
             FROM (
                 SELECT md.ID, md.MabaID, md.CreateDate, md.MainClassId, md.Model, md.SerialNumber,
                        IIF(md.MainClassId IS NULL, 0, 1) AS HasClass,
+                       IIF(md.MabaID IN (N'21-422'), 1, 0) AS MoveLinks,  /* = @MoveLinksMabaIds for CalibratorProd */
                        IIF(EXISTS (SELECT 1 FROM dbo.MeasurementDevicesMainClasses mc
                                    WHERE mc.Id = md.MainClassId AND mc.NameEnglish = N'Data logger'), 1, 0) AS IsLogger,
                        n.s2l, n.ch, n.odi, n.pts, n.cyc, n.oh, n.car,
