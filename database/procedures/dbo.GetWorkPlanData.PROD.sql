@@ -1,4 +1,6 @@
-﻿-- Mirrors the deployed definition, regenerated 2026-08-23. Not the source — redeploy after editing.
+﻿-- STALE SNAPSHOT - DO NOT DEPLOY. PROD's copy as of 2026-08-23, superseded by the 2026-08-31 tranche B
+-- deploy. Deploy PROD from dbo.GetWorkPlanData.MbaReportNumber.sql. Kept for history only.
+-- Mirrors the deployed definition, regenerated 2026-08-23. Not the source — redeploy after editing.
 -- =============================================
 -- Author:		Eduard Kudlaiev
 -- Create date: 03/04/2025

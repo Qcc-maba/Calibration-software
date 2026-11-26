@@ -114,6 +114,10 @@ BEGIN
 	   STAGE yet, so this changes no result today. The ids go into #ClientCustomerIds and are
 	   joined like the other id filters, so the typed code is never spliced into @sql.
 	   --------------------------------------------------------------------------------- */
+	-- A blank or padded code is no filter / the trimmed code, not "no customer has code ''".
+	SET @ClientCode = NULLIF(LTRIM(RTRIM(@ClientCode)), N'');
+
+	DROP TABLE IF EXISTS #ClientCustomerIds;
 	CREATE TABLE #ClientCustomerIds (CustomerId INT NOT NULL PRIMARY KEY);
 	DECLARE @FilterByClient BIT = IIF(@ClientCode IS NOT NULL OR @ClientId IS NOT NULL, 1, 0);
 
@@ -132,8 +136,11 @@ BEGIN
 		FROM dbo.Customers AS c
 		WHERE c.CustomerCode = CAST(@ClientId AS NVARCHAR(20)) AND ISNULL(c.IsDeleted, 0) = 0;
 
+		-- no such code -> treat it as a real CustomerId, with the same IsDeleted rule as the code lookup
 		IF NOT EXISTS (SELECT 1 FROM #ClientCustomerIds)
-			INSERT INTO #ClientCustomerIds (CustomerId) VALUES (@ClientId);  -- treat as a real CustomerId
+			INSERT INTO #ClientCustomerIds (CustomerId)
+			SELECT c.CustomerId FROM dbo.Customers AS c
+			WHERE c.CustomerId = @ClientId AND ISNULL(c.IsDeleted, 0) = 0;
 	END
 
 	DECLARE @LoggedInUserId INT = 0
