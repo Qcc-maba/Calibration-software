@@ -446,3 +446,37 @@ deploy. Since MBA-999 it also compares procedure bodies, defaults, checks, forei
 content rather than name. It exits 1 on any difference not listed, with a reason, in
 `database/Compare-Schema.expected.txt`. It is the check that would have caught this. Don't call a deploy
 finished while it fails.
+
+---
+
+# Step 11 - duplicate measurement devices (MBA-1060)
+
+PROD has 36 MABA numbers with more than one active `dbo.MeasurementDevices` row (112 rows, 76 extra),
+left by three hand runs of `CalibratorDB/ListOfAllEquipment.sql` in January 2026. Run as `sa` in SSMS,
+on `CalibratorProd`, in this order. Each step refuses to do the wrong thing on its own.
+
+| # | File | What to expect |
+|---|---|---|
+| 1 | `11-MBA-1060-procedures.sql` | Four procedures (certificate load, corrections sync, create/edit equipment). Last result: one row, `4`. Safe before step 2. |
+| 2a | `database/data/Retire-DuplicateMeasurementDevices.sql` as it is (`@Apply = 0`) | The plan, one row per copy. Expected (read-only preflight 2026-11-26): `DupMabaIds 36`, `ToRetire 76`, `LinksToMove 2`, `CertRowsToMove 0`, `RefusedMabaIds 0`, `UnknownFks` empty. 21-422 keeps 879 and the Moves column lists the two points (807 -> 879). Save the result grid. |
+| 2b | same file with `DECLARE @Apply BIT = 1;` | Same rows, `Mode = APPLIED`. Note the `RunStamp`: it is the undo key (the file's header has the undo). Run 2a again: it must return no rows. |
+| 3 | `database/constraints/UX_MeasurementDevices_MabaID_Active.sql`, then `database/tests/Test-MabaIdOneActiveDevice.sql` | Creates the unique index on active MABA numbers. If step 2 did not finish, it stops with error 51071 and lists the numbers still duplicated. The test returns 6 rows, all `PASS`. |
+
+If 2a's numbers differ from the ones above, stop and compare: someone added or linked a device since
+the preflight. A REFUSED row names its reason; nothing is written while one exists.
+
+After step 3, `dbo.ImportInstrumentWorkRangeFromKyulan` (the MBA-902 hand-run import) fails with error
+1934 if it is run again on PROD, because PROD's copy was created with `QUOTED_IDENTIFIER OFF`.
+Re-create it with it `ON` first. STAGE's copy is already `ON`.
+
+**STAGE** (`Calibrator`): step 1 is not the bundle, which refuses any database but `CalibratorProd`. Deploy the four
+files from `database/procedures/` instead (`dbo.GetMeasurementDevicesCorrections`, `stg.MergeMeasurementDevicesCorrection`,
+`dbo.CreateEquipmentRecord`, `dbo.EditEquipmentRecord`). Each starts with `SET ANSI_NULLS ON; SET QUOTED_IDENTIFIER ON;`,
+so even `sqlcmd` without `-I` creates them with the settings the unique index needs. Check before step 3:
+`SELECT COUNT(*) FROM sys.sql_modules WHERE object_id IN (OBJECT_ID('dbo.GetMeasurementDevicesCorrections'),
+OBJECT_ID('stg.MergeMeasurementDevicesCorrection'), OBJECT_ID('dbo.CreateEquipmentRecord'), OBJECT_ID('dbo.EditEquipmentRecord'))
+AND definition LIKE '%MBA-1060%' AND uses_quoted_identifier = 1 AND uses_ansi_nulls = 1` must return 4. Steps 2-4 are the
+same files as on PROD. Expected on STAGE: 7 rows to retire, 1 point moved from 4645 to 691, 21-675's test row
+4653 retired with its own test curve, and 21-260's 182 corrections moved from 622 (retired by MBA-902 in
+August) to the active 810 (`MOVE CERT` rows). The whole sequence, and `database/tests/Test-MabaIdOneActiveDevice.sql`
+before (4 of 6 failing) and after (6 of 6 passing), was run on a fresh local copy of STAGE on 2026-11-26.
