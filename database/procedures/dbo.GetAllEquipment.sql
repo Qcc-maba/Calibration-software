@@ -17,14 +17,34 @@
     could render as "3,0,7,1,6,2". Now numeric.
 
     No rows, filters or columns changed.
+
+    2026-11-26 (MBA-1045): @IncludeAssigned. The scheduling screen has to warn when a device is
+    already booked on the day (a warning, not a block), but the default call drops every device
+    that has any booking on @CheckDate, so a booked device never reaches the list and the screen
+    cannot say where it is.
+
+    @IncludeAssigned = 0 (the default) returns the same rows and values as before: only devices
+    with no live booking on the date, OrderNumber and OrderId always NULL. The one addition is the
+    BookedOrderNumbers column, NULL in this mode. The wizard's pickers and every other caller
+    (they read columns by name) are unchanged.
+
+    @IncludeAssigned = 1 also returns booked devices, still one row per device:
+      - OrderNumber / OrderId: one booking holding the device that day (lowest order number), so
+        the existing "taken by order X" display keeps working.
+      - BookedOrderNumbers: every order holding it that day, comma separated, sorted. More than one
+        means the device is double-booked; the caller decides which is "the current order".
+    Bookings on a cancelled order do not count as taken in this mode. The default mode still treats
+    them as taken, as it always has (left as is so its output does not move).
 */
 CREATE OR ALTER PROCEDURE [dbo].[GetAllEquipment]
 @MainCategoryId INT = NULL,
 @CheckDate DATE = NULL,
-@MainClassId INT = NULL
+@MainClassId INT = NULL,
+@IncludeAssigned BIT = 0
 AS
 
 IF @CheckDate IS NULL SET @CheckDate = GETDATE()
+IF @IncludeAssigned IS NULL SET @IncludeAssigned = 0
 
 SELECT c.[ID]
       ,CONCAT(COALESCE(c.[Description],'N/A'), ' ',c.MabaID) AS Title
@@ -36,8 +56,8 @@ SELECT c.[ID]
 	  ,s.[StatusDescriptionHEB] 
 	  ,mmc.MainCategoryName AS [MainCategory]
       -----------------------------
-	  ,op.OrderNumber as OrderNumber
-	  ,coh.OrderWorkPlanId as OrderId
+	  ,bk.OrderNumber as OrderNumber
+	  ,bk.OrderWorkPlanId as OrderId
 	  ,c.Manufacturer
 	  ,c.DisplayToCoordinator
 	  ,c.[MabaID]
@@ -49,13 +69,33 @@ SELECT c.[ID]
 	  ,c.[CalibrationDate]
 	  ,c.[NextCalibration]
 	  ,mdmc.[NameHebrew] as DeviceMainClass
+	  ,bkl.BookedOrderNumbers
 FROM [dbo].[MeasurementDevices] as c
 LEFT JOIN [dbo].[MainCategories] as mmc ON c.[MainCategoryId] = mmc.ID
 LEFT JOIN [dbo].[Statuses] as s ON c.MeasurementDeviceStatusId = s.StatusId
 LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mc ON c.MainClassId = mc.Id
-LEFT JOIN [dbo].[MeasurementDevicesToOrderHeaders] as coh ON c.ID = coh.MeasurementDeviceId AND coh.IsDeleted = 0 AND coh.AssigmentDate = @CheckDate
-LEFT JOIN [dbo].[OrderWorkPlans] as op ON op.OrderWorkPlanId = coh.OrderWorkPlanId AND op.IsCancelled = 0  
 LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mdmc ON c.MainClassId = mdmc.Id
+-- MBA-1045: the first live booking (non-cancelled order) holding the device on the date
+OUTER APPLY
+(
+SELECT TOP (1) LTRIM(RTRIM(op.OrderNumber)) AS OrderNumber, coh.OrderWorkPlanId
+FROM [dbo].[MeasurementDevicesToOrderHeaders] as coh
+JOIN [dbo].[OrderWorkPlans] as op ON op.OrderWorkPlanId = coh.OrderWorkPlanId AND op.IsCancelled = 0
+WHERE coh.MeasurementDeviceId = c.ID AND coh.IsDeleted = 0 AND coh.AssigmentDate = @CheckDate
+ORDER BY LTRIM(RTRIM(op.OrderNumber)), coh.OrderWorkPlanId
+) as bk
+-- MBA-1045: every order holding it that day; more than one = double-booked
+OUTER APPLY
+(
+SELECT STRING_AGG(o.OrderNumber, ',') WITHIN GROUP (ORDER BY o.OrderNumber) AS BookedOrderNumbers
+FROM
+(
+SELECT DISTINCT LTRIM(RTRIM(op.OrderNumber)) AS OrderNumber
+FROM [dbo].[MeasurementDevicesToOrderHeaders] as coh
+JOIN [dbo].[OrderWorkPlans] as op ON op.OrderWorkPlanId = coh.OrderWorkPlanId AND op.IsCancelled = 0
+WHERE coh.MeasurementDeviceId = c.ID AND coh.IsDeleted = 0 AND coh.AssigmentDate = @CheckDate
+) as o
+) as bkl
 LEFT JOIN 
 (
 SELECT sr.SensorMeasurementDeviceId, STRING_AGG(sr.ChannelNumber,',') WITHIN GROUP (ORDER BY sr.ChannelNumber) as AassignedChannels
@@ -63,7 +103,11 @@ FROM [dbo].[ChannelsToSensorRelation] as sr
 WHERE sr.IsDeleted = 0
 GROUP BY sr.SensorMeasurementDeviceId
 ) as ach ON c.ID = ach.SensorMeasurementDeviceId
-WHERE c.IsDeleted = 0  /*AND COALESCE(s.StatusDescriptionENG,'Available') = 'Available'*/ AND coh.MeasurementDeviceId IS NULL
+WHERE c.IsDeleted = 0  /*AND COALESCE(s.StatusDescriptionENG,'Available') = 'Available'*/
+-- Default: drop a device with any live booking row on the date, cancelled order or not (unchanged)
+AND (@IncludeAssigned = 1 OR NOT EXISTS (
+	SELECT 1 FROM [dbo].[MeasurementDevicesToOrderHeaders] as coh
+	WHERE coh.MeasurementDeviceId = c.ID AND coh.IsDeleted = 0 AND coh.AssigmentDate = @CheckDate))
 AND (@MainCategoryId IS NULL OR c.[MainCategoryId]  = @MainCategoryId)
 AND (@MainClassId IS NULL OR c.MainClassId  = @MainClassId)
 -- MBA-902: numeric order on MabaID's two segments; anything not shaped nn-nnn sorts last
