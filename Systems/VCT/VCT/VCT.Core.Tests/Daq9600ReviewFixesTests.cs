@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using ComServerBL.Hydra2.DAL.Calibration;
+using Maba.DAL.BaseDAL.Records;
+using Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Maba.VCT.Common;
 using Maba.VCT.Common.API.RemoteProtocolService;
@@ -205,6 +208,59 @@ namespace Maba.VCT.Core.Tests
             Assert.IsFalse(Daq9600BL.TimedOut(new LogsResponse(false, LogsRequest.LogCommands.GetLogs)));
             Assert.IsFalse(Daq9600BL.TimedOut(new LogsResponse(true, LogsRequest.LogCommands.GetLogs)));
             Assert.IsFalse(Daq9600BL.TimedOut(null));
+        }
+
+        #endregion
+
+        #region re-check at b9277cf - per-channel alerts, PT-100 reasons, a log tag per unit
+
+        [TestMethod]
+        public void ASecondChannelOfTheSameSensorIsAlertedToo()
+        {
+            var alerts = new List<string>();
+            var certs = new ChannelCertificates(null, "TEST", (type, message, channel) => alerts.Add(channel));
+            var refused = ChannelCertificates.HoldReason.ConversionFailed;
+
+            certs.ReportHeldBack(new Dictionary<int, ChannelCertificates.HeldBack> { [1] = new ChannelCertificates.HeldBack("21-675", refused) });
+            certs.ReportHeldBack(new Dictionary<int, ChannelCertificates.HeldBack>
+            {
+                [1] = new ChannelCertificates.HeldBack("21-675", refused),
+                [3] = new ChannelCertificates.HeldBack("21-675", refused),
+            });
+            CollectionAssert.AreEqual(new List<string> { "1", "3" }, alerts, "CH3 is alerted when it joins; CH1 is not alerted again");
+
+            certs.ReportHeldBack(new Dictionary<int, ChannelCertificates.HeldBack> { [3] = new ChannelCertificates.HeldBack("21-675", refused) });
+            Assert.AreEqual(2, alerts.Count, "not again on the next sweep");
+        }
+
+        [TestMethod]
+        public void APt100WrongValueIsNamedByWhetherTheCoefficientsExist()
+        {
+            Assert.AreEqual(ChannelCertificates.HoldReason.NoCoefficients, Daq9600BL.PtWrongValueReason(false));
+            Assert.AreEqual(ChannelCertificates.HoldReason.ConversionFailed, Daq9600BL.PtWrongValueReason(true));
+        }
+
+        [TestMethod]
+        public void CoefficientsThatCannotConvertAreNotReportedAsMissing()
+        {
+            var repository = new CalibrationRepository();
+            repository.SetSensorCoefficients("21-114", new SensorCoefficients(0, 0, 0, 0, 0, 0)); // RTP 0: every value is WrongValue
+            var hc = new HydraCalculations(repository);
+
+            Assert.AreEqual(CalibrationRepository.ResultStatus.WrongValue, hc.CalcResistanceToTemperatureITS90("21-114", 100).Item2);
+            Assert.IsTrue(hc.HasSensorCoefficients("21-114"));
+            Assert.AreEqual(ChannelCertificates.HoldReason.ConversionFailed, Daq9600BL.PtWrongValueReason(hc.HasSensorCoefficients("21-114")));
+            Assert.IsFalse(hc.HasSensorCoefficients("21-999"));
+            Assert.IsFalse(hc.HasSensorCoefficients(null));
+        }
+
+        [TestMethod]
+        public void EachUnitLogsUnderItsOwnSn()
+        {
+            Assert.AreEqual("DAQ-9600_GEY150853", Daq9600BL.LogTagFor("DAQ-9600_GEY150853"));
+            Assert.AreNotEqual(Daq9600BL.LogTagFor("DAQ-9600_GEY150853"), Daq9600BL.LogTagFor("DAQ-9600_GEY140706"));
+            Assert.AreEqual("DAQ-9600", Daq9600BL.LogTagFor(null));
+            Assert.AreEqual("DAQ-9600", Daq9600BL.LogTagFor("  "));
         }
 
         #endregion

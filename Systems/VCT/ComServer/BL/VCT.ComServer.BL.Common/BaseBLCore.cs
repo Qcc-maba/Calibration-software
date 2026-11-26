@@ -51,6 +51,15 @@ namespace Maba.VCT.CommServer.CommonBL
         /// <summary>Creates the business logic for one newly connected device of this family.</summary>
         protected abstract BaseBLDevice CreateDeviceBL();
 
+        /// <summary>
+        /// Creates the business logic for the device whose identification gave <paramref name="sn"/>. By default
+        /// the SN is not used; a family that names its log lines after the unit overrides this (MBA-1058).
+        /// </summary>
+        protected virtual BaseBLDevice CreateDeviceBL(string sn)
+        {
+            return CreateDeviceBL();
+        }
+
         #endregion
 
         #region IBLCore
@@ -73,7 +82,7 @@ namespace Maba.VCT.CommServer.CommonBL
             if (!isAllowed)
                 return false;
 
-            var bl = _blBySN.GetOrAdd(device.SN, _ => CreateDeviceBL());
+            var bl = _blBySN.GetOrAdd(device.SN, sn => CreateDeviceBL(sn));
             if (!ReferenceEquals(device.BL, bl))
             {
                 device.BL = bl;

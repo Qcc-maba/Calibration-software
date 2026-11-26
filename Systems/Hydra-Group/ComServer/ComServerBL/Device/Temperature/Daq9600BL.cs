@@ -42,7 +42,11 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         public override string SettingsFamily => SETTINGS_FAMILY;
 
-        private const string Tag = "DAQ-9600";
+        /// <summary>
+        /// The server.log prefix: the unit's SN ("DAQ-9600_GEY150853"), so with two units on a station each line says
+        /// which one it is about (PR #76 re-check). "DAQ-9600" when the SN is not known.
+        /// </summary>
+        private readonly string Tag;
 
         /// <summary>The shortest poll period, whatever the settings say.</summary>
         internal static readonly TimeSpan MinimumInterval = TimeSpan.FromSeconds(1);
@@ -81,14 +85,21 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         #region ctor
 
-        public Daq9600BL(Daq9600BLCore parent) : base(parent)
+        public Daq9600BL(Daq9600BLCore parent, string sn) : base(parent)
         {
+            Tag = LogTagFor(sn);
             HC = new HydraCalculations(new ComServerBL.Hydra2.DAL.Calibration.CalibrationRepository());
             settings = parent.DeviceSettings;
             Action<string, string, string> alert = (type, message, channel) => HW_Device?.RaiseAlert(type, message, channel);
             _certificates = new ChannelCertificates(HC, Tag, alert);
             _disconnects = new ChannelDisconnects(Tag, alert);
             settings.Daq9600.ChannelMastersChanged += _certificates.OnAssociated;
+        }
+
+        /// <summary>The log prefix for a unit: its SN, or "DAQ-9600" when there is none.</summary>
+        internal static string LogTagFor(string sn)
+        {
+            return string.IsNullOrWhiteSpace(sn) ? "DAQ-9600" : sn.Trim();
         }
 
         #endregion
@@ -343,6 +354,12 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             });
         }
 
+        /// <summary>Why a PT-100 WrongValue was held back: no coefficients on file, or coefficients that could not convert it.</summary>
+        internal static ChannelCertificates.HoldReason PtWrongValueReason(bool hasCoefficients)
+        {
+            return hasCoefficients ? ChannelCertificates.HoldReason.ConversionFailed : ChannelCertificates.HoldReason.NoCoefficients;
+        }
+
         /// <summary>One sweep to the clients, channel by channel (see the class remarks).</summary>
         private void Broadcast(List<int> scan, List<double> values)
         {
@@ -394,10 +411,11 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 else
                 {
                     // PT-100: ohms to degC with this sensor's own coefficients (as Agilent34401aBL does for its master).
-                    // CalcResistanceToTemperatureITS90 answers WrongValue for no coefficients on file, and also for a
-                    // resistance the coefficients cannot convert (NaN) - the first is by far the likely one.
+                    // CalcResistanceToTemperatureITS90 answers WrongValue both for no coefficients on file and for a
+                    // resistance the coefficients cannot convert (NaN: shorted, or far out of range). Which one it was
+                    // decides what the operator is sent to fix (PR #76 re-check).
                     result = HC.CalcConversionUnits(raw, HydraCalculations.ConversionUnits.Ohm, HydraCalculations.ConversionUnits.Celsius, sensor);
-                    ifWrong = ChannelCertificates.HoldReason.NoCoefficients;
+                    ifWrong = PtWrongValueReason(HC.HasSensorCoefficients(sensor));
                 }
 
                 if (result.Item2 == ComServerBL.Hydra2.DAL.Calibration.CalibrationRepository.ResultStatus.WrongValue)

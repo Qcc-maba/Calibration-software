@@ -23,7 +23,13 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.BLCore
 
         protected override BaseBLDevice CreateDeviceBL()
         {
-            return new Daq9600BL(this);
+            return new Daq9600BL(this, null);
+        }
+
+        /// <summary>Each unit's BL logs under its own SN ("DAQ-9600_GEY150853"), so two units' lines can be told apart.</summary>
+        protected override BaseBLDevice CreateDeviceBL(string sn)
+        {
+            return new Daq9600BL(this, sn);
         }
     }
 }
