@@ -51,6 +51,7 @@
   <ItemGroup>
     <Compile Include="BLCore\Temperature\AdditelBLCore.cs" />
     <Compile Include="BLCore\Temperature\Agilent34401aBLCore.cs" />
+    <Compile Include="BLCore\Temperature\Daq9600BLCore.cs" />
     <Compile Include="BLCore\Electronics\Datron9100BLCore.cs" />
     <Compile Include="BLCore\Electronics\KeysightEdux1002aBLCore.cs" />
     <Compile Include="BLCore\Electronics\Cnt90BLCore.cs" />
@@ -69,6 +70,9 @@
     <Compile Include="Device\Temperature\Agilent34401aBL.cs" />
     <Compile Include="Device\Electronics\Datron9100BL.cs" />
     <Compile Include="Device\Temperature\Agilent34401aReadings.cs" />
+    <Compile Include="Device\Temperature\ChannelCertificates.cs" />
+    <Compile Include="Device\Temperature\Daq9600BL.cs" />
+    <Compile Include="Device\Temperature\Daq9600Readings.cs" />
     <Compile Include="Device\Electronics\KeysightEdux1002aBL.cs" />
     <Compile Include="Device\Electronics\KeysightEdux1002aReadings.cs" />
     <Compile Include="Device\Electronics\Cnt90BL.cs" />

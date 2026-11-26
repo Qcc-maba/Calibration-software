@@ -39,6 +39,10 @@
     {
       "AssemblyName": "Maba.VCT.CommServer.BL.HydraDevices",
       "TypeName": "Maba.VCT.CommServer.BL.HydraDevices.BLCore.MeatestM142BLCore"
+    },
+    {
+      "AssemblyName": "Maba.VCT.CommServer.BL.HydraDevices",
+      "TypeName": "Maba.VCT.CommServer.BL.HydraDevices.BLCore.Daq9600BLCore"
     }
   ],
   "IP2Scan": [

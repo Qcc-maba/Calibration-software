@@ -985,6 +985,25 @@ namespace Maba.VCT.Core.Device
             return normalized.IndexOf("M142", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        /// <summary>
+        /// True when an identification reply names a GW Instek DAQ-9600 (MBA-1058). Verified live 2026-11-26:
+        /// <c>*IDN?</c> answers "GWInstek,DAQ-9600,GEY150853,M1.07_S1.02".
+        /// <para>
+        /// Vendor and model are both required, matched case-insensitively with spaces, hyphens and underscores
+        /// removed, so "GW-INSTEK" or "DAQ 9600" also match. With SCPI ID set to "User" in the instrument's
+        /// Interface menu it answers a user-defined name instead and is not recognised - set it back to Normal.
+        /// </para>
+        /// </summary>
+        internal static bool IsGwInstekDaq9600(string identificationReply)
+        {
+            if (string.IsNullOrEmpty(identificationReply))
+                return false;
+
+            var normalized = identificationReply.Replace(" ", "").Replace("-", "").Replace("_", "");
+            return normalized.IndexOf("INSTEK", StringComparison.OrdinalIgnoreCase) >= 0
+                && normalized.IndexOf("DAQ9600", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         private void handlePacket(object o, Common.PacketEventArgs e)
         {
 
@@ -1043,6 +1062,13 @@ namespace Maba.VCT.Core.Device
                 else if (res.Contains("TTI"))
                 {
                     SN = res.Substring(0, 6);
+                }
+                else if (IsGwInstekDaq9600(res))
+                {
+                    // GW Instek DAQ-9600 (MBA-1058), verified live 2026-11-26. MUST come before the vendor-wide
+                    // "Instek" branch below: that one hands the instrument to InstekBLCore, a BL that was never
+                    // finished and whose READ? never returns.
+                    SN = "DAQ-9600";
                 }
                 else if (res.Contains("Instek"))
                 {

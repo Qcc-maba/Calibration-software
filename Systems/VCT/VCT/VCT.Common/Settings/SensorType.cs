@@ -13,7 +13,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             T = 3,
             //N = 4,
             R = 5,
-            //S = 6,
+            /// <summary>MBA-1058: the DAQ-9600 reads S as well. Values are stored as ints, so this keeps 6.</summary>
+            S = 6,
             //B = 7,
             //C = 8,
         }
