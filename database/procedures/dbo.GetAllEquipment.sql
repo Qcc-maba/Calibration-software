@@ -24,17 +24,25 @@
     cannot say where it is.
 
     @IncludeAssigned = 0 (the default) returns the same rows and values as before: only devices
-    with no live booking on the date, OrderNumber and OrderId always NULL. The one addition is the
-    BookedOrderNumbers column, NULL in this mode. The wizard's pickers and every other caller
-    (they read columns by name) are unchanged.
+    with no booking row on the date (a cancelled order's booking still hides the device),
+    OrderNumber and OrderId always NULL. The additions are the BookedOrderNumbers and
+    BookedOrderIds columns, NULL in this mode, and the booking lookups are skipped. The wizard's
+    pickers and every other caller (they read columns by name) are unchanged.
 
     @IncludeAssigned = 1 also returns booked devices, still one row per device:
-      - OrderNumber / OrderId: one booking holding the device that day (lowest order number), so
-        the existing "taken by order X" display keeps working.
-      - BookedOrderNumbers: every order holding it that day, comma separated, sorted. More than one
-        means the device is double-booked; the caller decides which is "the current order".
+      - OrderId / OrderNumber: one booking holding the device that day (lowest order number; an
+        order with no number sorts last), so the existing "taken by order X" display keeps working.
+        OrderId is the "booked" signal: it is set whenever a live booking exists, even when that
+        order has no OrderNumber.
+      - BookedOrderIds: every order (OrderWorkPlanId) holding it that day, comma separated, sorted.
+        More than one means the device is double-booked; the caller decides which is "the current
+        order" by id.
+      - BookedOrderNumbers: the same orders' numbers, for display (an order without a number is
+        left out, so count orders with BookedOrderIds, not with this).
     Bookings on a cancelled order do not count as taken in this mode. The default mode still treats
-    them as taken, as it always has (left as is so its output does not move).
+    them as taken, as it always has (left as is so its output does not move). That is the only
+    case where the two modes disagree: OrderWorkPlanId is NOT NULL with a trusted foreign key, so a
+    booking row always has its order.
 */
 CREATE OR ALTER PROCEDURE [dbo].[GetAllEquipment]
 @MainCategoryId INT = NULL,
@@ -70,32 +78,46 @@ SELECT c.[ID]
 	  ,c.[NextCalibration]
 	  ,mdmc.[NameHebrew] as DeviceMainClass
 	  ,bkl.BookedOrderNumbers
+	  ,bki.BookedOrderIds
 FROM [dbo].[MeasurementDevices] as c
 LEFT JOIN [dbo].[MainCategories] as mmc ON c.[MainCategoryId] = mmc.ID
 LEFT JOIN [dbo].[Statuses] as s ON c.MeasurementDeviceStatusId = s.StatusId
 LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mc ON c.MainClassId = mc.Id
 LEFT JOIN [dbo].[MeasurementDevicesMainClasses] as mdmc ON c.MainClassId = mdmc.Id
--- MBA-1045: the first live booking (non-cancelled order) holding the device on the date
+-- MBA-1045: the first live booking (non-cancelled order) holding the device on the date.
+-- Both lookups only run with @IncludeAssigned = 1; in the default mode they could only return NULL.
 OUTER APPLY
 (
-SELECT TOP (1) LTRIM(RTRIM(op.OrderNumber)) AS OrderNumber, coh.OrderWorkPlanId
+SELECT TOP (1) NULLIF(LTRIM(RTRIM(op.OrderNumber)), '') AS OrderNumber, coh.OrderWorkPlanId
 FROM [dbo].[MeasurementDevicesToOrderHeaders] as coh
 JOIN [dbo].[OrderWorkPlans] as op ON op.OrderWorkPlanId = coh.OrderWorkPlanId AND op.IsCancelled = 0
-WHERE coh.MeasurementDeviceId = c.ID AND coh.IsDeleted = 0 AND coh.AssigmentDate = @CheckDate
-ORDER BY LTRIM(RTRIM(op.OrderNumber)), coh.OrderWorkPlanId
+WHERE @IncludeAssigned = 1 AND coh.MeasurementDeviceId = c.ID AND coh.IsDeleted = 0 AND coh.AssigmentDate = @CheckDate
+ORDER BY IIF(NULLIF(LTRIM(RTRIM(op.OrderNumber)), '') IS NULL, 1, 0), LTRIM(RTRIM(op.OrderNumber)), coh.OrderWorkPlanId
 ) as bk
--- MBA-1045: every order holding it that day; more than one = double-booked
+-- MBA-1045: every order holding it that day; more than one id = double-booked
 OUTER APPLY
 (
 SELECT STRING_AGG(o.OrderNumber, ',') WITHIN GROUP (ORDER BY o.OrderNumber) AS BookedOrderNumbers
 FROM
 (
-SELECT DISTINCT LTRIM(RTRIM(op.OrderNumber)) AS OrderNumber
+SELECT DISTINCT coh.OrderWorkPlanId, NULLIF(LTRIM(RTRIM(op.OrderNumber)), '') AS OrderNumber
 FROM [dbo].[MeasurementDevicesToOrderHeaders] as coh
 JOIN [dbo].[OrderWorkPlans] as op ON op.OrderWorkPlanId = coh.OrderWorkPlanId AND op.IsCancelled = 0
-WHERE coh.MeasurementDeviceId = c.ID AND coh.IsDeleted = 0 AND coh.AssigmentDate = @CheckDate
+WHERE @IncludeAssigned = 1 AND coh.MeasurementDeviceId = c.ID AND coh.IsDeleted = 0 AND coh.AssigmentDate = @CheckDate
 ) as o
 ) as bkl
+-- same orders by id (separate scope: two STRING_AGGs with different orderings cannot share one)
+OUTER APPLY
+(
+SELECT STRING_AGG(CAST(o.OrderWorkPlanId AS VARCHAR(20)), ',') WITHIN GROUP (ORDER BY o.OrderWorkPlanId) AS BookedOrderIds
+FROM
+(
+SELECT DISTINCT coh.OrderWorkPlanId
+FROM [dbo].[MeasurementDevicesToOrderHeaders] as coh
+JOIN [dbo].[OrderWorkPlans] as op ON op.OrderWorkPlanId = coh.OrderWorkPlanId AND op.IsCancelled = 0
+WHERE @IncludeAssigned = 1 AND coh.MeasurementDeviceId = c.ID AND coh.IsDeleted = 0 AND coh.AssigmentDate = @CheckDate
+) as o
+) as bki
 LEFT JOIN 
 (
 SELECT sr.SensorMeasurementDeviceId, STRING_AGG(sr.ChannelNumber,',') WITHIN GROUP (ORDER BY sr.ChannelNumber) as AassignedChannels

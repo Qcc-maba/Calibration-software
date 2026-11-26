@@ -214,4 +214,4 @@ BODIES      | DIFFERS    | dbo.GetCalibrationValuesForManyOrderDetailItems      
 # ---- MBA-1045 equipment picker returns booked devices on request: on STAGE 2026-11-26, not on PROD yet ----
 # Delete this block in the change that deploys it to PROD. Safe ahead of the app: the default call is unchanged.
 ROUTINES    | DIFFERS    | dbo.GetAllEquipment                                 | MBA-1045 new @IncludeAssigned parameter, not deployed to PROD yet
-BODIES      | DIFFERS    | dbo.GetAllEquipment                                 | MBA-1045 booked devices + BookedOrderNumbers when @IncludeAssigned = 1, not deployed to PROD yet
+BODIES      | DIFFERS    | dbo.GetAllEquipment                                 | MBA-1045 booked devices + BookedOrderNumbers/BookedOrderIds when @IncludeAssigned = 1, not deployed to PROD yet
