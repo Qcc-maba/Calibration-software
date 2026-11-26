@@ -94,6 +94,10 @@
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 
+/* SSMS keeps temp tables for the life of the tab's session: without these, a second run in the
+   same tab (the dry run after @Apply = 1) fails at once with 2714 "#Copy already exists". */
+DROP TABLE IF EXISTS #Copy, #Ref, #Sig, #Plan, #Refused, #Move, #Moved, #Survivor, #CertMove;
+
 DECLARE @Apply BIT = 0;
 
 DECLARE @SkipMabaIds                TABLE (MabaID NVARCHAR(50) COLLATE DATABASE_DEFAULT PRIMARY KEY);
