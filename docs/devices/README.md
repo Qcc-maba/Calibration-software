@@ -34,7 +34,8 @@
 | `Additel/` | Additel | `TAU` | `AdditelBLCore` |
 | `Optidew/` | Optidew (לחות/טל) | Modbus → `Optidew` | `OptidewBLCore` |
 | `TTI/` | TTI | `TTI` | `TTIBLCore` |
-| `Instek/` | Instek | `Instek` | `InstekBLCore` |
+| `GW-Instek-DAQ-9600/` | GW Instek DAQ-9600 | `DAQ-9600` | `Daq9600BL` |
+| `Instek/` | Instek (⚠️ לא הושלם — הוחלף ב-DAQ-9600) | `Instek` | `InstekBLCore` |
 
 `_template/` — תבנית לתיעוד מכשיר חדש.
 

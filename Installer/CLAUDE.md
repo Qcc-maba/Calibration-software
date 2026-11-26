@@ -46,6 +46,19 @@ Things that cost a day each and will not be obvious:
   so `/VERYSILENT` leaves only the Windows service running. Interactive installs offer a "Launch
   now" checkbox; from v1.6.7 a Startup shortcut also brings the station up after a reboot.
 - **NI-488.2 is deliberately not bundled** — see `Installer/DRIVERS.md` and `docs/session1-decisions.md`.
+- **The NI-VISA online installer is bundled but never run** (MBA-1058). It is copied from the
+  gitignored `Installer\drivers\` to `{app}\drivers`, and `install.log` carries a `USBTMC:` line
+  saying whether the 32-bit VISA that USB instruments need is present. A build without the file is
+  legal: the build script warns, and `.build-info.json` records `niVisaInstaller: null`. More than
+  one `ni-visa_*_online.exe` there fails the build; `[InstallDelete]` removes the previous version's.
+- **A new BL core never reaches an upgraded station through `assets\Settings\ComServerSettings.json`**
+  — Setup copies it `onlyifdoesntexist`. Also add the module to
+  `ComServerSettings.ModulesAddedOnUpgrade`, which adds it to a station's file on load (and saves it,
+  since `Read()` always saves). `Daq9600BLCore` is the first; the cores added before it (5322A, M-142,
+  ...) are still only in fresh installs.
+- **`{app}` cannot be expanded in `InitializeSetup`** — the install folder is not known yet, and
+  Setup aborts. Code that both the prerequisite check and the post-install step use takes the path
+  as a parameter (see `VisaStatusLine`).
 - **Setup keeps the logger's USB-serial adapter powered** (STEP 8, `assets\Set-StationUsbPower.ps1`,
   MBA-987). It turns off USB selective suspend and per-device power-down, enlarges the Kernel-PnP
   log, and registers the SYSTEM task `MabaCalibration-UsbPower`, which covers adapters plugged in

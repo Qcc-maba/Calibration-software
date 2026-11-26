@@ -8,6 +8,7 @@ system needs on the target machine.
 | Driver | For | Why | Status |
 |--------|-----|-----|--------|
 | **NI-488.2** (National Instruments GPIB) | GPIB-USB-HS+ adapter → **Datron 9100** master | Without it the adapter is dead (Device-Manager **Code 28**); no GPIB device works | ⚙️ **installed separately** — deliberately not in the installer |
+| **NI-VISA, 32-bit** (USBTMC) | USB instruments: **Keysight EDU-X 1002A**, **Siglent SDG6052X**, **GW Instek DAQ-9600** | Without it the instrument sits at Device-Manager **Code 28** and the ComServer never finds it — no error, an empty graph | 📦 **shipped, not run** — copied to `{app}\drivers`, installed by hand (MBA-1058) |
 
 Serial instruments (e.g. Agilent 34401A) use the in-box Windows serial stack and need no extra driver
 (a USB-serial adapter brings its own driver, e.g. Prolific).
@@ -80,6 +81,47 @@ graph, which is expensive to diagnose remotely and cheap to answer from a log.
 loads; `{sys}` is System32 on x64 and will not hold it) and for the NI key under both the 64-bit and
 `Wow6432Node` views. The `Wow6432Node` check was missing and made Setup report the driver absent on a
 machine that had it.
+
+## NI-VISA: shipped with the installer, never run by it (MBA-1058)
+
+USBTMC instruments need a **32-bit** VISA runtime (`visa32.dll` in `SysWOW64`), because the ComServer
+is x86. A 64-bit-only VISA leaves it as blind as no VISA at all. NI-488.2 happens to install the
+32-bit VISA too, which is why GPIB stations could run the scope and the generator. A station without
+NI-488.2 has no USBTMC.
+
+Running NI's installer from Setup would bring back the 15-minute install described above, so the
+installer only **carries** it:
+
+- **The file.** NI's online installer, `ni-visa_<ver>_online.exe` (26.8 is ~9 MB, signed by
+  National Instruments). It is an NI Package Manager bootstrapper: it downloads NI-VISA when it runs
+  and shows NI's licence there. It goes in `Installer\drivers\`, which is gitignored, like NI-488.2.
+- **The `[Files]` entry** copies `drivers\ni-visa_*_online.exe` to `{app}\drivers`. It carries
+  `skipifsourcedoesntexist`, so a fresh clone without the file still builds.
+  `Build-Station-Installer.ps1` warns when the file was not bundled and records
+  `installer.niVisaInstaller` (file name or `null`) in `.build-info.json`.
+- **Detection.** `VisaRuntime32Installed` checks `SysWOW64\visa32.dll`. Setup writes one line to
+  `install.log` in the prerequisite check and again after the files are copied:
+
+```
+USBTMC: 32-bit VISA present - USB instruments (EDU-X, SDG6052X, DAQ-9600) can be used
+USBTMC: VISA absent - serial instruments work, USB instruments (...) will not. Install NI-VISA with
+        32-bit support (needs internet, admin and a reboot): run C:\...\drivers\ni-visa_26.8_online.exe
+USBTMC: only 64-bit VISA found - the x86 ComServer cannot use it; USB instruments will not work. ...
+```
+
+  When the build carried no installer, the line says to download it from ni.com/visa instead.
+
+**Installing it on a station that gets a USB instrument:** the steps ship beside the file as
+`{app}\drivers\README-NI-VISA.txt` (source: `Installer\assets\README-NI-VISA.txt`). In short: run
+the file from `{app}\drivers` as administrator, with internet, and allow 30+ minutes. On the first
+laptop (2026-11-26) it installed 274 NI packages, two LabVIEW runtimes among them. Keep the 32-bit (x86) VISA runtime support selected. Reboot, and
+confirm that Device Manager lists the instrument under *USB Test and Measurement Devices (IVI)*
+instead of with code 28.
+
+**Licence: not confirmed.** NI's terms for passing on NI-VISA were not checked against an official
+NI document. The only sources found were NI forum posts, which lean towards "each machine needs a
+valid licence". The stations are MABA's own machines, and the bootstrapper shows NI's licence itself
+when it runs, but **confirm with NI before relying on this for a release**.
 
 ## If you ever want it back in the installer
 

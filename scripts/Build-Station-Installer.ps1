@@ -197,6 +197,12 @@ if (Test-Path $standaloneEnv) { Remove-Item $standaloneEnv -Force; Write-Host " 
 # 4. Installer
 # ---------------------------------------------------------------------------
 Write-Host "[4/5] ISCC"
+# setup.iss ships Installer\drivers\ni-visa_*_online.exe by wildcard (MBA-1058). Two versions there would both be
+# shipped, and install.log would name whichever FindFirst returns.
+$visaFiles = @(Get-ChildItem -Path (Join-Path $root 'Installer\drivers') -Filter 'ni-visa_*_online.exe' -ErrorAction SilentlyContinue)
+if ($visaFiles.Count -gt 1) {
+    throw "More than one NI-VISA installer in Installer\drivers ($(($visaFiles | ForEach-Object Name) -join ', ')) - keep only the one to ship."
+}
 # Packed as {app}\build-info.json, so an installed station can say which commits it runs.
 $packedInfo = Join-Path $root 'Installer\assets\build-info.json'
 Write-Json $packedInfo $buildInfo
@@ -232,12 +238,24 @@ if ($compressed -lt 2000) {
     throw "Only $compressed files in the payload - the webapp did not make it in. Do not ship this."
 }
 
+# The NI-VISA online installer rides along unrun (MBA-1058, Installer\DRIVERS.md). It is NI's file
+# and gitignored, so a fresh clone builds without it - legal, but say so, because the station's
+# install.log will then send whoever sets up a USB instrument to ni.com instead of {app}\drivers.
+$visaPacked = $isccOut | Select-String -Pattern 'Compressing:.*\\drivers\\(ni-visa_[^\\]*_online\.exe)' |
+    ForEach-Object { $_.Matches[0].Groups[1].Value } | Select-Object -First 1
+if ($visaPacked) {
+    Write-Host "NI-VISA: $visaPacked bundled (copied to {app}\drivers, not run)"
+} else {
+    Write-Warning 'NI-VISA online installer not bundled - put ni-visa_<ver>_online.exe in Installer\drivers\ to ship it.'
+}
+
 # Beside the exe: what Tag-StationRelease.ps1 tags from, and what to copy to the share with it.
 $buildInfo.installer = [ordered]@{
     file         = Split-Path $exe -Leaf
     sha256       = (Get-FileHash $exe -Algorithm SHA256).Hash
     sizeBytes    = (Get-Item $exe).Length
     payloadFiles = $compressed
+    niVisaInstaller = $visaPacked
 }
 $infoFile = [IO.Path]::ChangeExtension($exe, '.build-info.json')
 Write-Json $infoFile $buildInfo

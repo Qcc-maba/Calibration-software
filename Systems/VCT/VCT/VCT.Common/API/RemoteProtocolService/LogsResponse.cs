@@ -151,11 +151,25 @@ namespace Maba.VCT.Common.API.RemoteProtocolService
                     }
                     else if (commandPacket.Command.Contains("READ"))
                     {
+                        // READ? - one NR3 value (Agilent 34401A) or one per scanned channel (GW Instek DAQ-9600, which
+                        // ends its replies in "\n" only). Parsed invariant, and all-or-nothing: double.Parse used to
+                        // throw on a single mangled digit inside LogsSession.HandlePacket, before the request was
+                        // answered, so the BL only heard of it as a timeout (MBA-1058, PR #76 review). A reply that
+                        // does not parse whole now arrives as an answer with no measurements; RawText keeps the text.
                         var temp = result.Response.Replace("\r\n", "").Replace("=>", "").Split(',');
+                        var parsed = new List<double>();
                         foreach (var item in temp)
                         {
-                            Measurements.Add(double.Parse(item));
+                            if (!double.TryParse(item.Trim(), System.Globalization.NumberStyles.Float,
+                                                 System.Globalization.CultureInfo.InvariantCulture, out var value))
+                            {
+                                parsed = null;
+                                break;
+                            }
+                            parsed.Add(value);
                         }
+                        if (parsed != null) Measurements.AddRange(parsed);
+                        else Trace.TraceWarning("[LogsResponse] READ? reply did not parse, no measurements: {0}", result.Response);
                         HasResponse = true;
                     }
                     else if (commandPacket.Command.IndexOf("SOUR:", StringComparison.OrdinalIgnoreCase) >= 0

@@ -41,6 +41,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         public HardwareBL_DeviceType Fluke5322a { get; private set; }
         /// <summary>Meatest M-142 multifunction calibrator - a source that also has an internal meter.</summary>
         public HardwareBL_DeviceType MeatestM142 { get; private set; }
+        /// <summary>GW Instek DAQ-9600 with DAQ-901 cards, a multi-channel temperature logger (MBA-1058).</summary>
+        public HardwareBL_DeviceType Daq9600 { get; private set; }
 
         #endregion
 
@@ -63,6 +65,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             Fluke5522a = new HardwareBL_DeviceType();
             Fluke5322a = new HardwareBL_DeviceType();
             MeatestM142 = new HardwareBL_DeviceType();
+            Daq9600 = new HardwareBL_DeviceType();
         }
 
         #endregion
@@ -315,6 +318,23 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
                         SensType = SensorType.SensorTypes.None,
                         MeasureType = SensorType.MeasureTypes.VoltageDC,
                     },
+                },
+                Daq9600 = new HardwareBL_DeviceType()
+                {
+                    // App numbering (1-60); the BL maps 1-20 to 101-120, 21-40 to 201-220. The operator's
+                    // Confirm replaces the list. Five channels, as on the bench (21-675's K probes, 101-105).
+                    Channels = new List<int>() { 1, 2, 3, 4, 5 },
+                    Interval = 10,
+                    MeasurementRate = HardwareBL_DeviceType.MeasurementRates.FAST,
+                    MaxNumOfChannels = 60,
+                    Sensor = new SensorType
+                    {
+                        SensType = SensorType.SensorTypes.TCouple,
+                        ThermocoupleType = SensorType.ThermocoupleTypes.K,
+                        MeasureType = SensorType.MeasureTypes.TEMP,
+                    },
+                    // No station master: each channel is compensated with the sensor the operator associates.
+                    Masters = new List<string>()
                 }
             };
 
@@ -410,6 +430,8 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             if (sn.IndexOf("5522A", StringComparison.OrdinalIgnoreCase) >= 0) return Fluke5522a;
             if (sn.IndexOf("5322A", StringComparison.OrdinalIgnoreCase) >= 0) return Fluke5322a;
             if (sn.IndexOf("M-142", StringComparison.OrdinalIgnoreCase) >= 0) return MeatestM142;
+            // before "Instek": the DAQ-9600 has its own SN, and the vendor-wide family is the never-finished BL
+            if (sn.IndexOf("DAQ-9600", StringComparison.OrdinalIgnoreCase) >= 0) return Daq9600;
             if (sn.IndexOf("HEWLETT", StringComparison.OrdinalIgnoreCase) >= 0) return Agilent;
             if (sn.IndexOf("TAU", StringComparison.OrdinalIgnoreCase) >= 0) return Additel;
             if (sn.IndexOf("Optidew", StringComparison.OrdinalIgnoreCase) >= 0) return Optidew;
@@ -491,6 +513,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
             yield return new KeyValuePair<string, HardwareBL_DeviceType>("Fluke5522a", Fluke5522a);
             yield return new KeyValuePair<string, HardwareBL_DeviceType>("Fluke5322a", Fluke5322a);
             yield return new KeyValuePair<string, HardwareBL_DeviceType>("MeatestM142", MeatestM142);
+            yield return new KeyValuePair<string, HardwareBL_DeviceType>("Daq9600", Daq9600);
         }
 
         /// <summary>Maps the app's Rate free-text ('איטי'/'מהיר', 'slow'/'fast') to the BL rate enum.</summary>
@@ -676,7 +699,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Settings
         /// them), so a sensor is not recorded for them - the log would name a sensor that is not used.
         /// </summary>
         public static readonly IReadOnlyCollection<string> ChannelMasterFamilies =
-            new HashSet<string>(new[] { "Hydra2" }, StringComparer.OrdinalIgnoreCase);
+            new HashSet<string>(new[] { "Hydra2", "Daq9600" }, StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// MBA-1007: records that <paramref name="channelsCsv"/> of logger <paramref name="loggerId"/>

@@ -138,5 +138,24 @@
     "Masters": [
       "21-999"
     ]
+  },
+  "Daq9600": {
+    "MeasurementRate": 1,
+    "Channels": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "Interval": 10,
+    "Sensor": {
+      "MeasureType": 0,
+      "SensType": 0,
+      "ThermocoupleType": 1,
+      "numbertOfWires": 2
+    },
+    "MaxNumOfChannels": 60,
+    "Masters": []
   }
 }

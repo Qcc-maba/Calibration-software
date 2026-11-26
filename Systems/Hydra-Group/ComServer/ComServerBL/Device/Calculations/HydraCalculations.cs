@@ -196,6 +196,13 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device.Calculations
             return new Tuple<double, CalibrationRepository.ResultStatus>(P, CalibrationRepository.ResultStatus.OK);
         }
 
+        /// <summary>Whether <paramref name="masterID"/> has ITS-90 coefficients loaded (MBA-1058: tells "none on file"
+        /// apart from a resistance they could not convert, which both answer WrongValue).</summary>
+        public bool HasSensorCoefficients(string masterID)
+        {
+            return _repository.TryGetSensorCoefficients(masterID, out _);
+        }
+
         /// <summary>
         /// Converts the master's reading (ohms) to degrees Celsius per ITS-90, with that master's own
         /// coefficients - loaded by Init from dbo.GetSensorCoefficients (MBA-816, MBA-831).

@@ -101,6 +101,10 @@ Type: files; Name: "{app}\assets\*.bat"
 Type: files; Name: "{app}\assets\*.vbs"
 Type: files; Name: "{app}\assets\*.html"
 
+; The previous version's NI-VISA online installer (MBA-1058): after an upgrade that ships a newer one, both
+; would sit in drivers\ and install.log could name the old one.
+Type: files; Name: "{app}\drivers\ni-visa_*_online.exe"
+
 ; Wipe previous run logs (upgrade / reinstall over same folder)
 Type: filesandordirs; Name: "{app}\logs"
 Type: files; Name: "{app}\install.log"
@@ -161,6 +165,17 @@ Source: "assets\Set-StationUsbPower.ps1";   DestDir: "{app}\assets";           F
 ; NI-488.2 is deliberately NOT shipped or installed here - see Installer\DRIVERS.md. Bundling NI's
 ; online installer added 7 MB and, far worse, several hundred MB of download that turned a 3-minute
 ; installation into 15. Stations are set up with the driver separately.
+
+; NI-VISA online installer (MBA-1058): SHIPPED but NEVER RUN. USBTMC instruments (Keysight EDU-X,
+; Siglent SDG6052X, GW Instek DAQ-9600) need the 32-bit VISA runtime, and most stations do not have
+; one. Running it here would bring back the 15-minute install above, so it is only copied to
+; {app}\drivers for whoever sets up a USBTMC station; install.log names it when VISA is missing.
+; The file is NI's and gitignored (Installer\drivers\); skipifsourcedoesntexist keeps a fresh clone
+; building, and Build-Station-Installer.ps1 records whether it made it in. See Installer\DRIVERS.md.
+Source: "drivers\ni-visa_*_online.exe";     DestDir: "{app}\drivers";          Flags: ignoreversion skipifsourcedoesntexist
+; What to install and how, beside the installer it describes. Committed, so it ships even when the
+; NI file itself was not bundled.
+Source: "assets\README-NI-VISA.txt";        DestDir: "{app}\drivers";          Flags: ignoreversion
 Source: "assets\start-consolehost.bat";     DestDir: "{app}\assets";           Flags: ignoreversion
 Source: "assets\start-all.bat";             DestDir: "{app}\assets";           Flags: ignoreversion
 Source: "assets\start-silent.vbs";          DestDir: "{app}\assets";           Flags: ignoreversion
@@ -331,6 +346,62 @@ begin
             RegKeyExists(HKLM, 'SOFTWARE\National Instruments\NI-488.2') or
             RegKeyExists(HKLM64, 'SOFTWARE\National Instruments\NI-488.2') or
             RegKeyExists(HKLM, 'SOFTWARE\Wow6432Node\National Instruments\NI-488.2');
+end;
+
+{ VISA (USBTMC). Not installed by Setup - see Installer\DRIVERS.md. Without it a USBTMC instrument
+  sits in Device Manager with code 28 and the ComServer never finds it: no error, just an empty
+  graph. Only the 32-bit visa32.dll counts, because the ComServer is x86; a 64-bit-only VISA install
+  leaves it exactly as blind as no VISA at all. NI-VISA and Keysight IO Libraries both put it in
+  SysWOW64, and so does NI-488.2, which is why GPIB stations happen to have USBTMC too. }
+function VisaRuntime32Installed: Boolean;
+begin
+  Result := FileExists(ExpandConstant('{win}\SysWOW64\visa32.dll'));
+end;
+
+function VisaRuntime64OnlyInstalled: Boolean;
+begin
+  Result := (not VisaRuntime32Installed) and FileExists(ExpandConstant('{win}\System32\visa64.dll'));
+end;
+
+{ File name of the NI-VISA online installer copied into DriversDir, or '' when this build was made
+  without one (Installer\drivers is gitignored, so a fresh clone builds without it). }
+function BundledVisaInstaller(DriversDir: String): String;
+var
+  FindRec: TFindRec;
+begin
+  Result := '';
+  if FindFirst(AddBackslash(DriversDir) + 'ni-visa_*_online.exe', FindRec) then
+  try
+    Result := FindRec.Name;
+  finally
+    FindClose(FindRec);
+  end;
+end;
+
+{ The line install.log carries about VISA, shared by the prerequisite check and the post-install
+  summary so the two cannot drift apart. DriversDir is passed in rather than expanded here: the
+  prerequisite check runs in InitializeSetup, before the install folder is known, and expanding the
+  app constant there aborts Setup. }
+function VisaStatusLine(DriversDir: String): String;
+begin
+  if VisaRuntime32Installed then
+    Result := 'USBTMC: 32-bit VISA present - USB instruments (EDU-X, SDG6052X, DAQ-9600) can be used'
+  else
+  begin
+    if VisaRuntime64OnlyInstalled then
+      Result := 'USBTMC: only 64-bit VISA found - the x86 ComServer cannot use it; USB instruments will not work'
+    else
+      Result := 'USBTMC: VISA absent - serial instruments work, USB instruments (EDU-X, SDG6052X, DAQ-9600) will not';
+    Result := Result + '. Install NI-VISA with 32-bit support (needs internet, admin and a reboot): ';
+    if DriversDir = '' then
+      Result := Result + 'see the USBTMC line after the files are copied'
+    else if BundledVisaInstaller(DriversDir) <> '' then
+      Result := Result + 'run ' + AddBackslash(DriversDir) + BundledVisaInstaller(DriversDir)
+    else
+      Result := Result + 'this build carries no NI-VISA installer - download it from ni.com/visa';
+    if DriversDir <> '' then
+      Result := Result + ' - steps in ' + AddBackslash(DriversDir) + 'README-NI-VISA.txt';
+  end;
 end;
 
 function ServiceExists: Boolean;
@@ -588,6 +659,9 @@ begin
              'install NI-488.2 separately if this station gets a GPIB master.');
   end;
 
+  { Same policy for VISA: recorded, never blocking, never installed. }
+  WriteLog('Prerequisite check: ' + VisaStatusLine(''));
+
   WriteLogSection('PREREQUISITES COMPLETE');
 end;
 
@@ -706,6 +780,7 @@ begin
     else
       WriteLog('GPIB: NI-488.2 absent - serial instruments work, GPIB masters will not until the ' +
                'driver is installed separately');
+    WriteLog(VisaStatusLine(ExpandConstant('{app}\drivers')));
 
     // Step 0: Set write permissions (Program Files is read-only for non-admins)
     SetInstallStatus('Setting folder permissions...', 10);
