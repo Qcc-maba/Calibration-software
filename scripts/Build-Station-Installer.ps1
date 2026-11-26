@@ -232,12 +232,24 @@ if ($compressed -lt 2000) {
     throw "Only $compressed files in the payload - the webapp did not make it in. Do not ship this."
 }
 
+# The NI-VISA online installer rides along unrun (MBA-1058, Installer\DRIVERS.md). It is NI's file
+# and gitignored, so a fresh clone builds without it - legal, but say so, because the station's
+# install.log will then send whoever sets up a USB instrument to ni.com instead of {app}\drivers.
+$visaPacked = $isccOut | Select-String -Pattern 'Compressing:.*\\drivers\\(ni-visa_[^\\]*_online\.exe)' |
+    ForEach-Object { $_.Matches[0].Groups[1].Value } | Select-Object -First 1
+if ($visaPacked) {
+    Write-Host "NI-VISA: $visaPacked bundled (copied to {app}\drivers, not run)"
+} else {
+    Write-Warning 'NI-VISA online installer not bundled - put ni-visa_<ver>_online.exe in Installer\drivers\ to ship it.'
+}
+
 # Beside the exe: what Tag-StationRelease.ps1 tags from, and what to copy to the share with it.
 $buildInfo.installer = [ordered]@{
     file         = Split-Path $exe -Leaf
     sha256       = (Get-FileHash $exe -Algorithm SHA256).Hash
     sizeBytes    = (Get-Item $exe).Length
     payloadFiles = $compressed
+    niVisaInstaller = $visaPacked
 }
 $infoFile = [IO.Path]::ChangeExtension($exe, '.build-info.json')
 Write-Json $infoFile $buildInfo
