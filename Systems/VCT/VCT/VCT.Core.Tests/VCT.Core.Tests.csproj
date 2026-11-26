@@ -28,6 +28,7 @@
     <ProjectReference Include="..\..\..\..\Libraries\DAL\Rational\BaseDAL\BaseDAL.csproj" />
     <ProjectReference Include="..\..\..\Hydra-Group\ComServer\ComServerBL\ComServer.BL.csproj" />
     <ProjectReference Include="..\..\ComServer\BL\VCT.ComServer.BL.Common\VCT.ComServer.BL.Common.csproj" />
+    <ProjectReference Include="..\..\ComServer\ComServer.Core\ComServer.Core.csproj" />
     <ProjectReference Include="..\VCT.ComLayer\VCT.ComLayer.csproj" />
     <ProjectReference Include="..\VCT.Common\VCT.Common.csproj" />
     <ProjectReference Include="..\VCT.Core\VCT.Core.csproj" />

@@ -1004,6 +1004,23 @@ namespace Maba.VCT.Core.Device
                 && normalized.IndexOf("DAQ9600", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        /// <summary>
+        /// The SN of a DAQ-9600: "DAQ-9600_" + the serial from its <c>*IDN?</c> reply ("DAQ-9600_GEY150853"), or plain
+        /// "DAQ-9600" when the reply carries none. BaseBLCore keeps one BL per SN, and the lab has several units
+        /// (31-80, 31-81, 31-83): with one SN for all, two on a station would share one BL - one scan, one polling
+        /// loop that each unit's init would stop (PR #76 review). The token "DAQ-9600" is still what the BL core and
+        /// HardwareBL_Settings.ResolveFamilyBySN match on. Only letters and digits of the serial are kept, so the SN
+        /// cannot carry a comma into the E,SN,... packet or the WebSocket line.
+        /// </summary>
+        internal static string Daq9600Sn(string identificationReply)
+        {
+            var parts = (identificationReply ?? "").Split(',');
+            var serial = parts.Length > 2
+                ? new string(System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Where(parts[2], char.IsLetterOrDigit)))
+                : "";
+            return serial.Length > 0 ? "DAQ-9600_" + serial : "DAQ-9600";
+        }
+
         private void handlePacket(object o, Common.PacketEventArgs e)
         {
 
@@ -1067,8 +1084,8 @@ namespace Maba.VCT.Core.Device
                 {
                     // GW Instek DAQ-9600 (MBA-1058), verified live 2026-11-26. MUST come before the vendor-wide
                     // "Instek" branch below: that one hands the instrument to InstekBLCore, a BL that was never
-                    // finished and whose READ? never returns.
-                    SN = "DAQ-9600";
+                    // finished and whose READ? never returns. The serial is part of the SN (Daq9600Sn).
+                    SN = Daq9600Sn(res);
                 }
                 else if (res.Contains("Instek"))
                 {

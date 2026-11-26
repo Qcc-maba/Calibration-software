@@ -47,6 +47,13 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         /// <summary>The shortest poll period, whatever the settings say.</summary>
         internal static readonly TimeSpan MinimumInterval = TimeSpan.FromSeconds(1);
 
+        /// <summary>
+        /// The longest poll period. ServerCore's data watchdog (DataTimeout_TimeSpan) is a fixed 60 s: a device silent
+        /// for longer is declared dead and power-cycled (ReinitializeBL). An interval of 60 s or more would trip it
+        /// between every two sweeps (PR #76 review), so the interval is capped below it.
+        /// </summary>
+        internal static readonly TimeSpan MaximumInterval = TimeSpan.FromSeconds(50);
+
         #endregion
 
         #region fields
@@ -179,6 +186,10 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         internal static HardwareBL_DeviceType FillMissingFromDefaults(HardwareBL_DeviceType family)
         {
             var defaults = HardwareBL_Settings.CreateDefaultSettings().Daq9600;
+            // MeasurementRate cannot be told missing - its zero value is SLOW - so it is taken from the defaults
+            // only when the whole bucket is the empty constructor object (no channels and no sensor). PR #76 review.
+            if ((family.Channels == null || family.Channels.Count == 0) && family.Sensor == null)
+                family.MeasurementRate = defaults.MeasurementRate;
             if (family.Channels == null || family.Channels.Count == 0) family.Channels = new List<int>(defaults.Channels);
             if (family.Sensor == null) family.Sensor = defaults.Sensor;
             if (family.Interval <= 0) family.Interval = defaults.Interval;
@@ -233,7 +244,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                     else
                         Libs.Trace.Tracer.Info("[{0}] Setup reported a problem - {1} answered '{2}'{3}. Readings are taken anyway; " +
                                                "check the channel list and the sensor type in the settings.",
-                            Tag, command, reply?.Trim(), res != null && res.Expired ? " (no reply in time)" : "");
+                            Tag, command, reply?.Trim(), TimedOut(res) ? " (no reply in time)" : "");
                 }
                 SendSetup(commands, index + 1, generation);
             });
@@ -263,9 +274,35 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
 
         private TimeSpan Interval()
         {
-            var seconds = settings.Daq9600.Interval;
+            var requested = settings.Daq9600.Interval;
+            var interval = ClampInterval(requested);
+            if (interval.TotalSeconds < requested && _cappedIntervalLogged != requested)
+            {
+                _cappedIntervalLogged = requested;
+                Libs.Trace.Tracer.Info("[{0}] Interval {1} s is longer than the 60 s data watchdog allows; polling every {2} s instead",
+                    Tag, requested, interval.TotalSeconds);
+            }
+            return interval;
+        }
+
+        private int _cappedIntervalLogged;
+
+        /// <summary>The poll period for a settings interval in seconds, kept between <see cref="MinimumInterval"/> and <see cref="MaximumInterval"/>.</summary>
+        internal static TimeSpan ClampInterval(int seconds)
+        {
             var interval = TimeSpan.FromSeconds(seconds > 0 ? seconds : 1);
-            return interval < MinimumInterval ? MinimumInterval : interval;
+            if (interval < MinimumInterval) return MinimumInterval;
+            return interval > MaximumInterval ? MaximumInterval : interval;
+        }
+
+        /// <summary>
+        /// A request that got no reply. The sessions answer it with Result=false and this message
+        /// (LastRequestTimedOut); BaseResponse.Expired is never set outside the tests (PR #76 review).
+        /// </summary>
+        internal static bool TimedOut(Common.API.BaseResponse response)
+        {
+            return response != null && (response.Expired ||
+                (!response.Result && string.Equals(response.Message, "Request was timed-out!", StringComparison.Ordinal)));
         }
 
         private void Poll(int generation)
@@ -293,7 +330,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                         // once, then every 10th: a dead link would otherwise write a line per interval for hours
                         if (_consecutiveFailures == 1 || _consecutiveFailures % 10 == 0)
                             Libs.Trace.Tracer.Info("[{0}] READ? gave no usable reply ({1} in a row): '{2}'{3}", Tag, _consecutiveFailures,
-                                response?.RawText?.Trim(), response != null && response.Expired ? " (no reply in time)" : "");
+                                response?.RawText?.Trim(), TimedOut(response) ? " (no reply in time)" : "");
                     }
                 }
                 finally
@@ -313,7 +350,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             var sensors = family.ChannelMasters ?? ChannelMasterMap.Empty;
             var channels = new List<int>();
             var sent = new List<double>();
-            var heldBack = new Dictionary<int, string>();
+            var heldBack = new Dictionary<int, ChannelCertificates.HeldBack>();
 
             for (int i = 0; i < scan.Count; i++)
             {
@@ -335,22 +372,37 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 }
 
                 var sensor = ChannelCertificates.SensorFor(channel, sensors, family.Masters);
+                if (sensor == null)
+                {
+                    heldBack[channel] = new ChannelCertificates.HeldBack(null, ChannelCertificates.HoldReason.NoSensor);
+                    continue;
+                }
+
                 Tuple<double, ComServerBL.Hydra2.DAL.Calibration.CalibrationRepository.ResultStatus> result;
+                ChannelCertificates.HoldReason ifWrong;
                 if (_function == Daq9600Function.Thermocouple)
                 {
-                    if (!_certificates.Ensure(sensor)) { heldBack[channel] = sensor; continue; }
+                    if (!_certificates.Ensure(sensor))
+                    {
+                        heldBack[channel] = new ChannelCertificates.HeldBack(sensor, ChannelCertificates.HoldReason.Certificate);
+                        continue;
+                    }
                     result = HC.CalcDeviationForTemperature(raw, sensor);
+                    // the certificate is loaded, so a WrongValue here is the table itself refusing the value
+                    ifWrong = ChannelCertificates.HoldReason.ConversionFailed;
                 }
                 else
                 {
-                    // PT-100: ohms to degC with this sensor's own coefficients (as Agilent34401aBL does for its master)
-                    if (sensor == null) { heldBack[channel] = null; continue; }
+                    // PT-100: ohms to degC with this sensor's own coefficients (as Agilent34401aBL does for its master).
+                    // CalcResistanceToTemperatureITS90 answers WrongValue for no coefficients on file, and also for a
+                    // resistance the coefficients cannot convert (NaN) - the first is by far the likely one.
                     result = HC.CalcConversionUnits(raw, HydraCalculations.ConversionUnits.Ohm, HydraCalculations.ConversionUnits.Celsius, sensor);
+                    ifWrong = ChannelCertificates.HoldReason.NoCoefficients;
                 }
 
                 if (result.Item2 == ComServerBL.Hydra2.DAL.Calibration.CalibrationRepository.ResultStatus.WrongValue)
                 {
-                    heldBack[channel] = sensor;
+                    heldBack[channel] = new ChannelCertificates.HeldBack(sensor, ifWrong);
                     continue;
                 }
 

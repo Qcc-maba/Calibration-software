@@ -112,8 +112,45 @@ namespace Maba.VCT.CommServer.Core.Settings
 
             _settings = _settings ?? CreateDefaultSettings();
 
+            _settings.Modules = AddMissingModules(_settings.Modules, out var added);
+            if (added.Count > 0)
+                VCT.Libs.Trace.Tracer.Info("[Settings] ComServerSettings.json had no {0} - added (a module this version ships, " +
+                                           "missing from a station file kept across the upgrade)", string.Join(", ", added));
+
             _settings.Save();
             return _settings;
+        }
+
+        /// <summary>
+        /// BL cores added after stations were first installed. Setup copies ComServerSettings.json with
+        /// onlyifdoesntexist, so an upgraded station keeps its old Modules list and a new BL core is never loaded:
+        /// its instrument is identified and then claimed by nothing (PR #76 review). Each one listed here is added on
+        /// load when it is missing - and saved back, since Read() always saves. Add a core here whenever its module
+        /// is added to Installer/assets/Settings/ComServerSettings.json.
+        /// </summary>
+        public static readonly Module[] ModulesAddedOnUpgrade =
+        {
+            new Module { AssemblyName = "Maba.VCT.CommServer.BL.HydraDevices", TypeName = "Maba.VCT.CommServer.BL.HydraDevices.BLCore.Daq9600BLCore" },
+        };
+
+        /// <summary>
+        /// <paramref name="modules"/> plus every <see cref="ModulesAddedOnUpgrade"/> entry it lacks (matched by
+        /// TypeName). A file with no modules at all is left alone: that is not an upgraded station but a host with no
+        /// settings, and one extra core would not make it work.
+        /// </summary>
+        public static Module[] AddMissingModules(Module[] modules, out List<string> added)
+        {
+            added = new List<string>();
+            if (modules == null || modules.Length == 0) return modules;
+
+            var list = modules.ToList();
+            foreach (var m in ModulesAddedOnUpgrade)
+            {
+                if (list.Any(x => string.Equals(x?.TypeName, m.TypeName, StringComparison.Ordinal))) continue;
+                list.Add(new Module { AssemblyName = m.AssemblyName, TypeName = m.TypeName });
+                added.Add(m.TypeName.Substring(m.TypeName.LastIndexOf('.') + 1));
+            }
+            return list.ToArray();
         }
 
         public static string GetSettingsFullPath()

@@ -101,6 +101,10 @@ Type: files; Name: "{app}\assets\*.bat"
 Type: files; Name: "{app}\assets\*.vbs"
 Type: files; Name: "{app}\assets\*.html"
 
+; The previous version's NI-VISA online installer (MBA-1058): after an upgrade that ships a newer one, both
+; would sit in drivers\ and install.log could name the old one.
+Type: files; Name: "{app}\drivers\ni-visa_*_online.exe"
+
 ; Wipe previous run logs (upgrade / reinstall over same folder)
 Type: filesandordirs; Name: "{app}\logs"
 Type: files; Name: "{app}\install.log"

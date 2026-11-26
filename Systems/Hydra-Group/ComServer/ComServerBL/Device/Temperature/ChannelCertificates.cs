@@ -34,9 +34,86 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
         private readonly object _loadLock = new object();
         private readonly HashSet<string> _loading = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DateTime> _retryUtc = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        /// <summary>"sensor|outcome" already logged this init, so a changed reason gets its own line.</summary>
         private readonly HashSet<string> _reported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        /// <summary>Per sensor, the reason last alerted: true for "none on file", false for a failed read.</summary>
-        private readonly Dictionary<string, bool> _alerted = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Per sensor, the outcome last alerted.</summary>
+        private readonly Dictionary<string, Outcome> _alerted = new Dictionary<string, Outcome>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Why the BL held a channel back.</summary>
+        public enum HoldReason
+        {
+            /// <summary>No sensor associated with the channel, and none in the settings file.</summary>
+            NoSensor,
+            /// <summary>The sensor's correction certificate is not loaded (still loading, failed to read, or none on file).</summary>
+            Certificate,
+            /// <summary>PT-100: the sensor has no ITS-90 coefficients on file (CalcResistanceToTemperatureITS90 refused).</summary>
+            NoCoefficients,
+            /// <summary>The certificate is loaded and still refused this value (WrongValue).</summary>
+            ConversionFailed,
+        }
+
+        /// <summary>A held-back channel: its sensor (null for <see cref="HoldReason.NoSensor"/>) and why.</summary>
+        public struct HeldBack
+        {
+            public HeldBack(string sensor, HoldReason reason) { Sensor = sensor; Reason = reason; }
+            public string Sensor { get; }
+            public HoldReason Reason { get; }
+        }
+
+        /// <summary>What the operator is told. Every outcome but <see cref="Loading"/> is settled and is alerted.</summary>
+        public enum Outcome
+        {
+            Loading,
+            ReadFailed,
+            NoneOnFile,
+            NoSensor,
+            NoCoefficients,
+            ConversionFailed,
+        }
+
+        /// <summary>
+        /// The outcome for one held-back channel. Only a certificate still being fetched is unsettled; the others are
+        /// answers, alerted at once (PR #76 review: a PT-100 without coefficients used to be held back silently,
+        /// logged as "certificate not loaded yet").
+        /// </summary>
+        internal static Outcome Settle(HoldReason reason, bool noneOnFile, bool readFailed)
+        {
+            switch (reason)
+            {
+                case HoldReason.NoSensor: return Outcome.NoSensor;
+                case HoldReason.NoCoefficients: return Outcome.NoCoefficients;
+                case HoldReason.ConversionFailed: return Outcome.ConversionFailed;
+            }
+            if (noneOnFile) return Outcome.NoneOnFile;
+            return readFailed ? Outcome.ReadFailed : Outcome.Loading;
+        }
+
+        /// <summary>The server.log reason for an outcome.</summary>
+        internal static string LogText(Outcome outcome)
+        {
+            switch (outcome)
+            {
+                case Outcome.NoSensor: return "no sensor associated and none in the settings file - not sent";
+                case Outcome.NoneOnFile: return "no correction certificate on file - not sent until one is saved and the logger is confirmed again";
+                case Outcome.ReadFailed: return "correction certificate could not be read - retrying, not sent until it loads";
+                case Outcome.NoCoefficients: return "no ITS-90 coefficients on file for this PT-100 - not sent until they are saved and the logger is confirmed again";
+                case Outcome.ConversionFailed: return "the certificate refused this reading - not sent";
+                default: return "correction certificate not loaded yet - not sent until it is";
+            }
+        }
+
+        /// <summary>The text after "Channel n not sent - " in the CorrectionUnavailable alert.</summary>
+        internal static string AlertText(Outcome outcome, string sensor)
+        {
+            switch (outcome)
+            {
+                case Outcome.NoSensor: return "has no sensor associated";
+                case Outcome.NoneOnFile: return "sensor " + sensor + " has no correction certificate on file";
+                case Outcome.NoCoefficients: return "sensor " + sensor + " has no ITS-90 coefficients on file";
+                case Outcome.ConversionFailed: return "sensor " + sensor + " certificate refused the reading";
+                default: return "sensor " + sensor + " correction certificate could not be read - retrying";
+            }
+        }
 
         /// <summary>How soon a certificate whose load failed is tried again.</summary>
         public static readonly TimeSpan RetryInterval = TimeSpan.FromSeconds(30);
@@ -113,7 +190,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                 lock (_lock)
                 {
                     _retryUtc.Remove(sensor);
-                    _reported.Remove(sensor);
+                    ForgetReported(sensor);
                     _alerted.Remove(sensor);
                 }
                 Ensure(sensor);
@@ -142,7 +219,7 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
                     _loading.Remove(sensor);
                     if (loaded || none) _retryUtc.Remove(sensor);
                     else _retryUtc[sensor] = DateTime.UtcNow + RetryInterval;
-                    _reported.Remove(sensor);
+                    ForgetReported(sensor);
                     if (loaded) _alerted.Remove(sensor);
                 }
                 Libs.Trace.Tracer.Info(loaded
@@ -154,45 +231,43 @@ namespace Maba.VCT.CommServer.BL.HydraDevices.Device
             }
         }
 
+        private void ForgetReported(string sensor)
+        {
+            var prefix = sensor + "|";
+            _reported.RemoveWhere(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+        }
+
         /// <summary>
-        /// One log line per sensor per init for the channels held back, and a CorrectionUnavailable alert per
-        /// channel once per sensor and reason. <paramref name="heldBack"/> maps a channel to its sensor (null when
-        /// no sensor is associated and the settings file names none).
+        /// One log line per sensor and reason per init for the channels held back, and a CorrectionUnavailable alert
+        /// per channel once per sensor and outcome, as soon as the outcome is settled (<see cref="Settle"/>).
         /// </summary>
-        public void ReportHeldBack(IDictionary<int, string> heldBack)
+        public void ReportHeldBack(IDictionary<int, HeldBack> heldBack)
         {
             if (heldBack == null || heldBack.Count == 0) return;
 
-            foreach (var group in heldBack.GroupBy(kv => kv.Value ?? "", StringComparer.OrdinalIgnoreCase))
+            foreach (var group in heldBack.GroupBy(kv => new { Sensor = kv.Value.Sensor ?? "", kv.Value.Reason }))
             {
-                var sensor = group.Key;
+                var sensor = group.Key.Sensor;
                 var channels = group.Select(kv => kv.Key).OrderBy(c => c).ToList();
-                bool none, first, alert;
+                Outcome outcome;
+                bool first, alert;
                 lock (_lock)
                 {
-                    none = sensor.Length == 0 || _hc.IsKnownToHaveNoCorrections(sensor);
-                    first = _reported.Add(sensor);
-                    var settled = none || _retryUtc.ContainsKey(sensor);
-                    alert = settled && (!_alerted.TryGetValue(sensor, out var alertedNone) || alertedNone != none);
-                    if (alert) _alerted[sensor] = none;
+                    var none = sensor.Length > 0 && _hc.IsKnownToHaveNoCorrections(sensor);
+                    outcome = Settle(group.Key.Reason, none, sensor.Length > 0 && _retryUtc.ContainsKey(sensor));
+                    first = _reported.Add(sensor + "|" + outcome);
+                    alert = outcome != Outcome.Loading && (!_alerted.TryGetValue(sensor, out var told) || told != outcome);
+                    if (alert) _alerted[sensor] = outcome;
                 }
 
                 if (first)
                 {
-                    string why = sensor.Length == 0
-                        ? "no sensor associated and none in the settings file - not sent"
-                        : none
-                            ? "no correction certificate on file - not sent until one is saved and the logger is confirmed again"
-                            : "correction certificate not loaded yet - not sent until it is";
                     Libs.Trace.Tracer.Info("[{0} Correction] CH{1} | NOT SENT: sensor '{2}': {3}",
-                        _logTag, string.Join(",", channels), sensor, why);
+                        _logTag, string.Join(",", channels), sensor, LogText(outcome));
                 }
 
                 if (!alert || _raiseAlert == null) continue;
-                var text = sensor.Length == 0
-                    ? "has no sensor associated"
-                    : none ? "sensor " + sensor + " has no correction certificate on file"
-                           : "sensor " + sensor + " correction certificate could not be read - retrying";
+                var text = AlertText(outcome, sensor);
                 foreach (var channel in channels)
                 {
                     _raiseAlert("CorrectionUnavailable",
